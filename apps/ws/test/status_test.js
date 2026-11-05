@@ -1,0 +1,23 @@
+const { chromium } = require('playwright'); const fs = require('fs');
+const QRLIB = fs.readFileSync(require.resolve('qrcodejs2/qrcode.min.js'), 'utf8');
+(async () => {
+  const items = await (await fetch('http://localhost:8123/seed')).json();
+  const b = await chromium.launch(); const c = await b.newContext({ viewport: { width: 1280, height: 900 } });
+  await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: QRLIB }));
+  await c.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
+  const p = await c.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto('http://localhost:8123/index'); await p.locator('.key').first().waitFor();
+  for (const k of '1234') await p.click(`.key:text-is("${k}")`);
+  await p.waitForSelector('.grid6'); await p.click('.tile.on'); await p.click('text=소화기 점검'); await p.click('text=② 매장별 소화기 점검 현황');
+  await p.waitForFunction(() => S.st && S.st.counts);
+  const okBefore = await p.evaluate(() => S.st.counts.ok);
+  const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST', body: JSON.stringify({ fn, args }) }).then(r => r.json());
+  const target = items.find(i => i.name.indexOf('샤넬 뷰티') === 0);
+  const jpg = 'data:image/jpeg;base64,' + 'A'.repeat(4000), png = 'data:image/png;base64,' + 'A'.repeat(400);
+  const r = await run('checkSubmit', target.token, { photo: jpg, signA: png, signB: png, state: '이상없음', overwrite: true });
+  await p.evaluate(() => quietStatus()); await p.waitForTimeout(500);
+  const okAfter = await p.evaluate(() => S.st.counts.ok);
+  console.log('현황 열어 둔 채 휴대폰에서 보냄 → 1분 새로고침:', okBefore, '→', okAfter, r.ok ? '' : r.error);
+  await p.screenshot({ path: 'shot_status_fixed.png' });
+  console.log('오류:', errs.length ? errs : '없음'); await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });

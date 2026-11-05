@@ -1,0 +1,14 @@
+{
+  "name": "avenuel-ws",
+  "private": true,
+  "description": "에비뉴엘 시설팀 업무지원(WS) 웹앱 — 시험 도구",
+  "scripts": {
+    "test": "node test/server_test.js",
+    "test:all": "node test/run_all.js",
+    "build:fm": "python tools/build_fm.py"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0",
+    "qrcodejs2": "0.0.2"
+  }
+}

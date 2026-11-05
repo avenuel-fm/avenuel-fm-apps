@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<?!= include('Styles'); ?>
+<style>
+.wrap{max-width:1100px;margin:0 auto;padding:12px 16px 40px}
+.top{background:#fff;border-bottom:1px solid var(--line2);position:sticky;top:0;z-index:20}
+.top-in{max-width:1100px;margin:0 auto;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.back{width:44px;height:44px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px}
+.ttl{display:flex;flex-direction:column;flex:1;min-width:0}
+.ttl small{font-size:12px;color:var(--muted)}
+.ttl b{font-size:18px}
+.me{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:700;white-space:nowrap}
+.grid6{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(min-width:700px){.grid6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tile{background:#fff;border:1px solid var(--line2);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;min-height:104px;cursor:pointer;text-align:left}
+.tile b{font-size:17px}
+.tile small{font-size:12px;color:var(--muted)}
+.tile.on{border:2px solid var(--blue);padding:13px}
+.ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.row{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid var(--line2);border-radius:12px;cursor:pointer;width:100%;text-align:left}
+.list{display:flex;flex-direction:column;gap:10px}
+.banner{border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
+.b-info{background:var(--blue-bg);color:var(--blue-d)}
+.b-warn{background:var(--orange-bg);color:var(--orange)}
+.b-red{background:var(--red-bg);color:var(--red)}
+.b-gray{background:var(--line3);color:var(--sub)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px;background:#fff;border:1px solid var(--line2);border-radius:12px}
+.tools .inp{flex:1 1 220px}
+.store{background:#fff;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
+.store-h{display:flex;align-items:baseline;gap:8px;padding:10px 14px}
+.store-h b{flex:1;font-size:15px}
+.fe{display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 10px 6px 14px;border-top:1px solid var(--line3)}
+.fe input[type=checkbox]{width:20px;height:20px;accent-color:var(--blue);flex:none}
+.qrmini{width:44px;height:44px;flex:none;background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px;cursor:pointer}
+.qrmini img,.qrmini canvas{width:100%!important;height:100%!important}
+.fname{flex:1;display:flex;flex-direction:column;min-width:0}
+.fname b{font-size:14px}
+.fname small{font-size:12px;color:var(--muted)}
+.floorh{font-size:13px;font-weight:700;color:var(--muted);margin:6px 2px 0}
+.mnav{display:flex;align-items:center;gap:8px}
+.mnav .btn{width:44px;padding:0;font-size:20px}
+.mnav div{flex:1;text-align:center;display:flex;flex-direction:column}
+.legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 14px;font-size:13px}
+@media(min-width:700px){.legend{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:4px}
+.tree{padding:4px 0 4px 14px}
+.tree-root{display:flex;align-items:center;gap:8px;height:44px;font-weight:700;font-size:14px}
+.floor{display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 12px 6px 0;border-top:1px solid var(--line3);width:100%;background:none;border-left:none;border-right:none;border-bottom:none;cursor:pointer;text-align:left}
+.elbow{width:16px;height:28px;border-left:2px solid var(--line2);border-bottom:2px solid var(--line2);margin:-20px 0 0 6px;flex:none}
+.bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--line3)}
+.fl{min-height:36px;min-width:44px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:14px}
+.fl.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
+.feb{width:100%;background:#fff;border:none;border-top:1px solid var(--line3);display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 14px;text-align:left;cursor:pointer}
+.feb:disabled{cursor:default}
+.ph43{aspect-ratio:4/3;background:var(--line3);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ph43 img{max-width:100%;max-height:100%;object-fit:contain}
+.sig{border:1px solid var(--line2);border-radius:8px;min-height:64px;display:flex;align-items:center;justify-content:center;padding:4px;background:#fff}
+.sig img{max-width:100%;max-height:90px}
+.key{min-height:60px;border-radius:12px;border:1px solid var(--line2);background:#fff;font-size:24px;font-weight:500;cursor:pointer}
+.pin-dot{width:18px;height:18px;border-radius:9px;border:2px solid #9AA4B2}
+.pin-dot.on{background:var(--blue);border-color:var(--blue)}
+.spad{position:relative;width:100%;height:clamp(190px,38vh,320px);border-radius:12px;border:2px dashed #B8C0CB;background:#fff;touch-action:none;overflow:hidden}
+.spad.inked{border-style:solid;border-color:var(--line)}
+.spad canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+.sgrow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line3)}
+.sgrow:first-child{border-top:none}
+.sgno{width:28px;height:28px;border-radius:14px;background:var(--line3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none}
+.sgimg{width:120px;height:56px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--line3);border-radius:6px;background:#fff}
+.sgimg img{max-width:100%;max-height:42px}
+.sgimg small{font-size:10px;color:var(--muted);line-height:1}
+#print{display:none}
+.pvbox{display:flex;flex-wrap:wrap;gap:3mm;align-items:center;padding:12px;background:var(--line3);border-radius:10px;max-height:46vh;overflow:auto}
+.pvbox .label{background:#fff;box-shadow:0 1px 3px rgba(24,32,43,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8mm;padding:1.5mm;overflow:hidden;color:#000}
+.pvbox .label b{display:block;max-width:100%;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pvbox .label img{display:block;image-rendering:pixelated}
+.pvmore{font-size:13px;color:var(--muted)}
+.pvpre{display:flex;gap:6px;flex-wrap:wrap}
+.pvhelp{margin-top:10px;font-size:12px;color:var(--sub);background:var(--ground);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+.pvhelp summary{cursor:pointer;font-weight:700;color:var(--ink)}
+.pvhelp ol{margin:6px 0 0;padding-left:18px;line-height:1.6}
+@media print{
+  body > *:not(#print){display:none!important}
+  #print{display:block}
+  #print,#print *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .label{page-break-after:always;break-after:page;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8mm;padding:1.5mm;overflow:hidden;font-family:'Noto Sans KR',sans-serif;color:#000}
+  .label b{display:block;max-width:100%;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+  .label img{flex:none;display:block;image-rendering:pixelated}
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<div id="print"></div>
+<div id="layer"></div>
+<script>
+const EXEC_URL = <?!= JSON.stringify(execUrl) ?>;
+const FLOORS = ['B1','1F','2F','3F','4F','5F','6F'];
+const CAN_PRINT = window.matchMedia('(hover: hover) and (pointer: fine)').matches && window.innerWidth >= 900;
+const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false };
+
+/* ── 도우미 ── */
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+function deviceId() { let d = store('ws_dev'); if (!d) { d = Math.random().toString(36).slice(2) + Date.now().toString(36); store('ws_dev', d); } return d; }
+/* 기기 표를 바로가기 페이지(GitHub) 저장소에도 보관 (결정 50) — 브라우저가 이 칸 저장소를 지워도 다시 PIN을 묻지 않게 */
+const SHELL_ORIGIN = (function () { try { const o = new URL(EXEC_URL).origin; return /\.github\.io$/.test(o) ? o : ''; } catch (e) { return ''; } })();
+const SHELL = {
+  get() {
+    return new Promise(ok => {
+      if (!SHELL_ORIGIN || window.top === window) return ok('');
+      let done = false;
+      const onMsg = e => { const d = e.data || {}; if (e.origin === SHELL_ORIGIN && d.fm === 'ws-token') { done = true; window.removeEventListener('message', onMsg); ok(d.token || ''); } };
+      window.addEventListener('message', onMsg);
+      try { window.top.postMessage({ fm: 'ws-token-get' }, SHELL_ORIGIN); } catch (e) { return ok(''); }
+      setTimeout(() => { if (!done) { window.removeEventListener('message', onMsg); ok(''); } }, 800);
+    });
+  },
+  set(t) { try { if (SHELL_ORIGIN && window.top !== window) window.top.postMessage({ fm: 'ws-token-set', token: t || '' }, SHELL_ORIGIN); } catch (e) {} }
+};
+function tokenAlive(t) { const p = String(t || '').split('.'); return p.length === 3 && Number(p[1]) > Date.now(); }
+function h(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function $(id) { return document.getElementById(id); }
+function run(fn, ...args) {
+  return new Promise((ok, no) => google.script.run.withSuccessHandler(ok).withFailureHandler(no)[fn](...args));
+}
+async function call(fn, ...args) {
+  try {
+    return await run(fn, S.token, ...args);
+  } catch (e) {
+    if (String(e && e.message).indexOf('LOGIN') !== -1) { logout(true); throw e; }
+    toast('서버 오류: ' + (e && e.message ? e.message : e));
+    throw e;
+  }
+}
+let toastTimer;
+function toast(msg) {
+  let t = document.querySelector('.toast');
+  if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg; t.classList.remove('hide');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hide'), 2600);
+}
+function dialog(html) { $('layer').innerHTML = '<div class="dialog-back" onclick="if(event.target===this)closeDialog()"><div class="dialog" role="dialog" aria-modal="true">' + html + '</div></div>'; }
+function closeDialog() { $('layer').innerHTML = ''; }
+const ICON = {
+  back: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
+  chev: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6573" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>',
+  print: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>'
+};
+const STATE = { ok: ['점검완료', 'c-ok'], bad: ['이상 있음', 'c-bad'], wait: ['점검 전', 'c-wait'], miss: ['미입력', 'c-miss'] };
+function ymLabel(ym) { return Number(ym.slice(0, 4)) + '년 ' + Number(ym.slice(5, 7)) + '월'; }
+
+/* ── 화면 이동 (뒤로 가기 지원) ── */
+function go(view, push) {
+  S.view = view;
+  if (push !== false) { try { google.script.history.push({ v: view }, { }); } catch (e) {} }
+  render();
+  window.scrollTo(0, 0);
+  if (view === 'fire') refreshFire();
+}
+async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; if (S.view === 'fire') render(); } catch (e) {} }
+try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
+const PARENT = { inspect: 'main', fire: 'inspect', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', tbm: 'docs' };
+function back() { go(PARENT[S.view] || 'main'); }
+
+function topbar(sub, title) {
+  const u = S.user || {};
+  return '<header class="top"><div class="top-in">' +
+    (S.view !== 'main' ? '<button class="back" onclick="back()" aria-label="뒤로">' + ICON.back + '</button>' : '') +
+    '<div class="ttl"><small>' + h(sub) + '</small><b>' + h(title) + '</b></div>' +
+    '<span class="me">' + h(u.name) + ' · ' + h(u.part) + '</span>' +
+    '<button class="btn sm" onclick="logout()">로그아웃</button>' +
+    '</div></header>';
+}
+
+/* ── 로그인 ── */
+function renderLogin() {
+  const dots = [0, 1, 2, 3].map(i => '<span class="pin-dot' + (i < S.pin.length ? ' on' : '') + '"></span>').join('');
+  const keys = ['1','2','3','4','5','6','7','8','9'].map(n => '<button class="key" onclick="pinKey(\'' + n + '\')">' + n + '</button>').join('');
+  return '<div style="max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:48px 24px 28px;gap:24px">' +
+    '<div style="text-align:center;display:flex;flex-direction:column;gap:6px"><small style="color:var(--muted)">잠실점 에비뉴엘 · 시설팀</small><b style="font-size:24px">업무지원</b><small style="color:var(--muted)">v0.4 · 테스트판</small></div>' +
+    '<div class="card" style="padding:22px 20px;display:flex;flex-direction:column;align-items:center;gap:14px"><b>PIN 입력</b><span style="font-size:14px;color:var(--muted)">본인 휴대폰 번호 뒷 4자리</span>' +
+    '<div style="display:flex;gap:16px" aria-label="' + S.pin.length + '자리 입력됨">' + dots + '</div>' +
+    '<span id="pinMsg" style="font-size:13px;color:var(--red);min-height:18px" role="alert"></span></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:auto">' + keys +
+    '<button class="key" onclick="pinBack()" aria-label="지우기" style="border:none;background:none">⌫</button>' +
+    '<button class="key" onclick="pinKey(\'0\')">0</button>' +
+    '<button class="key" onclick="doLogin()" style="background:var(--blue);border-color:var(--blue);color:#fff;font-size:17px;font-weight:700">' + (S.busy ? '<span class="spin"></span>' : '로그인') + '</button></div>' +
+    '<small style="text-align:center;color:var(--muted);line-height:1.6">하루 첫 로그인 때 본인 서명을 받습니다<br>로그인은 다음 날 오전 6시까지 유지됩니다</small></div>';
+}
+function pinKey(n) { if (S.pin.length < 4) { S.pin += n; render(); if (S.pin.length === 4) doLogin(); } }
+function pinBack() { S.pin = S.pin.slice(0, -1); render(); }
+async function doLogin() {
+  if (S.busy || S.pin.length !== 4) return;
+  S.busy = true; render();
+  try {
+    const r = await run('login', S.pin, deviceId());
+    S.busy = false;
+    if (r.needSign) { S.sign = { mode: 'pin', pin: S.pin, name: r.name, part: r.part, busy: false, msg: '' }; S.pin = ''; S.view = 'sign'; render(); return; }
+    if (!r.ok) { S.pin = ''; render(); $('pinMsg').textContent = r.error; return; }
+    loggedIn(r);
+    await boot();
+  } catch (e) { S.busy = false; S.pin = ''; render(); $('pinMsg').textContent = '연결 오류: ' + (e.message || e); }
+}
+function loggedIn(r) { S.token = r.token; store('ws_token', r.token); SHELL.set(r.token); S.user = r.user; S.pin = ''; S.sign = null; }
+function logout(expired) { store('ws_token', null); SHELL.set(''); bootSeq++; S.token = ''; S.user = null; S.sign = null; S.pin = ''; S.view = 'login'; render(); if (expired === true) toast('다시 로그인해 주세요.'); }
+
+/* ── 근무일 첫 서명 (결정 56·60) — 서명하지 않으면 로그인되지 않음 ── */
+function renderSign() {
+  const g = S.sign;
+  return '<div style="max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:36px 16px 24px;gap:16px">' +
+    '<div style="display:flex;flex-direction:column;gap:6px"><small style="color:var(--muted)">오늘 첫 로그인 · 본인 확인</small><b style="font-size:22px">' + h(g.name) + ' 님, 서명해 주세요</b>' +
+    '<span style="font-size:14px;color:var(--sub);line-height:1.6">이 서명은 오늘 TBM 서명란에 로그인한 순서대로 들어갑니다. 오늘(오전 6시 ~ 다음 날 6시)은 다시 묻지 않습니다.</span></div>' +
+    '<div class="spad" id="spad"><canvas class="g"></canvas><canvas class="i" aria-label="서명 칸"></canvas></div>' +
+    '<div style="display:flex;gap:8px;align-items:center"><button class="btn" id="sClr" onclick="SPAD.clear()" disabled>지우기</button><span id="sMsg" role="alert" style="flex:1;font-size:13px;color:var(--red)">' + h(g.msg) + '</span></div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px;margin-top:auto">' +
+    '<button class="btn pri big" id="sGo" onclick="doSign()" disabled>' + (g.busy ? '<span class="spin"></span>' : '서명하고 로그인') + '</button>' +
+    (g.mode === 'pin' ? '<button class="btn" onclick="S.sign=null;S.view=\'login\';render()">PIN 다시 입력</button>' : '<button class="btn" onclick="logout()">다른 사람으로 로그인</button>') +
+    '</div></div>';
+}
+let SPAD = null;
+function mountSign() {
+  const box = $('spad'); if (!box) return;
+  SPAD = makeSignPad(box, S.sign.name, has => { S.sign.msg = ''; $('sMsg').textContent = ''; $('sGo').disabled = !has || S.sign.busy; $('sClr').disabled = !SPAD || SPAD.empty(); });
+}
+function makeSignPad(box, ghostText, onChange) {
+  const g = box.querySelector('canvas.g'), ink = box.querySelector('canvas.i');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let len = 0, drawing = false, last = null;
+  function size() { [g, ink].forEach(c => { c.width = Math.round(box.clientWidth * dpr); c.height = Math.round(box.clientHeight * dpr); }); ghost(); }
+  function ghost() {   // 이름을 연회색 굵은 글자로 깔아 둠 (결정 46)
+    const c = g.getContext('2d'); c.clearRect(0, 0, g.width, g.height);
+    let fs = 64 * dpr; c.font = '800 ' + fs + 'px "Noto Sans KR", sans-serif';
+    while (c.measureText(ghostText).width > g.width * 0.8 && fs > 18) { fs -= 2; c.font = '800 ' + fs + 'px "Noto Sans KR", sans-serif'; }
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#C5CCD6'; c.fillText(ghostText, g.width / 2, g.height / 2);
+  }
+  function pos(e) { const r = ink.getBoundingClientRect(); return { x: (e.clientX - r.left) * dpr, y: (e.clientY - r.top) * dpr }; }
+  function dot(p) { const c = ink.getContext('2d'); c.fillStyle = '#18202B'; c.beginPath(); c.arc(p.x, p.y, 1.8 * dpr, 0, Math.PI * 2); c.fill(); }
+  function mark() { box.classList.toggle('inked', len > 0); onChange(len > 0); }
+  ink.addEventListener('pointerdown', e => { e.preventDefault(); ink.setPointerCapture(e.pointerId); drawing = true; last = pos(e); dot(last); len += 1; mark(); });
+  ink.addEventListener('pointermove', e => {
+    if (!drawing) return;
+    const p = pos(e), c = ink.getContext('2d');
+    c.lineWidth = 3.6 * dpr; c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#18202B';
+    c.beginPath(); c.moveTo(last.x, last.y); c.lineTo(p.x, p.y); c.stroke();
+    len += Math.hypot(p.x - last.x, p.y - last.y); last = p; mark();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => ink.addEventListener(t, () => { drawing = false; }));
+  window.addEventListener('resize', () => { if (len === 0 && box.isConnected) size(); });
+  size();
+  return {
+    empty: () => len === 0,
+    has: () => len > 120 * dpr,   // 너무 짧게 그은 서명은 받지 않음 (개선 A)
+    clear: () => { ink.getContext('2d').clearRect(0, 0, ink.width, ink.height); len = 0; ghost(); mark(); },
+    // 가로 600px 흑백 PNG — 흰 바탕·검은 글씨만 남겨 파일을 작게 (결정 60)
+    png: () => {
+      const W = 600, H = Math.round(600 * ink.height / ink.width);
+      const out = document.createElement('canvas'); out.width = W; out.height = H;
+      const c = out.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, W, H); c.drawImage(ink, 0, 0, W, H);
+      const im = c.getImageData(0, 0, W, H), d = im.data;
+      for (let i = 0; i < d.length; i += 4) { const v = (d[i] + d[i + 1] + d[i + 2]) / 3 < 170 ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+      c.putImageData(im, 0, 0);
+      return out.toDataURL('image/png');
+    }
+  };
+}
+async function doSign() {
+  const g = S.sign;
+  if (!g || g.busy || !SPAD) return;
+  if (!SPAD.has()) { $('sMsg').textContent = '서명이 너무 짧습니다. 이름을 따라 크게 써 주세요.'; return; }
+  const png = SPAD.png();
+  g.busy = true; $('sGo').disabled = true; $('sGo').innerHTML = '<span class="spin"></span>';
+  try {
+    const r = g.mode === 'pin' ? await run('login', g.pin, deviceId(), png) : await run('signToday', S.token, png);
+    g.busy = false;
+    if (!r.ok) { $('sMsg').textContent = r.error || '저장하지 못했습니다'; $('sGo').disabled = false; $('sGo').textContent = '서명하고 로그인'; if (r.needSign === undefined && g.mode === 'pin' && /PIN|잠|5번/.test(r.error || '')) { S.sign = null; S.view = 'login'; render(); $('pinMsg').textContent = r.error; } return; }
+    if (g.mode === 'pin') loggedIn(r); else S.sign = null;
+    S.view = 'loading'; render();
+    await boot(true);
+  } catch (e) {
+    g.busy = false; $('sGo').disabled = false; $('sGo').textContent = '서명하고 로그인';
+    if (String(e && e.message).indexOf('LOGIN') !== -1) { logout(true); return; }
+    $('sMsg').textContent = '연결 오류: ' + (e.message || e) + ' — 다시 눌러 주세요';
+  }
+}
+/* 로그인 확인. 늦게 끝난 확인(앞선 boot)은 무시하고, 이미 다른 화면이면 메인으로 보내지 않음 (결정 48) */
+let bootSeq = 0;
+async function boot(fromStart) {
+  const my = ++bootSeq;
+  let r;
+  try { r = await run('bootstrap', S.token); }
+  catch (e) {
+    if (my !== bootSeq) return;
+    if (String(e && e.message).indexOf('LOGIN') !== -1) { logout(fromStart !== true); return; }
+    if (fromStart) { S.view = 'retry'; render(); return; }   // 연결 오류는 로그아웃하지 않음
+    toast('서버 오류: ' + (e && e.message ? e.message : e)); throw e;
+  }
+  if (my !== bootSeq) return;
+  S.user = r.user; S.fire = r.fire; S.docs = r.docs || null;
+  if (r.needSign) { S.sign = { mode: 'token', name: r.user.name, part: r.user.part, busy: false, msg: '' }; S.view = 'sign'; render(); return; }   // 표는 있는데 오늘 서명이 없음
+  if (['login', 'loading', 'retry', 'sign'].indexOf(S.view) !== -1) go('main');
+}
+function renderLoading() {
+  return '<div class="wrap" style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px"><span class="spin" style="color:var(--blue);width:32px;height:32px"></span><span style="color:var(--sub)">불러오는 중…</span></div>';
+}
+function renderRetry() {
+  return '<div class="wrap" style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center"><b style="font-size:18px">서버에 연결하지 못했습니다</b><span style="color:var(--sub);line-height:1.6">신호를 확인하고 다시 시도해 주세요.<br>로그인은 그대로 유지됩니다.</span><button class="btn pri big" onclick="S.view=\'loading\';render();boot(true)">다시 시도</button><button class="btn" onclick="logout()">다른 사람으로 로그인</button></div>';
+}
+
+/* ── 메인 ── */
+function renderMain() {
+  const u = S.user;
+  const approver = ['소장', '부소장', '파트장'].indexOf(u.role) !== -1;
+  const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
+  const c = S.fire ? S.fire.counts : null;
+  const t = (key, label, sub, bg, fg, on) => '<button class="tile' + (on ? ' on' : '') + '" onclick="tile(\'' + key + '\')"><span class="ico" style="background:' + bg + ';color:' + fg + ';font-weight:700">' + label.slice(0, 1) + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
+  return topbar('잠실점 에비뉴엘 · ' + today, '업무지원') + '<div class="wrap" style="display:flex;flex-direction:column;gap:14px">' +
+    '<div class="banner b-gray">이 테스트판은 <b>점검 › 소화기 점검</b>과 <b>서류작업 › TBM 서명 목록</b>만 동작합니다. 다른 메뉴는 디자인 시안만 있습니다.</div>' +
+    '<div class="grid6">' +
+    t('docs', '서류작업', 'TBM' + (S.docs ? ' · 오늘 서명 ' + S.docs.signs + '명' : ' · 명일 작업 예정'), '#EAF5EF', '#1F7A4D') +
+    t('work', '작업', '준비 중', '#E8F0FA', '#1F5FA8') +
+    t('inspect', '점검', c ? '소화기 ' + (c.ok + c.bad) + ' / ' + c.total + '대' : '소화기 점검', '#1F5FA8', '#fff', true) +
+    t('plan', '일정', '준비 중', '#E8F0FA', '#1F5FA8') +
+    t('defect', '하자점검', '준비 중', '#FDF0E8', '#B4410F') +
+    (approver ? t('approve', '결재 대기', '준비 중', '#E8F0FA', '#1F5FA8') : t('mydocs', '내 문서', '준비 중', '#E8F0FA', '#1F5FA8')) +
+    '</div></div>';
+}
+function tile(k) { if (k === 'inspect') go('inspect'); else if (k === 'docs') go('docs'); else toast('디자인 시안만 있는 메뉴입니다 (준비 중)'); }
+
+/* ── 서류작업 (WS_서류작업.md) ── */
+function renderDocs() {
+  const n = S.docs ? S.docs.signs : null;
+  return topbar('업무지원 ›', '서류작업') + '<div class="wrap list">' +
+    '<button class="row" onclick="openTbm()"><span class="ico" style="background:var(--green-bg);color:var(--green);font-weight:700">T</span><span class="fname"><b style="font-size:16px">TBM</b><small>오늘 서명 ' + (n == null ? '…' : n + '명') + ' · 로그인 순서대로</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="toast(\'준비 중입니다 (양식 받은 뒤)\')" style="opacity:.6"><span class="fname"><b style="font-size:16px">명일 작업 예정</b><small>준비 중</small></span></button>' +
+    '</div>';
+}
+async function openTbm() { S.tbm = null; go('tbm'); await loadTbm(); }
+async function loadTbm() {
+  const r = await call('tbmToday');
+  S.tbm = r; if (S.docs) S.docs.signs = r.signs.length;
+  if (S.view === 'tbm') render();
+}
+function renderTbm() {
+  const r = S.tbm;
+  const d = r ? new Date(r.day + 'T12:00:00+09:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }) : '';
+  const list = !r ? '<div class="banner b-gray">불러오는 중…</div>' : !r.signs.length ? '<div class="banner b-gray">아직 서명한 직원이 없습니다.</div>' :
+    '<div class="card">' + r.signs.map(x => '<div class="sgrow"><span class="sgno">' + x.no + '</span><span class="fname"><b>' + h(x.name) + '</b><small>' + h(x.part) + '</small></span>' +
+      '<span class="sgimg">' + (x.img ? '<img src="' + x.img + '" alt="' + h(x.name) + ' 서명">' : '') + '<small>' + h(x.at) + '</small></span></div>').join('') + '</div>';
+  return topbar('서류작업 ›', 'TBM' + (d ? ' · ' + d : '')) + '<div class="wrap list">' +
+    '<div class="banner b-info">서명란 · 오늘 로그인한 직원만, 파트 구분 없이 <b>로그인한 순서대로</b> 들어갑니다. 늦게 로그인한 직원은 [새로고침]하면 아래에 이어집니다.</div>' +
+    (r ? '<div style="display:flex;align-items:center;justify-content:space-between"><b>서명 ' + r.signs.length + '명</b><button class="btn sm" onclick="loadTbm()">새로고침</button></div>' : '') +
+    list +
+    '<div class="banner b-gray">회의 사진 · 구호 사진과 <b>[PDF로 저장]</b>은 TBM 양식을 받은 뒤 붙입니다. 서명을 다 확인한 뒤 누르면 그때 PDF로 저장합니다.</div>' +
+    '<button class="btn big" disabled>PDF로 저장 (양식 받은 뒤)</button></div>';
+}
+
+/* ── 점검 ── */
+function renderInspect() {
+  return topbar('업무지원 ›', '점검') + '<div class="wrap list">' +
+    '<button class="row" onclick="go(\'fire\')"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:700">소</span><span class="fname"><b style="font-size:16px">소화기 점검</b><small>QR 관리·인쇄 · 월별 점검 현황</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="toast(\'준비 중입니다\')" style="opacity:.6"><span class="fname"><b style="font-size:16px">일일 점검</b><small>준비 중</small></span></button>' +
+    '<button class="row" onclick="toast(\'준비 중입니다\')" style="opacity:.6"><span class="fname"><b style="font-size:16px">월간 점검</b><small>준비 중</small></span></button>' +
+    '</div>';
+}
+
+/* ── 개선 A: 입력 기간 안내 ── */
+function periodBanner(st, counts) {
+  if (!st) return '';
+  const w = st.window, d = st.day, m = Number(st.ym.slice(5, 7));
+  if (!st.isCurrent) return st.ym < st.curYm ? '<div class="banner b-gray">' + ymLabel(st.ym) + ' · 입력 기간 ' + m + '/' + w.start + '~' + m + '/' + w.end + ' · 마감됨</div>' : '';
+  if (d < w.start) return '<div class="banner b-gray">이번 달 입력은 ' + m + '월 ' + w.start + '일부터 받습니다.</div>';
+  if (d <= w.end) {
+    const left = w.end - d;
+    if (counts.wait > 0 && left <= 1) return '<div class="banner b-warn"><b>마감 임박</b> · ' + m + '월 ' + w.end + '일까지 · 점검 전 <b>' + counts.wait + '대</b></div>';
+    return '<div class="banner b-info">이번 달 입력 기간 ' + m + '월 ' + w.start + '일 ~ ' + w.end + '일 · ' + (left === 0 ? '오늘 마감' : left + '일 남음') + ' · 점검 전 ' + counts.wait + '대</div>';
+  }
+  if (counts.miss > 0) return '<div class="banner b-red"><b>기한 지남</b> · 미입력 ' + counts.miss + '대 · 지금 입력해도 받고 「기한 후」로 표시합니다</div>';
+  return '<div class="banner b-gray">이번 달 입력 기간이 끝났습니다.</div>';
+}
+
+/* ── 소화기 점검 메뉴 ── */
+function renderFire() {
+  const f = S.fire;
+  const c = f ? f.counts : { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 };
+  const done = c.ok + c.bad;
+  const pct = c.total ? Math.round(done / c.total * 100) : 0;
+  const st = f ? { ym: f.ym, curYm: f.ym, isCurrent: true, day: f.day, window: f.window } : null;
+  return topbar('점검 ›', '소화기 점검') + '<div class="wrap list">' +
+    '<div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--muted)">이번 달 점검</span><span><b style="color:var(--green)">' + done + '</b> / ' + c.total + '대</span></div>' +
+    '<div class="bar" style="height:8px"><span style="width:' + pct + '%;background:var(--green)"></span></div></div>' +
+    periodBanner(st, c) +
+    '<button class="row" onclick="openQr()"><span class="ico" style="background:var(--blue-bg);color:var(--blue);width:48px;height:48px">QR</span><span class="fname"><b style="font-size:17px">① 소화기 QR 관리 · 인쇄</b><small>매장별 소화기 등록 · 삭제 · QR' + (CAN_PRINT ? ' · 출력' : ' (출력은 PC에서)') + '</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openStatus()"><span class="ico" style="background:var(--green-bg);color:var(--green);width:48px;height:48px">✓</span><span class="fname"><b style="font-size:17px">② 매장별 소화기 점검 현황</b><small>월별 · 층별(B1~6F) · 매장별</small></span>' + ICON.chev + '</button>' +
+    '</div>';
+}
+
+/* ── ① QR 관리 ── */
+async function openQr() { go('qr'); await loadQr(); }
+async function loadQr() {
+  const r = await call('feList');
+  S.qr = r; S.sel = {};
+  render();
+}
+function qrUrl(token) { return (S.qr && S.qr.execUrl ? S.qr.execUrl : EXEC_URL) + '?fe=' + token; }
+function renderQr() {
+  const r = S.qr;
+  const selN = Object.keys(S.sel).filter(k => S.sel[k]).length;
+  let body = '<div class="banner b-gray">불러오는 중…</div>';
+  if (r) {
+    const q = S.q.trim().toLowerCase().replace(/\s+/g, '');
+    const items = r.items.filter(i => !q || (i.store + i.name + i.floor).toLowerCase().replace(/\s+/g, '').indexOf(q) !== -1);
+    if (!items.length) body = '<div class="banner b-gray">' + (r.items.length ? '검색 결과가 없습니다.' : '등록된 소화기가 없습니다. [+ 등록]으로 추가하세요.') + '</div>';
+    else {
+      body = '';
+      FLOORS.forEach(fl => {
+        const fItems = items.filter(i => i.floor === fl);
+        if (!fItems.length) return;
+        body += '<div class="floorh">' + fl + '</div>';
+        const stores = [...new Set(fItems.map(i => i.store))];
+        stores.forEach(s => {
+          const list = fItems.filter(i => i.store === s);
+          body += '<div class="store"><div class="store-h"><b>' + h(s) + '</b><small style="color:var(--muted)">' + list.length + '대</small></div>' +
+            list.map(i => '<div class="fe"><input type="checkbox" aria-label="' + h(i.name) + ' 고르기" ' + (S.sel[i.id] ? 'checked' : '') + ' onchange="S.sel[\'' + i.id + '\']=this.checked;render()">' +
+              '<button class="qrmini" data-qr="' + h(i.token) + '" onclick="bigQr(\'' + i.id + '\')" aria-label="' + h(i.name) + ' QR 크게 보기"></button>' +
+              '<span class="fname"><b>' + h(i.name) + '</b><small>' + h(i.id) + '</small></span></div>').join('') + '</div>';
+        });
+      });
+    }
+  }
+  return topbar('소화기 점검 ›', '소화기 QR 관리') + '<div class="wrap list">' +
+    '<div class="tools"><input class="inp" type="search" placeholder="매장명 · 소화기 이름 · 층 검색" aria-label="검색" value="' + h(S.q) + '" oninput="S.q=this.value;renderKeepFocus(this)">' +
+    '<button class="btn pri" onclick="addDialog()">+ 등록</button>' +
+    (CAN_PRINT ? '<button class="btn" onclick="printLabels()" ' + (selN ? '' : 'disabled') + '>' + ICON.print + ' 출력 (' + selN + ')</button>' : '') +
+    '<button class="btn warn" onclick="delDialog()" ' + (selN ? '' : 'disabled') + '>삭제 (' + selN + ')</button></div>' +
+    (CAN_PRINT ? '' : '<div class="banner b-gray">QR 출력은 PC 화면에서 합니다. 휴대폰에서는 등록과 삭제만 됩니다.</div>') +
+    body + '</div>';
+}
+function renderKeepFocus(el) { const pos = el.selectionStart; render(); const n = document.querySelector('.tools .inp'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }
+function drawQrs() {
+  if (typeof QRCode === 'undefined') return;
+  document.querySelectorAll('[data-qr]').forEach(el => {
+    if (el.dataset.done) return;
+    el.dataset.done = '1';
+    new QRCode(el, { text: qrUrl(el.dataset.qr), width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
+  });
+}
+function bigQr(id) {
+  const i = S.qr.items.find(x => x.id === id);
+  dialog('<div style="display:flex;flex-direction:column;align-items:center;gap:12px"><b style="font-size:18px">' + h(i.name) + '</b><small style="color:var(--muted)">' + h(i.floor) + ' · ' + h(i.id) + '</small>' +
+    '<div id="bigqr" style="background:#fff;padding:12px"></div>' +
+    '<small style="color:var(--muted);text-align:center">휴대폰 카메라로 이 화면을 찍으면 점검 입력 페이지가 열립니다 (테스트용)</small>' +
+    '<a class="btn" href="' + h(qrUrl(i.token)) + '" target="_blank" rel="noopener">입력 페이지 열기</a>' +
+    '<button class="btn big pri" style="width:100%" onclick="closeDialog()">닫기</button></div>');
+  new QRCode($('bigqr'), { text: qrUrl(i.token), width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+}
+function addDialog() {
+  const stores = S.qr ? [...new Set(S.qr.items.map(i => i.store))] : [];
+  dialog('<h2 style="margin:0 0 12px;font-size:18px">소화기 등록</h2>' +
+    '<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--sub);margin-bottom:12px">층<select id="aFloor" class="inp">' + FLOORS.map(f => '<option' + (f === S.floor ? ' selected' : '') + '>' + f + '</option>').join('') + '</select></label>' +
+    '<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--sub);margin-bottom:12px">매장명<input id="aStore" class="inp" list="storeList" maxlength="30" placeholder="예: 샤넬뷰티"><datalist id="storeList">' + stores.map(s => '<option value="' + h(s) + '">').join('') + '</datalist></label>' +
+    '<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--sub);margin-bottom:8px">몇 대를 추가할까요?<input id="aCount" class="inp" type="number" min="1" max="20" value="1" inputmode="numeric"></label>' +
+    '<small style="color:var(--muted)">이름은 「매장명-소화기1」처럼 이어서 붙습니다.</small>' +
+    '<div id="aMsg" role="alert" style="color:var(--red);font-size:13px;min-height:18px;margin-top:6px"></div>' +
+    '<div style="display:flex;gap:10px;margin-top:8px"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button id="aBtn" class="btn big pri" style="flex:2" onclick="doAdd()">등록하고 QR 만들기</button></div>');
+}
+async function doAdd() {
+  const d = { floor: $('aFloor').value, store: $('aStore').value, count: $('aCount').value };
+  $('aBtn').disabled = true; $('aBtn').innerHTML = '<span class="spin"></span>';
+  try {
+    const r = await call('feAdd', d);
+    if (!r.ok) { $('aMsg').textContent = r.error; $('aBtn').disabled = false; $('aBtn').textContent = '등록하고 QR 만들기'; return; }
+    S.floor = d.floor; closeDialog(); toast(r.added.join(', ') + ' 등록'); await loadQr();
+  } catch (e) { $('aBtn').disabled = false; $('aBtn').textContent = '등록하고 QR 만들기'; }
+}
+function delDialog() {
+  const ids = Object.keys(S.sel).filter(k => S.sel[k]);
+  const names = S.qr.items.filter(i => ids.indexOf(i.id) !== -1).map(i => i.name);
+  dialog('<h2 style="margin:0 0 8px;font-size:18px">소화기 ' + ids.length + '대 삭제</h2><p style="margin:0 0 8px;font-size:14px;line-height:1.6">' + names.map(h).join('<br>') + '</p>' +
+    '<p style="margin:0 0 12px;font-size:13px;color:var(--muted)">목록과 현황에서 빠지고, 붙어 있는 QR을 찍으면 「삭제된 QR」로 나옵니다. 지난달까지의 점검 기록은 남습니다.</p>' +
+    '<div style="display:flex;gap:10px"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button id="dBtn" class="btn big warn" style="flex:2" onclick="doDel()">삭제</button></div>');
+}
+async function doDel() {
+  const ids = Object.keys(S.sel).filter(k => S.sel[k]);
+  $('dBtn').disabled = true;
+  try { const r = await call('feDelete', ids); closeDialog(); toast(r.count + '대 삭제'); await loadQr(); } catch (e) { $('dBtn').disabled = false; }
+}
+const LABEL_PRESETS = [[50, 50], [40, 40], [30, 34], [50, 30]];
+// 라벨 프린터: BIXOLON SLP-TX400 (203dpi = 8점/mm). QR 한 칸이 프린터 점(dot) 정수 배가 되게 그려 흐림 없이 찍히게 함
+function labelDpi() { return (S.qr && S.qr.label && Number(S.qr.label.dpi)) || 203; }
+function qrMatrix(token) {
+  S.qrm = S.qrm || {};
+  if (S.qrm[token]) return S.qrm[token];
+  const tmp = document.createElement('div');
+  const q = new QRCode(tmp, { text: qrUrl(token), width: 64, height: 64, correctLevel: QRCode.CorrectLevel.M });
+  const m = q._oQRCode, n = m.getModuleCount(), rows = [];
+  for (let r = 0; r < n; r++) { const row = []; for (let c = 0; c < n; c++) row.push(m.isDark(r, c)); rows.push(row); }
+  return (S.qrm[token] = rows);
+}
+// 원하는 크기(mm) 안에서 가장 큰 「점 정수 배」 QR 그림 → {src, mm}
+function qrImage(token, maxMm) {
+  const rows = qrMatrix(token), n = rows.length, quiet = 2, total = n + quiet * 2, dpi = labelDpi();
+  const dots = Math.floor(maxMm / 25.4 * dpi);
+  const per = Math.max(1, Math.floor(dots / total));
+  const scale = 4, cv = document.createElement('canvas');   // 화면 미리보기도 또렷하게 4배로 그림
+  cv.width = cv.height = per * total * scale;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = '#000';
+  const u = per * scale;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (rows[r][c]) g.fillRect((c + quiet) * u, (r + quiet) * u, u, u);
+  return { src: cv.toDataURL('image/png'), mm: +(per * total / dpi * 25.4).toFixed(3) };
+}
+function labelHtml(i, L) {
+  // 위: 소화기 이름 한 줄(작은 글자) / 아래: QR — 50×50 정사각형 라벨 기준
+  const pad = 1.5, gap = 0.8, textMm = 2.8;
+  const maxMm = Math.max(10, Math.min(L.w - pad * 2, L.h - pad * 2 - gap - textMm));
+  const q = qrImage(i.token, maxMm);
+  const name = i.store + ' 소화기' + i.no;
+  // 글자 수에 맞춰 크기 자동 (최대 7pt, 최소 4.5pt) — 1pt ≈ 0.353mm, 한글 1자 ≈ 1em
+  const units = Array.from(name).reduce((n, c) => n + (/[\x00-\x7F]/.test(c) ? 0.55 : 1), 0);
+  const pt = Math.max(4.5, Math.min(7, (L.w - pad * 2) / Math.max(units, 1) / 0.353));
+  return '<div class="label" style="width:' + L.w + 'mm;height:' + L.h + 'mm"><b style="font-size:' + pt.toFixed(1) + 'pt">' + h(name) + '</b><img src="' + q.src + '" style="width:' + q.mm + 'mm;height:' + q.mm + 'mm" alt=""></div>';
+}
+// 출력 → 먼저 미리보기 (크기 바꾸기) → 인쇄
+function printLabels() {
+  const ids = Object.keys(S.sel).filter(k => S.sel[k]);
+  S.pv = { items: S.qr.items.filter(i => ids.indexOf(i.id) !== -1), L: { w: S.qr.label.w, h: S.qr.label.h } };
+  renderPreview();
+}
+function renderPreview() {
+  const P = S.pv, L = P.L, show = P.items.slice(0, 6);
+  dialog('<div style="display:flex;align-items:center;margin-bottom:10px"><div class="fname"><b style="font-size:17px">라벨 미리보기</b><small>' + P.items.length + '장 · ' + L.w + '×' + L.h + 'mm (실제 크기) · ' + labelDpi() + 'dpi</small></div><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
+    '<div class="pvbox">' + show.map(i => labelHtml(i, L)).join('') + (P.items.length > show.length ? '<span class="pvmore">외 ' + (P.items.length - show.length) + '장</span>' : '') + '</div>' +
+    '<div style="font-size:13px;color:var(--sub);margin:12px 0 6px">라벨 크기 (가로 × 세로 mm)</div>' +
+    '<div class="pvpre">' + LABEL_PRESETS.map(p => '<button class="btn sm' + (p[0] === L.w && p[1] === L.h ? ' pri' : '') + '" onclick="pvSize(' + p[0] + ',' + p[1] + ')">' + p[0] + '×' + p[1] + (p[0] === 50 && p[1] === 50 ? ' (지금 라벨)' : '') + '</button>').join('') + '</div>' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><input id="pvW" class="inp" type="number" min="15" max="100" step="0.5" value="' + L.w + '" aria-label="가로 mm" style="width:90px"><span>×</span><input id="pvH" class="inp" type="number" min="15" max="100" step="0.5" value="' + L.h + '" aria-label="세로 mm" style="width:90px"><button class="btn sm" onclick="pvSize($(\'pvW\').value,$(\'pvH\').value)">적용</button></div>' +
+    '<details class="pvhelp"><summary>BIXOLON SLP-TX400 인쇄 설정</summary><ol>' +
+      '<li>인쇄 창 <b>대상</b>: BIXOLON SLP-TX400</li>' +
+      '<li><b>용지 크기</b>: ' + L.w + '×' + L.h + 'mm (없으면 아래 「드라이버에 용지 만들기」 한 번)</li>' +
+      '<li><b>여백</b>: 없음 · <b>배율</b>: 기본(100%) · <b>머리글/바닥글</b>: 끔 · <b>배경 그래픽</b>: 켬</li>' +
+      '<li>드라이버에 용지 만들기: Windows 설정 → 프린터 → SLP-TX400 → 인쇄 기본 설정 → 용지 <b>새로 만들기</b> → 가로 ' + L.w + ' · 세로 ' + L.h + 'mm, 여백 0 → 용지 종류 <b>갭(Gap, 라벨 사이 틈)</b></li>' +
+      '<li>처음 한 번, 또는 라벨지를 바꾼 뒤 프린터 <b>FEED</b> 버튼으로 라벨 위치를 맞춥니다(캘리브레이션)</li></ol></details>' +
+    '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn" onclick="closeDialog()">닫기</button><button class="btn" style="flex:1" onclick="doPrint(true)">1장 시험 인쇄</button><button id="pvGo" class="btn pri" style="flex:2" onclick="doPrint()">' + ICON.print + ' 인쇄 (' + P.items.length + '장)</button></div>');
+}
+function pvSize(w, hh) {
+  w = Number(w); hh = Number(hh);
+  if (!(w >= 15 && w <= 100 && hh >= 15 && hh <= 100)) { toast('라벨 크기는 15~100mm 사이로 넣어 주세요.'); return; }
+  S.pv.L = { w: w, h: hh }; renderPreview();
+}
+function doPrint(one) {
+  const P = S.pv, L = P.L, list = one ? P.items.slice(0, 1) : P.items;
+  const box = $('print');
+  box.innerHTML = '<style>@page{size:' + L.w + 'mm ' + L.h + 'mm;margin:0}</style>' + list.map(i => labelHtml(i, L)).join('');
+  if (L.w !== S.qr.label.w || L.h !== S.qr.label.h) {
+    S.qr.label = Object.assign({}, S.qr.label, { w: L.w, h: L.h });
+    google.script.run.withSuccessHandler(r => { if (r && !r.ok) toast(r.error); }).withFailureHandler(() => toast('라벨 크기를 저장하지 못했습니다. 인쇄는 그대로 됩니다.')).labelSave(S.token, L.w, L.h);
+  }
+  closeDialog();
+  setTimeout(() => window.print(), 300);
+}
+
+/* ── ② 점검 현황 ── */
+async function openStatus(ym) { go('status'); await loadStatus(ym || ''); }
+async function loadStatus(ym) { S.st = null; render(); S.st = await call('feStatus', ym); S.ym = S.st.ym; render(); }
+/* 현황 화면을 열어 두면 1분마다 조용히 다시 읽음 — 휴대폰에서 보낸 점검이 곧 녹색으로 (결정 54) */
+let stBusy = false;
+async function quietStatus() {
+  if (stBusy || !S.st || ['status', 'floor'].indexOf(S.view) === -1 || document.hidden) return;
+  stBusy = true;
+  try {
+    const r = await run('feStatus', S.token, S.st.ym);
+    if (r && r.ok && S.st && r.ym === S.st.ym && ['status', 'floor'].indexOf(S.view) !== -1 && !document.querySelector('.dialog-back')) { S.st = r; render(); }
+  } catch (e) { /* 다음 번에 다시 */ } finally { stBusy = false; }
+}
+setInterval(quietStatus, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) quietStatus(); });
+function counts(items) { const c = { ok: 0, bad: 0, wait: 0, miss: 0, total: items.length }; items.forEach(i => c[i.state]++); return c; }
+function renderStatus() {
+  const st = S.st;
+  if (!st) return topbar('소화기 점검 ›', '월별 점검 현황') + '<div class="wrap"><div class="banner b-gray">불러오는 중…</div></div>';
+  const c = st.counts;
+  const idx = st.months.indexOf(st.ym);
+  const prev = idx > 0 ? st.months[idx - 1] : '';
+  const next = idx >= 0 && idx < st.months.length - 1 ? st.months[idx + 1] : '';
+  const floors = FLOORS.map(fl => {
+    const it = st.items.filter(i => i.floor === fl);
+    if (!it.length) return '';
+    const fc = counts(it);
+    const p = n => Math.round(n / fc.total * 100) + '%';
+    const storesN = new Set(it.map(i => i.store)).size;
+    return '<button class="floor" onclick="openFloor(\'' + fl + '\')"><span class="elbow"></span><b style="width:34px;font-size:15px">' + fl + '</b>' +
+      '<span class="fname" style="gap:4px"><span class="bar"><span style="width:' + p(fc.ok) + ';background:var(--green)"></span><span style="width:' + p(fc.bad) + ';background:var(--orange)"></span><span style="width:' + p(fc.miss) + ';background:var(--red)"></span></span><small>매장 ' + storesN + ' · 소화기 ' + fc.total + '대</small></span>' +
+      (fc.miss ? '<span class="chip c-miss">미입력 ' + fc.miss + '</span>' : '') + (fc.bad ? '<span class="chip c-bad">이상 ' + fc.bad + '</span>' : '') +
+      '<b style="font-size:13px;color:var(--green)">' + (fc.ok + fc.bad) + '/' + fc.total + '</b>' + ICON.chev + '</button>';
+  }).join('');
+  return topbar('소화기 점검 ›', '월별 점검 현황') + '<div class="wrap list">' +
+    '<div class="mnav"><button class="btn" aria-label="이전 달" ' + (prev ? 'onclick="loadStatus(\'' + prev + '\')"' : 'disabled') + '>‹</button><div><b style="font-size:17px">' + ymLabel(st.ym) + '</b><small style="color:var(--muted)">입력 기간 ' + Number(st.ym.slice(5, 7)) + '/' + st.window.start + ' ~ ' + Number(st.ym.slice(5, 7)) + '/' + st.window.end + '</small></div><button class="btn" aria-label="다음 달" ' + (next ? 'onclick="loadStatus(\'' + next + '\')"' : 'disabled') + '>›</button></div>' +
+    periodBanner(st, c) +
+    '<div class="card legend"><span><span class="dot" style="background:var(--green)"></span>점검완료 <b>' + c.ok + '</b></span><span><span class="dot" style="background:var(--orange)"></span>이상 있음 <b>' + c.bad + '</b></span><span><span class="dot" style="background:#9AA4B2"></span>점검 전 <b>' + c.wait + '</b></span><span><span class="dot" style="background:var(--red)"></span>미입력 <b>' + c.miss + '</b></span></div>' +
+    '<div class="card tree"><div class="tree-root">' + ymLabel(st.ym) + ' · 전체 ' + c.total + '대</div>' + (floors || '<div style="padding:12px 0;color:var(--muted);font-size:14px">이 달에 등록된 소화기가 없습니다.</div>') + '</div>' +
+    '<button class="btn" onclick="loadStatus(\'' + st.ym + '\')">새로고침</button></div>';
+}
+function openFloor(fl) { S.floor = fl; go('floor'); }
+function renderFloor() {
+  const st = S.st;
+  const it = st.items.filter(i => i.floor === S.floor);
+  const stores = [...new Set(it.map(i => i.store))];
+  const chips = FLOORS.map(f => '<button class="fl' + (f === S.floor ? ' on' : '') + '" aria-pressed="' + (f === S.floor) + '" onclick="S.floor=\'' + f + '\';render()">' + f + '</button>').join('');
+  const m = Number(st.ym.slice(5, 7));
+  const body = stores.length ? stores.map(s => {
+    const list = it.filter(i => i.store === s);
+    const done = list.filter(i => i.state === 'ok' || i.state === 'bad').length;
+    return '<div class="store"><div class="store-h"><b>' + h(s) + '</b><small style="color:var(--muted)">' + done + ' / ' + list.length + '</small></div>' +
+      list.map(i => {
+        const has = i.state === 'ok' || i.state === 'bad';
+        const sub = has ? i.at + ' 입력' + (i.late ? ' · 기한 후' : '') : (i.state === 'miss' ? m + '월 ' + st.window.end + '일까지 입력 없음' : m + '월 ' + st.window.end + '일까지 입력 받는 중');
+        return '<button class="feb" ' + (has ? 'onclick="detail(\'' + i.checkId + '\')"' : 'disabled') + '><span class="fname"><b>' + h(i.name) + '</b><small>' + h(sub) + '</small></span>' +
+          (i.late ? '<span class="chip c-wait">기한 후</span>' : '') + '<span class="chip ' + STATE[i.state][1] + '">' + STATE[i.state][0] + '</span></button>';
+      }).join('') + '</div>';
+  }).join('') : '<div class="banner b-gray">' + S.floor + '에 등록된 소화기가 없습니다.</div>';
+  return topbar('월별 점검 현황 › ' + ymLabel(st.ym) + ' ›', S.floor + ' · 소화기 ' + it.length + '대') + '<div class="wrap list">' +
+    '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">' + chips + '</div>' + body +
+    '<small style="text-align:center;color:var(--muted)">점검완료 · 이상 있음을 누르면 매장에서 입력한 내용을 봅니다</small></div>';
+}
+async function detail(id) {
+  dialog('<div style="display:flex;justify-content:center;padding:40px"><span class="spin" style="color:var(--blue);width:28px;height:28px"></span></div>');
+  try {
+    const r = await call('feDetail', id);
+    if (!r.ok) { closeDialog(); toast(r.error); return; }
+    const bad = r.state === '이상있음';
+    dialog('<div style="display:flex;align-items:center;margin-bottom:10px"><div class="fname"><b style="font-size:17px">' + h(r.name) + '</b><small>' + h(r.floor) + ' · ' + h(r.at) + ' 입력' + (r.late ? ' · 기한 후' : '') + '</small></div><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
+      '<div class="ph43">' + (r.photo ? '<img src="' + r.photo + '" alt="압력계 사진">' : '<small>사진 없음</small>') + '</div>' +
+      '<div style="margin:10px 0"><span class="chip ' + (bad ? 'c-bad' : 'c-ok') + '">' + (bad ? '이상 있음' : '이상 없음') + '</span></div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px"><small style="color:var(--muted)">' + (bad ? '이상 내용' : '외관·압력 이상무') + ' (손글씨)</small><div class="sig">' + (r.signA ? '<img src="' + r.signA + '" alt="문구 손글씨">' : '') + '</div>' +
+      '<small style="color:var(--muted)">이름 (손글씨)</small><div class="sig">' + (r.signB ? '<img src="' + r.signB + '" alt="이름 손글씨">' : '') + '</div></div>');
+  } catch (e) { closeDialog(); }
+}
+
+/* ── 그리기 ── */
+function render() {
+  let html;
+  if (S.view === 'loading') html = renderLoading();
+  else if (S.view === 'retry') html = renderRetry();
+  else if (S.view === 'sign' && S.sign) html = renderSign();
+  else if (!S.token || S.view === 'login') html = renderLogin();
+  else if (S.view === 'docs') html = renderDocs();
+  else if (S.view === 'tbm') html = renderTbm();
+  else if (S.view === 'inspect') html = renderInspect();
+  else if (S.view === 'fire') html = renderFire();
+  else if (S.view === 'qr') html = renderQr();
+  else if (S.view === 'status') html = renderStatus();
+  else if (S.view === 'floor') html = S.st ? renderFloor() : renderStatus();
+  else html = renderMain();
+  $('app').innerHTML = html;
+  if (S.view === 'qr') drawQrs();
+  if (S.view === 'sign') mountSign();
+}
+
+(async function start() {
+  render();   // 「불러오는 중」 — 저장된 표를 확인하는 동안 PIN 화면을 보이지 않음 (결정 48)
+  if (!tokenAlive(S.token)) {
+    store('ws_token', null); S.token = '';
+    const t = await SHELL.get();
+    if (tokenAlive(t)) { S.token = t; store('ws_token', t); }
+  } else SHELL.set(S.token);
+  if (!S.token) { S.view = 'login'; render(); return; }
+  await boot(true);
+})();
+</script>
+</body>
+</html>

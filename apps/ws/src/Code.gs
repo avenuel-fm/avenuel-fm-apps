@@ -1,0 +1,909 @@
+/**
+ * 시설팀 업무지원(WS) — 소화기 점검 테스트판
+ * 기준: claude/통합_업무지원앱_설계정의서.md (RC4) + 수정요청_대기목록 WS-13·WS-14
+ * 범위: 로그인(PIN + 근무일 첫 서명) → 메인 → 점검 → 소화기 점검 (QR 관리·인쇄, 월별·층별 현황, QR 점검 입력)
+ *       서류작업 → TBM 오늘 서명 목록 (사진·PDF는 TBM 양식 받은 뒤) — claude/설계/WS_서류작업.md
+ * 나머지 메뉴는 화면만 두고 "준비 중"으로 표시합니다.
+ *
+ * 테스트판에서 단순화한 것 (정식판에서 공통 DB·cdb로 바꿈)
+ *  - 직원 목록: 공통 DB 대신 이 시트의 `직원` 탭
+ *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
+ */
+
+const APP = { id: 'WS', title: '업무지원', version: '0.4.0-서명로그인', specVersion: 'v1.2', commonVersion: '0.1' };
+const TZ = 'Asia/Seoul';
+const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
+const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
+const STATE_OK = '이상없음';
+const STATE_BAD = '이상있음';
+
+const SHEETS = {
+  '설정': ['키', '값', '설명'],
+  '직원': ['staff_id', '이름', '파트명', '역할', 'pin_hash', 'pin_salt', '사용여부', '수정일시'],
+  '소화기': ['fe_id', '층', '매장명', 'store_id', '번호', '이름', 'qr_token', '사용여부', '등록일시', '등록자', '삭제일시'],
+  '소화기점검': ['check_id', '연월', 'fe_id', '층', '매장명', '소화기이름', '상태', '사진_id', '문구_id', '이름_id', '입력일시', '기한후입력', '덮어쓴횟수', '삭제여부'],
+  '서명': ['sign_id', '근무일', 'staff_id', '이름', '파트명', '서명_id', '서명시각', '들어온길', 'TBM사용', '삭제여부'],
+  '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
+};
+
+const DEFAULT_SETTINGS = [
+  ['점검시작일', '1', '매월 소화기 점검 입력 시작일'],
+  ['점검마감일', '5', '매월 소화기 점검 입력 마감일 (지나도 입력은 받고 "기한 후 입력"으로 표시)'],
+  ['라벨가로mm', '50', 'QR 라벨 가로 (BIXOLON SLP-TX400 · 50×50 라벨)'],
+  ['라벨세로mm', '50', 'QR 라벨 세로'],
+  ['프린터dpi', '203', '라벨 프린터 해상도 (BIXOLON SLP-TX400 = 203dpi, 8점/mm). QR 칸을 점에 맞춰 또렷하게 찍음'],
+  ['사진긴변px', '640', '압력계 사진 가로 (4:3)'],
+  ['사진품질', '0.6', '압력계 사진 JPEG 품질'],
+  ['바로가기주소', '', '바로가기 페이지(껍데기) 주소. 예: https://계정.github.io/fm/ws/ — 넣으면 QR과 링크가 이 주소를 씀 (여러 구글 계정 오류 방지)'],
+  ['FOLDER_CACHE_JSON', '{}', '드라이브 폴더 ID 기억 (자동)']
+];
+
+/* ───────────────────────── 시트 메뉴 · 초기 설정 ───────────────────────── */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('업무지원')
+    .addItem('① 초기 설정', 'setupMenu_')
+    .addItem('② 테스트 직원 등록', 'addStaffMenu_')
+    .addItem('③ 웹앱 주소 보기', 'showUrlMenu_')
+    .addItem('④ QR 고유번호 짧게 바꾸기 (32자리 → 12자리)', 'shortenTokensMenu_')
+    .addItem('⑤ 데이터 점검 (날짜·숫자로 바뀐 칸, 빈 칸)', 'dataCheckMenu_')
+    .addItem('⑥ 서명 정리 예약 켜기 (90일 지난 안 쓴 서명 → 휴지통, 매일 새벽 3시)', 'cleanSignsTriggerMenu_')
+    .addToUi();
+}
+
+/* QR이 덜 빽빽하도록 고유번호 12자리 (헷갈리는 l·o·0·1 제외, 60비트) */
+const TOKEN_ABC = '23456789abcdefghijkmnpqrstuvwxyz';
+function shortToken_(used) {
+  for (let n = 0; n < 20; n++) {
+    const b = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Date.now() + n);
+    let t = '';
+    for (let i = 0; i < 12; i++) t += TOKEN_ABC.charAt(b[i] & 31);
+    if (!used || !used[t]) return t;
+  }
+  throw new Error('고유번호를 만들지 못했습니다. 다시 시도해 주세요.');
+}
+
+/* ⑤ 데이터 점검 (결정 54): 시트가 날짜·숫자로 바꿔 저장한 칸과 꼭 있어야 할 칸이 빈 줄을 찾고, 원하면 글자로 고쳐 씀 */
+const REQUIRED = { '소화기': ['fe_id', '층', '매장명', '이름', 'qr_token'], '소화기점검': ['check_id', '연월', 'fe_id', '상태'], '직원': ['staff_id', '이름', 'pin_hash'], '서명': ['sign_id', '근무일', 'staff_id', '서명_id'] };
+function dataCheck_(fix) {
+  const out = [];
+  let changed = 0, bad = 0, empty = 0;
+  Object.keys(SHEETS).forEach(function (name) {
+    const sh = db_().getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return;
+    const values = sh.getDataRange().getValues();
+    const head = values[0].map(String);
+    let nBad = 0, nEmpty = 0;
+    values.forEach(function (row, i) {
+      if (i === 0 || row.every(function (x) { return x === '' || x === null; })) return;
+      let rowBad = false;
+      row.forEach(function (x, j) { if (typeof x !== 'string' && x !== '' && x !== null) { nBad++; rowBad = true; } });
+      (REQUIRED[name] || []).forEach(function (h) { const j = head.indexOf(h); if (j !== -1 && cellOut_(h, row[j]) === '') nEmpty++; });
+      if (fix && rowBad) {
+        sh.getRange(i + 1, 1, 1, head.length).setValues([head.map(function (h, j) { return asText_(cellOut_(h, row[j])); })]);
+        changed++;
+      }
+    });
+    bad += nBad; empty += nEmpty;
+    if (nBad || nEmpty) out.push('- ' + name + ': 날짜·숫자로 바뀐 칸 ' + nBad + '개' + (nEmpty ? ', 빈 필수 칸 ' + nEmpty + '개' : ''));
+  });
+  return { bad: bad, empty: empty, changed: changed, lines: out };
+}
+function dataCheckMenu_() {
+  const ui = SpreadsheetApp.getUi();
+  const r = dataCheck_(false);
+  if (!r.bad && !r.empty) { ui.alert('데이터 점검', '이상 없습니다. 모든 칸이 글자로 저장되어 있습니다.', ui.ButtonSet.OK); return; }
+  const msg = r.lines.join('\n') + '\n\n날짜·숫자로 바뀐 칸은 앱이 읽을 때 되돌려 쓰므로 집계는 맞습니다.' + (r.bad ? '\n지금 글자로 고쳐 저장할까요? (내용은 그대로, 형식만 바뀝니다)' : '');
+  if (!r.bad) { ui.alert('데이터 점검', msg + '\n\n빈 필수 칸은 시트에서 직접 확인해 주세요.', ui.ButtonSet.OK); return; }
+  if (ui.alert('데이터 점검', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  const f = dataCheck_(true);
+  log_('시트 메뉴', '데이터 점검 고침', '', f.changed + '줄');
+  ui.alert('데이터 점검', f.changed + '줄을 글자로 고쳐 저장했습니다.', ui.ButtonSet.OK);
+}
+
+function shortenTokensMenu_() {
+  const ui = SpreadsheetApp.getUi();
+  const yes = ui.alert('QR 고유번호 짧게 바꾸기', '32자리 고유번호를 쓰는 소화기의 번호를 12자리로 새로 만듭니다.\n바뀐 소화기는 예전에 인쇄한 QR이 더 이상 열리지 않으니, 끝난 뒤 QR을 다시 인쇄해 주세요.\n\n계속할까요?', ui.ButtonSet.YES_NO);
+  if (yes !== ui.Button.YES) return;
+  ui.alert(shortenTokens_() + '개를 바꿨습니다. 웹앱 ① 소화기 QR 관리에서 다시 인쇄해 주세요.');
+}
+
+function shortenTokens_() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const t = readTable_('소화기');
+    const used = {};
+    t.rows.forEach(function (r) { used[r['qr_token']] = 1; });
+    let n = 0;
+    t.rows.forEach(function (r) {
+      if (/^[a-f0-9]{32}$/.test(r['qr_token'])) {
+        const nt = shortToken_(used); used[nt] = 1;
+        updateRow_('소화기', r._row, { 'qr_token': nt }); n++;
+      }
+    });
+    log_('시트 메뉴', 'QR 고유번호 짧게', '', n + '개');
+    return n;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function setupMenu_() {
+  const msg = setup_();
+  SpreadsheetApp.getUi().alert(msg);
+}
+
+function setup_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('APP_DB_ID', ss.getId());
+  if (!props.getProperty('HUB_KEY')) props.setProperty('HUB_KEY', randomHex_(32));
+
+  Object.keys(SHEETS).forEach(function (name) {
+    let sh = ss.getSheetByName(name);
+    if (!sh) sh = ss.insertSheet(name);
+    const head = SHEETS[name];
+    const cur = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
+    head.forEach(function (h, i) {
+      if (cur.indexOf(h) === -1) {
+        const col = cur.filter(String).length + 1;
+        sh.getRange(1, col).setValue(h);
+        cur[col - 1] = h;
+      }
+    });
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold').setBackground('#EDF0F3');
+    sh.getRange(2, 1, Math.max(sh.getMaxRows() - 1, 1), head.length).setNumberFormat('@');
+  });
+
+  const set = readTable_('설정');
+  DEFAULT_SETTINGS.forEach(function (d) {
+    if (!set.rows.some(function (r) { return r['키'] === d[0]; })) appendRow_('설정', { '키': d[0], '값': d[1], '설명': d[2] });
+  });
+
+  const s1 = ss.getSheetByName('Sheet1') || ss.getSheetByName('시트1');
+  if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s1);
+
+  const folder = monthFolder_(ym_(new Date()));
+  return '초기 설정을 마쳤습니다.\n\n- 탭: ' + Object.keys(SHEETS).join(', ') +
+    '\n- 사진 폴더: 시설팀 통합업무 › 20_업무지원 › 소화기점검 › ' + folder.getName() +
+    '\n\n다음: 메뉴 ② 테스트 직원 등록 → 웹앱 배포';
+}
+
+function addStaffMenu_() {
+  const ui = SpreadsheetApp.getUi();
+  const n = ui.prompt('테스트 직원 등록 (1/4)', '이름', ui.ButtonSet.OK_CANCEL);
+  if (n.getSelectedButton() !== ui.Button.OK) return;
+  const p = ui.prompt('테스트 직원 등록 (2/4)', 'PIN 4자리 (휴대폰 뒷 4자리, 겹치면 앞 4자리)', ui.ButtonSet.OK_CANCEL);
+  if (p.getSelectedButton() !== ui.Button.OK) return;
+  const part = ui.prompt('테스트 직원 등록 (3/4)', '파트명 (예: 전방파트)', ui.ButtonSet.OK_CANCEL);
+  if (part.getSelectedButton() !== ui.Button.OK) return;
+  const r = ui.prompt('테스트 직원 등록 (4/4)', '역할: ' + ROLES.join(' / '), ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  const res = addStaff_(n.getResponseText(), p.getResponseText(), part.getResponseText(), r.getResponseText());
+  ui.alert(res.ok ? (res.name + ' 님을 등록했습니다 (' + res.staff_id + ')') : res.error);
+}
+
+function addStaff_(name, pin, part, role) {
+  name = String(name || '').trim();
+  pin = String(pin || '').trim();
+  part = String(part || '').trim() || '전방파트';
+  role = String(role || '').trim() || '직원';
+  if (!name) return { ok: false, error: '이름을 넣어 주세요.' };
+  if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN은 숫자 4자리입니다.' };
+  if (ROLES.indexOf(role) === -1) return { ok: false, error: '역할은 ' + ROLES.join(' / ') + ' 중 하나입니다.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const t = readTable_('직원');
+    const dup = t.rows.some(function (s) { return s['사용여부'] !== 'N' && hashPin_(pin, s['pin_salt']) === s['pin_hash']; });
+    if (dup) return { ok: false, error: '이 PIN은 다른 직원이 쓰고 있습니다. 휴대폰 번호 앞 4자리(010 다음)를 넣어 주세요.' };
+    let max = 0;
+    t.rows.forEach(function (s) { const m = /^S(\d+)$/.exec(s['staff_id']); if (m) max = Math.max(max, Number(m[1])); });
+    const id = 'S' + ('00' + (max + 1)).slice(-3);
+    const salt = randomHex_(8);
+    appendRow_('직원', { 'staff_id': id, '이름': name, '파트명': part, '역할': role, 'pin_hash': hashPin_(pin, salt), 'pin_salt': salt, '사용여부': 'Y', '수정일시': now_() });
+    log_('관리자(시트)', '직원 등록', id, name + ' · ' + role);
+    return { ok: true, staff_id: id, name: name };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function showUrlMenu_() {
+  const url = ScriptApp.getService().getUrl();
+  SpreadsheetApp.getUi().alert(url ? ('웹앱 주소\n\n' + url) : '아직 웹앱으로 배포하지 않았습니다. 설치 안내 4단계를 보세요.');
+}
+
+/* ───────────────────────── 웹 진입 ───────────────────────── */
+
+/** GitHub check.html이 보내는 점검 입력 (본문 text/plain JSON — 미리 묻기(preflight) 없이 다른 주소에서 보낼 수 있음) */
+function doPost(e) {
+  let out;
+  try {
+    const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (body.action === 'checkSubmit') out = checkSubmit(body.qr, body.d);
+    else throw new Error('알 수 없는 요청');
+  } catch (err) {
+    out = { ok: false, error: String(err.message || err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  if (p.api) return api_(p);
+  if (p.fe !== undefined) {
+    const t = HtmlService.createTemplateFromFile('Check');
+    t.qr = isQrToken_(p.fe) ? String(p.fe) : '';
+    return t.evaluate()
+      .setTitle('소화기 점검')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+  const t = HtmlService.createTemplateFromFile('Index');
+  t.execUrl = publicUrl_();
+  return t.evaluate()
+    .setTitle('업무지원')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * 밖으로 알려 주는 주소 (QR · 링크).
+ * 바로가기 페이지(껍데기)를 쓰면 그 주소, 아니면 웹앱 /exec 주소.
+ * 껍데기를 쓰는 이유: 휴대폰 브라우저에 구글 계정이 여러 개 로그인되어 있으면
+ * /exec 주소가 /u/1/ 주소로 바뀌면서 "현재 파일을 열 수 없습니다" 오류가 남.
+ */
+function publicUrl_() {
+  const s = String(setting_('바로가기주소') || '').trim();
+  if (/^https:\/\/[^\s"'<>]+$/.test(s)) return s.replace(/[?#].*$/, '');
+  return ScriptApp.getService().getUrl() || '';
+}
+
+function include(name) {
+  return HtmlService.createHtmlOutputFromFile(name).getContent();
+}
+
+function api_(p) {
+  let out;
+  try {
+    if (p.api === 'ping') {
+      out = { ok: true, app: APP.id, title: APP.title, version: APP.version, specVersion: APP.specVersion, commonVersion: APP.commonVersion };
+    } else if (p.api === 'check') {
+      // GitHub 바로가기 페이지의 QR 입력 화면(check.html)용 — 고유번호만으로 열림 (결정 42)
+      out = checkInit(p.fe);
+    } else if (p.api === 'summary') {
+      if (!p.key || p.key !== PropertiesService.getScriptProperties().getProperty('HUB_KEY')) throw new Error('키가 맞지 않습니다');
+      out = summary_();
+    } else {
+      throw new Error('알 수 없는 요청');
+    }
+  } catch (err) {
+    out = { ok: false, error: String(err.message || err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** 개선 A: HUB 할 일용 요약 (4일부터 마감 임박, 마감 뒤 미입력) */
+function summary_() {
+  const st = buildStatus_(ym_(new Date()));
+  const c = countStates_(st.items);
+  const todos = [];
+  const d = Number(Utilities.formatDate(new Date(), TZ, 'd'));
+  if (c.wait > 0 && d >= st.window.end - 1 && d <= st.window.end) {
+    todos.push({ key: 'fe_due', label: '소화기 점검 마감 임박 (' + st.window.end + '일)', count: c.wait, level: 'or', role: ['소장', '부소장', '파트장'], url: '' });
+  }
+  if (c.miss > 0) todos.push({ key: 'fe_miss', label: '소화기 점검 미입력', count: c.miss, level: 'rd', role: ['소장', '부소장', '파트장'], url: '' });
+  if (c.bad > 0) todos.push({ key: 'fe_bad', label: '소화기 이상 있음', count: c.bad, level: 'or', role: ['소장', '부소장', '파트장'], url: '' });
+  return { ok: true, app: APP.id, counts: c, labels: { ok: '점검완료', bad: '이상 있음', wait: '점검 전', miss: '미입력' }, todos: todos };
+}
+
+/* ───────────────────────── 로그인 ───────────────────────── */
+
+/**
+ * 로그인 = PIN + 근무일 첫 서명 (결정 56·60)
+ * - PIN이 맞고 오늘(근무일) 서명이 있으면 바로 기기 표
+ * - 오늘 서명이 없고 signPng도 없으면 { needSign, name } 만 돌려줌 (표는 주지 않음 → 서명 안 하면 로그인 안 됨)
+ * - 서명과 함께 다시 부르면 서명을 저장하고 기기 표
+ */
+function login(pin, deviceId, signPng) {
+  pin = String(pin || '');
+  deviceId = String(deviceId || 'none').slice(0, 64);
+  const cache = CacheService.getScriptCache();
+  const lockKey = 'pinlock_' + deviceId;
+  if (cache.get(lockKey)) return { ok: false, error: '5번 틀려서 이 기기는 5분 동안 입력할 수 없습니다.' };
+  if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN 4자리를 넣어 주세요.' };
+  const staff = readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N'; });
+  const me = staff.filter(function (s) { return hashPin_(pin, s['pin_salt']) === s['pin_hash']; })[0];
+  if (!me) {
+    const failKey = 'pinfail_' + deviceId;
+    const n = Number(cache.get(failKey) || 0) + 1;
+    if (n >= 5) { cache.put(lockKey, '1', 300); cache.remove(failKey); return { ok: false, error: '5번 틀려서 이 기기는 5분 동안 입력할 수 없습니다.' }; }
+    cache.put(failKey, String(n), 300);
+    return { ok: false, error: 'PIN이 맞지 않습니다. (' + n + '/5)' };
+  }
+  cache.remove('pinfail_' + deviceId);
+  const day = workDay_(Date.now());
+  let sign = todaySign_(me['staff_id'], day);
+  if (!sign) {
+    if (!signPng) return { ok: false, needSign: true, name: me['이름'], part: me['파트명'], day: day };
+    const saved = saveSign_(me, signPng, 'PIN');
+    if (!saved.ok) return saved;
+    sign = saved.sign;
+  }
+  log_(me['이름'], '로그인', me['staff_id'], sign ? '서명 ' + sign['sign_id'] : '');
+  return { ok: true, token: makeToken_(me), user: userOut_(me) };
+}
+
+/** 기기 표는 있는데 오늘 서명이 없을 때 (시트에서 지웠거나 입장표로 들어온 경우) */
+function signToday(token, signPng) {
+  const me = auth_(token);
+  const day = workDay_(Date.now());
+  if (todaySign_(me['staff_id'], day)) return { ok: true, already: true };
+  const saved = saveSign_(me, signPng, '기기 표');
+  if (!saved.ok) return saved;
+  log_(me['이름'], '오늘 서명', me['staff_id'], saved.sign['sign_id']);
+  return { ok: true };
+}
+
+function bootstrap(token) {
+  const me = auth_(token);
+  const st = buildStatus_(ym_(new Date()));
+  const day = workDay_(Date.now());
+  const signs = daySigns_(day);
+  return {
+    ok: true, user: userOut_(me), app: APP,
+    needSign: !signs.some(function (r) { return r['staff_id'] === me['staff_id']; }),
+    docs: { day: day, signs: signs.length },
+    fire: { counts: countStates_(st.items), window: st.window, day: st.day, ym: st.ym }
+  };
+}
+
+function userOut_(s) {
+  return { staff_id: s['staff_id'], name: s['이름'], part: s['파트명'], role: s['역할'] };
+}
+
+/* ───────────────────────── 근무일 · 기기 표 ───────────────────────── */
+
+/** 근무일 시작 = 오전 6시 (한국 시간, 결정 60). 기기 표 만료도 같은 경계 */
+const WORKDAY_START_H = 6;
+const KST_MS = 9 * 3600 * 1000, DAY_MS = 24 * 3600 * 1000;
+
+/** 로그인 뒤 처음 오는 오전 6시. 한국은 서머타임이 없어 +9시간 고정 */
+function nextWorkStart_(nowMs) {
+  const k = new Date(nowMs + KST_MS);
+  let t = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate(), WORKDAY_START_H, 0, 0) - KST_MS;
+  if (t <= nowMs) t += DAY_MS;
+  return t;
+}
+
+/** 근무일 'yyyy-MM-dd' — 오전 6시 전이면 전날 */
+function workDay_(nowMs) {
+  return new Date(nowMs + KST_MS - WORKDAY_START_H * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+function makeToken_(s) {
+  const exp = nextWorkStart_(Date.now());
+  const payload = s['staff_id'] + '.' + exp;
+  return payload + '.' + sign_(payload + '|' + String(s['pin_hash']).slice(0, 8));
+}
+
+function auth_(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3) throw new Error('LOGIN');
+  const exp = Number(parts[1]);
+  if (!exp || exp < Date.now()) throw new Error('LOGIN');
+  if (exp > nextWorkStart_(Date.now())) throw new Error('LOGIN');   // 예전 30일·8시 표는 받지 않음 → 한 번 다시 로그인하면 6시 규칙 (결정 60)
+  const s = readTable_('직원').rows.filter(function (r) { return r['staff_id'] === parts[0] && r['사용여부'] !== 'N'; })[0];
+  if (!s) throw new Error('LOGIN');
+  if (sign_(parts[0] + '.' + parts[1] + '|' + String(s['pin_hash']).slice(0, 8)) !== parts[2]) throw new Error('LOGIN');
+  return s;
+}
+
+/* ───────────────────────── 서명 (WS_서류작업 2~4장) ───────────────────────── */
+
+function daySigns_(day) {
+  return readTable_('서명').rows
+    .filter(function (r) { return r['근무일'] === day && r['삭제여부'] !== 'Y'; })
+    .sort(function (a, b) { return a['서명시각'] < b['서명시각'] ? -1 : a['서명시각'] > b['서명시각'] ? 1 : 0; });
+}
+
+function todaySign_(staffId, day) {
+  return daySigns_(day).filter(function (r) { return r['staff_id'] === staffId; })[0] || null;
+}
+
+/** 서명 저장: 흑백 600px PNG(화면에서 줄여 보냄) → 드라이브, 시트에는 파일 번호만 (결정 60) */
+function saveSign_(me, signPng, via) {
+  const blob = parseDataUrl_(signPng, 'image/png', 300, 400000);
+  if (!blob) return { ok: false, error: '서명이 비어 있거나 너무 짧습니다. 다시 써 주세요.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const nowMs = Date.now();
+    const day = workDay_(nowMs);
+    const t = readTable_('서명');
+    const dup = t.rows.filter(function (r) { return r['근무일'] === day && r['staff_id'] === me['staff_id'] && r['삭제여부'] !== 'Y'; })[0];
+    if (dup) return { ok: true, sign: dup };   // 두 기기에서 동시에 서명해도 한 줄만
+    const key = day.replace(/-/g, '');
+    let seq = 0;
+    t.rows.forEach(function (r) { const m = new RegExp('^WS-SG-' + key + '-(\\d+)$').exec(r['sign_id']); if (m) seq = Math.max(seq, Number(m[1])); });
+    const id = 'WS-SG-' + key + '-' + ('00' + (seq + 1)).slice(-3);
+    const folder = folderPath_(['시설팀 통합업무', '20_업무지원', '서류작업', '서명', day.slice(0, 7)]);
+    const at = Utilities.formatDate(new Date(nowMs), TZ, 'yyyy-MM-dd HH:mm:ss');
+    const fileId = saveBlob_(folder, blob, day + '_서명-' + safeName_(me['이름']) + '.png', id + ' · ' + me['이름'] + ' · ' + at);
+    const row = { 'sign_id': id, '근무일': day, 'staff_id': me['staff_id'], '이름': me['이름'], '파트명': me['파트명'], '서명_id': fileId, '서명시각': at, '들어온길': via, 'TBM사용': 'N', '삭제여부': 'N' };
+    appendRow_('서명', row);
+    return { ok: true, sign: row };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** TBM 서명란 미리보기: 오늘 근무일에 로그인한 직원만, 파트 구분 없이 로그인 순 (결정 56) */
+function tbmToday(token) {
+  auth_(token);
+  const day = workDay_(Date.now());
+  const list = daySigns_(day).map(function (r, i) {
+    return { no: i + 1, name: r['이름'], part: r['파트명'], at: String(r['서명시각']).slice(11, 16), img: fileB64_(r['서명_id']) };
+  });
+  return { ok: true, day: day, signs: list };
+}
+
+/** 개선 C: TBM PDF에 쓰이지 않은 서명은 90일 뒤 휴지통 (매일 예약 작업) */
+function cleanSigns_() {
+  const limit = workDay_(Date.now() - 90 * DAY_MS);
+  const t = readTable_('서명');
+  let n = 0;
+  t.rows.forEach(function (r) {
+    if (r['삭제여부'] !== 'Y' && r['TBM사용'] !== 'Y' && r['근무일'] && r['근무일'] < limit) {
+      trashFile_(r['서명_id']);
+      updateRow_('서명', r._row, { '삭제여부': 'Y' });
+      n++;
+    }
+  });
+  if (n) log_('예약 작업', '서명 정리', '', n + '개 휴지통');
+  return n;
+}
+
+function cleanSignsTriggerMenu_() {
+  ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === 'cleanSigns_') ScriptApp.deleteTrigger(tr); });
+  ScriptApp.newTrigger('cleanSigns_').timeBased().everyDays(1).atHour(3).inTimezone(TZ).create();
+  SpreadsheetApp.getUi().alert('서명 정리 예약을 켰습니다. 매일 새벽 3시에 90일 지난 안 쓴 서명을 휴지통으로 옮깁니다.');
+}
+
+function sign_(text) {
+  const key = PropertiesService.getScriptProperties().getProperty('HUB_KEY');
+  if (!key) throw new Error('초기 설정을 먼저 해 주세요');
+  const raw = Utilities.computeHmacSha256Signature(text, key);
+  return Utilities.base64EncodeWebSafe(raw).replace(/=+$/, '');
+}
+
+function hashPin_(pin, salt) {
+  return toHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(salt) + String(pin), Utilities.Charset.UTF_8));
+}
+
+/* ───────────────────────── 소화기 QR 관리 ───────────────────────── */
+
+function feList(token) {
+  auth_(token);
+  const items = readTable_('소화기').rows
+    .filter(function (r) { return r['사용여부'] !== 'N'; })
+    .map(feOut_)
+    .sort(feSort_);
+  return { ok: true, items: items, execUrl: publicUrl_(), label: labelSize_() };
+}
+
+function feAdd(token, d) {
+  const me = auth_(token);
+  const floor = String(d && d.floor || '');
+  const store = cleanText_(d && d.store, 30);
+  const count = Math.min(Math.max(Number(d && d.count) || 1, 1), 20);
+  if (FLOORS.indexOf(floor) === -1) return { ok: false, error: '층을 골라 주세요.' };
+  if (!store) return { ok: false, error: '매장명을 넣어 주세요.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const t = readTable_('소화기');
+    let maxNo = 0;
+    t.rows.forEach(function (r) { if (r['매장명'] === store) maxNo = Math.max(maxNo, Number(r['번호']) || 0); });
+    const day = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd');
+    let seq = 0;
+    t.rows.forEach(function (r) { const m = new RegExp('^WS-FE-' + day + '-(\\d+)$').exec(r['fe_id']); if (m) seq = Math.max(seq, Number(m[1])); });
+    const added = [];
+    const used = {};
+    t.rows.forEach(function (r) { used[r['qr_token']] = 1; });
+    for (let i = 1; i <= count; i++) {
+      seq++;
+      const no = maxNo + i;
+      const row = {
+        'fe_id': 'WS-FE-' + day + '-' + ('00' + seq).slice(-3),
+        '층': floor, '매장명': store, 'store_id': '', '번호': String(no), '이름': store + '-소화기' + no,
+        'qr_token': (function () { const k = shortToken_(used); used[k] = 1; return k; })(), '사용여부': 'Y', '등록일시': now_(), '등록자': me['이름'], '삭제일시': ''
+      };
+      appendRow_('소화기', row);
+      added.push(row['이름']);
+    }
+    log_(me['이름'], '소화기 등록', '', floor + ' · ' + added.join(', '));
+    return { ok: true, added: added };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function feDelete(token, ids) {
+  const me = auth_(token);
+  ids = (ids || []).map(String);
+  if (!ids.length) return { ok: false, error: '지울 소화기를 골라 주세요.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const t = readTable_('소화기');
+    const names = [];
+    t.rows.forEach(function (r) {
+      if (ids.indexOf(r['fe_id']) !== -1 && r['사용여부'] !== 'N') {
+        updateRow_('소화기', r._row, { '사용여부': 'N', '삭제일시': now_() });
+        names.push(r['이름']);
+      }
+    });
+    log_(me['이름'], '소화기 삭제', '', names.join(', '));
+    return { ok: true, count: names.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function feOut_(r) {
+  return { id: r['fe_id'], floor: r['층'], store: r['매장명'], no: Number(r['번호']) || 0, name: r['이름'], token: r['qr_token'], created: r['등록일시'] };
+}
+
+function feSort_(a, b) {
+  const f = FLOORS.indexOf(a.floor) - FLOORS.indexOf(b.floor);
+  if (f) return f;
+  if (a.store !== b.store) return a.store < b.store ? -1 : 1;
+  return a.no - b.no;
+}
+
+function labelSave(token, w, h) {
+  const me = auth_(token);
+  w = Math.round(Number(w) * 10) / 10; h = Math.round(Number(h) * 10) / 10;
+  if (!(w >= 15 && w <= 100 && h >= 15 && h <= 100)) return { ok: false, error: '라벨 크기는 15~100mm 사이로 넣어 주세요.' };
+  const old = labelSize_();
+  if (old.w === w && old.h === h) return { ok: true, label: old };
+  setSetting_('라벨가로mm', String(w)); setSetting_('라벨세로mm', String(h));
+  log_(me['이름'], 'QR 라벨 크기', '', old.w + '×' + old.h + ' → ' + w + '×' + h + 'mm');
+  return { ok: true, label: { w: w, h: h, dpi: old.dpi } };
+}
+
+function labelSize_() {
+  return { w: Number(setting_('라벨가로mm')) || 50, h: Number(setting_('라벨세로mm')) || 50, dpi: Number(setting_('프린터dpi')) || 203 };
+}
+
+/* ───────────────────────── 점검 현황 ───────────────────────── */
+
+function feStatus(token, ym) {
+  auth_(token);
+  if (!/^\d{4}-\d{2}$/.test(String(ym || ''))) ym = ym_(new Date());
+  const st = buildStatus_(ym);
+  st.ok = true;
+  st.counts = countStates_(st.items);
+  st.months = monthList_();
+  return st;
+}
+
+function buildStatus_(ym) {
+  const now = new Date();
+  const curYm = ym_(now);
+  const day = Number(Utilities.formatDate(now, TZ, 'd'));
+  const win = { start: Number(setting_('점검시작일')) || 1, end: Number(setting_('점검마감일')) || 5 };
+  const monthEnd = ym + '-31 23:59';
+  const monthStart = ym + '-01 00:00';
+  const checks = {};
+  readTable_('소화기점검').rows.forEach(function (c) {
+    if (c['연월'] === ym && c['삭제여부'] !== 'Y') checks[c['fe_id']] = c;
+  });
+  // 삭제한 소화기는 삭제한 달 이전에만 보이고, 삭제한 달이라도 이미 점검 기록이 있으면 보임
+  const fes = readTable_('소화기').rows.filter(function (r) {
+    if (String(r['등록일시']) > monthEnd) return false;
+    if (r['사용여부'] === 'N') {
+      const del = String(r['삭제일시']);
+      if (del < monthStart) return false;
+      if (del <= monthEnd && !checks[r['fe_id']]) return false;
+    }
+    return true;
+  }).map(feOut_);
+  const items = fes.sort(feSort_).map(function (f) {
+    const c = checks[f.id];
+    let state;
+    if (c) state = c['상태'] === STATE_BAD ? 'bad' : 'ok';
+    else if (ym > curYm) state = 'wait';
+    else if (ym === curYm && day <= win.end) state = 'wait';
+    else state = 'miss';
+    return {
+      id: f.id, floor: f.floor, store: f.store, name: f.name, no: f.no, state: state,
+      checkId: c ? c['check_id'] : '', at: c ? c['입력일시'] : '', late: c ? c['기한후입력'] === 'Y' : false
+    };
+  });
+  return { ym: ym, curYm: curYm, day: day, window: win, isCurrent: ym === curYm, items: items };
+}
+
+function countStates_(items) {
+  const c = { ok: 0, bad: 0, wait: 0, miss: 0, total: items.length };
+  items.forEach(function (i) { c[i.state]++; });
+  return c;
+}
+
+function monthList_() {
+  const now = ym_(new Date());
+  let first = now;
+  readTable_('소화기').rows.forEach(function (r) { const m = String(r['등록일시']).slice(0, 7); if (/^\d{4}-\d{2}$/.test(m) && m < first) first = m; });
+  const out = [];
+  let y = Number(first.slice(0, 4)), m = Number(first.slice(5, 7));
+  for (let guard = 0; guard < 120; guard++) {
+    const s = y + '-' + ('0' + m).slice(-2);
+    out.push(s);
+    if (s === now) break;
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+function feDetail(token, checkId) {
+  auth_(token);
+  const c = readTable_('소화기점검').rows.filter(function (r) { return r['check_id'] === String(checkId) && r['삭제여부'] !== 'Y'; })[0];
+  if (!c) return { ok: false, error: '입력 내용을 찾지 못했습니다.' };
+  return {
+    ok: true,
+    name: c['소화기이름'], floor: c['층'], ym: c['연월'], state: c['상태'], at: c['입력일시'], late: c['기한후입력'] === 'Y',
+    photo: fileB64_(c['사진_id']), signA: fileB64_(c['문구_id']), signB: fileB64_(c['이름_id'])
+  };
+}
+
+function fileB64_(id) {
+  if (!id) return '';
+  try {
+    const b = DriveApp.getFileById(id).getBlob();
+    return 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes());
+  } catch (e) {
+    return '';
+  }
+}
+
+/* ───────────────────────── QR 점검 입력 (로그인 없음) ───────────────────────── */
+
+function checkInit(qr) {
+  const f = feByToken_(qr);
+  if (!f) return { ok: false, error: '등록되지 않았거나 삭제된 QR입니다. 시설팀에 알려 주세요.' };
+  const now = new Date();
+  const ym = ym_(now);
+  const day = Number(Utilities.formatDate(now, TZ, 'd'));
+  const win = { start: Number(setting_('점검시작일')) || 1, end: Number(setting_('점검마감일')) || 5 };
+  const exists = readTable_('소화기점검').rows.some(function (c) { return c['fe_id'] === f.id && c['연월'] === ym && c['삭제여부'] !== 'Y'; });
+  return {
+    ok: true,
+    fe: { name: f.name, floor: f.floor, store: f.store },
+    ym: ym, monthLabel: Number(ym.slice(0, 4)) + '년 ' + Number(ym.slice(5, 7)) + '월',
+    window: win, day: day, late: day > win.end, early: day < win.start, exists: exists,
+    photo: { w: Number(setting_('사진긴변px')) || 640, q: Number(setting_('사진품질')) || 0.6 }
+  };
+}
+
+function checkSubmit(qr, d) {
+  const f = feByToken_(qr);
+  if (!f) return { ok: false, error: '등록되지 않았거나 삭제된 QR입니다.' };
+  d = d || {};
+  const state = d.state === STATE_BAD ? STATE_BAD : STATE_OK;
+  const photo = parseDataUrl_(d.photo, 'image/jpeg', 2000, 600000);
+  const signA = parseDataUrl_(d.signA, 'image/png', 200, 300000);
+  const signB = parseDataUrl_(d.signB, 'image/png', 200, 300000);
+  const missing = [];
+  if (!photo) missing.push('압력계 사진');
+  if (!signA) missing.push(state === STATE_BAD ? '이상 내용 칸' : '외관·압력 이상무 칸');
+  if (!signB) missing.push('이름 칸');
+  if (missing.length) return { ok: false, error: missing.join(', ') + '이(가) 비어 있습니다.' };
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const now = new Date();
+    const ym = ym_(now);
+    const day = Number(Utilities.formatDate(now, TZ, 'd'));
+    const end = Number(setting_('점검마감일')) || 5;
+    const t = readTable_('소화기점검');
+    const old = t.rows.filter(function (c) { return c['fe_id'] === f.id && c['연월'] === ym && c['삭제여부'] !== 'Y'; })[0];
+    if (old && !d.overwrite) return { ok: false, exists: true, error: '이번 달 입력이 이미 있습니다.' };
+
+    const folder = monthFolder_(ym);
+    const base = Utilities.formatDate(now, TZ, 'yyyy-MM-dd') + '_소화기점검-' + safeName_(f.name);
+    if (old) ['사진_id', '문구_id', '이름_id'].forEach(function (k) { trashFile_(old[k]); });
+    const desc = f.floor + ' · ' + f.store + ' · ' + f.name + ' · ' + ym + ' · ' + state;
+    const pId = saveBlob_(folder, photo, base + '_001.jpg', desc);
+    const aId = saveBlob_(folder, signA, base + '_002.png', desc + ' · 문구 손글씨');
+    const bId = saveBlob_(folder, signB, base + '_003.png', desc + ' · 이름 손글씨');
+    const at = now_();
+    const row = {
+      '연월': ym, 'fe_id': f.id, '층': f.floor, '매장명': f.store, '소화기이름': f.name, '상태': state,
+      '사진_id': pId, '문구_id': aId, '이름_id': bId, '입력일시': at, '기한후입력': day > end ? 'Y' : 'N', '삭제여부': 'N'
+    };
+    let checkId;
+    if (old) {
+      checkId = old['check_id'];
+      row['덮어쓴횟수'] = String((Number(old['덮어쓴횟수']) || 0) + 1);
+      updateRow_('소화기점검', old._row, row);
+    } else {
+      const dayKey = Utilities.formatDate(now, TZ, 'yyyyMMdd');
+      let seq = 0;
+      t.rows.forEach(function (c) { const m = new RegExp('^WS-FC-' + dayKey + '-(\\d+)$').exec(c['check_id']); if (m) seq = Math.max(seq, Number(m[1])); });
+      checkId = 'WS-FC-' + dayKey + '-' + ('00' + (seq + 1)).slice(-3);
+      row['check_id'] = checkId;
+      row['덮어쓴횟수'] = '0';
+      appendRow_('소화기점검', row);
+    }
+    log_('매장 직원(QR)', old ? '소화기 점검 다시 입력' : '소화기 점검 입력', checkId, f.name + ' · ' + state + (row['기한후입력'] === 'Y' ? ' · 기한 후' : ''));
+    return { ok: true, state: state, late: row['기한후입력'] === 'Y', checkId: checkId, name: f.name, at: at };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// QR 고유번호 모양 검사 — 12자리(v0.2.2~)와 예전 32자리 모두. 주소 받는 곳(doGet)과 읽는 곳이 같은 검사를 씀
+function isQrToken_(qr) { return /^([a-f0-9]{32}|[2-9a-km-np-z]{12})$/.test(String(qr || '')); }
+
+function feByToken_(qr) {
+  qr = String(qr || '');
+  if (!isQrToken_(qr)) return null;
+  const r = readTable_('소화기').rows.filter(function (x) { return x['qr_token'] === qr && x['사용여부'] !== 'N'; })[0];
+  return r ? feOut_(r) : null;
+}
+
+function parseDataUrl_(s, type, minLen, maxLen) {
+  s = String(s || '');
+  const prefix = 'data:' + type + ';base64,';
+  if (s.indexOf(prefix) !== 0) return null;
+  const b64 = s.slice(prefix.length);
+  if (b64.length < minLen || b64.length > maxLen) return null;
+  try {
+    return Utilities.newBlob(Utilities.base64Decode(b64), type);
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveBlob_(folder, blob, name, desc) {
+  blob.setName(name);
+  const file = folder.createFile(blob);
+  file.setDescription(desc);
+  return file.getId();
+}
+
+function trashFile_(id) {
+  if (!id) return;
+  try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { /* 이미 없음 */ }
+}
+
+/* ───────────────────────── 드라이브 폴더 ───────────────────────── */
+
+function monthFolder_(ym) {
+  return folderPath_(['시설팀 통합업무', '20_업무지원', '소화기점검', ym]);
+}
+
+function folderPath_(path) {
+  const cacheRaw = setting_('FOLDER_CACHE_JSON') || '{}';
+  let cache;
+  try { cache = JSON.parse(cacheRaw); } catch (e) { cache = {}; }
+  const key = path.join('/');
+  if (cache[key]) {
+    try { const f = DriveApp.getFolderById(cache[key]); if (!f.isTrashed()) return f; } catch (e) { /* 다시 찾음 */ }
+  }
+  let parent = DriveApp.getRootFolder();
+  path.forEach(function (name) {
+    const it = parent.getFoldersByName(name);
+    parent = it.hasNext() ? it.next() : parent.createFolder(name);
+  });
+  cache[key] = parent.getId();
+  setSetting_('FOLDER_CACHE_JSON', JSON.stringify(cache));
+  return parent;
+}
+
+/* ───────────────────────── 시트 도우미 ───────────────────────── */
+
+function db_() {
+  const id = PropertiesService.getScriptProperties().getProperty('APP_DB_ID');
+  return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+}
+
+/* 시트 값은 모두 글자로 저장·읽음 (결정 54)
+   - 구글 시트는 '2026-11', '2026-11-04 23:05', '0012' 같은 글자를 날짜·숫자로 바꿔 저장함 (글자 형식을 지정해도 appendRow·setValues는 바뀜)
+   - 쓸 때: 앞에 ' 를 붙이면 시트가 글자 그대로 둠(화면에는 ' 가 안 보임). 줄 하나를 한 번에 쓰는 방식은 그대로라 느려지지 않음. = 로 시작하는 글자가 수식이 되는 것도 막음
+   - 읽을 때: 예전에 날짜·숫자로 바뀌어 저장된 칸도 열 이름에 맞춰 글자로 되돌림 → 이미 쌓인 기록도 그대로 집계됨 */
+function asText_(v) {
+  if (v === undefined || v === null || v === '') return '';
+  return "'" + String(v);
+}
+function cellOut_(h, v) {
+  if (v === null || v === undefined) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    if (isNaN(v.getTime())) return '';
+    if (h === '연월') return Utilities.formatDate(v, TZ, 'yyyy-MM');
+    return Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm');
+  }
+  return String(v);
+}
+
+function readTable_(name) {
+  const sh = db_().getSheetByName(name);
+  if (!sh) throw new Error('시트 메뉴 「업무지원 › ① 초기 설정」을 먼저 해 주세요 (' + name + ' 탭 없음)');
+  const values = sh.getDataRange().getValues();
+  const head = values.shift().map(String);
+  const rows = values.map(function (v, i) {
+    const o = { _row: i + 2 };
+    head.forEach(function (h, j) { o[h] = cellOut_(h, v[j]); });
+    return o;
+  }).filter(function (o) { return head.some(function (h) { return o[h] !== ''; }); });
+  return { head: head, rows: rows, sheet: sh };
+}
+
+function appendRow_(name, obj) {
+  const sh = db_().getSheetByName(name);
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+  sh.appendRow(head.map(function (h) { return asText_(obj[h]); }));
+}
+
+function updateRow_(name, rowNo, patch) {
+  const sh = db_().getSheetByName(name);
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+  const cur = sh.getRange(rowNo, 1, 1, head.length).getValues()[0];
+  const next = head.map(function (h, i) { return asText_(patch[h] === undefined ? cellOut_(h, cur[i]) : patch[h]); });
+  sh.getRange(rowNo, 1, 1, head.length).setValues([next]);
+}
+
+function setting_(key) {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('set_' + key);
+  if (hit !== null) return hit;
+  const r = readTable_('설정').rows.filter(function (x) { return x['키'] === key; })[0];
+  const v = r ? r['값'] : '';
+  if (key !== 'FOLDER_CACHE_JSON') cache.put('set_' + key, v, 60);
+  return v;
+}
+
+function setSetting_(key, value) {
+  const t = readTable_('설정');
+  const r = t.rows.filter(function (x) { return x['키'] === key; })[0];
+  if (r) updateRow_('설정', r._row, { '값': value });
+  else appendRow_('설정', { '키': key, '값': value, '설명': '' });
+  try { CacheService.getScriptCache().remove('set_' + key); } catch (e) { /* 캐시 없음 */ }
+}
+
+function log_(who, what, id, text) {
+  try { appendRow_('변경기록', { '일시': now_(), '누가': who, '무엇을': what, '대상ID': id, '내용': text }); } catch (e) { /* 기록 실패는 무시 */ }
+}
+
+/* ───────────────────────── 작은 도우미 ───────────────────────── */
+
+function now_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'); }
+function ym_(d) { return Utilities.formatDate(d, TZ, 'yyyy-MM'); }
+
+function cleanText_(s, max) {
+  return String(s || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+/** 저장 이름 규칙: 띄어쓰기·특수문자 → '-', 이어진 '-'는 하나로, '_' 금지, 30자 */
+function safeName_(s) {
+  return String(s || '')
+    .replace(/[\s\\/:*?"<>|_#%&{}$!'@+`=.,;[\]()~^]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 30);
+}
+
+function randomHex_(bytes) {
+  let s = '';
+  while (s.length < bytes * 2) s += Utilities.getUuid().replace(/-/g, '');
+  return s.slice(0, bytes * 2);
+}
+
+function toHex_(bytes) {
+  return bytes.map(function (b) { const v = (b < 0 ? b + 256 : b).toString(16); return v.length === 1 ? '0' + v : v; }).join('');
+}
