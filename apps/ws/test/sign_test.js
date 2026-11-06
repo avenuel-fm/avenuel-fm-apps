@@ -29,12 +29,11 @@ const QRLIB = fs.readFileSync(require.resolve('qrcodejs2/qrcode.min.js'), 'utf8'
   await p.waitForSelector('.grid6');
   console.log('3) 서명하고 로그인 → 메인 · 서명 PNG', signLen, '자 (약', Math.round(signLen * 0.75 / 1024), 'KB) · 타일:', (await p.locator('.tile').first().innerText()).replace(/\n/g, ' '));
   await p.screenshot({ path: 'shot_main_docs.png' });
-  await p.locator('.tile').first().click(); await p.click('text=TBM');
-  await p.waitForSelector('.sgrow');
+  await p.locator('.tile').first().click(); await p.click('.row >> text=TBM');
+  await p.waitForSelector('.tbsum'); await p.click('text=서명 목록'); await p.waitForSelector('.sgrow');
   const rows = await p.locator('.sgrow').allInnerTexts();
   console.log('4) TBM 서명 목록:', rows.map(r => r.replace(/\n/g, ' ')).join(' | '));
-  console.log('   PDF 버튼(양식 전 잠김):', await p.locator('button:has-text("PDF로 저장")').isDisabled());
-  await p.screenshot({ path: 'shot_tbm.png', fullPage: true });
+  await p.screenshot({ path: 'shot_tbm_signs.png', fullPage: true });
   await p.click('button:has-text("로그아웃")'); await p.waitForSelector('.key');
   await pin('5678'); await p.waitForSelector('.grid6');
   console.log('5) 같은 근무일 다시 로그인 → 서명 안 묻고 메인');

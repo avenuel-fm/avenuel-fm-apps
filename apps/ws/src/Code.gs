@@ -2,7 +2,7 @@
  * 시설팀 업무지원(WS) — 소화기 점검 테스트판
  * 기준: claude/통합_업무지원앱_설계정의서.md (RC4) + 수정요청_대기목록 WS-13·WS-14
  * 범위: 로그인(PIN + 근무일 첫 서명) → 메인 → 점검 → 소화기 점검 (QR 관리·인쇄, 월별·층별 현황, QR 점검 입력)
- *       서류작업 → TBM 오늘 서명 목록 (사진·PDF는 TBM 양식 받은 뒤), 명일 작업 예정 — docs/설계/WS_서류작업.md
+ *       서류작업 → TBM (서명란·작업 표·위험성·사진 2장·PDF), 명일 작업 예정 — docs/설계/WS_서류작업.md
  * 나머지 메뉴는 화면만 두고 "준비 중"으로 표시합니다.
  *
  * 테스트판에서 단순화한 것 (정식판에서 공통 DB·cdb로 바꿈)
@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.5.0-명일작업', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.6.0-TBM', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -24,6 +24,8 @@ const SHEETS = {
   '소화기점검': ['check_id', '연월', 'fe_id', '층', '매장명', '소화기이름', '상태', '사진_id', '문구_id', '이름_id', '입력일시', '기한후입력', '덮어쓴횟수', '삭제여부'],
   '서명': ['sign_id', '근무일', 'staff_id', '이름', '파트명', '서명_id', '서명시각', '들어온길', 'TBM사용', '삭제여부'],
   '명일작업': ['일자', '순번', '부서', '작업장소', '작업내용', '비고', '고친사람', '고친시각'],
+  'TBM': ['tbm_id', '근무일', '작성자_id', '작성자명', '회의사진_id', '구호사진_id', '작업표', '체크칸', '서명수', 'pdf_id', 'PDF만든시각', '작성시각', '수정시각', '삭제여부'],
+  '위험성목록': ['순서', '낱말', '위험요인', '재해형태', '가능성', '중대성', '개선조치1', '개선조치2', '개선조치3', '개선조치4', '사용여부'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
 
@@ -162,6 +164,8 @@ function setup_() {
   DEFAULT_SETTINGS.forEach(function (d) {
     if (!set.rows.some(function (r) { return r['키'] === d[0]; })) appendRow_('설정', { '키': d[0], '값': d[1], '설명': d[2] });
   });
+
+  seedRisks_();
 
   const s1 = ss.getSheetByName('Sheet1') || ss.getSheetByName('시트1');
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s1);
@@ -451,6 +455,182 @@ function tbmToday(token) {
   });
   return { ok: true, day: day, signs: list };
 }
+
+/* ───────────────────────── TBM 작성 · PDF (WS_서류작업 4-1~5장, 결정 58·66·70) ───────────────────────── */
+
+const TBM_CHECKS = ['사다리', '비계', '우마', '테이블리프트', '크레인', '스카이', '달비계', '용접기'];
+const TBM_MAX_ROWS = 30;
+
+/* 첫 위험성 목록 (4-3, 11-06 확정): [낱말, 위험요인, 재해형태, 가능성, 중대성, 개선조치(✓ = 미리 체크)] — 시트 `위험성목록` 탭에서 고침 */
+const RISK_SEED = [
+  ['사다리', 'A형 사다리 미끄러짐·상부 균형 상실', '떨어짐', 2, 3, ['✓2인 1조, 1명은 아래에서 사다리 지지', '✓안전모(턱끈) 착용, 미끄럼 방지 발판·벌림 고정 확인', '최상단 발판 위 작업 금지']],
+  ['비계', '작업발판 끝에서 헛디딤, 안전난간 없는 곳 접근', '떨어짐', 3, 3, ['✓안전대 부착설비에 안전대 걸고 작업', '✓안전난간·발끝막이판 설치 확인', '작업 전 발판 고정 점검']],
+  ['우마, 말비계', '우마 위에서 움직이다 중심 잃음', '떨어짐', 2, 2, ['✓바퀴 잠금 확인 뒤 올라감', '✓안전모 착용', '우마에 탄 채 옮기지 않음']],
+  ['테이블리프트, 고소작업대, 렌탈', '작업대 올라가다 천장 배관·보에 몸 끼임', '끼임', 2, 3, ['✓유도자 배치, 위쪽 장애물 확인', '✓비상정지 위치·작동 확인', '안전대 체결', '작업 반경 출입 통제']],
+  ['스카이', '버킷에서 떨어짐, 차량 기울어짐', '떨어짐', 2, 3, ['✓버킷 안에서 안전대 체결', '✓아웃트리거 설치·바닥 확인', '아래쪽 출입 통제']],
+  ['크레인, 양중, 인양', '들어 올린 짐 흔들림·와이어로프 끊어짐', '맞음', 2, 3, ['✓짐 아래 출입금지 구역 설정', '✓와이어로프·훅 해지장치 사전 점검', '신호수 배치']],
+  ['달비계', '로프 풀림·끊어짐', '떨어짐', 2, 3, ['✓작업 로프와 따로 구명줄에 안전대 체결', '✓로프 고정점·손상 사전 점검', '아래쪽 출입 통제']],
+  ['용접, 용단, 화기', '불티가 주변 가연물에 튀어 불남', '화재', 2, 3, ['✓주변 가연물 치우거나 방염포 덮음', '✓소화기 비치, 화재감시인 배치', '작업 뒤 30분 불씨 확인']],
+  ['그라인더, 절단', '숫돌 깨져 파편 튐, 옷 말려 들어감', '맞음', 2, 2, ['✓방호덮개 장착 확인', '✓보안면·보호장갑 착용', '소매·끈 정리']],
+  ['페인트, 도장, 약품', '유기용제 증기 마심·불붙음', '화학물질 노출', 2, 2, ['✓환기(창문·송풍기)', '✓방독마스크·보호장갑 착용', '주변 화기 금지']],
+  ['분전반, 차단기, 배선, 전기', '전기 흐르는 부분 노출·접촉', '감전', 1, 3, ['✓작업 전 검전, 되도록 차단 뒤 작업', '✓절연장갑·절연화 착용', '차단기 잠금·「작업 중」 표지']],
+  ['펌프, 팬, 공조기, 모터, 벨트', '돌아가는 부분이 멈추기 전에 손 넣음', '끼임', 1, 3, ['✓전원 차단·잠금·표지 뒤 작업', '✓완전히 멈춘 것 확인 뒤 손 넣기']],
+  ['정화조, 맨홀, 집수정, 밀폐', '산소 부족·유해가스', '질식', 1, 3, ['✓들어가기 전 산소·가스 농도 측정', '✓환기 뒤 들어감, 밖에 감시인 배치', '송기마스크 비치']],
+  ['옥상, 냉각탑', '옥상 끝 쪽 접근', '떨어짐', 1, 3, ['✓안전난간 안쪽에서만 작업', '✓2인 1조']],
+  ['운반, 중량물, 자재', '무거운 물건 혼자 들다 허리 다침', '무리한 동작', 2, 2, ['✓대차 사용, 무거운 것은 2인 운반', '✓무릎 굽혀 들기']],
+  ['배수, 물기, 청소', '바닥 물기·기름에 미끄러짐', '넘어짐', 2, 1, ['✓작업 전 바닥 물기 닦기', '✓미끄럼 방지 안전화 착용', '통로 정리']],
+  ['천장, 점검구', '천장 안 튀어나온 철골에 머리 부딪힘', '부딪힘', 2, 1, ['✓안전모 착용', '✓랜턴 휴대, 조명 확보']],
+  ['(기본)', '공구·자재 다루다 손 다침', '절단·베임·찔림', 1, 1, ['✓보호장갑 착용', '공구 사용 전 상태 확인']]
+];
+
+/** 탭이 없으면 만듦 (시트 메뉴 ①을 다시 하지 않아도 TBM이 열리게). 위험성목록은 첫 목록을 넣음 */
+function ensureTab_(name) {
+  const ss = db_();
+  if (!ss.getSheetByName(name)) {
+    const sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, SHEETS[name].length).setValues([SHEETS[name]]);
+    sh.setFrozenRows(1);
+  }
+  if (name === '위험성목록') seedRisks_();
+}
+function seedRisks_() {
+  const sh = db_().getSheetByName('위험성목록');
+  if (!sh || sh.getLastRow() > 1) return;
+  RISK_SEED.forEach(function (r, i) {
+    const o = { '순서': String(i + 1), '낱말': r[0], '위험요인': r[1], '재해형태': r[2], '가능성': String(r[3]), '중대성': String(r[4]), '사용여부': 'Y' };
+    r[5].forEach(function (f, j) { o['개선조치' + (j + 1)] = f; });
+    appendRow_('위험성목록', o);
+  });
+}
+
+/** 위험성 목록: 순서대로. 낱말이 처음 맞는 줄을 화면에서 미리 고름, 「(기본)」은 맞는 줄이 없을 때 */
+function riskList_() {
+  ensureTab_('위험성목록');
+  const n3 = function (v) { v = Number(v); return v >= 1 && v <= 3 ? Math.round(v) : 1; };
+  return readTable_('위험성목록').rows.filter(function (r) { return r['사용여부'] !== 'N' && r['위험요인']; })
+    .sort(function (a, b) { return Number(a['순서']) - Number(b['순서']); })
+    .map(function (r) {
+      return {
+        words: String(r['낱말']).split(/[,，]/).map(function (w) { return w.trim(); }).filter(String),
+        risk: r['위험요인'], kind: r['재해형태'], p: n3(r['가능성']), s: n3(r['중대성']),
+        fixes: [1, 2, 3, 4].map(function (k) { return String(r['개선조치' + k] || '').trim(); }).filter(String)
+          .map(function (f) { return { t: f.replace(/^✓\s*/, ''), on: /^✓/.test(f) }; })
+      };
+    });
+}
+
+function tbmRow_(day) {
+  ensureTab_('TBM');
+  return readTable_('TBM').rows.filter(function (r) { return r['근무일'] === day && r['삭제여부'] !== 'Y'; })[0] || null;
+}
+
+function tbmFolder_(day) {
+  return folderPath_(['시설팀 통합업무', '20_업무지원', '서류작업', 'TBM', day.slice(0, 4), day.slice(0, 7)]);
+}
+
+function jsonOr_(s, dflt) { try { const v = JSON.parse(s); return v == null ? dflt : v; } catch (e) { return dflt; } }
+
+/**
+ * TBM 화면 불러오기: 오늘 서명(로그인 순) · 관리감독자(역할 소장, 없으면 부소장) · 위험성 목록 · 저장한 작업 표·사진.
+ * 아직 저장 안 했으면 작업 표는 오늘 근무일 날짜의 명일 작업 예정에서 가져옴 (위험성은 화면에서 낱말로 미리 고름)
+ */
+function tbmGet(token) {
+  auth_(token);
+  const day = workDay_(Date.now());
+  const roles = {};
+  readTable_('직원').rows.forEach(function (s) { roles[s['staff_id']] = s['역할']; });
+  const signs = daySigns_(day).map(function (r, i) {
+    return { no: i + 1, id: r['sign_id'], name: r['이름'], part: r['파트명'], role: roles[r['staff_id']] || '', at: String(r['서명시각']).slice(11, 16), img: fileB64_(r['서명_id']) };
+  });
+  const mgr = signs.filter(function (s) { return s.role === '소장'; })[0] || signs.filter(function (s) { return s.role === '부소장'; })[0] || null;
+  const row = tbmRow_(day);
+  const works = row ? jsonOr_(row['작업표'], []) : nwSheet_(day).rows.map(function (r) { return { place: r.place, work: r.work, note: r.note, dept: r.dept, n: '' }; });   // note(비고)는 위험성 미리 고르기에만 씀
+  return {
+    ok: true, day: day, signs: signs, manager: mgr ? { name: mgr.name, img: mgr.img } : null, risks: riskList_(),
+    works: works, checks: row ? jsonOr_(row['체크칸'], {}) : null, saved: !!row, by: row ? row['작성자명'] : '', at: row ? row['수정시각'] : '',
+    photos: { meet: row ? fileB64_(row['회의사진_id']) : '', chant: row ? fileB64_(row['구호사진_id']) : '' },
+    pdf: row && row['pdf_id'] ? { id: row['pdf_id'], at: row['PDF만든시각'], signs: Number(row['서명수']) || 0, url: driveUrl_(row['pdf_id']) } : null
+  };
+}
+
+function cleanWorks_(list) {
+  if (!Array.isArray(list) || list.length > TBM_MAX_ROWS) return null;
+  const n3 = function (v) { v = Number(v); return v >= 1 && v <= 3 ? Math.round(v) : ''; };
+  return list.map(function (w) {
+    w = w || {};
+    return {
+      place: cleanText_(w.place, 40), work: cleanText_(w.work, 100), dept: NW_DEPTS.indexOf(w.dept) !== -1 ? w.dept : '',
+      n: /^\d{1,3}$/.test(String(w.n == null ? '' : w.n)) ? String(w.n) : '',
+      risk: cleanText_(w.risk, 60), kind: cleanText_(w.kind, 20), p: n3(w.p), s: n3(w.s),
+      fixes: (Array.isArray(w.fixes) ? w.fixes : []).slice(0, 6).map(function (f) { return cleanText_(f, 80); }).filter(String)
+    };
+  });
+}
+
+/** [저장]: 작업 표·체크 칸·사진 2장 (사진은 바꾼 것만 보냄, 1600px JPEG). PDF는 만들지 않음 (결정 58) */
+function tbmSave(token, d) {
+  const me = auth_(token);
+  d = d || {};
+  const works = cleanWorks_(d.works);
+  if (!works) return { ok: false, error: '작업 표는 ' + TBM_MAX_ROWS + '줄까지 넣을 수 있습니다' };
+  const checks = {};
+  TBM_CHECKS.forEach(function (k) { if (d.checks && d.checks[k]) checks[k] = true; });
+  const pics = {};
+  for (const k of ['meet', 'chant']) {
+    if (!d[k]) continue;
+    pics[k] = parseDataUrl_(d[k], 'image/jpeg', 1000, 4000000);
+    if (!pics[k]) return { ok: false, error: (k === 'meet' ? '회의' : '구호') + ' 사진을 읽지 못했습니다. 다시 골라 주세요.' };
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const day = workDay_(Date.now());
+    const row = tbmRow_(day);
+    const at = now_();
+    const patch = { '작업표': JSON.stringify(works), '체크칸': JSON.stringify(checks), '수정시각': at };
+    const name = { meet: ['회의사진_id', '_001'], chant: ['구호사진_id', '_002'] };
+    Object.keys(pics).forEach(function (k) {
+      if (row) trashFile_(row[name[k][0]]);
+      patch[name[k][0]] = saveBlob_(tbmFolder_(day), pics[k], day + '_TBM-' + (k === 'meet' ? '회의사진' : '구호사진') + name[k][1] + '.jpg', 'TBM ' + day + ' · ' + me['이름']);
+    });
+    if (row) updateRow_('TBM', row._row, patch);
+    else appendRow_('TBM', Object.assign(patch, { 'tbm_id': 'WS-TB-' + day.replace(/-/g, '') + '-001', '근무일': day, '작성자_id': me['staff_id'], '작성자명': me['이름'], '서명수': '0', '작성시각': at, '삭제여부': 'N' }));
+    log_(me['이름'], 'TBM 저장', day, works.length + '줄 · 사진 ' + Object.keys(pics).length + '장');
+    return { ok: true, at: at };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** [PDF로 저장]: 화면이 만든 A4 가로 2쪽 PDF를 드라이브에 저장. 다시 누르면 새로 만들고 예전 PDF는 휴지통. 쓰인 서명은 TBM사용=Y */
+function tbmSavePdf(token, dataUri, signIds) {
+  const me = auth_(token);
+  const m = /^data:application\/pdf[^,]*;base64,(.+)$/.exec(String(dataUri || ''));
+  if (!m || m[1].length < 100) return { ok: false, error: 'PDF 내용이 올바르지 않습니다' };
+  const bytes = Utilities.base64Decode(m[1]);
+  if (bytes.length > 30 * 1024 * 1024) return { ok: false, error: 'PDF가 너무 큽니다' };
+  const ids = (Array.isArray(signIds) ? signIds : []).map(String);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const day = workDay_(Date.now());
+    const row = tbmRow_(day);
+    if (!row) return { ok: false, error: '먼저 [저장]을 눌러 주세요' };
+    trashFile_(row['pdf_id']);
+    const id = saveBlob_(tbmFolder_(day), Utilities.newBlob(bytes, 'application/pdf'), day + '_TBM.pdf', 'TBM ' + day + ' · 서명 ' + ids.length + '명 · ' + me['이름']);
+    const at = now_();
+    updateRow_('TBM', row._row, { 'pdf_id': id, 'PDF만든시각': at, '서명수': String(ids.length) });
+    readTable_('서명').rows.forEach(function (r) {
+      if (ids.indexOf(r['sign_id']) !== -1 && r['TBM사용'] !== 'Y') updateRow_('서명', r._row, { 'TBM사용': 'Y' });
+    });
+    log_(me['이름'], 'TBM PDF 저장', day, '서명 ' + ids.length + '명');
+    return { ok: true, pdf: { id: id, at: at, signs: ids.length, url: driveUrl_(id) } };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function driveUrl_(id) { return 'https://drive.google.com/file/d/' + id + '/view'; }
 
 /* ───────────────────────── 명일 작업 예정 (WS_서류작업 9장, 결정 62·68) ───────────────────────── */
 

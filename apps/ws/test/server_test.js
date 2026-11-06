@@ -223,3 +223,35 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(s4.ok && s4.ver !== s3.ver, '명일: 같은 초에 다시 저장해도 ver 바뀜');
   let threw2 = false; try { nextWorkGet('bad', ''); } catch (e) { threw2 = true; } assert(threw2, '명일: 로그인 필요');
 }
+// TBM 작성 · PDF (WS_서류작업 4-1~5장, 결정 66·70)
+{
+  assert(sheets['위험성목록'].rows.length === 19 && readTable_('위험성목록').rows[0]['낱말'] === '사다리', 'TBM: 초기 설정이 위험성 목록 18줄을 넣음');
+  assert(addStaff_('박부소', '1357', '전방파트', '부소장').ok, 'TBM: 부소장 등록');
+  NOW.d = new Date('2026-12-19T07:00:00+09:00'); const bu = login('1357', 't1', SIG);
+  let g = tbmGet(bu.token);
+  assert(g.ok && g.day === '2026-12-19' && !g.saved && g.manager.name === '박부소', 'TBM: 소장 없으면 부소장이 관리감독자');
+  assert(g.works.length === 2 && g.works[0].work === '층별 전 공조기 구리스 주입' && g.works[0].dept === '기건파트', 'TBM: 작업 표 = 오늘 날짜의 명일 작업 예정');
+  assert(g.risks.length === 18 && g.risks[0].fixes[0].on && !g.risks[0].fixes[2].on && g.risks[0].p === 2 && g.risks[0].s === 3, 'TBM: 위험성 목록 (✓ = 미리 체크)');
+  NOW.d = new Date('2026-12-19T07:30:00+09:00'); const hong = login('1234', 't2', SIG);
+  g = tbmGet(hong.token);
+  assert(g.manager.name === '홍길동' && g.signs.slice(-2).map(s => s.name).join() === '박부소,홍길동' && g.signs.slice(-1)[0].role === '소장', 'TBM: 소장이 오면 소장 (부소장은 서명란에만)');
+  const works = g.works.map(w => Object.assign({}, w, { risk: 'A형 사다리 미끄러짐·상부 균형 상실', kind: '떨어짐', p: 2, s: 3, fixes: ['2인 1조, 1명은 아래에서 사다리 지지', '직접 쓴 조치<script>'] }));
+  assert(!tbmSavePdf(hong.token, 'data:application/pdf;base64,' + 'J'.repeat(200), []).ok, 'TBM: 저장 전 PDF 거부');
+  assert(!tbmSave(hong.token, { works, meet: 'data:image/jpeg;base64,xx' }).ok, 'TBM: 망가진 사진 거부');
+  let s = tbmSave(hong.token, { works, checks: { '사다리': true, '엉뚱': true }, meet: 'data:image/jpeg;base64,' + 'M'.repeat(3000) });
+  assert(s.ok, 'TBM: 저장 (회의 사진 1장)');
+  g = tbmGet(hong.token);
+  assert(g.saved && g.works[0].fixes[1] === '직접 쓴 조치script' && g.works[0].p === 2 && JSON.stringify(g.checks) === '{"사다리":true}' && g.photos.meet && !g.photos.chant, 'TBM: 다시 열면 저장한 내용 · 체크 칸은 정해진 8개만');
+  const meetId = readTable_('TBM').rows[0]['회의사진_id'];
+  assert(files[meetId].name === '2026-12-19_TBM-회의사진_001.jpg', 'TBM: 사진 이름 ' + files[meetId].name);
+  s = tbmSave(hong.token, { works, checks: {}, meet: 'data:image/jpeg;base64,' + 'N'.repeat(3000), chant: 'data:image/jpeg;base64,' + 'C'.repeat(3000) });
+  assert(s.ok && files[meetId].trashed && readTable_('TBM').rows.length === 1, 'TBM: 사진 바꾸면 예전 사진 휴지통, 하루 한 줄');
+  const ids = g.signs.map(x => x.id);
+  let p = tbmSavePdf(hong.token, 'data:application/pdf;filename=generated.pdf;base64,' + 'J'.repeat(400), ids);
+  assert(p.ok && files[p.pdf.id].name === '2026-12-19_TBM.pdf' && p.pdf.signs === ids.length, 'TBM: PDF 저장 ' + files[p.pdf.id].name);
+  assert(readTable_('서명').rows.filter(r => ids.indexOf(r['sign_id']) !== -1).every(r => r['TBM사용'] === 'Y'), 'TBM: PDF에 쓰인 서명은 TBM사용=Y');
+  const first = p.pdf.id;
+  p = tbmSavePdf(hong.token, 'data:application/pdf;base64,' + 'K'.repeat(400), ids);
+  assert(p.ok && files[first].trashed && tbmGet(hong.token).pdf.id === p.pdf.id, 'TBM: 다시 누르면 새 PDF, 예전 PDF 휴지통');
+  assert(!tbmSave(hong.token, { works: new Array(31).fill({}) }).ok, 'TBM: 작업 표 30줄까지');
+}
