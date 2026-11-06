@@ -26,14 +26,17 @@
 | `apps/ws/src/` | Apps Script에 올리는 파일 (`Code.gs`, `Index.html`, `Check.html`, `Styles.html`, `appsscript.json`) |
 | `apps/ws/test/` | 시험 도구 (가짜 구글 시트 서버 시험 + 휴대폰 화면 시험) |
 | `apps/ws/tools/build_fm.py` | `src/Check.html` → `fm/ws/check.html` 만들기 |
-| `apps/dw/` | 도면협의 앱 (도면협의 대화방에서 옮겨 올 자리) |
+| `apps/dw/` | 도면협의 앱 (운영 v1.8.4). 자세한 안내는 `apps/dw/CLAUDE.md` (DW 폴더에서 일할 때 저절로 읽힘) |
+| `apps/dw/src/` | Apps Script에 올리는 파일 (`Code.gs`, `Index.html`, `App.html`, `Styles.html`, `appsscript.json`) |
+| `apps/dw/test/` | 시험 도구 (`gas_test.js` 서버 시험, `e2e*.py`·`ui_audit.py` 화면 시험) |
+| `docs/블럭_연동규칙.md` | 앱 사이 통로(`?api=`) 규칙 |
 | `apps/hub/` | 통합 대시보드 (아직 코드 없음) |
 | `fm/` | 바로가기 페이지(GitHub Pages `avenuel-fm.github.io/fm/`)에 올리는 파일의 원본. `apps.js`에 각 앱 웹앱 주소 |
 
 ## 기술 규칙 (이미 정한 것 — 바꾸려면 사용자 확인)
 - 웹앱: 「나로 실행 · 모든 사용자(익명)」, 화면은 `ALLOWALL`로 바로가기 페이지 안에서 열림.
 - 시트 값은 모두 글자로 저장 (`asText_`, 앞에 `'`), 읽을 때 날짜로 바뀐 칸 되돌림 (`cellOut_`) — 결정 54.
-- 로그인: PIN 4자리 + **근무일 첫 로그인 때 서명**(서명 안 하면 로그인 안 됨). 근무일·기기 표 경계 **오전 6시** — 결정 56·60.
+- 로그인: PIN 4자리 + **근무일 첫 로그인 때 서명**(서명 안 하면 로그인 안 됨). 근무일·기기 표 경계 **오전 6시** — 결정 56·60. **DW만 예외**: 소장·부소장 PIN 2개 방식 그대로 (결정 36).
 - QR: 12자리 고유번호, 바로가기 페이지 주소 사용(`?fe=`), 라벨 프린터 BIXOLON SLP-TX400 · 50×50mm · 203dpi.
 - 카메라는 Apps Script 화면 안에서 막히므로 QR 점검 화면은 `fm/ws/check.html`(GitHub)에서 엶 — 결정 42. `Check.html`을 고치면 `npm run build:fm` 후 `fm/`도 올려야 함.
 
@@ -43,14 +46,31 @@
 - 서버 시험만: `npm test`
 - 전부(서버 + 화면): `npm run test:all` — 끝에 「모두 통과」가 나와야 함
 
+`apps/dw/test` 폴더에서 (도면협의):
+- 처음 한 번: `npm install` 그리고 `python -m pip install playwright`, `python -m playwright install chromium`
+- 서버 시험: `node gas_test.js` — 끝에 「서버 로직 점검 통과」 (약 1~3분)
+- 화면 시험: `python build_preview.py` 뒤 `python e2e*.py`, `python ui_audit.py [--stress]` (아이패드 WebKit 시험은 안 함, 결정 31)
+
 ## 배포 (구글에 올리기)
 - clasp(구글 Apps Script 올리기 도구)를 설정하기 전에는 **사용자가 직접** Apps Script 편집기에 붙여 넣고 「배포 관리 → ✏ → 새 버전」으로 배포합니다. 이때는 어떤 파일을 바꿔야 하는지 정확히 알려 줍니다.
 - clasp 설정 뒤(`apps/ws/.clasp.json`, `rootDir: "src"`): 파일 올리기 → **기존 배포 ID를 새 버전으로 갱신**합니다. **새 배포를 만들면 웹앱 주소가 바뀌므로 절대 새로 만들지 않습니다.** 배포 ID는 사용자에게 받은 값을 `apps/ws/DEPLOY.md`에 적어 둡니다.
 - 배포는 사용자 확인을 받은 뒤에만 합니다.
 - `fm/` 파일이 바뀌면 바로가기 페이지 저장소(GitHub Pages)에도 올려야 한다고 알려 줍니다.
 
+## 도면협의(DW) — `apps/dw`
+- 운영 **v1.8.4** (11-04 배포). 소장·부소장만 쓰는 단독 앱 (결정 32). DW 결정은 홀수, 마지막은 결정 35 → 다음은 **37**.
+- 화면이 바뀌는 일은 **시안(이미지)을 먼저** 보여 줍니다 (`test/build_preview.py` 미리보기 위에 그려 찍음).
+- 수정 요청은 `docs/수정요청_대기목록.md`의 **DW 구역**(DW-n)에 모으고, 「한 번에」라고 하면 한 판으로 묶습니다.
+- 이 앱의 `Styles.html`이 모든 앱 디자인 기준입니다 (06 문서 12장).
+- `APP.VERSION`을 올리면 첫 호출 때 `ensureSchema_()`가 돕니다. 화면 버전 번호도 서버 값이라, `App.html`을 안 바꾸고 배포하면 화면은 옛 판인데 번호만 새 판으로 보입니다 → **배포 안내에 바꿀 파일을 꼭 적습니다.**
+- 시트에 붙은 스크립트이고, 매장 시트 열은 `STORE_COLS` **맨 끝에만** 추가합니다. 드라이브 폴더 4개는 ID로 찾습니다(`appFolder_`).
+- 바로가기: TinyURL `avenuel-dr` → `…/fm/dw/` → `/exec`. `설정.바로가기주소`가 있으면 검토서 QR(`?store=`)·서명 메일(`?sign=`) 링크를 그 주소로 만듭니다.
+- 사진 이름 `YYYY-MM-DD_작업명_###.jpg`, 협의서는 `YYYY-MM-DD_방재실협의서-{테넌트}_001.jpg`.
+- 배포는 지금 사용자가 직접 「배포 관리 → ✏ → 새 버전」으로 합니다 (DW는 clasp 아직 없음, 새 배포 금지).
+- 시트 탭·폴더·스크립트 속성·시트 메뉴 ①~⑧·남은 일 표: `apps/dw/CLAUDE.md`
+
 ## 일을 마칠 때
 1. 시험 결과(통과 수)를 알려 줍니다.
-2. `apps/ws/설치_및_테스트_안내.md` 맨 위에 「바뀐 것 · 올리는 방법」을 적고 `Code.gs`의 `APP.version`을 올립니다.
+2. `apps/ws/설치_및_테스트_안내.md` 맨 위에 「바뀐 것 · 올리는 방법」을 적고 `Code.gs`의 `APP.version`을 올립니다. DW는 `apps/dw/설치_및_테스트_안내.md`와 `APP.VERSION`(+ `gas_test.js`의 버전 확인 줄), 끝난 판은 `docs/완료기록.md`에 적습니다.
 3. 설계 문서가 바뀌었으면 **claude.ai 프로젝트에 다시 올릴 문서 목록**을 알려 줍니다 (프로젝트는 Claude Code가 직접 고치지 못함).
 4. GitHub에 저장(커밋·푸시)은 사용자에게 물어본 뒤 합니다. 저장 메모는 한국어로 짧게.
