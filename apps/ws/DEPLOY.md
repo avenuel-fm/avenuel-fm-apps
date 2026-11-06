@@ -12,7 +12,7 @@
 
 ## 올리는 순서 (`apps/ws` 폴더에서)
 1. 시험: `npm run test:all` → 「모두 통과」
-2. 파일 올리기: `npx clasp push`
+2. 파일 올리기: `npx clasp push --force` (`--force` 없으면 설정 파일 확인을 못 물어 「Skipping push.」로 끝남. `appsscript.json`을 안 바꿨으면 그대로 올라감)
 3. 기존 배포 갱신:
    ```
    npx clasp deploy -i AKfycbxzD0-R4Cg5_eeECMfgLok3lCSOZuac5cwVSVLvVuQTp_d3rfm_HWH1ju-EmyVC5qut6Q -d "v0.x.x 한 줄 설명"
