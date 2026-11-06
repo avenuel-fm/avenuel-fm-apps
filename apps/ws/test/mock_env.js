@@ -43,7 +43,7 @@ function mkSheet(name) {
       setValue: v => { rows[r - 1] = rows[r - 1] || []; rows[r - 1][c - 1] = cellIn(v); },
       setValues: vs => { vs.forEach((v, i) => { rows[r - 1 + i] = rows[r - 1 + i] || []; v.forEach((x, j) => rows[r - 1 + i][c - 1 + j] = cellIn(x)); }); },
       setFontWeight() { return this; }, setBackground() { return this; }, setNumberFormat() { return this; } }; },
-    appendRow: v => rows.push(v.map(cellIn)), setFrozenRows() {}
+    appendRow: v => rows.push(v.map(cellIn)), deleteRow: n => rows.splice(n - 1, 1), setFrozenRows() {}
   };
 }
 const ss = { getId: () => 'SS', getSheetByName: n => sheets[n] || null, insertSheet: n => mkSheet(n), getSheets: () => Object.values(sheets), deleteSheet() {} };

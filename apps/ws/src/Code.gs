@@ -2,7 +2,7 @@
  * 시설팀 업무지원(WS) — 소화기 점검 테스트판
  * 기준: claude/통합_업무지원앱_설계정의서.md (RC4) + 수정요청_대기목록 WS-13·WS-14
  * 범위: 로그인(PIN + 근무일 첫 서명) → 메인 → 점검 → 소화기 점검 (QR 관리·인쇄, 월별·층별 현황, QR 점검 입력)
- *       서류작업 → TBM 오늘 서명 목록 (사진·PDF는 TBM 양식 받은 뒤) — claude/설계/WS_서류작업.md
+ *       서류작업 → TBM 오늘 서명 목록 (사진·PDF는 TBM 양식 받은 뒤), 명일 작업 예정 — docs/설계/WS_서류작업.md
  * 나머지 메뉴는 화면만 두고 "준비 중"으로 표시합니다.
  *
  * 테스트판에서 단순화한 것 (정식판에서 공통 DB·cdb로 바꿈)
@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.4.0-서명로그인', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.5.0-명일작업', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -23,6 +23,7 @@ const SHEETS = {
   '소화기': ['fe_id', '층', '매장명', 'store_id', '번호', '이름', 'qr_token', '사용여부', '등록일시', '등록자', '삭제일시'],
   '소화기점검': ['check_id', '연월', 'fe_id', '층', '매장명', '소화기이름', '상태', '사진_id', '문구_id', '이름_id', '입력일시', '기한후입력', '덮어쓴횟수', '삭제여부'],
   '서명': ['sign_id', '근무일', 'staff_id', '이름', '파트명', '서명_id', '서명시각', '들어온길', 'TBM사용', '삭제여부'],
+  '명일작업': ['일자', '순번', '부서', '작업장소', '작업내용', '비고', '고친사람', '고친시각'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
 
@@ -451,6 +452,66 @@ function tbmToday(token) {
   return { ok: true, day: day, signs: list };
 }
 
+/* ───────────────────────── 명일 작업 예정 (WS_서류작업 9장, 결정 62·68) ───────────────────────── */
+
+const NW_DEPTS = ['전방파트', '기건파트'];
+const NW_MAX_ROWS = 30;
+
+/** 일자 기본값 = 작성일(근무일, 오전 6시 경계)의 다음 날 */
+function nwDefaultDate_(nowMs) {
+  return new Date(Date.parse(workDay_(nowMs) + 'T00:00:00Z') + DAY_MS).toISOString().slice(0, 10);
+}
+
+function nwSheet_(date) {
+  const rows = readTable_('명일작업').rows.filter(function (r) { return r['일자'] === date; })
+    .sort(function (a, b) { return Number(a['순번']) - Number(b['순번']); });
+  const last = rows.reduce(function (m, r) { return r['고친시각'] > m['고친시각'] ? r : m; }, { '고친시각': '', '고친사람': '' });
+  return {
+    date: date, ver: last['고친시각'], by: last['고친사람'],
+    rows: rows.map(function (r) { return { dept: r['부서'], place: r['작업장소'], work: r['작업내용'], note: r['비고'] }; })
+  };
+}
+
+/** 불러오기 — date 비우면 기본 일자(내일). 로그인한 직원 모두 */
+function nextWorkGet(token, date) {
+  auth_(token);
+  const def = nwDefaultDate_(Date.now());
+  const d = date || def;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { ok: false, error: '일자 형식이 맞지 않습니다' };
+  return Object.assign({ ok: true, defaultDate: def, workDay: workDay_(Date.now()) }, nwSheet_(d));
+}
+
+/** 저장 — 그 일자 줄을 모두 지우고 새로 씀. ver(불러올 때의 마지막 고친시각)가 다르면 덮어쓰지 않고 새 내용을 돌려줌 */
+function nextWorkSave(token, date, rows, ver) {
+  const me = auth_(token);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return { ok: false, error: '일자 형식이 맞지 않습니다' };
+  const clean = [];
+  (Array.isArray(rows) ? rows : []).forEach(function (r) {
+    const x = { dept: String(r && r.dept || ''), place: cleanText_(r && r.place, 40), work: cleanText_(r && r.work, 100), note: cleanText_(r && r.note, 40) };
+    if (x.place || x.work || x.note) clean.push(x);   // 입력한 줄만 (결정 62)
+  });
+  if (clean.length > NW_MAX_ROWS) return { ok: false, error: '줄은 ' + NW_MAX_ROWS + '줄까지 넣을 수 있습니다' };
+  if (clean.some(function (x) { return NW_DEPTS.indexOf(x.dept) === -1; })) return { ok: false, error: '부서(전방파트·기건파트)를 골라 주세요' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const cur = nwSheet_(date);
+    if (String(ver || '') !== cur.ver) return Object.assign({ ok: false, conflict: true, error: (cur.by || '다른 사람') + '님이 먼저 고쳤어요. 새 내용을 불러왔습니다.' }, cur);
+    const t = readTable_('명일작업');
+    t.rows.filter(function (r) { return r['일자'] === date; }).map(function (r) { return r._row; })
+      .sort(function (a, b) { return b - a; }).forEach(function (n) { t.sheet.deleteRow(n); });
+    let at = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss');
+    if (at <= cur.ver) at = cur.ver + '+';   // 같은 초에 두 번 저장해도 ver가 바뀌게
+    clean.forEach(function (x, i) {
+      appendRow_('명일작업', { '일자': date, '순번': String(i + 1), '부서': x.dept, '작업장소': x.place, '작업내용': x.work, '비고': x.note, '고친사람': me['이름'], '고친시각': at });
+    });
+    log_(me['이름'], '명일 작업 저장', date, clean.length + '줄');
+    return Object.assign({ ok: true }, nwSheet_(date));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 /** 개선 C: TBM PDF에 쓰이지 않은 서명은 90일 뒤 휴지통 (매일 예약 작업) */
 function cleanSigns_() {
   const limit = workDay_(Date.now() - 90 * DAY_MS);
@@ -826,6 +887,7 @@ function cellOut_(h, v) {
   if (Object.prototype.toString.call(v) === '[object Date]') {
     if (isNaN(v.getTime())) return '';
     if (h === '연월') return Utilities.formatDate(v, TZ, 'yyyy-MM');
+    if (h === '일자') return Utilities.formatDate(v, TZ, 'yyyy-MM-dd');
     return Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm');
   }
   return String(v);

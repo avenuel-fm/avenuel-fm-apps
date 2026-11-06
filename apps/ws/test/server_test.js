@@ -195,3 +195,31 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(after.find(r => r['근무일'] === '2026-12-09')['삭제여부'] === 'N', 'TBM에 쓴 서명은 90일 지나도 보관');
   assert(after.filter(r => r['근무일'] < '2026-12-15' && r['TBM사용'] !== 'Y').every(r => r['삭제여부'] === 'Y'), '안 쓴 서명은 모두 휴지통 표시');
 }
+// 명일 작업 예정 (WS_서류작업 9장, 결정 62·68)
+{
+  NOW.d = new Date('2026-12-18T15:00:00+09:00'); const lee = login('2468', 'nw1', SIG); const kim = login('5678', 'nw2', SIG);
+  let g = nextWorkGet(lee.token, '');
+  assert(g.ok && g.date === '2026-12-19' && g.workDay === '2026-12-18' && g.rows.length === 0 && g.ver === '', '명일: 12-18 15시 → 일자 12-19, 빈 장');
+  NOW.d = new Date('2026-12-19T01:00:00+09:00');
+  assert(nextWorkGet(lee.token, '').date === '2026-12-19', '명일: 새벽 1시는 아직 12-18 근무일 → 일자 12-19');
+  NOW.d = new Date('2026-12-18T15:10:00+09:00');
+  const rows = [{ dept: '전방파트', place: '전층', work: 'EPS실 순찰 및 공사장 안전점검', note: '' }, { dept: '기건파트', place: '', work: '', note: '' },
+    { dept: '기건파트', place: '2층,3층,4층', work: '층별 전 공조기 구리스 주입', note: '사다리' }];
+  assert(!nextWorkSave(lee.token, '2026-12-19', [{ dept: '전기방재', place: '전층', work: 'x' }], '').ok, '명일: 부서는 전방파트·기건파트만');
+  assert(!nextWorkSave(lee.token, '12/19', rows, '').ok, '명일: 일자 형식 거부');
+  let s1 = nextWorkSave(lee.token, '2026-12-19', rows, '');
+  assert(s1.ok && s1.rows.length === 2 && s1.rows[1].place === '2층,3층,4층' && s1.by === '이영희', '명일: 빈 줄 빼고 2줄 저장');
+  assert(sheets['명일작업'].rows.slice(1).every(r => typeof r[0] === 'string' && r[0] === '2026-12-19'), '명일: 일자는 글자로 저장');
+  const stale = s1.ver;
+  NOW.d = new Date('2026-12-18T15:20:00+09:00');
+  const s2 = nextWorkSave(kim.token, '2026-12-19', s1.rows.concat([{ dept: '기건파트', place: '전층', work: '미세먼지 측정', note: '' }]), s1.ver);
+  assert(s2.ok && s2.rows.length === 3 && s2.by === '김철수', '명일: 다른 직원이 이어서 고침');
+  const c = nextWorkSave(lee.token, '2026-12-19', [{ dept: '전방파트', place: '1층', work: '덮어쓰기', note: '' }], stale);
+  assert(!c.ok && c.conflict && c.rows.length === 3 && /김철수/.test(c.error), '명일: 먼저 고친 사람 있으면 덮어쓰지 않고 새 내용 돌려줌');
+  assert(nextWorkSave(lee.token, '2026-12-20', rows, '').ok && nextWorkGet(lee.token, '2026-12-19').rows.length === 3, '명일: 날짜마다 한 장 (다른 날짜는 따로)');
+  const s3 = nextWorkSave(kim.token, '2026-12-19', s2.rows.slice(1), s2.ver);
+  assert(s3.ok && s3.rows.length === 2 && s3.rows[0].work === '층별 전 공조기 구리스 주입' && readTable_('명일작업').rows.filter(r => r['일자'] === '2026-12-19').map(r => r['순번']).join() === '1,2', '명일: 줄 지우면 순번 1부터 다시');
+  const s4 = nextWorkSave(kim.token, '2026-12-19', s3.rows, s3.ver);
+  assert(s4.ok && s4.ver !== s3.ver, '명일: 같은 초에 다시 저장해도 ver 바뀜');
+  let threw2 = false; try { nextWorkGet('bad', ''); } catch (e) { threw2 = true; } assert(threw2, '명일: 로그인 필요');
+}

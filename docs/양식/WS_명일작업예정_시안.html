@@ -1,0 +1,118 @@
+<!doctype html>
+<!-- 시안 전용 (앱 코드 아님). ?v=phone | pc | img 로 화면을 고름. 찍기: playwright로 ?v= 마다 한 장씩 -->
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>명일 작업 예정 시안</title>
+<style>
+:root{--ink:#18202B;--sub:#3F4855;--muted:#5B6573;--faint:#7A8494;--line:#CBD2DB;--line2:#DCE1E7;--line3:#EDF0F3;--ground:#F4F6F8;--card:#fff;
+--blue:#1F5FA8;--blue-d:#174A84;--blue-bg:#E8F0FA;--green:#1F7A4D;--green-bg:#EAF5EF;--red:#C0261A;--red-bg:#FDEEEC}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);font-family:'Noto Sans KR','Malgun Gothic',system-ui,sans-serif}
+button,input{font:inherit;color:inherit}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.green{background:var(--green);border-color:var(--green);color:#fff}
+.btn.ghost{border-style:dashed;color:var(--blue);width:100%}
+.icon-btn{width:44px;padding:0;color:var(--muted)}
+.inp{width:100%;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;background:#fff}
+.lbl{display:block;font-size:13px;font-weight:500;color:var(--sub);margin:10px 0 4px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:44px;background:#fff}
+.seg button{flex:1;border:0;background:#fff;font-size:14px;color:var(--sub);padding:0 10px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--blue);color:#fff;font-weight:700}
+.chip{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.chip.red{color:var(--red);background:var(--red-bg)}
+.chip.blue{color:var(--blue-d);background:var(--blue-bg)}
+.topbar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line2)}
+.topbar-in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:10px}
+.t1{font-size:12px;color:var(--muted)}.t2{font-size:18px;font-weight:700}
+.whoami{margin-left:auto;font-size:13px;font-weight:700;color:var(--blue-d);background:var(--blue-bg);border-radius:999px;padding:6px 12px}
+main{max-width:1100px;margin:0 auto;padding:16px 16px 110px}
+.crumb{font-size:13px;color:var(--muted);margin-bottom:8px}
+.card{background:#fff;border:1px solid var(--line2);border-radius:12px;padding:16px}
+.head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.head h1{font-size:18px;margin:0;flex:1 1 auto}
+.date{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--blue-d);background:var(--blue-bg);border-radius:999px;padding:8px 14px}
+.note{margin:12px 0 0;font-size:13px;color:var(--red);background:var(--red-bg);border-radius:8px;padding:8px 12px}
+.meta{font-size:12.5px;color:var(--muted);margin-top:8px}
+/* 휴대폰 카드 */
+.rows{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.row{background:#fff;border:1px solid var(--line2);border-left:5px solid var(--line2);border-radius:12px;padding:12px 14px}
+.row .top{display:flex;align-items:center;gap:10px}
+.no{width:30px;height:30px;border-radius:15px;background:var(--blue-bg);color:var(--blue-d);font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.row .seg{flex:1}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row.danger{border-left-color:var(--red);background:#FFFBFA}
+.row.danger .no{background:var(--red-bg);color:var(--red)}
+.row.danger .inp{color:var(--red);border-color:#EBC2BD}
+/* PC 표 */
+.tbl{width:100%;border-collapse:separate;border-spacing:0;margin-top:14px;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
+.tbl th{background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:700;padding:10px 8px;text-align:center}
+.tbl td{padding:6px;border-top:1px solid var(--line3);vertical-align:middle}
+.tbl td.c{text-align:center}
+.tbl tr.danger td{background:#FFF6F5}
+.tbl tr.danger .inp,.tbl tr.danger .no{color:var(--red)}
+.tbl tr.danger .no{background:var(--red-bg)}
+.tbl tr.danger td:first-child{box-shadow:inset 4px 0 0 var(--red)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line2);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.bar-in{max-width:1100px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.bar .btn{flex:1;min-height:52px;font-size:15px;font-weight:700}
+.saved{font-size:12.5px;color:var(--green)}
+@media(min-width:768px){.bar .btn{flex:none;min-height:44px;min-width:160px}.bar-in{justify-content:flex-end}}
+/* 그림 파일 */
+.img{width:1000px;background:#fff;padding:28px 32px 24px;font-size:15px}
+.img h1{font-size:20px;margin:0 0 12px}
+.img .d{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;margin-bottom:14px}
+.img .d b{display:inline-block;min-width:44px;text-align:center;background:var(--blue-bg);color:var(--blue-d);border-radius:8px;padding:4px 10px}
+.img table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.img th{background:var(--blue-bg);color:var(--blue-d);font-weight:700;padding:9px 6px;border-bottom:1px solid var(--line)}
+.img td{padding:8px 10px;border-top:1px solid var(--line3);text-align:center}
+.img td.l{text-align:left}
+.img td+td,.img th+th{border-left:1px solid var(--line3)}
+.img td.org{background:#F8FAFC;color:var(--sub);font-weight:500;line-height:1.6;border-top:0}
+.img tr.danger td:not(.org){color:var(--red);background:#FFF4F3}
+.img .foot{margin-top:12px;color:var(--red);font-size:14px}
+.img .stamp{margin-top:4px;color:var(--faint);font-size:12px;text-align:right}
+</style></head><body>
+<div id="app"></div>
+<script>
+const WORDS=['고소작업','사다리','용접','페인트'];
+const ROWS=[
+ ['전방파트','전층','EPS실 순찰 및 공사장 안전점검',''],
+ ['전방파트','전층','직무고시',''],
+ ['기건파트','전층','식당가 및 공조실 순찰',''],
+ ['기건파트','전층','미세먼지 측정',''],
+ ['기건파트','전층','일일계량기 검침',''],
+ ['기건파트','2층,3층,4층','층별 전 공조기 구리스 주입','사다리'],
+ ['기건파트','전층','미세먼지 측정',''],
+];
+const danger=r=>WORDS.some(w=>(r[2]+r[3]).includes(w));
+const v=new URLSearchParams(location.search).get('v')||'phone';
+const esc=s=>s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const seg=d=>`<div class="seg"><button class="${d=='전방파트'?'on':''}">전방파트</button><button class="${d=='기건파트'?'on':''}">기건파트</button></div>`;
+const TOP=`<div class="topbar"><div class="topbar-in"><div><div class="t1">잠실점 에비뉴엘 · 2026. 12. 18. (금)</div><div class="t2">업무지원</div></div><span class="whoami">김철수 · 기건파트</span></div></div>`;
+const head=`<div class="crumb">서류작업 › 명일 작업 예정</div>
+<div class="card"><div class="head"><h1>명일 작업 일정 현황</h1><span class="date">📅 2026년 12월 19일 (토)</span></div>
+<div class="meta">작성일 12월 18일(근무일) → 일자는 다음 날 · 마지막 저장 15:42 이영희</div>
+<div class="note">※ 사다리, 위험물작업(용접·페인트) 작업은 빨간색으로 표시 — 작업 내용·비고에 <b>고소작업·사다리·용접·페인트</b>가 있으면 자동</div></div>`;
+const bar=`<div class="bar"><div class="bar-in"><span class="saved">✓ 저장됨</span><button class="btn pri">저장</button><button class="btn green">⬇ 그림으로 저장</button></div></div>`;
+let h='';
+if(v=='phone'){
+ h=TOP+'<main>'+head+'<div class="rows">'+ROWS.map((r,i)=>`<div class="row ${danger(r)?'danger':''}"><div class="top"><span class="no">${i+1}</span>${seg(r[0])}<button class="btn icon-btn" aria-label="줄 지우기">✕</button></div>
+ ${danger(r)?'<div style="margin-top:8px"><span class="chip red">위험 작업 · 빨간색</span></div>':''}
+ <label class="lbl">작업 내용</label><input class="inp" value="${esc(r[2])}">
+ <div class="two"><div><label class="lbl">작업장소</label><input class="inp" value="${esc(r[1])}"></div><div><label class="lbl">비고</label><input class="inp" value="${esc(r[3])}"></div></div></div>`).join('')+
+ '<button class="btn ghost">+ 줄 더하기</button></div></main>'+bar;
+}else if(v=='pc'){
+ h=TOP+'<main>'+head+`<table class="tbl"><thead><tr><th style="width:56px">순번</th><th style="width:200px">부서</th><th style="width:170px">작업장소</th><th>작업 내용</th><th style="width:150px">비고</th><th style="width:56px"></th></tr></thead><tbody>`+
+ ROWS.map((r,i)=>`<tr class="${danger(r)?'danger':''}"><td class="c"><span class="no">${i+1}</span></td><td>${seg(r[0])}</td><td><input class="inp" value="${esc(r[1])}"></td><td><input class="inp" value="${esc(r[2])}"></td><td><input class="inp" value="${esc(r[3])}"></td><td class="c"><button class="btn icon-btn" aria-label="줄 지우기">✕</button></td></tr>`).join('')+
+ `<tr><td colspan="6" style="padding:8px"><button class="btn ghost">+ 줄 더하기</button></td></tr></tbody></table></main>`+bar;
+}else{
+ document.body.style.background='#fff';
+ h=`<div class="img" id="sheet"><h1>■ 에비뉴엘 시설팀 명일 작업 일정 현황</h1>
+ <div class="d">일자 : <b>2026</b> 년 <b>12</b> 월 <b>19</b> 일</div>
+ <table><thead><tr><th style="width:160px">구 분</th><th style="width:52px">순번</th><th style="width:110px">부 서</th><th style="width:150px">작업장소</th><th>작업 내용</th><th style="width:130px">비 고</th></tr></thead><tbody>`+
+ ROWS.map((r,i)=>`<tr class="${danger(r)?'danger':''}">${i?'':`<td class="org" rowspan="${ROWS.length}">㈜맥서브<br>에비뉴엘 잠실점</td>`}<td>${i+1}</td><td>${r[0]}</td><td>${esc(r[1])}</td><td class="l">${esc(r[2])}</td><td>${esc(r[3])}</td></tr>`).join('')+
+ `</tbody></table><div class="foot">※ 사다리, 위험물작업(용접·페인트) 작업은 빨간색으로 표시</div><div class="stamp">업무지원 앱 · 2026.12.18 15:42 저장</div></div>`;
+}
+document.getElementById('app').innerHTML=h;
+</script></body></html>
