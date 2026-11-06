@@ -13,7 +13,7 @@
 ## 올리는 순서 (`apps/dw` 폴더에서)
 clasp는 업무지원 앱에 설치된 것을 같이 씁니다 (`../ws/node_modules/.bin/clasp`).
 1. 시험: `cd test && node gas_test.js` → 「서버 로직 점검 통과」
-2. 파일 올리기: `../ws/node_modules/.bin/clasp push`
+2. 파일 올리기: `../ws/node_modules/.bin/clasp push --force` (`--force` 없으면 「Skipping push.」로 끝남)
 3. 기존 배포 갱신:
    ```
    ../ws/node_modules/.bin/clasp deploy -i AKfycbyc0v4cT_zoVSjy7RGydb8rfys9mUyi6jHfAQeTvDXpmH1ycLglOoHmF6mRu2B8x-Ty -d "v1.8.x 한 줄 설명"

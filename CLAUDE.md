@@ -25,7 +25,7 @@
 | `apps/ws/src/` | Apps Script에 올리는 파일 (`Code.gs`, `Index.html`, `Check.html`, `Styles.html`, `appsscript.json`) |
 | `apps/ws/test/` | 시험 도구 (가짜 구글 시트 서버 시험 + 휴대폰 화면 시험) |
 | `apps/ws/tools/build_fm.py` | `src/Check.html` → `fm/ws/check.html` 만들기 |
-| `apps/dw/` | 도면협의 앱 (운영 v1.8.4). 자세한 안내는 `apps/dw/CLAUDE.md` (DW 폴더에서 일할 때 저절로 읽힘) |
+| `apps/dw/` | 도면협의 앱 (운영 v1.8.5). 자세한 안내는 `apps/dw/CLAUDE.md` (DW 폴더에서 일할 때 저절로 읽힘) |
 | `apps/dw/src/` | Apps Script에 올리는 파일 (`Code.gs`, `Index.html`, `App.html`, `Styles.html`, `appsscript.json`) |
 | `apps/dw/test/` | 시험 도구 (`gas_test.js` 서버 시험, `e2e*.py`·`ui_audit.py` 화면 시험) |
 | `docs/블럭_연동규칙.md` | 앱 사이 통로(`?api=`) 규칙 |
@@ -57,7 +57,7 @@
 - `fm/` 파일이 바뀌면 바로가기 페이지 저장소(GitHub Pages)에도 올려야 한다고 알려 줍니다.
 
 ## 도면협의(DW) — `apps/dw`
-- 운영 **v1.8.4** (11-04 배포). 소장·부소장만 쓰는 단독 앱 (결정 32). DW 결정은 홀수, 마지막은 결정 39 → 다음은 **41**. v1.8.5(PIN 전체 잠금, 결정 39) 코딩·배포 전.
+- 운영 **v1.8.5** (11-06 배포). 소장·부소장만 쓰는 단독 앱 (결정 32). DW 결정은 홀수, 마지막은 결정 39 → 다음은 **41**. v1.8.5(PIN 전체 잠금, 결정 39) 11-06 배포(버전 11).
 - 화면이 바뀌는 일은 **시안(이미지)을 먼저** 보여 줍니다 (`test/build_preview.py` 미리보기 위에 그려 찍음).
 - 수정 요청은 `docs/수정요청_대기목록.md`의 **DW 구역**(DW-n)에 모으고, 「한 번에」라고 하면 한 판으로 묶습니다.
 - 이 앱의 `Styles.html`이 모든 앱 디자인 기준입니다 (06 문서 12장).
