@@ -8,7 +8,7 @@ const QRLIB = fs.readFileSync(require.resolve('qrcodejs2/qrcode.min.js'), 'utf8'
   const p = await c.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8123/index'); await p.locator('.key').first().waitFor();
   for (const k of '1234') await p.click(`.key:text-is("${k}")`);
-  await p.waitForSelector('.grid6'); await p.click('.tile.on'); await p.click('text=소화기 점검'); await p.click('text=② 매장별 소화기 점검 현황');
+  await p.waitForSelector('.grid6'); await p.click('.tile:has(b:text-is("점검"))'); await p.click('text=소화기 점검'); await p.click('text=② 매장별 소화기 점검 현황');
   await p.waitForFunction(() => S.st && S.st.counts);
   const okBefore = await p.evaluate(() => S.st.counts.ok);
   const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST', body: JSON.stringify({ fn, args }) }).then(r => r.json());

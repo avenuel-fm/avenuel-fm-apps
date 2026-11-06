@@ -27,11 +27,15 @@ const fmFile = require('./fm_serve.js');
   const shellTok = await p.evaluate(() => localStorage.getItem('fm_ws_token'));
   console.log('2) 바로가기 페이지에도 표 보관:', !!shellTok, shellTok ? '만료 ' + new Date(Number(shellTok.split('.')[1])).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '');
   slow = 2500; await p.reload();
-  await fr().locator('text=불러오는 중').waitFor();
-  console.log('3) 새로고침: 확인 중에는 「불러오는 중」, PIN 버튼 수 =', await fr().locator('.key').count());
-  try { await fr().locator('.grid6').waitFor({ timeout: 8000 }); } catch (e) { console.log('   화면:', (await fr().locator('body').innerText()).slice(0, 200)); throw e; }
-  console.log('   → PIN 없이 메인');
-  await fr().locator('.tile.on').click(); await fr().locator('text=소화기 점검').first().waitFor();
+  const t0 = Date.now();
+  try { await fr().locator('.grid6').waitFor({ timeout: 2000 }); } catch (e) { console.log('FAIL 3) 지난번 메인 화면이 바로 안 뜸:', (await fr().locator('body').innerText()).slice(0, 200)); throw e; }
+  const early = Date.now() - t0;
+  console.log((early < 2000 ? '' : 'FAIL ') + '3) 새로고침: 서버 확인(2.5초) 전에 지난번 메인 화면 ' + early + 'ms, PIN 버튼 수 =', await fr().locator('.key').count());
+  const inner0 = p.frames().find(f => f.url().startsWith(GU));
+  await inner0.waitForFunction(() => S.cached === false, null, { timeout: 8000 });
+  console.log('   → 서버 확인 뒤 새 숫자로 (PIN 없이 메인)');
+  console.log(((await fr().locator('.tile.on').count()) === 0 ? '' : 'FAIL ') + '3-1) 메인에 미리 선택된 칸 없음');
+  await fr().locator('.tile:has(b:text-is("점검"))').click(); await fr().locator('text=소화기 점검').first().waitFor();
   await p.waitForTimeout(3500);
   console.log('4) 점검 화면 3.5초 뒤에도 그대로:', await fr().locator('text=소화기 점검').count() > 0 && await fr().locator('.grid6').count() === 0);
   slow = 0;
@@ -40,8 +44,11 @@ const fmFile = require('./fm_serve.js');
   await inner.evaluate(() => localStorage.clear());
   await p.reload(); await fr().locator('.grid6').waitFor({ timeout: 8000 });
   console.log('5) 앱 칸 저장소를 지워도 바로가기 페이지 표로 PIN 없이 메인');
+  global.FAIL = true; await p.reload(); await fr().locator('text=지난번 화면입니다').waitFor({ timeout: 8000 });
+  console.log(((await fr().locator('.grid6').count()) === 1 ? '' : 'FAIL ') + '5-0) 연결 오류 + 기억한 화면 있음 → 지난번 메인 그대로, 알림만');
+  await p.frames().find(f => f.url().startsWith(GU)).evaluate(() => localStorage.removeItem('ws_main'));
   global.FAIL = true; await p.reload(); await fr().locator('text=서버에 연결하지 못했습니다').waitFor({ timeout: 8000 });
-  console.log('5-1) 연결 오류 → 로그아웃 안 하고 「다시 시도」');
+  console.log('5-1) 연결 오류 + 기억한 화면 없음 → 로그아웃 안 하고 「다시 시도」');
   await fr().locator('button:has-text("다시 시도")').click(); await fr().locator('.grid6').waitFor({ timeout: 8000 });
   console.log('5-2) 다시 시도 → PIN 없이 메인');
   // 로그아웃하면 두 곳 다 지움

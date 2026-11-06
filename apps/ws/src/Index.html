@@ -154,7 +154,8 @@
   .label img{flex:none;display:block;image-rendering:pixelated}
 }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- QR 도구는 QR 화면에서만 씀 → 첫 화면을 막지 않게 따로 받음 (결정 76) -->
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" onload="if (typeof S !== 'undefined' && S.view === 'qr') drawQrs()"></script>
 </head>
 <body>
 <div id="app"></div>
@@ -269,7 +270,7 @@ async function doLogin() {
   } catch (e) { S.busy = false; S.pin = ''; render(); $('pinMsg').textContent = '연결 오류: ' + (e.message || e); }
 }
 function loggedIn(r) { S.token = r.token; store('ws_token', r.token); SHELL.set(r.token); S.user = r.user; S.pin = ''; S.sign = null; }
-function logout(expired) { store('ws_token', null); SHELL.set(''); bootSeq++; S.token = ''; S.user = null; S.sign = null; S.pin = ''; S.view = 'login'; render(); if (expired === true) toast('다시 로그인해 주세요.'); }
+function logout(expired) { store('ws_token', null); store('ws_main', null); SHELL.set(''); bootSeq++; S.token = ''; S.user = null; S.sign = null; S.pin = ''; S.view = 'login'; render(); if (expired === true) toast('다시 로그인해 주세요.'); }
 
 /* ── 근무일 첫 서명 (결정 56·60) — 서명하지 않으면 로그인되지 않음 ── */
 function renderSign() {
@@ -358,13 +359,16 @@ async function boot(fromStart) {
   catch (e) {
     if (my !== bootSeq) return;
     if (String(e && e.message).indexOf('LOGIN') !== -1) { logout(fromStart !== true); return; }
+    if (fromStart && S.view === 'main' && S.cached) { toast('서버에 연결하지 못했습니다. 지난번 화면입니다.'); return; }
     if (fromStart) { S.view = 'retry'; render(); return; }   // 연결 오류는 로그아웃하지 않음
     toast('서버 오류: ' + (e && e.message ? e.message : e)); throw e;
   }
   if (my !== bootSeq) return;
-  S.user = r.user; S.fire = r.fire; S.docs = r.docs || null;
+  S.user = r.user; S.fire = r.fire; S.docs = r.docs || null; S.cached = false;
+  if (!r.needSign) store('ws_main', JSON.stringify({ sid: r.user.staff_id, user: r.user, fire: r.fire, docs: r.docs }));   // 다음 접속 때 먼저 보여 줄 메인 화면
   if (r.needSign) { S.sign = { mode: 'token', name: r.user.name, part: r.user.part, busy: false, msg: '' }; S.view = 'sign'; render(); return; }   // 표는 있는데 오늘 서명이 없음
   if (['login', 'loading', 'retry', 'sign'].indexOf(S.view) !== -1) go('main');
+  else if (S.view === 'main') render();   // 먼저 보여 준 지난번 화면을 새 숫자로
 }
 function renderLoading() {
   return '<div class="wrap" style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px"><span class="spin" style="color:var(--blue);width:32px;height:32px"></span><span style="color:var(--sub)">불러오는 중…</span></div>';
@@ -385,7 +389,7 @@ function renderMain() {
     '<div class="grid6">' +
     t('docs', '서류작업', 'TBM' + (S.docs ? ' · 오늘 서명 ' + S.docs.signs + '명' : ' · 명일 작업 예정'), '#EAF5EF', '#1F7A4D') +
     t('work', '작업', '준비 중', '#E8F0FA', '#1F5FA8') +
-    t('inspect', '점검', c ? '소화기 ' + (c.ok + c.bad) + ' / ' + c.total + '대' : '소화기 점검', '#1F5FA8', '#fff', true) +
+    t('inspect', '점검', c ? '소화기 ' + (c.ok + c.bad) + ' / ' + c.total + '대' : '소화기 점검', '#1F5FA8', '#fff') +
     t('plan', '일정', '준비 중', '#E8F0FA', '#1F5FA8') +
     t('defect', '하자점검', '준비 중', '#FDF0E8', '#B4410F') +
     (approver ? t('approve', '결재 대기', '준비 중', '#E8F0FA', '#1F5FA8') : t('mydocs', '내 문서', '준비 중', '#E8F0FA', '#1F5FA8')) +
@@ -1085,6 +1089,9 @@ function render() {
     if (tokenAlive(t)) { S.token = t; store('ws_token', t); }
   } else SHELL.set(S.token);
   if (!S.token) { S.view = 'login'; render(); return; }
+  // 이 기기에 기억한 지난번 메인 화면을 먼저 보여 주고, 서버 확인은 뒤에서 (로딩 개선, 결정 76). 표의 주인이 같을 때만
+  let m = null; try { m = JSON.parse(store('ws_main') || 'null'); } catch (e) {}
+  if (m && m.user && m.sid === String(S.token).split('.')[0]) { S.user = m.user; S.fire = m.fire; S.docs = m.docs; S.cached = true; S.view = 'main'; render(); }
   await boot(true);
 })();
 </script>

@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.6.2', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.6.3', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -366,16 +366,27 @@ function signToday(token, signPng) {
 
 function bootstrap(token) {
   const me = auth_(token);
-  const st = buildStatus_(ym_(new Date()));
   const day = workDay_(Date.now());
   const signs = daySigns_(day);
   return {
     ok: true, user: userOut_(me), app: APP,
     needSign: !signs.some(function (r) { return r['staff_id'] === me['staff_id']; }),
     docs: { day: day, signs: signs.length },
-    fire: { counts: countStates_(st.items), window: st.window, day: st.day, ym: st.ym }
+    fire: fireSummary_()
   };
 }
+
+/* 메인 칸 「소화기 n / n대」: 1분 기억 — 로그인 때마다 소화기 시트 2개를 다 읽지 않게 (로딩 개선, 결정 76).
+   소화기를 등록·삭제하거나 점검을 입력하면 바로 지움 */
+function fireSummary_() {
+  const cache = CacheService.getScriptCache(), hit = cache.get('fire_sum');
+  if (hit) return JSON.parse(hit);
+  const st = buildStatus_(ym_(new Date()));
+  const o = { counts: countStates_(st.items), window: st.window, day: st.day, ym: st.ym };
+  cache.put('fire_sum', JSON.stringify(o), 60);
+  return o;
+}
+function fireChanged_() { CacheService.getScriptCache().remove('fire_sum'); }
 
 function userOut_(s) {
   return { staff_id: s['staff_id'], name: s['이름'], part: s['파트명'], role: s['역할'] };
@@ -777,6 +788,7 @@ function feAdd(token, d) {
       appendRow_('소화기', row);
       added.push(row['이름']);
     }
+    fireChanged_();
     log_(me['이름'], '소화기 등록', '', floor + ' · ' + added.join(', '));
     return { ok: true, added: added };
   } finally {
@@ -799,6 +811,7 @@ function feDelete(token, ids) {
         names.push(r['이름']);
       }
     });
+    fireChanged_();
     log_(me['이름'], '소화기 삭제', '', names.join(', '));
     return { ok: true, count: names.length };
   } finally {
@@ -999,6 +1012,7 @@ function checkSubmit(qr, d) {
       row['덮어쓴횟수'] = '0';
       appendRow_('소화기점검', row);
     }
+    fireChanged_();
     log_('매장 직원(QR)', old ? '소화기 점검 다시 입력' : '소화기 점검 입력', checkId, f.name + ' · ' + state + (row['기한후입력'] === 'Y' ? ' · 기한 후' : ''));
     return { ok: true, state: state, late: row['기한후입력'] === 'Y', checkId: checkId, name: f.name, at: at };
   } finally {

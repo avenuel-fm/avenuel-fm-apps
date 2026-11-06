@@ -287,3 +287,16 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   const today = tbmGet(hong.token).signs;
   assert(today.length >= 1 && today.every(s => s.name) && bootstrap(hong.token).docs.signs === today.length, '점검8: 서명 ' + (before + 500) + '줄이어도 오늘 서명을 찾음');
 }
+// 로딩 개선 (결정 76): 메인 소화기 숫자 1분 기억, 등록·삭제·점검하면 바로 새로
+{
+  NOW.d = new Date('2026-12-21T09:00:00+09:00'); CacheService.getScriptCache().remove('pinlock_all');
+  const h = login('1234', 'fc1', SIG); const n0 = bootstrap(h.token).fire.counts.total;
+  feAdd(h.token, { floor: '1F', store: '기억시험', count: 1 });
+  assert(bootstrap(h.token).fire.counts.total === n0 + 1, '결정76: 소화기 등록하면 메인 숫자 바로 바뀜');
+  const fe = feList(h.token).items.find(i => i.store === '기억시험');
+  checkSubmit(fe.token, { photo: 'data:image/jpeg;base64,' + 'A'.repeat(4000), signA: 'data:image/png;base64,' + 'B'.repeat(800), signB: 'data:image/png;base64,' + 'B'.repeat(800), state: '이상없음' });
+  const c = bootstrap(h.token).fire.counts; assert(c.ok + c.bad >= 1 && c.total === n0 + 1, '결정76: 점검 입력하면 메인 숫자 바로 바뀜');
+  feAdd(h.token, { floor: '1F', store: '기억시험2', count: 1 }); const fe2 = feList(h.token).items.find(i => i.store === '기억시험2');
+  assert(bootstrap(h.token).fire.counts.total === n0 + 2, '결정76: 하나 더 등록');
+  feDelete(h.token, [fe2.id]); assert(bootstrap(h.token).fire.counts.total === n0 + 1, '결정76: 점검 안 한 소화기 삭제하면 바로 빠짐');
+}
