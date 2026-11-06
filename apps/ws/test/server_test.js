@@ -175,7 +175,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(y.ok && k.ok && k2.ok, '이영희 06:20, 김철수 07:10 서명');
   assert(readTable_('서명').rows.filter(r => r['근무일'] === '2026-12-10' && r['staff_id'] === k.user.staff_id).length === 1, '하루 한 줄만');
   NOW.d = new Date('2026-12-10T08:30:00+09:00'); const hong = login('1234', 'dE', SIG);
-  const tb = tbmToday(hong.token);
+  const tb = tbmGet(hong.token);
   assert(tb.ok && tb.day === '2026-12-10' && tb.signs.map(x => x.name).join() === '이영희,김철수,홍길동', 'TBM 서명란 = 로그인 순, 파트 섞임: ' + tb.signs.map(x => x.name + x.at).join(' '));
   assert(tb.signs[0].at === '06:20' && tb.signs[0].img.indexOf('data:image/png;base64,') === 0, '서명 아래 시각 · 그림');
   const bs = bootstrap(hong.token); assert(!bs.needSign && bs.docs.signs === 3, '메인: 오늘 서명 3명');
@@ -184,7 +184,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   updateRow_('서명', mine._row, { '삭제여부': 'Y' });
   assert(bootstrap(hong.token).needSign, '표는 있는데 오늘 서명 없으면 needSign');
   assert(!signToday(hong.token, 'x').ok && signToday(hong.token, SIG).ok && !bootstrap(hong.token).needSign, 'signToday 로 서명 채움');
-  assert(tbmToday(hong.token).signs.slice(-1)[0].name === '홍길동', '다시 쓴 서명은 그 시각 순서로');
+  assert(tbmGet(hong.token).signs.slice(-1)[0].name === '홍길동', '다시 쓴 서명은 그 시각 순서로');
   // 개선 C: 90일 지난 안 쓴 서명 휴지통, TBM에 쓴 서명은 보관
   const t2 = readTable_('서명'); const used = t2.rows.find(r => r['근무일'] === '2026-12-09');
   updateRow_('서명', used._row, { 'TBM사용': 'Y' });
@@ -254,4 +254,36 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   p = tbmSavePdf(hong.token, 'data:application/pdf;base64,' + 'K'.repeat(400), ids);
   assert(p.ok && files[first].trashed && tbmGet(hong.token).pdf.id === p.pdf.id, 'TBM: 다시 누르면 새 PDF, 예전 PDF 휴지통');
   assert(!tbmSave(hong.token, { works: new Array(31).fill({}) }).ok, 'TBM: 작업 표 30줄까지');
+}
+// 점검 1·3·4·5·8 (결정 74)
+{
+  const { files: F } = require('./mock_env.js');
+  // 1) 기기 번호를 바꿔 가며 틀려도 전체 30번이면 모두 10분 막음
+  NOW.d = new Date('2026-12-20T09:00:00+09:00'); CacheService.getScriptCache().remove('pinfail_all');   // 앞 시험에서 틀린 횟수 지움 (가짜 캐시는 10분이 지나도 안 사라짐)
+  for (let i = 0; i < 29; i++) login('0000', 'atk' + i);
+  assert(login('1234', 'ok1', SIG).ok, '점검1: 29번 틀려도 아직 로그인됨');
+  login('0000', 'atk-last');
+  const blocked = login('1234', 'ok2', SIG);
+  assert(!blocked.ok && /모든 로그인/.test(blocked.error), '점검1: 기기를 바꿔 가며 30번 틀리면 맞는 PIN도 10분 막음');
+  CacheService.getScriptCache().remove('pinlock_all');
+  const hong = login('1234', 'ok3', SIG); assert(hong.ok, '점검1: 잠금 풀리면 다시 로그인');
+  // 3) 서명 그림은 한 번 읽으면 기억
+  let reads = 0; const orig = DriveApp.getFileById; DriveApp.getFileById = id => { reads++; return orig(id); };
+  tbmGet(hong.token); const r1 = reads; tbmGet(hong.token);
+  assert(r1 > 0 && reads === r1, '점검3: 두 번째 열 때는 서명 그림을 드라이브에서 다시 읽지 않음 (' + r1 + '번 → +' + (reads - r1) + ')');
+  DriveApp.getFileById = orig;
+  // 4) 위험성목록이 이미 있으면 다시 넣지 않음
+  tbmGet(hong.token); assert(readTable_('위험성목록').rows.length === 18, '점검4: 위험성 목록 18줄 그대로');
+  // 5) 새 줄 쓰는 중 오류 → 예전 줄은 남음
+  const nw = nextWorkGet(hong.token, '2026-12-19');
+  const realAppend = sheets['명일작업'].appendRow; let k = 0;
+  sheets['명일작업'].appendRow = v => { if (++k === 2) throw new Error('Service timed out'); realAppend(v); };
+  let threw5 = false; try { nextWorkSave(hong.token, '2026-12-19', nw.rows.concat(nw.rows), nw.ver); } catch (e) { threw5 = true; }
+  sheets['명일작업'].appendRow = realAppend;
+  assert(threw5 && nextWorkGet(hong.token, '2026-12-19').rows.length >= nw.rows.length, '점검5: 저장 중 시트 오류여도 예전 작업 줄이 남음');
+  // 8) 서명 탭이 길어도 맨 아래만 읽어 오늘 서명을 찾음
+  const sg = sheets['서명'].rows; const filler = sg[1].slice(); filler[1] = "'2026-01-01";
+  const before = sg.length; for (let i = 0; i < 500; i++) sg.splice(1, 0, filler.slice());
+  const today = tbmGet(hong.token).signs;
+  assert(today.length >= 1 && today.every(s => s.name) && bootstrap(hong.token).docs.signs === today.length, '점검8: 서명 ' + (before + 500) + '줄이어도 오늘 서명을 찾음');
 }

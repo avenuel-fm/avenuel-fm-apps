@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const QRLIB = fs.readFileSync(require.resolve('qrcodejs2/qrcode.min.js'), 'utf8');
 const GU = 'https://n-test-0lu-script.googleusercontent.com';
+const fmFile = require('./fm_serve.js');
 (async () => {
   await fetch('http://localhost:8123/seed');
   const b = await chromium.launch();
@@ -9,8 +10,8 @@ const GU = 'https://n-test-0lu-script.googleusercontent.com';
   let slow = 0;
   await c.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
   await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: QRLIB }));
-  await c.route('https://avenuel-fm.github.io/fm/**', r => { const p = new URL(r.request().url()).pathname.replace(/^\/fm\//, ''); const f = path.join(__dirname, 'fmtest2', p.endsWith('/') || p === '' ? p + 'index.html' : p);
-    r.fulfill({ status: 200, contentType: f.endsWith('.js') ? 'application/javascript' : f.endsWith('.html') ? 'text/html; charset=utf-8' : 'application/octet-stream', body: fs.readFileSync(f) }); });
+  await c.route('https://avenuel-fm.github.io/fm/**', r => { const o = fmFile(new URL(r.request().url()).pathname.replace(/^\/fm\//, ''), GU + '/macros/s/TEST/exec', true);   // 저장소 fm/ 그대로
+    r.fulfill({ status: 200, contentType: o.type, body: o.body }); });
     await c.route(GU + '/**', async r => { const u = new URL(r.request().url());
     if (u.pathname === '/run' && global.FAIL && (r.request().postData() || '').indexOf('bootstrap') !== -1) { global.FAIL = false; return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ __error: '네트워크 끊김' }) }); }
     if (u.pathname === '/run' && slow) { const body = r.request().postData() || ''; if (body.indexOf('bootstrap') !== -1) await new Promise(z => setTimeout(z, slow)); }

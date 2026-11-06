@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.6.0-TBM', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.6.2', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -319,10 +319,12 @@ function login(pin, deviceId, signPng) {
   const cache = CacheService.getScriptCache();
   const lockKey = 'pinlock_' + deviceId;
   if (cache.get(lockKey)) return { ok: false, error: '5번 틀려서 이 기기는 5분 동안 입력할 수 없습니다.' };
+  if (cache.get(PIN_ALL_LOCK)) return { ok: false, error: 'PIN이 여러 번 틀려 10분 동안 모든 로그인을 막았습니다. 잠시 뒤 다시 해 주세요.' };
   if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN 4자리를 넣어 주세요.' };
   const staff = readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N'; });
   const me = staff.filter(function (s) { return hashPin_(pin, s['pin_salt']) === s['pin_hash']; })[0];
   if (!me) {
+    pinFailAll_(cache);
     const failKey = 'pinfail_' + deviceId;
     const n = Number(cache.get(failKey) || 0) + 1;
     if (n >= 5) { cache.put(lockKey, '1', 300); cache.remove(failKey); return { ok: false, error: '5번 틀려서 이 기기는 5분 동안 입력할 수 없습니다.' }; }
@@ -340,6 +342,15 @@ function login(pin, deviceId, signPng) {
   }
   log_(me['이름'], '로그인', me['staff_id'], sign ? '서명 ' + sign['sign_id'] : '');
   return { ok: true, token: makeToken_(me), user: userOut_(me) };
+}
+
+/* 기기 번호는 화면이 보내는 값이라 바꿔 가며 끝없이 시도할 수 있음 → 기기와 상관없이 10분 안에 30번 틀리면 모두 10분 막음 (점검 1, 결정 74).
+   shortcut: 동시에 틀린 요청은 몇 번 덜 셀 수 있음(잠금 없이 셈) — 막는 목적에는 충분 */
+const PIN_ALL_MAX = 30, PIN_ALL_LOCK = 'pinlock_all';
+function pinFailAll_(cache) {
+  const n = Number(cache.get('pinfail_all') || 0) + 1;
+  if (n >= PIN_ALL_MAX) { cache.put(PIN_ALL_LOCK, '1', 600); cache.remove('pinfail_all'); log_('보안', 'PIN 전체 잠금', '', '10분 안에 ' + n + '번 틀림'); }
+  else cache.put('pinfail_all', String(n), 600);
 }
 
 /** 기기 표는 있는데 오늘 서명이 없을 때 (시트에서 지웠거나 입장표로 들어온 경우) */
@@ -409,8 +420,9 @@ function auth_(token) {
 
 /* ───────────────────────── 서명 (WS_서류작업 2~4장) ───────────────────────── */
 
+const SIGN_TAIL = 400;   // 서명은 하루 20줄 안팎 → 맨 아래 400줄(약 20일)만 보면 오늘 줄이 다 있음
 function daySigns_(day) {
-  return readTable_('서명').rows
+  return readTail_('서명', SIGN_TAIL).rows
     .filter(function (r) { return r['근무일'] === day && r['삭제여부'] !== 'Y'; })
     .sort(function (a, b) { return a['서명시각'] < b['서명시각'] ? -1 : a['서명시각'] > b['서명시각'] ? 1 : 0; });
 }
@@ -428,7 +440,7 @@ function saveSign_(me, signPng, via) {
   try {
     const nowMs = Date.now();
     const day = workDay_(nowMs);
-    const t = readTable_('서명');
+    const t = readTail_('서명', SIGN_TAIL);
     const dup = t.rows.filter(function (r) { return r['근무일'] === day && r['staff_id'] === me['staff_id'] && r['삭제여부'] !== 'Y'; })[0];
     if (dup) return { ok: true, sign: dup };   // 두 기기에서 동시에 서명해도 한 줄만
     const key = day.replace(/-/g, '');
@@ -444,16 +456,6 @@ function saveSign_(me, signPng, via) {
   } finally {
     lock.releaseLock();
   }
-}
-
-/** TBM 서명란 미리보기: 오늘 근무일에 로그인한 직원만, 파트 구분 없이 로그인 순 (결정 56) */
-function tbmToday(token) {
-  auth_(token);
-  const day = workDay_(Date.now());
-  const list = daySigns_(day).map(function (r, i) {
-    return { no: i + 1, name: r['이름'], part: r['파트명'], at: String(r['서명시각']).slice(11, 16), img: fileB64_(r['서명_id']) };
-  });
-  return { ok: true, day: day, signs: list };
 }
 
 /* ───────────────────────── TBM 작성 · PDF (WS_서류작업 4-1~5장, 결정 58·66·70) ───────────────────────── */
@@ -483,15 +485,24 @@ const RISK_SEED = [
   ['(기본)', '공구·자재 다루다 손 다침', '절단·베임·찔림', 1, 1, ['✓보호장갑 착용', '공구 사용 전 상태 확인']]
 ];
 
-/** 탭이 없으면 만듦 (시트 메뉴 ①을 다시 하지 않아도 TBM이 열리게). 위험성목록은 첫 목록을 넣음 */
-function ensureTab_(name) {
-  const ss = db_();
-  if (!ss.getSheetByName(name)) {
-    const sh = ss.insertSheet(name);
-    sh.getRange(1, 1, 1, SHEETS[name].length).setValues([SHEETS[name]]);
-    sh.setFrozenRows(1);
+/** TBM·위험성목록 탭이 없으면 만들고 첫 목록을 넣음 (시트 메뉴 ①을 다시 하지 않아도 TBM이 열리게).
+ *  두 사람이 처음 동시에 열어도 목록이 두 번 들어가지 않게 잠금 안에서 (점검 4) */
+function ensureTbmTabs_() {
+  const ss = db_(), risk = ss.getSheetByName('위험성목록');
+  if (ss.getSheetByName('TBM') && risk && risk.getLastRow() > 1) return;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    ['TBM', '위험성목록'].forEach(function (name) {
+      if (ss.getSheetByName(name)) return;
+      const sh = ss.insertSheet(name);
+      sh.getRange(1, 1, 1, SHEETS[name].length).setValues([SHEETS[name]]);
+      sh.setFrozenRows(1);
+    });
+    seedRisks_();
+  } finally {
+    lock.releaseLock();
   }
-  if (name === '위험성목록') seedRisks_();
 }
 function seedRisks_() {
   const sh = db_().getSheetByName('위험성목록');
@@ -505,7 +516,6 @@ function seedRisks_() {
 
 /** 위험성 목록: 순서대로. 낱말이 처음 맞는 줄을 화면에서 미리 고름, 「(기본)」은 맞는 줄이 없을 때 */
 function riskList_() {
-  ensureTab_('위험성목록');
   const n3 = function (v) { v = Number(v); return v >= 1 && v <= 3 ? Math.round(v) : 1; };
   return readTable_('위험성목록').rows.filter(function (r) { return r['사용여부'] !== 'N' && r['위험요인']; })
     .sort(function (a, b) { return Number(a['순서']) - Number(b['순서']); })
@@ -520,7 +530,6 @@ function riskList_() {
 }
 
 function tbmRow_(day) {
-  ensureTab_('TBM');
   return readTable_('TBM').rows.filter(function (r) { return r['근무일'] === day && r['삭제여부'] !== 'Y'; })[0] || null;
 }
 
@@ -536,6 +545,7 @@ function jsonOr_(s, dflt) { try { const v = JSON.parse(s); return v == null ? df
  */
 function tbmGet(token) {
   auth_(token);
+  ensureTbmTabs_();
   const day = workDay_(Date.now());
   const roles = {};
   readTable_('직원').rows.forEach(function (s) { roles[s['staff_id']] = s['역할']; });
@@ -678,13 +688,14 @@ function nextWorkSave(token, date, rows, ver) {
     const cur = nwSheet_(date);
     if (String(ver || '') !== cur.ver) return Object.assign({ ok: false, conflict: true, error: (cur.by || '다른 사람') + '님이 먼저 고쳤어요. 새 내용을 불러왔습니다.' }, cur);
     const t = readTable_('명일작업');
-    t.rows.filter(function (r) { return r['일자'] === date; }).map(function (r) { return r._row; })
-      .sort(function (a, b) { return b - a; }).forEach(function (n) { t.sheet.deleteRow(n); });
+    const old = t.rows.filter(function (r) { return r['일자'] === date; }).map(function (r) { return r._row; });
     let at = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss');
     if (at <= cur.ver) at = cur.ver + '+';   // 같은 초에 두 번 저장해도 ver가 바뀌게
+    // 새 줄을 먼저 쓰고 예전 줄을 지움 — 중간에 시트 오류가 나도 그 날짜 내용이 사라지지 않음 (점검 5)
     clean.forEach(function (x, i) {
       appendRow_('명일작업', { '일자': date, '순번': String(i + 1), '부서': x.dept, '작업장소': x.place, '작업내용': x.work, '비고': x.note, '고친사람': me['이름'], '고친시각': at });
     });
+    old.sort(function (a, b) { return b - a; }).forEach(function (n) { t.sheet.deleteRow(n); });   // 아래부터 지워 위쪽 줄 번호가 안 바뀜
     log_(me['이름'], '명일 작업 저장', date, clean.length + '줄');
     return Object.assign({ ok: true }, nwSheet_(date));
   } finally {
@@ -901,11 +912,18 @@ function feDetail(token, checkId) {
   };
 }
 
+/** 드라이브 파일 → data URL. 작은 파일(서명 등)은 6시간 기억해 TBM을 열 때마다 드라이브를 다시 읽지 않음 (점검 3).
+ *  파일 번호마다 내용이 바뀌지 않으므로(바꾸면 새 번호) 기억해도 틀리지 않음 */
 function fileB64_(id) {
   if (!id) return '';
+  const cache = CacheService.getScriptCache(), key = 'f_' + id;
+  const hit = cache.get(key);
+  if (hit) return hit;
   try {
     const b = DriveApp.getFileById(id).getBlob();
-    return 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes());
+    const s = 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes());
+    if (s.length < 90000) cache.put(key, s, 21600);   // 캐시 한 칸 100KB 제한
+    return s;
   } catch (e) {
     return '';
   }
@@ -1078,12 +1096,27 @@ function readTable_(name) {
   if (!sh) throw new Error('시트 메뉴 「업무지원 › ① 초기 설정」을 먼저 해 주세요 (' + name + ' 탭 없음)');
   const values = sh.getDataRange().getValues();
   const head = values.shift().map(String);
-  const rows = values.map(function (v, i) {
-    const o = { _row: i + 2 };
+  return { head: head, rows: rowsOf_(head, values, 2), sheet: sh };
+}
+
+/** 시트 맨 아래 n줄만 읽음 — 앱이 덧붙이기만 하는 탭에서 최근 줄을 찾을 때 (점검 8)
+ *  shortcut: 시트를 손으로 정렬하면 최근 줄이 맨 아래가 아닐 수 있음 — 그때는 readTable_로 바꿈 */
+function readTail_(name, n) {
+  const sh = db_().getSheetByName(name);
+  if (!sh) throw new Error('시트 메뉴 「업무지원 › ① 초기 설정」을 먼저 해 주세요 (' + name + ' 탭 없음)');
+  const last = sh.getLastRow(), cols = sh.getLastColumn();
+  const head = sh.getRange(1, 1, 1, cols).getValues()[0].map(String);
+  if (last < 2) return { head: head, rows: [], sheet: sh };
+  const start = Math.max(2, last - n + 1);
+  return { head: head, rows: rowsOf_(head, sh.getRange(start, 1, last - start + 1, cols).getValues(), start), sheet: sh };
+}
+
+function rowsOf_(head, values, firstRow) {
+  return values.map(function (v, i) {
+    const o = { _row: firstRow + i };
     head.forEach(function (h, j) { o[h] = cellOut_(h, v[j]); });
     return o;
   }).filter(function (o) { return head.some(function (h) { return o[h] !== ''; }); });
-  return { head: head, rows: rows, sheet: sh };
 }
 
 function appendRow_(name, obj) {

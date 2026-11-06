@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.8.4',
+  VERSION: '1.8.5',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
@@ -471,16 +471,35 @@ function hash_(s) {
   return bytes.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
 }
 
+/* 1.8.5 PIN 틀린 횟수 (결정 39): 기기와 상관없이 10분 안에 20번 틀리면 10분 동안 PIN 입력을 모두 막음.
+   기기에 기억된 로그인(token)은 막지 않음 → 남이 일부러 틀려도 소장·부소장 기기는 그대로 열림 */
+var PIN_FAIL_MAX = 20, PIN_FAIL_MS = 600000;
+function pinGate_() {
+  var v = {}; try { v = JSON.parse(props_().getProperty('PIN_FAIL') || '{}') || {}; } catch (e) { v = {}; }
+  if (v.lock && v.lock > Date.now()) throw new Error('PIN이 여러 번 틀려 10분 동안 PIN 입력을 막았습니다. 잠시 뒤 다시 해 주세요.');
+  return v;
+}
+function pinFail_(v, msg) {
+  var now = Date.now();
+  if (!v.t || now - v.t > PIN_FAIL_MS) v = { n: 0, t: now };
+  v.n = (v.n || 0) + 1;
+  if (v.n >= PIN_FAIL_MAX) { v = { n: 0, t: now, lock: now + PIN_FAIL_MS }; log_('보안', 'PIN 입력 잠금', '', '', '10분 안에 ' + PIN_FAIL_MAX + '번 틀림'); }
+  props_().setProperty('PIN_FAIL', JSON.stringify(v));
+  return new Error(msg);
+}
+
 function auth_(a) {
   if (a && !a.role && !a.token && a.pin != null) {
     // 1.7: PIN만 입력 → 맞는 사람(소장/부소장)을 찾음
+    var gate = pinGate_();
     var props = PropertiesService.getScriptProperties(), h = hash_(String(a.pin)), any = false;
     for (var i = 0; i < APP.ROLES.length; i++) {
       var sv = props.getProperty('PIN_' + APP.ROLES[i]);
       if (sv) any = true;
       if (sv && sv === h) { a.role = APP.ROLES[i]; return a.role; }
     }
-    throw new Error(any ? 'PIN이 맞지 않습니다.' : 'PIN이 아직 설정되지 않았습니다. 시트의 [도면협의] 메뉴에서 PIN을 설정해 주세요.');
+    if (any) throw pinFail_(gate, 'PIN이 맞지 않습니다.');
+    throw new Error('PIN이 아직 설정되지 않았습니다. 시트의 [도면협의] 메뉴에서 PIN을 설정해 주세요.');
   }
   if (!a || APP.ROLES.indexOf(a.role) < 0) throw new Error('로그인이 필요합니다.');
   var saved = PropertiesService.getScriptProperties().getProperty('PIN_' + a.role);
@@ -490,7 +509,8 @@ function auth_(a) {
     if (String(a.token) !== loginToken_(a.role, saved)) throw new Error('PIN이 바뀌었습니다. 새 PIN으로 다시 로그인해 주세요.');
     return a.role;
   }
-  if (hash_(String(a.pin || '')) !== saved) throw new Error('PIN이 맞지 않습니다.');
+  var g = pinGate_();
+  if (hash_(String(a.pin || '')) !== saved) throw pinFail_(g, 'PIN이 맞지 않습니다.');
   return a.role;
 }
 

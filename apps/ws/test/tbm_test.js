@@ -66,6 +66,11 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   ok(g.saved && g.works.length === 4 && g.works[0].p === 3 && g.works[0].n === '3' && g.works[0].fixes.length === 4 && g.photos.meet && g.photos.chant, '저장 → 작업 표 4줄 · 사진 2장');
   await p.click('.nwbar button:text-is("PDF로 저장")'); await p.waitForFunction(() => S.tbm && S.tbm.pdf && !S.tbm.pdfBusy);
   ok((await p.locator('.banner.b-info').first().innerText()).indexOf('PDF 저장됨') !== -1, 'PDF 저장 → 「PDF 저장됨」 표시');
+  const openBtn = p.locator('.nwbar a.btn.pri');
+  ok(await openBtn.innerText() === 'PDF 열기' && /drive\.google\.com\/file\/d\/.+\/view/.test(await openBtn.getAttribute('href')) && await openBtn.getAttribute('target') === '_blank', 'PDF 저장 뒤 버튼 = [PDF 열기] (새 창)');
+  ok((await p.locator('.tbpb').first().innerText()).replace(/\s+/g, ' ') === '📷 카메라 📂 파일', '사진 버튼 아이콘');
+  await p.locator('.tbck button').nth(1).click();
+  ok(await p.locator('.nwbar button.pri').innerText() === 'PDF로 저장', '고치면 다시 [PDF로 저장]');
   const pdf = await p.evaluate(() => {
     const e = window.__pdfEl, t = e.innerText;
     return { pages: e.querySelectorAll('.pg').length, rows: e.querySelectorAll('.wk tr').length - 1, signs: e.querySelectorAll('.sg img').length, inn: (t.match(/\(인\)/g) || []).length,
@@ -74,14 +79,14 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
       photo: [...e.querySelectorAll('.cell img')].map(i => i.style.width + 'x' + i.style.height).join() };
   });
   ok(pdf.pages === 2 && pdf.pn === '- 1 / 2 -,- 2 / 2 -', 'PDF 2쪽 · 쪽 번호');
-  ok(pdf.rows === 6, 'PDF 작업 표 기본 6줄 (4줄 + 빈 2줄)');
-  ok(pdf.signs === 2 && pdf.inn === 26 && /홍길동/.test(pdf.mgr) && /2 명/.test(pdf.n), 'PDF 서명 2명 · 빈 칸 (인) 26 · 관리감독자 · 작업인원 2명');
+  ok(pdf.rows === 8, 'PDF 작업 표 기본 8줄 (4줄 + 빈 4줄)');
+  ok(pdf.signs === 2 && pdf.inn === 18 && /홍길동/.test(pdf.mgr) && /2 명/.test(pdf.n), 'PDF 서명란 20칸: 서명 2명 · 빈 칸 (인) 18 · 관리감독자 · 작업인원 2명');
   ok(pdf.date.indexOf(day.slice(2).replace(/-/g, '.')) !== -1 && pdf.lv && pdf.ck === '○', 'PDF 작업 일시 YY.MM.DD · 위험성 9 (상) · 사다리 ○');
   ok(pdf.photo.split(',').length === 2 && pdf.photo.split(',').every(v => /^\d+pxx\d+px$/.test(v)), 'PDF 사진 2장 칸에 맞춰 줄임 ' + pdf.photo);
   const used = (await run('readTable_', '서명')).rows.filter(r => r['근무일'] === day).every(r => r['TBM사용'] === 'Y');
   ok(used, 'PDF에 쓰인 서명 TBM사용=Y');
-  const r8 = await p.evaluate(() => { const keep = S.tbm.works.slice(); for (let i = 0; i < 4; i++) S.tbm.works.push(Object.assign({}, keep[0])); const hh = tbmPdfHtml(); S.tbm.works = keep; return (hh.match(/<tr style="height:7\.75mm;font-size:6\.75pt"/g) || []).length; });
-  ok(r8 === 8, '작업 8줄이면 줄 높이·글자 줄여 8줄 (7.75mm · 6.75pt)');
+  const r8 = await p.evaluate(() => { const keep = S.tbm.works.slice(); for (let i = 0; i < 6; i++) S.tbm.works.push(Object.assign({}, keep[0])); const hh = tbmPdfHtml(); S.tbm.works = keep; return (hh.match(/<tr style="height:8\.20mm;font-size:7\.20pt"/g) || []).length; });
+  ok(r8 === 10, '작업 10줄이면 줄 높이·글자 줄여 10줄 (8.2mm · 7.2pt)');
   await p.setViewportSize({ width: 1180, height: 900 });
   await p.evaluate(() => { const d = document.createElement('div'); d.id = 'pdfview'; d.style.cssText = 'position:absolute;left:0;top:0;z-index:999;background:#fff'; d.appendChild(window.__pdfEl); document.body.appendChild(d); window.scrollTo(0, 0); });
   await p.locator('#pdfview .pg').nth(0).screenshot({ path: 'shot_tbm_pdf_1.png' });

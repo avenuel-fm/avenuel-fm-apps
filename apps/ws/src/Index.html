@@ -419,14 +419,14 @@ function tbmN(w) { return w.n !== '' && w.n != null ? Number(w.n) : tbmAutoN(w);
 async function loadTbm() {
   if (S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 버리고 새로 불러올까요?')) return;
   const r = await call('tbmGet');
-  S.tbm = Object.assign(r, { dirty: false, busy: false, pdfBusy: false, edit: -1, up: {}, showSigns: false });
+  S.tbm = Object.assign(r, { dirty: false, busy: false, pdfBusy: false, edit: -1, up: {}, showSigns: false, pdfStale: !!(r.pdf && r.at > r.pdf.at) });
   r.works.forEach(w => { w.fixes = w.fixes || []; if (w.risk === undefined) tbmApply(w, tbmRiskFor(tbmText(w))); });
   if (!r.checks) r.checks = tbmAutoChecks(r.works);
   if (S.docs) S.docs.signs = r.signs.length;
   if (S.view === 'tbm') render();
 }
 function tbmState() { const r = S.tbm; return r.dirty ? '<span class="nwstate dirty">● 저장 안 함</span>' : r.saved ? '<span class="nwstate">✓ 저장됨</span>' : ''; }
-function tbmDirty() { S.tbm.dirty = true; const e = $('tbState'); if (e) e.innerHTML = tbmState(); }
+function tbmDirty() { S.tbm.dirty = true; S.tbm.pdfStale = true; const e = $('tbState'); if (e) e.innerHTML = tbmState(); }
 function tbmCard(w, i) {
   const r = S.tbm, ed = r.edit === i, cur = r.risks.find(x => x.risk === w.risk);
   const seg = (k) => '<div class="seg tbseg" role="group" aria-label="' + (k === 'p' ? '가능성' : '중대성') + '">' + [1, 2, 3].map(n => '<button type="button" class="' + (Number(w[k]) === n ? 'on' : '') + '" aria-pressed="' + (Number(w[k]) === n) + '" onclick="tbmSet(' + i + ',\'' + k + '\',' + n + ')">' + n + '</button>').join('') + '</div>';
@@ -454,7 +454,7 @@ function tbmCard(w, i) {
 }
 function tbmPhotoCell(k, label) {
   const src = S.tbm.up[k] || S.tbm.photos[k];
-  const pick = (cam) => '<label class="btn sm">' + (cam ? '카메라' : '파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : '') + ' hidden onchange="tbmPhoto(\'' + k + '\',this)"></label>';
+  const pick = (cam) => '<label class="btn sm">' + (cam ? '📷 카메라' : '📂 파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : '') + ' hidden onchange="tbmPhoto(\'' + k + '\',this)"></label>';
   return '<div class="tbph"><b>' + label + '</b><div class="ph43">' + (src ? '<img src="' + src + '" alt="' + label + '">' : '<small>사진 없음</small>') + '</div><div class="tbpb">' + pick(true) + pick(false) + '</div></div>';
 }
 function renderTbm() {
@@ -480,7 +480,9 @@ function renderTbm() {
     '<div class="card tbphs">' + tbmPhotoCell('meet', '회의 사진') + tbmPhotoCell('chant', '구호 사진') + '</div>' +
     '<div class="nwbar"><span id="tbState">' + tbmState() + '</span>' +
     '<button class="btn" onclick="tbmSaveBtn()"' + (r.busy || r.pdfBusy ? ' disabled' : '') + '>' + (r.busy ? '<span class="spin"></span>' : '저장') + '</button>' +
-    '<button class="btn pri" onclick="tbmPdf()"' + (r.busy || r.pdfBusy ? ' disabled' : '') + '>' + (r.pdfBusy ? '<span class="spin"></span> PDF 만드는 중' : 'PDF로 저장') + '</button></div></div>';
+    // PDF를 만든 뒤 고친 것·새 서명이 없으면 [PDF 열기] (결정 72)
+    (r.pdf && !r.dirty && !r.pdfStale && !more ? '<a class="btn pri" href="' + h(r.pdf.url) + '" target="_blank" rel="noopener">PDF 열기</a>' :
+      '<button class="btn pri" onclick="tbmPdf()"' + (r.busy || r.pdfBusy ? ' disabled' : '') + '>' + (r.pdfBusy ? '<span class="spin"></span> PDF 만드는 중' : 'PDF로 저장') + '</button>') + '</div></div>';
 }
 function tbmW(i) { return S.tbm.works[i]; }
 function tbmIn(i, k, el) { tbmW(i)[k] = el.value; tbmDirty(); }
@@ -544,10 +546,10 @@ async function tbmPdf() {
   try {
     await loadH2p();
     const uri = await tbmMakePdf();
-    const res = await call('tbmSavePdf', uri, r.signs.slice(0, 28).map(x => x.id));
+    const res = await call('tbmSavePdf', uri, r.signs.slice(0, 20).map(x => x.id));
     r.pdfBusy = false;
     if (!res.ok) { render(); toast(res.error); return; }
-    r.pdf = res.pdf; render(); toast('PDF로 저장했습니다');
+    r.pdf = res.pdf; r.pdfStale = false; render(); toast('PDF로 저장했습니다');
   } catch (e) { r.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
 }
 /* PDF = A4 가로 2쪽 (1123×794px). 1쪽 평가표, 2쪽 사진. 양식: docs/양식/WS_TBM_양식_*, 시안: WS_TBM_시안_* */
@@ -567,8 +569,8 @@ const TBM_PDF_CSS = '.tbp{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;
   '.tbp .photos{display:flex;margin-top:18mm;height:116mm;border:.25mm solid #a6a6a6}' +
   '.tbp .cell{flex:1;width:50%;border-right:.25mm solid #a6a6a6;background:#eee;display:flex;align-items:center;justify-content:center;overflow:hidden}.tbp .cell:last-child{border-right:0}';
 function tbmPdfHtml() {
-  const r = S.tbm, [y, m, d] = r.day.split('-'), signs = r.signs.slice(0, 28);
-  const n = Math.max(6, r.works.length), rh = 62 / n, fs = Math.max(6.5, 9 * 6 / n), fs2 = (fs * 0.9).toFixed(2);
+  const r = S.tbm, [y, m, d] = r.day.split('-'), signs = r.signs.slice(0, 20);
+  const n = Math.max(8, r.works.length), rh = 82 / n, fs = Math.max(6.5, 9 * 8 / n), fs2 = (fs * 0.9).toFixed(2);
   const img = (src, alt) => src ? '<img src="' + src + '" alt="' + h(alt) + '">' : '';
   const works = Array.from({ length: n }, (_, i) => {
     const w = r.works[i], st = ' style="height:' + rh.toFixed(2) + 'mm;font-size:' + fs.toFixed(2) + 'pt"';
@@ -577,9 +579,9 @@ function tbmPdfHtml() {
       '<td class="s" style="font-size:' + fs2 + 'pt">' + h(w.risk) + '</td><td>' + h(w.kind) + '</td><td>' + tbmLv(w.p, w.s) + '</td><td class="s" style="font-size:' + fs2 + 'pt">' + h((w.fixes || []).join(' / ')) + '</td></tr>';
   }).join('');
   let sg = '';
-  for (let row = 0; row < 7; row++) {   // 세로 먼저: 1줄 위→아래 7칸, 다음 줄 (결정 66)
-    sg += '<tr>' + (row ? '' : '<td rowspan="7" style="font-size:9pt">서명란</td>');
-    for (let col = 0; col < 4; col++) { const x = signs[col * 7 + row]; sg += '<td class="nm">' + (x ? h(x.name) : '') + '</td><td>' + (x && x.img ? img(x.img, x.name + ' 서명') : '(인)') + '</td>'; }
+  for (let row = 0; row < 5; row++) {   // 세로 먼저: 1줄 위→아래 5칸, 다음 줄 — 4줄×5칸 20명 (결정 66·72)
+    sg += '<tr>' + (row ? '' : '<td rowspan="5" style="font-size:9pt">서명란</td>');
+    for (let col = 0; col < 4; col++) { const x = signs[col * 5 + row]; sg += '<td class="nm">' + (x ? h(x.name) : '') + '</td><td>' + (x && x.img ? img(x.img, x.name + ' 서명') : '(인)') + '</td>'; }
     sg += '</tr>';
   }
   const mg = r.manager;

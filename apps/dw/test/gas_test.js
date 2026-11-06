@@ -327,7 +327,7 @@ const ix = run('apiGuideIndex(A)');
 ok(ix.length === 1 && ix[0].d === ctx.BID && ix[0].p === 91, '검색 색인 제공 (항목마다 지침 ID)');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 91)`) === img, '쪽 이미지 data URL');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 999)`) === null, '없는 쪽은 null');
-ok(run('apiBootstrap(A)').version === '1.8.4' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
+ok(run('apiBootstrap(A)').version === '1.8.5' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
 
 // 개정판: 다른 PDF로 같은 지침 바꾸기
 const pdf2 = mkFile('통합안전관리지침_27.pdf', 'application/pdf', Buffer.from('new'), gRoot.id);
@@ -558,6 +558,16 @@ let lg1 = run('apiStart({pin:"2468"})'); ok(lg1.role === '소장' && lg1.token, 
 let lg2 = run('apiLogin({pin:"1357"})'); ok(lg2.role === '부소장', '부소장 PIN이면 부소장으로');
 threw = false; try { run('apiLogin({pin:"0000"})'); } catch (e) { threw = /PIN이 맞지 않습니다/.test(e.message); }
 ok(threw, '틀린 PIN 거부');
+// 1.8.5 (결정 39): 기기와 상관없이 10분 안에 20번 틀리면 PIN 입력을 모두 10분 막음, 기기 기억 로그인은 그대로
+delete props.PIN_FAIL;
+for (let i = 0; i < 19; i++) { try { run('apiLogin({pin:"' + String(1000 + i) + '"})'); } catch (e) {} }
+ok(run('apiLogin({pin:"2468"})').role === '소장', '19번 틀려도 맞는 PIN은 들어감');
+try { run('apiLogin({pin:"9999"})'); } catch (e) {}
+threw = false; try { run('apiLogin({pin:"2468"})'); } catch (e) { threw = /10분 동안/.test(e.message); }
+ok(threw, '20번 틀리면 맞는 PIN도 10분 막음');
+ok(run('apiStart({role:"소장",token:' + JSON.stringify(lg1.token) + '})').role === '소장', '막혀 있어도 기기에 기억된 로그인은 열림');
+delete props.PIN_FAIL;
+ok(run('apiLogin({pin:"1357"})').role === '부소장', '잠금 풀리면 다시 PIN 로그인');
 // 같은 PIN 거부 (시트 메뉴 ② PIN 설정)
 let alerts = [];
 ctx.SpreadsheetApp.getUi = () => ({ prompt: () => ({ getSelectedButton: () => 'OK', getResponseText: () => '1357' }), Button: { OK: 'OK' }, ButtonSet: { OK_CANCEL: 1, OK: 2 }, alert: m => alerts.push(m) });

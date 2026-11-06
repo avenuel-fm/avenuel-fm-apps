@@ -5,14 +5,14 @@ const path = require('path');
 const T = __dirname;
 const UI = ['sign_test.js', 'login_test.js', 'status_test.js', 'label_test.js', 'cam_test.js', 'torch_test.js', 'nw_test.js', 'tbm_test.js'];
 let fail = 0;
-// 바로가기 페이지(test/fmtest) 흉내 — http://localhost:8124 (카메라·손전등 시험용)
-const http = require('http'), fs = require('fs');
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
+// 바로가기 페이지(저장소 fm/ 그대로, fm_serve.js) — http://localhost:8124 (카메라·손전등 시험용)
+const http = require('http');
+const fmFile = require('./fm_serve.js');
 http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const f = path.join(T, 'fmtest', path.normalize(p).replace(/^([\\/]*\.\.)+/, ''));
-  fs.readFile(f, (e, b) => { if (e) { res.statusCode = 404; return res.end(); } res.setHeader('content-type', TYPES[path.extname(f)] || 'application/octet-stream'); res.end(b); });
+  let out;
+  try { out = fmFile(decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\//, ''), 'http://localhost:8123/exec'); }
+  catch (e) { if (/fm_serve/.test(e.message)) { console.log('ERR ' + e.message); fail++; } res.statusCode = 404; return res.end(); }
+  res.setHeader('content-type', out.type); res.end(out.body);
 }).listen(8124);
 function runNode(file) {   // 따로 띄워 돌림 (그동안 위의 바로가기 페이지 흉내가 응답할 수 있게)
   return new Promise(done => {
