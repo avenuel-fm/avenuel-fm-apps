@@ -52,7 +52,7 @@
 
 ## 배포 (구글에 올리기)
 - clasp(구글 Apps Script 올리기 도구)를 설정하기 전에는 **사용자가 직접** Apps Script 편집기에 붙여 넣고 「배포 관리 → ✏ → 새 버전」으로 배포합니다. 이때는 어떤 파일을 바꿔야 하는지 정확히 알려 줍니다.
-- clasp 설정 뒤(`apps/ws/.clasp.json`, `rootDir: "src"`): 파일 올리기 → **기존 배포 ID를 새 버전으로 갱신**합니다. **새 배포를 만들면 웹앱 주소가 바뀌므로 절대 새로 만들지 않습니다.** 배포 ID는 사용자에게 받은 값을 `apps/ws/DEPLOY.md`에 적어 둡니다.
+- clasp 설정 뒤(`apps/ws/.clasp.json`, `apps/dw/.clasp.json`, 둘 다 `rootDir: "src"`): 파일 올리기 → **기존 배포 ID를 새 버전으로 갱신**합니다. **새 배포를 만들면 웹앱 주소가 바뀌므로 절대 새로 만들지 않습니다.** 배포 ID는 앱마다 `apps/ws/DEPLOY.md`, `apps/dw/DEPLOY.md`에 적어 둡니다.
 - 배포는 사용자 확인을 받은 뒤에만 합니다.
 - `fm/` 파일이 바뀌면 바로가기 페이지 저장소(GitHub Pages)에도 올려야 한다고 알려 줍니다.
 
@@ -65,7 +65,7 @@
 - 시트에 붙은 스크립트이고, 매장 시트 열은 `STORE_COLS` **맨 끝에만** 추가합니다. 드라이브 폴더 4개는 ID로 찾습니다(`appFolder_`).
 - 바로가기: TinyURL `avenuel-dr` → `…/fm/dw/` → `/exec`. `설정.바로가기주소`가 있으면 검토서 QR(`?store=`)·서명 메일(`?sign=`) 링크를 그 주소로 만듭니다.
 - 사진 이름 `YYYY-MM-DD_작업명_###.jpg`, 협의서는 `YYYY-MM-DD_방재실협의서-{테넌트}_001.jpg`.
-- 배포는 지금 사용자가 직접 「배포 관리 → ✏ → 새 버전」으로 합니다 (DW는 clasp 아직 없음, 새 배포 금지).
+- 배포는 clasp로 `apps/dw/DEPLOY.md`의 배포 ID만 갱신합니다 (clasp는 `../ws/node_modules/.bin/clasp`를 같이 씀, 새 배포 금지).
 - 시트 탭·폴더·스크립트 속성·시트 메뉴 ①~⑧·남은 일 표: `apps/dw/CLAUDE.md`
 
 ## 일을 마칠 때
