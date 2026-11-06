@@ -300,3 +300,16 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(bootstrap(h.token).fire.counts.total === n0 + 2, '결정76: 하나 더 등록');
   feDelete(h.token, [fe2.id]); assert(bootstrap(h.token).fire.counts.total === n0 + 1, '결정76: 점검 안 한 소화기 삭제하면 바로 빠짐');
 }
+// 앱 속도 (결정 78): 직원 목록 1분 기억, 등록하면 바로 새로 · 소화기 등록이 목록도 돌려줌 · 저장 + PDF 한 번에
+{
+  NOW.d = new Date('2026-12-22T09:00:00+09:00'); CacheService.getScriptCache().remove('pinlock_all');
+  const h = login('1234', 'sp1', SIG); auth_(h.token);
+  assert(CacheService.getScriptCache().get('staff'), '결정78: 직원 목록을 기억함');
+  assert(addStaff_('새직원', '8642', '기건파트', '직원').ok && login('8642', 'sp2', SIG).ok, '결정78: 직원 등록하면 기억을 지워 바로 로그인됨');
+  const a = feAdd(h.token, { floor: '2F', store: '목록시험', count: 1 });
+  assert(a.ok && a.added.length === 1 && a.items.some(i => i.store === '목록시험') && a.label, '결정78: 소화기 등록이 새 목록도 돌려줌');
+  const g = tbmGet(h.token);
+  const p = tbmSavePdf(h.token, 'data:application/pdf;base64,' + 'P'.repeat(400), g.signs.map(x => x.id), { works: [{ place: '1층', work: '한번에 저장', dept: '전방파트' }], checks: {}, meet: 'data:image/jpeg;base64,' + 'Q'.repeat(3000) });
+  const g2 = tbmGet(h.token);
+  assert(p.ok && g2.works[0].work === '한번에 저장' && g2.photos.meet && g2.pdf.id === p.pdf.id, '결정78: [PDF로 저장]이 저장까지 한 번에');
+}

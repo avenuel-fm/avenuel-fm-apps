@@ -23,7 +23,10 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   const p = await c.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
   await p.goto('http://localhost:8123/index'); await p.locator('.key').first().waitFor();
   for (const k of '1234') await p.click(`.key:text-is("${k}")`);
-  await p.waitForSelector('.grid6'); await p.click('.tile >> text=서류작업'); await p.click('.row >> text=TBM');
+  await p.waitForSelector('.grid6'); await p.waitForFunction(() => PRE.tbm, null, { timeout: 15000 });
+  await p.click('.tile >> text=서류작업'); const tOpen = Date.now(); await p.click('.row >> text=TBM');
+  await p.waitForSelector('.tbw'); const openMs = Date.now() - tOpen;
+  ok(openMs < 800, '결정78: 미리 받아 둔 TBM이 바로 열림 ' + openMs + 'ms');
   await p.waitForSelector('.tbw');
   ok(await p.locator('.tbw').count() === 3, '작업 표 3줄 = 오늘 날짜의 명일 작업 예정');
   ok((await p.locator('.tbsum').innerText()).indexOf('관리감독자 홍길동') !== -1, '관리감독자 = 소장 홍길동');
@@ -71,6 +74,10 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   ok((await p.locator('.tbpb').first().innerText()).replace(/\s+/g, ' ') === '📷 카메라 📂 파일', '사진 버튼 아이콘');
   await p.locator('.tbck button').nth(1).click();
   ok(await p.locator('.nwbar button.pri').innerText() === 'PDF로 저장', '고치면 다시 [PDF로 저장]');
+  let saveCalls = 0; p.on('request', q => { if (q.url().endsWith('/run') && /"fn":"tbmSave"/.test(q.postData() || '')) saveCalls++; });
+  await p.click('.nwbar button.pri'); await p.waitForFunction(() => S.tbm && !S.tbm.pdfBusy && !S.tbm.dirty && !S.tbm.pdfStale);
+  const g3 = await run('tbmGet', hong.token);
+  ok(saveCalls === 0 && g3.checks['비계'] === true, '결정78: 고친 뒤 [PDF로 저장] → 따로 [저장] 없이 한 번에 저장됨');
   const pdf = await p.evaluate(() => {
     const e = window.__pdfEl, t = e.innerText;
     return { pages: e.querySelectorAll('.pg').length, rows: e.querySelectorAll('.wk tr').length - 1, signs: e.querySelectorAll('.sg img').length, inn: (t.match(/\(인\)/g) || []).length,

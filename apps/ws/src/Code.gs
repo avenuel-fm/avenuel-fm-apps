@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.6.3', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.6.4', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -209,6 +209,7 @@ function addStaff_(name, pin, part, role) {
     const id = 'S' + ('00' + (max + 1)).slice(-3);
     const salt = randomHex_(8);
     appendRow_('직원', { 'staff_id': id, '이름': name, '파트명': part, '역할': role, 'pin_hash': hashPin_(pin, salt), 'pin_salt': salt, '사용여부': 'Y', '수정일시': now_() });
+    CacheService.getScriptCache().remove('staff');
     log_('관리자(시트)', '직원 등록', id, name + ' · ' + role);
     return { ok: true, staff_id: id, name: name };
   } finally {
@@ -321,7 +322,7 @@ function login(pin, deviceId, signPng) {
   if (cache.get(lockKey)) return { ok: false, error: '5번 틀려서 이 기기는 5분 동안 입력할 수 없습니다.' };
   if (cache.get(PIN_ALL_LOCK)) return { ok: false, error: 'PIN이 여러 번 틀려 10분 동안 모든 로그인을 막았습니다. 잠시 뒤 다시 해 주세요.' };
   if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN 4자리를 넣어 주세요.' };
-  const staff = readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N'; });
+  const staff = staffRows_().filter(function (s) { return s['사용여부'] !== 'N'; });
   const me = staff.filter(function (s) { return hashPin_(pin, s['pin_salt']) === s['pin_hash']; })[0];
   if (!me) {
     pinFailAll_(cache);
@@ -388,6 +389,16 @@ function fireSummary_() {
 }
 function fireChanged_() { CacheService.getScriptCache().remove('fire_sum'); }
 
+/* 직원 목록: 서버를 부를 때마다(로그인 확인) 직원 시트를 읽지 않게 1분 기억 (결정 78).
+   shortcut: 시트에서 직원을 직접 고치면(사용여부 N, 역할 등) 최대 1분 늦게 반영 — 즉시 막아야 하면 PIN·표가 틀리게 바꿈 */
+function staffRows_() {
+  const cache = CacheService.getScriptCache(), hit = cache.get('staff');
+  if (hit) return JSON.parse(hit);
+  const rows = readTable_('직원').rows;
+  try { cache.put('staff', JSON.stringify(rows), 60); } catch (e) { /* 100KB 넘으면 기억 안 함 */ }
+  return rows;
+}
+
 function userOut_(s) {
   return { staff_id: s['staff_id'], name: s['이름'], part: s['파트명'], role: s['역할'] };
 }
@@ -423,7 +434,7 @@ function auth_(token) {
   const exp = Number(parts[1]);
   if (!exp || exp < Date.now()) throw new Error('LOGIN');
   if (exp > nextWorkStart_(Date.now())) throw new Error('LOGIN');   // 예전 30일·8시 표는 받지 않음 → 한 번 다시 로그인하면 6시 규칙 (결정 60)
-  const s = readTable_('직원').rows.filter(function (r) { return r['staff_id'] === parts[0] && r['사용여부'] !== 'N'; })[0];
+  const s = staffRows_().filter(function (r) { return r['staff_id'] === parts[0] && r['사용여부'] !== 'N'; })[0];
   if (!s) throw new Error('LOGIN');
   if (sign_(parts[0] + '.' + parts[1] + '|' + String(s['pin_hash']).slice(0, 8)) !== parts[2]) throw new Error('LOGIN');
   return s;
@@ -559,7 +570,7 @@ function tbmGet(token) {
   ensureTbmTabs_();
   const day = workDay_(Date.now());
   const roles = {};
-  readTable_('직원').rows.forEach(function (s) { roles[s['staff_id']] = s['역할']; });
+  staffRows_().forEach(function (s) { roles[s['staff_id']] = s['역할']; });
   const signs = daySigns_(day).map(function (r, i) {
     return { no: i + 1, id: r['sign_id'], name: r['이름'], part: r['파트명'], role: roles[r['staff_id']] || '', at: String(r['서명시각']).slice(11, 16), img: fileB64_(r['서명_id']) };
   });
@@ -624,8 +635,9 @@ function tbmSave(token, d) {
 }
 
 /** [PDF로 저장]: 화면이 만든 A4 가로 2쪽 PDF를 드라이브에 저장. 다시 누르면 새로 만들고 예전 PDF는 휴지통. 쓰인 서명은 TBM사용=Y */
-function tbmSavePdf(token, dataUri, signIds) {
+function tbmSavePdf(token, dataUri, signIds, d) {
   const me = auth_(token);
+  if (d) { const s = tbmSave(token, d); if (!s.ok) return s; }   // 저장 + PDF를 서버 한 번 부르기로 (결정 78)
   const m = /^data:application\/pdf[^,]*;base64,(.+)$/.exec(String(dataUri || ''));
   if (!m || m[1].length < 100) return { ok: false, error: 'PDF 내용이 올바르지 않습니다' };
   const bytes = Utilities.base64Decode(m[1]);
@@ -790,7 +802,7 @@ function feAdd(token, d) {
     }
     fireChanged_();
     log_(me['이름'], '소화기 등록', '', floor + ' · ' + added.join(', '));
-    return { ok: true, added: added };
+    return Object.assign(feList(token), { added: added });   // 새 목록도 같이 → 화면이 다시 부르지 않음 (결정 78)
   } finally {
     lock.releaseLock();
   }
@@ -813,7 +825,7 @@ function feDelete(token, ids) {
     });
     fireChanged_();
     log_(me['이름'], '소화기 삭제', '', names.join(', '));
-    return { ok: true, count: names.length };
+    return Object.assign(feList(token), { count: names.length });
   } finally {
     lock.releaseLock();
   }

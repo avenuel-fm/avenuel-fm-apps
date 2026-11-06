@@ -223,9 +223,9 @@ function go(view, push) {
   if (push !== false) { try { google.script.history.push({ v: view }, { }); } catch (e) {} }
   render();
   window.scrollTo(0, 0);
-  if (view === 'fire') refreshFire();
+  if (view === 'fire' && !(S.fireAt && Date.now() - S.fireAt < 60000)) refreshFire();   // 1분 안에 받은 숫자면 그대로 (결정 78)
 }
-async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; if (S.view === 'fire') render(); } catch (e) {} }
+async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; S.fireAt = Date.now(); if (S.view === 'fire') render(); } catch (e) {} }
 try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
 const PARENT = { inspect: 'main', fire: 'inspect', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', tbm: 'docs', nw: 'docs' };
 function back() { if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
@@ -364,7 +364,8 @@ async function boot(fromStart) {
     toast('서버 오류: ' + (e && e.message ? e.message : e)); throw e;
   }
   if (my !== bootSeq) return;
-  S.user = r.user; S.fire = r.fire; S.docs = r.docs || null; S.cached = false;
+  S.user = r.user; S.fire = r.fire; S.docs = r.docs || null; S.cached = false; S.fireAt = Date.now();
+  if (!r.needSign) setTimeout(prefetch, 0);   // 메인이 뜬 뒤 TBM·명일 작업을 뒤에서 미리 받음
   if (!r.needSign) store('ws_main', JSON.stringify({ sid: r.user.staff_id, user: r.user, fire: r.fire, docs: r.docs }));   // 다음 접속 때 먼저 보여 줄 메인 화면
   if (r.needSign) { S.sign = { mode: 'token', name: r.user.name, part: r.user.part, busy: false, msg: '' }; S.view = 'sign'; render(); return; }   // 표는 있는데 오늘 서명이 없음
   if (['login', 'loading', 'retry', 'sign'].indexOf(S.view) !== -1) go('main');
@@ -405,7 +406,15 @@ function renderDocs() {
     '<button class="row" onclick="openNw()"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:700">명</span><span class="fname"><b style="font-size:16px">명일 작업 예정</b><small>내일 작업 입력 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
     '</div>';
 }
-async function openTbm() { S.tbm = null; go('tbm'); await loadTbm(); }
+/* 미리 받기 (결정 78): 메인이 뜬 뒤 자주 여는 화면 내용을 뒤에서 받아 두고, 열 때 바로 보여 준 뒤 새로 받음 */
+const PRE = {};
+function prefetch() {
+  if (!S.token) return;
+  run('tbmGet', S.token).then(r => { if (r && r.ok) PRE.tbm = { at: Date.now(), r }; }).catch(() => {});
+  run('nextWorkGet', S.token, '').then(r => { if (r && r.ok) PRE.nw = { at: Date.now(), r }; }).catch(() => {});
+}
+function takePre(k) { const p = PRE[k]; delete PRE[k]; return p && Date.now() - p.at < 600000 ? p.r : null; }   // 10분 넘은 것은 버림
+async function openTbm() { S.tbm = null; const p = takePre('tbm'); go('tbm'); if (p) tbmUse(p); await loadTbm(true); }
 
 /* ── TBM 작성 · PDF (WS_서류작업 4-1~5장, 결정 58·66·70) ── */
 const TBM_CHECKS = ['사다리', '비계', '우마', '테이블리프트', '크레인', '스카이', '달비계', '용접기'];
@@ -420,10 +429,17 @@ function tbmLv(p, s) { const v = p * s; return v ? v + ' (' + (v >= 6 ? '상' : 
 // 인원 = 그 줄 부서(=파트)의 오늘 서명 인원, 소장·부소장 빼고. 직접 넣으면 그 숫자
 function tbmAutoN(w) { return S.tbm.signs.filter(x => x.part === w.dept && x.role !== '소장' && x.role !== '부소장').length; }
 function tbmN(w) { return w.n !== '' && w.n != null ? Number(w.n) : tbmAutoN(w); }
-async function loadTbm() {
-  if (S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 버리고 새로 불러올까요?')) return;
+async function loadTbm(quiet) {
+  if (!quiet && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 버리고 새로 불러올까요?')) return;
   const r = await call('tbmGet');
-  S.tbm = Object.assign(r, { dirty: false, busy: false, pdfBusy: false, edit: -1, up: {}, showSigns: false, pdfStale: !!(r.pdf && r.at > r.pdf.at) });
+  const t = S.tbm;
+  // 뒤에서 새로 받는 중에 고치거나 저장 중이면, 고친 것은 두고 서명만 새로
+  if (quiet && t && (t.dirty || t.busy || t.pdfBusy)) { Object.assign(t, { signs: r.signs, manager: r.manager }); if (S.view === 'tbm') render(); return; }
+  tbmUse(r);
+}
+function tbmUse(r) {
+  const keep = S.tbm;
+  S.tbm = Object.assign(r, { dirty: false, busy: false, pdfBusy: false, edit: keep ? keep.edit : -1, up: {}, showSigns: keep ? keep.showSigns : false, pdfStale: !!(r.pdf && r.at > r.pdf.at) });
   r.works.forEach(w => { w.fixes = w.fixes || []; if (w.risk === undefined) tbmApply(w, tbmRiskFor(tbmText(w))); });
   if (!r.checks) r.checks = tbmAutoChecks(r.works);
   if (S.docs) S.docs.signs = r.signs.length;
@@ -545,14 +561,15 @@ function loadH2p() {
 async function tbmPdf() {
   const r = S.tbm; if (r.busy || r.pdfBusy) return;
   if (!(r.up.meet || r.photos.meet) || !(r.up.chant || r.photos.chant)) { if (!confirm('사진이 비어 있습니다. 그래도 PDF로 저장할까요?')) return; }
-  if ((r.dirty || !r.saved) && !(await tbmSaveBtn(true))) return;
+  const save = r.dirty || !r.saved ? { works: r.works, checks: r.checks, meet: r.up.meet || '', chant: r.up.chant || '' } : null;
   r.pdfBusy = true; render();
   try {
     await loadH2p();
     const uri = await tbmMakePdf();
-    const res = await call('tbmSavePdf', uri, r.signs.slice(0, 20).map(x => x.id));
+    const res = await call('tbmSavePdf', uri, r.signs.slice(0, 20).map(x => x.id), save);   // 저장 + PDF를 서버 한 번에
     r.pdfBusy = false;
     if (!res.ok) { render(); toast(res.error); return; }
+    if (save) { Object.assign(r.photos, r.up); r.up = {}; r.saved = true; r.dirty = false; }
     r.pdf = res.pdf; r.pdfStale = false; render(); toast('PDF로 저장했습니다');
   } catch (e) { r.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
 }
@@ -601,7 +618,7 @@ function tbmPdfHtml() {
     '<table class="sg"><colgroup><col style="width:7.3%">' + '<col><col style="width:7.3%">'.repeat(4) + '</colgroup>' + sg + '</table>' +
     '<div class="pn">- 1 / 2 -</div></div></div>' +
     '<div class="pg"><div class="fr"><div class="t1">■ &nbsp;「TBM 실시 사진」</div><div class="t2">' + y + '년 &nbsp;' + Number(m) + ' 월 &nbsp;' + Number(d) + ' 일</div>' +
-    '<div class="photos"><div class="cell">' + img(r.photos.meet, '회의 사진') + '</div><div class="cell">' + img(r.photos.chant, '구호 사진') + '</div></div>' +
+    '<div class="photos"><div class="cell">' + img(r.up.meet || r.photos.meet, '회의 사진') + '</div><div class="cell">' + img(r.up.chant || r.photos.chant, '구호 사진') + '</div></div>' +
     '<div class="pn">- 2 / 2 -</div></div></div></div>';
 }
 async function tbmMakePdf() {
@@ -634,10 +651,11 @@ const NW_DEPTS = ['전방파트', '기건파트'];
 function nwDanger(r) { const t = (r.work || '') + ' ' + (r.note || ''); return NW_WORDS.some(w => t.indexOf(w) !== -1); }
 function nwBlank() { return { dept: (S.user && NW_DEPTS.indexOf(S.user.part) !== -1) ? S.user.part : NW_DEPTS[0], place: '', work: '', note: '' }; }
 function nwLeaveOk() { return !(S.nw && S.nw.dirty) || confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?'); }
-async function openNw() { S.nw = null; go('nw'); await loadNw(''); }
-async function loadNw(date) {
+async function openNw() { S.nw = null; const p = takePre('nw'); go('nw'); if (p) nwSet(p); await loadNw('', true); }
+async function loadNw(date, quiet) {
   const r = await call('nextWorkGet', date);
   if (!r.ok) { toast(r.error); return; }
+  if (quiet && S.nw && (S.nw.dirty || S.nw.busy || S.nw.date !== r.date)) return;   // 뒤에서 새로 받는 중 고쳤으면 그대로 (저장 때 겹침은 ver로 알림)
   nwSet(r);
 }
 function nwSet(r) {
@@ -894,7 +912,7 @@ async function doAdd() {
   try {
     const r = await call('feAdd', d);
     if (!r.ok) { $('aMsg').textContent = r.error; $('aBtn').disabled = false; $('aBtn').textContent = '등록하고 QR 만들기'; return; }
-    S.floor = d.floor; closeDialog(); toast(r.added.join(', ') + ' 등록'); await loadQr();
+    S.floor = d.floor; closeDialog(); toast(r.added.join(', ') + ' 등록'); S.qr = r; S.sel = {}; render();
   } catch (e) { $('aBtn').disabled = false; $('aBtn').textContent = '등록하고 QR 만들기'; }
 }
 function delDialog() {
@@ -907,7 +925,7 @@ function delDialog() {
 async function doDel() {
   const ids = Object.keys(S.sel).filter(k => S.sel[k]);
   $('dBtn').disabled = true;
-  try { const r = await call('feDelete', ids); closeDialog(); toast(r.count + '대 삭제'); await loadQr(); } catch (e) { $('dBtn').disabled = false; }
+  try { const r = await call('feDelete', ids); closeDialog(); toast(r.count + '대 삭제'); S.qr = r; S.sel = {}; render(); } catch (e) { $('dBtn').disabled = false; }
 }
 const LABEL_PRESETS = [[50, 50], [40, 40], [30, 34], [50, 30]];
 // 라벨 프린터: BIXOLON SLP-TX400 (203dpi = 8점/mm). QR 한 칸이 프린터 점(dot) 정수 배가 되게 그려 흐림 없이 찍히게 함
