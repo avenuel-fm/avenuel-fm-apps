@@ -354,7 +354,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true }).ok && Object.values(F).filter(f => f.trashed).length === trashed0 + 3, '결정80: 성공하면 그때 옛 파일 3개 휴지통');
   // 밖에서 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴·예약 함수는 모두 _
   const pub = [...fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(x => !/_$/.test(x));
-  const ALLOWED = ['onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit'];
+  const ALLOWED = ['onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit'];
   const extra = pub.filter(x => ALLOWED.indexOf(x) === -1);
   assert(!extra.length, '결정80: 밖에서 부를 수 있는 함수는 화면용으로 정한 것만 ' + extra.join(', '));
 }
@@ -378,4 +378,51 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   const twin = findStaff_('같은이름'); assert(!twin.ok && /staff_id/.test(twin.error), '결정86: 같은 이름이면 staff_id로 고르라고 함');
   const sid = readTable_('직원').rows.filter(r => r['이름'] === '같은이름')[1]['staff_id'];
   assert(findStaff_(sid.toLowerCase()).ok && findStaff_(sid).staff['파트명'] === '기건파트', '결정86: staff_id(소문자도)로 찾음');
+}
+
+// 출근현황 (WS_출근현황 15.3.19, 결정 88) — 가짜 이름만 씀 (실제 직원 이름은 저장소에 올리지 않음)
+{
+  NOW.d = new Date('2026-11-07T09:00:00+09:00'); CacheService.getScriptCache().remove('pinlock_all');
+  const tk = (n, pin) => { addStaff_(n, pin, '시험파트', '직원'); return login(pin, 'at-' + n, SIG).token; };
+  const boss = login('1234', 'at-boss', SIG).token;   // 홍길동 = 직원 탭 역할 소장
+  const chong = tk('총무가짜', '3101'), night = tk('야간가짜', '3102'), day = tk('주간가짜', '3103');
+  const D = (fill, set) => { const a = Array(30).fill(fill); Object.keys(set || {}).forEach(k => a[k - 1] = set[k]); return a; };
+  const ROWS = [
+    { sec: '관리', role: '소장', name: '홍길동', days: D('', { 1: '휴' }) },
+    { sec: '관리', role: '총무', name: '총무가짜', days: D('') },
+    { sec: '전기방재', role: '교대', name: '야간가짜', days: D('', { 7: '야', 8: '비' }) },
+    { sec: '전기방재', role: '기사', name: '주간가짜', days: D('', { 8: 'A반' }) },
+    { sec: '기계건축', role: '기사', name: '', days: D('') },
+    { sec: '기계건축', role: '주임', name: '병가가짜', days: D('병가') }
+  ];
+  let g = attGet(boss, '2026-11-07');
+  assert(g.ok && g.people.length === 0 && g.canBoss && !g.canFix, '결정88: 올리기 전엔 빈 화면, 소장은 올릴 수 있음');
+  assert(!attPut(day, '2026-11', ROWS).ok, '결정88: 대표가 아닌 직원은 엑셀 못 올림');
+  assert(!attPut(chong, '2026-13', ROWS).ok, '결정88: 잘못된 달 거부');
+  const XL = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + 'A'.repeat(400);
+  assert(attPut(chong, '2026-11', ROWS, XL).count === 6, '결정88: 총무(엑셀 직책)는 처음 올리기 가능 · 6줄');
+  assert(Object.values(files).some(f => f.name === '2026-11_근무스케줄.xlsx'), '결정88: 원본 엑셀 드라이브 보관');
+  g = attGet(day, '2026-11-07');
+  const v = n => g.people.find(x => x.name === n).v;
+  assert(g.people.length === 6 && g.people[4].name === '' && v('야간가짜') === '야' && v('병가가짜') === '병가', '결정88: 7일 상태 · 공석 줄');
+  assert(g.ju[6] === 3 && g.ju[7] === 3 && g.ju[0] === 3, '결정88: 주간 인원 = 출근·A반 (병가·야·휴 빼고) ' + g.ju.slice(0, 8));
+  assert(g.months.join() === '2026-11' && g.upBy === '총무가짜', '결정88: 달 목록 · 올린 사람');
+  assert(!g.canFix && !g.canBoss, '결정88: 주간 직원은 못 고침');
+  assert(attGet(night, '2026-11-07').canFix && attGet(night, '2026-11-08').canFix && !attGet(night, '2026-11-10').canFix, '결정88: 야간 근무자는 그날·다음 날 아침만 고침');
+  assert(!attFix(day, '2026-11-07', '주간가짜', '휴').ok, '결정88: 권한 없으면 고치기 거부');
+  assert(!attFix(night, '2026-11-07', '주간가짜', 'X').ok && !attFix(night, '2026-11-07', '없는사람', '휴').ok, '결정88: 없는 상태·이름 거부');
+  g = attFix(night, '2026-11-07', '주간가짜', '휴');
+  const p = g.people.find(x => x.name === '주간가짜');
+  assert(g.ok && p.v === '휴' && p.raw === '' && p.fix.by === '야간가짜', '결정88: 야간 근무자가 그날 상태 고침');
+  assert(readTable_('근무변경').rows.length === 1 && readTable_('근무변경').rows[0]['날짜'] === '2026-11-07', '결정88: 근무변경 줄 (날짜 글자 그대로)');
+  assert(attPut(boss, '2026-11', ROWS).ok && readTable_('근무표').rows.filter(r => r['삭제여부'] === 'Y').length === 6, '결정88: 같은 달 다시 올리면 예전 줄 삭제여부 Y');
+  assert(attGet(day, '2026-11-07').people.find(x => x.name === '주간가짜').v === '휴', '결정88: 다시 올려도 고친 값 유지');
+  assert(attFix(chong, '2026-11-07', '주간가짜', '(되돌림)').people.find(x => x.name === '주간가짜').v === '', '결정88: 엑셀 값으로 되돌리기');
+  assert(!attHoliday(day, '주간가짜', ['토']).ok, '결정88: 기본 휴일은 대표만');
+  g = attHoliday(chong, '주간가짜', ['일', '토', '토', 'X'], '2026-11-07');
+  const q = g.people.find(x => x.name === '주간가짜');
+  assert(g.ok && q.hol === '일,토' && q.v === '휴', '결정88: 기본 휴일 토·일 → 빈 칸인 토요일(7일)은 휴');
+  assert(attGet(day, '2026-11-08').people.find(x => x.name === '주간가짜').v === 'A반', '결정88: 엑셀에 값이 있으면(8일 A반) 엑셀 값이 먼저');
+  assert(attHoliday(boss, '주간가짜', [], '2026-11-07').people.find(x => x.name === '주간가짜').v === '', '결정88: 기본 휴일 비우면 다시 출근');
+  assert(attGet(day, '').date === '2026-11-07', '결정88: 날짜 비우면 오늘 근무일');
 }

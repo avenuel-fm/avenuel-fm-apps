@@ -1,0 +1,99 @@
+// 출근현황 화면 시험 (WS_출근현황, 결정 88): 엑셀 읽기(표 흉내) · 저장 · 조직도 · 상태 고르기 · 기본 휴일 · 달력 · 그림
+// 이름은 모두 가짜 (실제 직원 이름은 저장소에 올리지 않음). 엑셀 읽기 도구·그림 도구(cdnjs)는 시험에서 흉내
+const { chromium } = require('playwright');
+const ok = (c, m) => console.log((c ? 'ok   ' : 'FAIL ') + m);
+const overflow = p => p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+const kst = new Date(Date.now() + 9 * 3600e3 - 6 * 3600e3), Y = kst.getUTCFullYear(), M = kst.getUTCMonth() + 1, TODAY = kst.getUTCDate();
+const N = new Date(Date.UTC(Y, M, 0)).getUTCDate();
+// 실제 근무 스케줄 엑셀과 같은 모양: 1줄 제목, 5줄 날짜, 6줄 요일, A구역(합친 칸은 첫 줄만)·B직책·C이름·D전월OT·E부터 1일, 합계 줄, 총원 줄, 아래 안내 글
+function aoa() {
+  const day = (fill, set) => Array.from({ length: N }, (_, i) => (set && set[i + 1]) || fill);
+  const people = [['관 리', '소장', '홍길동', day('', { [TODAY]: '' })], ['', '총무', '총무가짜', day('병가')],
+    ['전기\n방재', '파트장', '김철수', day('')], ['', '교대', '야간가짜', day('야')], ['', '기사', '주간가짜', day('', { [TODAY]: '9-7' })],
+    ['기계\n건축', '기사', '', day('')], ['', '교대', '비번가짜', day('비')]];
+  const rows = [['(' + Y + '년 ' + M + '월) 근무스케줄'], [], [], [], ['월 일 구분', '', '', '전월OT'].concat(day(0).map((_, i) => i + 1)), ['', '', '', ''].concat(day('월'))];
+  people.forEach(p => rows.push([p[0], p[1], p[2], 0].concat(p[3])));
+  rows.push(['', '근무인원합계', '', 3].concat(day(1)));
+  const ju = day(0).map((_, i) => people.filter(p => p[2] && ['', '9-7'].indexOf(p[3][i]) !== -1).length);
+  rows.push(['주간근무총원', '', '', 19].concat(ju), [' 1. 휴무변경은 3일 전 사전 승인']);
+  return rows;
+}
+(async () => {
+  await fetch('http://localhost:8123/seed');
+  const b = await chromium.launch();
+  const c = await b.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, deviceScaleFactor: 2, acceptDownloads: true });
+  await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: '' }));
+  await c.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
+  const p = await c.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
+  await p.goto('http://localhost:8123/index'); await p.locator('.key').first().waitFor();
+  for (const k of '1234') await p.click(`.key:text-is("${k}")`);
+  await p.waitForSelector('.grid6'); await p.click('.tile >> text=서류작업'); await p.click('text=출근현황');
+  await p.waitForSelector('text=근무 스케줄이 아직 없습니다');
+  ok(await p.locator('button:has-text("엑셀 올리기")').count() === 1, '스케줄 없을 때 소장에게 [엑셀 올리기]');
+  await p.click('button:has-text("엑셀 올리기")'); await p.waitForSelector('text=엑셀 파일(.xlsx) 고르기');
+  // 파일 고르기 대신 읽은 표를 바로 넣음 (SheetJS sheet_to_json(header:1) 결과와 같은 모양)
+  await p.evaluate(a => { S.atup = Object.assign({ name: '시험.xlsx', day: 1, file: '' }, atParse(a)); render(); }, aoa());
+  const chk = await p.locator('.atchk').innerText();
+  ok(chk.indexOf(Y + '년 ' + M + '월') !== -1 && chk.indexOf('6명 + 공석 1줄 × ' + N + '일') !== -1, '엑셀 읽기: 달·인원·공석 — ' + chk.split('\n')[1]);
+  ok(chk.indexOf('모두 같음') !== -1, '주간근무총원 줄과 앱 계산이 같음');
+  ok(/처음 보는 기호 「병가」/.test(chk) === false, '병가는 아는 기호 (경고 없음)');
+  await p.evaluate(a => { a[7][4] = '??'; S.atup = Object.assign({ name: '시험.xlsx', day: 1, file: '' }, atParse(a)); render(); }, aoa());
+  ok(/처음 보는 기호 「\?\?」 \(총무가짜 1칸\)/.test(await p.locator('.atchk').innerText()), '모르는 기호는 이름·칸 수와 함께 알림');
+  await p.evaluate(a => { S.atup = Object.assign({ name: '시험.xlsx', day: 1, file: '' }, atParse(a)); render(); }, aoa());
+  ok(!(await overflow(p)), '엑셀 올리기 화면 옆 넘침 없음');
+  await p.screenshot({ path: 'shot_att_upload.png', fullPage: true });
+  await p.click('#atUpSave');
+  await p.waitForSelector('.atorg');
+  const secs = await p.locator('.atsec h2').allInnerTexts();
+  ok(secs.map(s => s.split('\n')[0]).join('|') === '사업소장|관리파트|전기·방재|기계·건축', '조직도 구역 순서 ' + secs.map(s => s.split('\n')[0]).join('|'));
+  ok(await p.locator('.atp.vac').count() === 1 && await p.locator('.atp:not(.vac)').count() === 6, '사람 6칸 + 공석 1칸');
+  const tagOf = n => p.locator('.atp', { hasText: n }).locator('.attag').innerText();
+  ok(await tagOf('주간가짜') === '9-7' && await tagOf('총무가짜') === '병가' && await tagOf('비번가짜') === '비', '오늘 상태 딱지 (9-7 · 병가 · 비)');
+  const sums = await p.locator('.atst').nth(1).innerText();
+  ok(/합계\s+3명\s+1명/.test(sums), '금일 근무인원 합계 주 3 · 야 1 — ' + sums.replace(/\s+/g, ' ').slice(-20));
+  ok(/합계\s+7명\s+6명\s+1명/.test(await p.locator('.atst').first().innerText()), '파트별 인원 전체 7 · 현재 6 · 공석 1');
+  ok(!(await overflow(p)), '휴대폰 옆 넘침 없음');
+  await p.screenshot({ path: 'shot_att_phone.png', fullPage: true });
+  // 상태 고르기 (소장 = 고칠 수 있음)
+  await p.locator('.atp', { hasText: '김철수' }).locator('button.attag').click();
+  await p.locator('.atopts button', { hasText: '연' }).click();
+  await p.screenshot({ path: 'shot_att_fix.png' });
+  await p.click('.dialog button:has-text("(으)로 바꾸기")');
+  await p.waitForFunction(() => document.querySelector('.atp .atfix'));
+  ok(await tagOf('김철수') === '연' && await p.locator('.atp', { hasText: '김철수' }).locator('.atfix').count() === 1, '딱지 눌러 「연」으로 고침 · 고침 점');
+  // 기본 휴일
+  await p.locator('.atp', { hasText: '주간가짜' }).locator('.atnm').click();
+  await p.click('.atwk button:text-is("일")'); await p.click('.atwk button:text-is("월")');
+  ok((await p.locator('.dialog .atchk').innerText()).indexOf('일 · 월') !== -1, '기본 휴일 일·월 고름');
+  await p.screenshot({ path: 'shot_att_holiday.png' });
+  await p.click('.dialog button:text-is("저장")');
+  await p.waitForFunction(() => S.at.r.people.find(x => x.name === '주간가짜').hol).catch(() => {});
+  const hol = await p.evaluate(() => S.at.r.people.find(x => x.name === '주간가짜').hol);
+  ok(hol === '일,월', '기본 휴일 저장 → ' + hol);
+  // 달력
+  await p.click('button:has-text("날짜 바꾸기")');
+  ok(await p.locator('.atcal button').count() === N && (await p.locator('.atcal button.on').innerText()).indexOf('주 ') !== -1, '달력: 그 달 ' + N + '일 · 주간 인원 표시');
+  await p.click('.dialog .back');
+  // 그림: 1200px 판을 그리는지 (그림 도구는 흉내)
+  await p.evaluate(() => { window.html2pdf = () => ({ set() { return this; }, from(el) { window.__w = el.offsetWidth; return this; }, outputImg: async () => 'data:image/png;base64,iVBORw0KGgo=' }); });
+  const dl = p.waitForEvent('download');
+  await p.click('#atImgBtn');
+  const f = await dl;
+  ok(/_출근현황\.png$/.test(f.suggestedFilename()) && await p.evaluate(() => window.__w) === 1200, '그림 저장: ' + f.suggestedFilename() + ' · 판 1200px');
+  ok(await p.locator('#atImg').count() === 1, '그림도 화면에 보여 줌 (길게 눌러 저장)');
+  await p.click('.dialog .back');
+  // 그림 모양 찍기
+  await p.evaluate(() => { const d = document.createElement('div'); d.id = 'imgShot'; d.innerHTML = atImgHtml(S.at.r); document.body.appendChild(d); });
+  await p.locator('#imgShot .atimg').screenshot({ path: 'shot_att_image.png' });
+  // PC
+  await p.setViewportSize({ width: 1280, height: 900 }); await p.evaluate(() => { document.getElementById('imgShot').remove(); render(); });
+  ok(!(await overflow(p)), 'PC 옆 넘침 없음');
+  await p.screenshot({ path: 'shot_att_pc.png', fullPage: true });
+  // 직원(고칠 권한 없음): 딱지가 버튼이 아님
+  const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST', body: JSON.stringify({ fn, args }) }).then(r => r.json());
+  const lg = await run('login', '5678', 'att-kim', require('fs').readFileSync(__dirname + '/sig_b64.txt', 'utf8'));
+  const g = await run('attGet', lg.token, '');
+  ok(g.ok && !g.canFix && !g.canBoss, '김철수(주간 직원): 고치기·엑셀 권한 없음');
+  ok(!errs.length, '화면 오류 없음 ' + errs.join(' / '));
+  await b.close();
+})();

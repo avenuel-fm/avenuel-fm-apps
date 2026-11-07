@@ -135,6 +135,63 @@
   .nwbar{justify-content:flex-end;border-radius:12px 12px 0 0}
   .nwbar .btn{flex:none;min-width:170px;min-height:44px;font-size:15px}
 }
+/* 출근현황 (WS_출근현황, 결정 88) — 상태 딱지 색은 엑셀 색을 부드럽게 */
+.attag{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;padding:0 9px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;border:1px solid transparent;background:#fff;flex:none}
+button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent}
+button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
+.s-on{background:var(--green-bg);color:var(--green)}.s-97{color:var(--sub);border-color:var(--line)}
+.s-hu{background:#FFF4C7;color:#7A5A00}.s-yeon{background:#FDE4E1;color:#B3261E}.s-beop{background:#FCE4F1;color:#A3266B}
+.s-ya{background:#E1ECFB;color:var(--blue-d)}.s-bi{background:#ECEEF1;color:#4A5361}.s-sick{background:#F3E8FD;color:#6B3FA0}
+.s-ban{color:#B3261E;border-color:#EDB5AF}.s-gj{background:#DDF3F5;color:#0F6E78}.s-etc{color:var(--muted);border:1px dashed var(--line)}
+.atwho{font-size:12.5px;color:var(--blue-d);background:var(--blue-bg);border-radius:8px;padding:8px 12px;line-height:1.6}
+.atorg{display:grid;gap:12px}
+.atsec{background:#fff;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
+.atsec h2{margin:0;font-size:15px;font-weight:700;padding:10px 14px;display:flex;align-items:center;border-bottom:1px solid var(--line3)}
+.atsec h2 small{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}
+.k0 h2{background:#EEF1F5}.k1 h2{background:#F1EDF8;color:#4B3A78}.k2 h2{background:var(--blue-bg);color:var(--blue-d)}.k3 h2{background:var(--green-bg);color:var(--green)}
+.atppl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px}
+.atp{display:flex;align-items:center;gap:8px;border:1px solid var(--line3);border-radius:10px;padding:8px;min-width:0;background:#fff}
+.atav{width:34px;height:34px;border-radius:17px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;background:#E3E7EC;color:var(--sub)}
+.k1 .atav{background:#E7E1F3;color:#4B3A78}.k2 .atav{background:#D9E6F7;color:var(--blue-d)}.k3 .atav{background:#D5ECDF;color:var(--green)}
+.atnm{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:0;background:none;padding:0;cursor:pointer}
+.atnm small{font-size:11px;color:var(--muted);line-height:1.2}
+.atnm b{font-size:15px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.atp.vac{border-style:dashed;color:var(--muted);justify-content:center;font-size:13px;min-height:52px}
+.atfix{width:7px;height:7px;border-radius:4px;background:var(--orange);flex:none}
+.atsums{display:grid;gap:12px}
+.atduo{display:grid;gap:12px}
+.atst{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:#fff;font-size:14px}
+.atst caption{text-align:left;font-weight:700;font-size:14px;padding:0 2px 6px}
+.atst th{background:var(--blue-bg);color:var(--blue-d);font-weight:700;padding:8px 6px;font-size:13px}
+.atst th.g2{background:#F1EDF8;color:#4B3A78}
+.atst td{padding:8px 6px;border-top:1px solid var(--line3);text-align:center}
+.atst td:first-child{text-align:left;padding-left:12px;color:var(--sub)}
+.atst td+td,.atst th+th{border-left:1px solid var(--line3)}
+.atst tr.sum td{font-weight:700;background:#F8FAFC}
+.atst .z{color:var(--muted)}
+.atopts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.atopts .attag{height:44px;font-size:15px;width:100%;border-radius:10px}
+.atopts .attag::after{content:none}
+.atopts .attag.sel{outline:3px solid var(--blue);outline-offset:1px}
+.atwk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.atwk button{height:48px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.atwk button.sel{background:#FFF4C7;border-color:#E2C14A;color:#7A5A00}
+.atwk button:disabled{cursor:default;opacity:1}
+.atcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.atcal .w{font-size:12px;text-align:center;color:var(--muted)}
+.atcal button{min-height:56px;border:1px solid var(--line3);border-radius:10px;background:#fff;padding:4px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center}
+.atcal button b{font-size:15px}.atcal button small{font-size:10.5px;color:var(--muted)}
+.atcal .sun b{color:var(--red)}.atcal .sat b{color:var(--blue)}
+.atcal button.on{background:var(--blue);border-color:var(--blue)}.atcal button.on b,.atcal button.on small{color:#fff}
+.atcal button.today{border:2px solid var(--blue)}
+.atchk{font-size:13px;line-height:1.7}.atchk .w{color:var(--orange);font-weight:700}
+.atimg{width:1200px;background:#fff;padding:28px 32px 22px;font-family:'Noto Sans KR',sans-serif;color:var(--ink)}
+.atimg .attl{display:flex;align-items:baseline;gap:14px;margin-bottom:16px}.atimg .attl b{font-size:24px}.atimg .attl span{font-size:14px;color:var(--muted)}
+.atimg .atorg,.atimg .atduo{grid-template-columns:1fr 1fr}.atimg .atppl{grid-template-columns:repeat(3,minmax(0,1fr))}
+.atimg .atsums{grid-template-columns:1fr 2fr;margin-top:14px}
+.atimg .stamp{margin-top:10px;color:var(--muted);font-size:12px;text-align:right}
+@media(min-width:900px){.wrap .atorg{grid-template-columns:1fr 1fr}.wrap .atppl{grid-template-columns:repeat(3,minmax(0,1fr))}.wrap .atsums{grid-template-columns:1fr 2fr}.wrap .atduo{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.wrap .atp{gap:6px;padding:7px 6px}.wrap .atav{width:28px;height:28px;font-size:13px}.wrap .attag{min-width:0;padding:0 7px;font-size:12.5px}.wrap .atppl{gap:6px;padding:8px}}
 #print{display:none}
 .pvbox{display:flex;flex-wrap:wrap;gap:3mm;align-items:center;padding:12px;background:var(--line3);border-radius:10px;max-height:46vh;overflow:auto}
 .pvbox .label{background:#fff;box-shadow:0 1px 3px rgba(24,32,43,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8mm;padding:1.5mm;overflow:hidden;color:#000}
@@ -227,7 +284,7 @@ function go(view, push) {
 }
 async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; S.fireAt = Date.now(); if (S.view === 'fire') render(); } catch (e) {} }
 try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
-const PARENT = { inspect: 'main', fire: 'inspect', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', tbm: 'docs', nw: 'docs' };
+const PARENT = { inspect: 'main', fire: 'inspect', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', tbm: 'docs', nw: 'docs', att: 'docs', attup: 'att' };
 function back() { if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
 
 function topbar(sub, title) {
@@ -386,7 +443,7 @@ function renderMain() {
   const c = S.fire ? S.fire.counts : null;
   const t = (key, label, sub, bg, fg, on) => '<button class="tile' + (on ? ' on' : '') + '" onclick="tile(\'' + key + '\')"><span class="ico" style="background:' + bg + ';color:' + fg + ';font-weight:700">' + label.slice(0, 1) + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
   return topbar('잠실점 에비뉴엘 · ' + today, '업무지원') + '<div class="wrap" style="display:flex;flex-direction:column;gap:14px">' +
-    '<div class="banner b-gray">이 테스트판은 <b>점검 › 소화기 점검</b>과 <b>서류작업 › TBM · 명일 작업 예정</b>만 동작합니다. 다른 메뉴는 디자인 시안만 있습니다.</div>' +
+    '<div class="banner b-gray">이 테스트판은 <b>점검 › 소화기 점검</b>과 <b>서류작업 › TBM · 명일 작업 예정 · 출근현황</b>만 동작합니다. 다른 메뉴는 디자인 시안만 있습니다.</div>' +
     '<div class="grid6">' +
     t('docs', '서류작업', 'TBM' + (S.docs ? ' · 오늘 서명 ' + S.docs.signs + '명' : ' · 명일 작업 예정'), '#EAF5EF', '#1F7A4D') +
     t('work', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') +
@@ -404,6 +461,7 @@ function renderDocs() {
   return topbar('업무지원 ›', '서류작업') + '<div class="wrap list">' +
     '<button class="row" onclick="openTbm()"><span class="ico" style="background:var(--green-bg);color:var(--green);font-weight:700">T</span><span class="fname"><b style="font-size:16px">TBM</b><small>오늘 서명 ' + (n == null ? '…' : n + '명') + ' · 작업 표 · 사진 · PDF</small></span>' + ICON.chev + '</button>' +
     '<button class="row" onclick="openNw()"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:700">명</span><span class="fname"><b style="font-size:16px">명일 작업 예정</b><small>내일 작업 입력 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openAtt()"><span class="ico" style="background:#FFF4C7;color:#7A5A00;font-weight:700">출</span><span class="fname"><b style="font-size:16px">출근현황</b><small>근무 스케줄 엑셀 → 날짜별 조직도 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
     '</div>';
 }
 /* 미리 받기 (결정 78): 메인이 뜬 뒤 자주 여는 화면 내용을 뒤에서 받아 두고, 열 때 바로 보여 준 뒤 새로 받음 */
@@ -801,6 +859,219 @@ async function nwImage() {
     '<a class="btn pri big" style="width:100%;margin-top:10px" href="' + url + '" download="' + h(name) + '">다시 내려받기</a>');
 }
 
+/* ── 출근현황 (WS_출근현황 15.3.19, 결정 88) ── */
+const AT_CODES = ['', '9-7', '휴', '연', '법', '야', '비', '병가', 'A반', 'P반', 'A검진', 'P검진'];
+const AT_KNOWN = AT_CODES.concat(['전반', '후반', '대', '경', '.']);
+const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+function atCls(v) { return { '': 'on', '9-7': '97', '휴': 'hu', '연': 'yeon', '법': 'beop', '야': 'ya', '비': 'bi', '병가': 'sick', 'A반': 'ban', 'P반': 'ban', '전반': 'ban', '후반': 'ban', 'A검진': 'gj', 'P검진': 'gj' }[v] || 'etc'; }
+function atLbl(v) { return v === '' ? '출근' : v; }
+function atIsDay(v) { return v === '' || v === '9-7' || /^[AP](반|검진)$|^[전후]반$/.test(v); }   // 서버 atIsDay_와 같음
+function atGrp(v) { return atIsDay(v) ? '주' : v === '야' ? '야' : v === '비' ? '비번' : '휴무'; }
+function atWd(d) { return WEEK[new Date(d + 'T12:00:00+09:00').getDay()]; }
+function atKo(d) { return Number(d.slice(0, 4)) + '년 ' + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + atWd(d) + ')'; }
+function atTitle(sec) { return sec.indexOf('관') === 0 ? '관리파트' : /^[가-힣]{4}$/.test(sec) ? sec.slice(0, 2) + '·' + sec.slice(2) : sec; }
+/* 엑셀 줄 → 조직도 구역: 소장 = 사업소장, 나머지는 엑셀 구역 순서대로 (5장) */
+function atGroups(people) {
+  const out = [{ t: '사업소장', p: [] }];
+  people.forEach((x, i) => {
+    if (x.role === '소장') return out[0].p.push(Object.assign({ i }, x));
+    const t = atTitle(x.sec); let g = out.find(o => o.t === t);
+    if (!g) { g = { t, p: [] }; out.push(g); }
+    g.p.push(Object.assign({ i }, x));
+  });
+  return out.filter(g => g.p.length);
+}
+function atOrg(people, ed) {
+  const a = S.at || {};
+  return '<div class="atorg">' + atGroups(people).map((g, k) => '<section class="atsec k' + Math.min(k, 3) + '"><h2>' + h(g.t) + '<small>' + g.p.filter(x => x.name).length + '명</small></h2><div class="atppl">' +
+    g.p.map(x => x.name ? '<div class="atp"><span class="atav" aria-hidden="true">' + h(x.name.slice(0, 1)) + '</span>' +
+      (ed ? '<button class="atnm" onclick="atHolOpen(' + x.i + ')" aria-label="' + h(x.name) + ' 기본 휴일"><small>' + h(x.role) + '</small><b>' + h(x.name) + '</b></button>' : '<span class="atnm"><small>' + h(x.role) + '</small><b>' + h(x.name) + '</b></span>') +
+      (ed && x.fix ? '<span class="atfix" title="고침: ' + h(x.fix.by) + ' ' + h(x.fix.at) + '"></span>' : '') +
+      (ed && a.r && a.r.canFix ? '<button class="attag s-' + atCls(x.v) + '" onclick="atFixOpen(' + x.i + ')" aria-label="' + h(x.name) + ' 상태 ' + h(atLbl(x.v)) + ' 바꾸기">' + h(atLbl(x.v)) + '</button>' : '<span class="attag s-' + atCls(x.v) + '">' + h(atLbl(x.v)) + '</span>') +
+      '</div>' : '<div class="atp vac">공석</div>').join('') + '</div></section>').join('') + '</div>';
+}
+function atSums(people) {
+  const parts = [];
+  atGroups(people).forEach(g => { const t = g.t === '사업소장' || g.t === '관리파트' ? '관리' : g.t; let p = parts.find(x => x.n === t); if (!p) parts.push(p = { n: t, p: [] }); p.p = p.p.concat(g.p); });
+  const K = ['a', 'b', 'v', '주', '야', '휴무', '비번'], T = { n: '합계' }; K.forEach(k => T[k] = 0);
+  const rows = parts.map(x => { const q = x.p.filter(y => y.name), r = { n: x.n, a: x.p.length, b: q.length, v: x.p.length - q.length };
+    ['주', '야', '휴무', '비번'].forEach(gk => r[gk] = q.filter(y => atGrp(y.v) === gk).length); K.forEach(k => T[k] += r[k]); return r; });
+  const num = v => v ? v + '명' : '<span class="z">0명</span>';
+  const tb = (cap, cols, names, g2) => '<table class="atst"><caption>' + cap + '</caption><tr><th' + (g2 ? ' class="g2"' : '') + '>파트</th>' + names.map(n => '<th' + (g2 ? ' class="g2"' : '') + '>' + n + '</th>').join('') + '</tr>' +
+    rows.concat([T]).map((r, i) => '<tr' + (i === rows.length ? ' class="sum"' : '') + '><td>' + h(r.n) + '</td>' + cols.map(k => '<td>' + num(r[k]) + '</td>').join('') + '</tr>').join('') + '</table>';
+  return '<div class="atsums">' + tb('파트별 인원현황', ['a', 'b', 'v'], ['전체', '현재', '공석']) +
+    '<div class="atduo">' + tb('금일 근무인원 현황', ['주', '야'], ['주', '야']) + tb('금일 휴무인원 현황', ['휴무', '비번'], ['휴무', '비번'], true) + '</div></div>';
+}
+async function openAtt() { S.at = null; go('att'); await loadAtt(''); }
+async function loadAtt(date) {
+  try {
+    const r = await call('attGet', date);
+    if (!r.ok) { toast(r.error); return; }
+    S.at = { r }; S.atToday = r.today; if (S.view === 'att') render();
+  } catch (e) {}
+}
+function renderAtt() {
+  const a = S.at;
+  if (!a) return topbar('서류작업 ›', '출근현황') + '<div class="wrap list"><div class="banner b-gray">불러오는 중…</div></div>';
+  const r = a.r, up = r.canBoss || !r.people.length;
+  const head = '<div class="card" style="padding:16px"><div class="nwhead"><b>출근현황</b><button class="nwdate" onclick="atCal()" style="border:0;cursor:pointer;padding:0 14px">📅 ' + h(atKo(r.date)) + '</button></div>' +
+    '<div class="nwmeta">' + (r.people.length ? h(Number(r.date.slice(5, 7))) + '월 스케줄 · ' + h(r.upAt) + ' ' + h(r.upBy) + ' 올림' : '이 달 근무 스케줄이 아직 없습니다') +
+    (up ? ' · <button class="btn sm" onclick="S.atup=null;go(\'attup\')" style="margin-left:4px">엑셀 올리기</button>' : '') + '</div></div>';
+  if (!r.people.length) return topbar('서류작업 ›', '출근현황') + '<div class="wrap list">' + head + '<div class="banner b-gray">' + (up ? '[엑셀 올리기]로 이 달 근무 스케줄 파일을 넣어 주세요.' : '소장·부소장·총무가 이 달 근무 스케줄 엑셀을 올리면 보입니다.') + '</div>' +
+    '<div class="nwbar"><button class="btn" onclick="atCal()">날짜 바꾸기</button></div></div>';
+  return topbar('서류작업 ›', '출근현황') + '<div class="wrap list">' + head +
+    '<div class="atwho">' + (r.canFix ? '상태 딱지(▾)를 눌러 이날 상태를 고릅니다 · ' : '') + '이름을 누르면 기본 휴일을 봅니다.<br>고칠 수 있는 사람: 소장 · 부소장 · 총무 · 그날(또는 전날) 야간 근무자</div>' +
+    atOrg(r.people, true) + atSums(r.people) +
+    '<div class="nwbar"><button class="btn" onclick="atCal()">날짜 바꾸기</button><button class="btn pri" id="atImgBtn" onclick="atImage()">⬇ 그림으로 저장</button></div></div>';
+}
+/* 달력: 그 달 날짜별 주간 인원 (엑셀 「주간근무총원」과 같은 셈). ‹ ›로 앞뒤 달 */
+function atCal() {
+  const r = S.at.r, ym = r.date.slice(0, 7), y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate(), first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+  let g = WEEK.map((w, i) => '<span class="w">' + w + '</span>').join('') + '<span></span>'.repeat(first);
+  for (let d = 1; d <= last; d++) {
+    const ds = ym + '-' + String(d).padStart(2, '0'), wd = (first + d - 1) % 7;
+    g += '<button class="' + (wd === 0 ? 'sun ' : wd === 6 ? 'sat ' : '') + (ds === r.date ? 'on ' : '') + (ds === r.today ? 'today' : '') + '" onclick="closeDialog();S.at=null;render();loadAtt(\'' + ds + '\')" aria-label="' + d + '일"><b>' + d + '</b><small>' + (r.ju.length ? '주 ' + r.ju[d - 1] : '') + '</small></button>';
+  }
+  const mv = k => { const t = new Date(Date.UTC(y, m - 1 + k, 1)).toISOString().slice(0, 10); return 'closeDialog();S.at=null;render();loadAtt(\'' + t + '\').then(()=>S.at&&atCal())'; };
+  dialog('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><button class="btn sm" onclick="' + mv(-1) + '" aria-label="앞 달">‹</button><b style="flex:1;text-align:center;font-size:17px">' + y + '년 ' + m + '월</b><button class="btn sm" onclick="' + mv(1) + '" aria-label="다음 달">›</button><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
+    '<div class="atcal">' + g + '</div>' +
+    (r.months.length ? '<div class="nwmeta">스케줄이 있는 달: ' + r.months.map(h).join(', ') + ' · 「주 n」 = 그날 주간 근무 인원</div>' : '') +
+    '<button class="btn" style="width:100%;margin-top:10px" onclick="closeDialog();S.at=null;render();loadAtt(\'\')">오늘 근무일로</button>');
+}
+/* 그날 상태 고르기 (6장) */
+function atFixOpen(i, keep) {
+  const r = S.at.r, x = r.people[i]; if (!keep) S.at.pick = x.v;
+  const opts = () => AT_CODES.map(c => '<button class="attag s-' + atCls(c) + (c === S.at.pick ? ' sel' : '') + '" aria-pressed="' + (c === S.at.pick) + '" onclick="S.at.pick=' + h(JSON.stringify(c)) + ';atFixOpen(' + i + ',1)">' + atLbl(c) + '</button>').join('');
+  dialog('<div style="display:flex;align-items:center;margin-bottom:4px"><div class="fname"><b style="font-size:17px">' + h(x.name) + ' · ' + h(atKo(r.date)) + '</b><small>엑셀 값: ' + h(atLbl(x.raw)) + (x.fix ? ' · 고침: ' + h(x.fix.by) + ' ' + h(x.fix.at) : '') + ' → 바꿀 상태를 고르세요 (이날만)</small></div><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
+    '<div class="atopts" style="margin-top:10px">' + opts() + '</div>' +
+    '<div class="nwmeta">고친 사람·시각이 남고, 엑셀을 다시 올려도 이날 고친 값은 그대로입니다.</div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px">' + (x.fix ? '<button class="btn" style="flex:1" onclick="atFixSave(' + i + ',\'(되돌림)\')">엑셀 값으로 되돌리기</button>' : '') +
+    '<button class="btn pri big" style="flex:1" onclick="atFixSave(' + i + ',S.at.pick)"' + (S.at.pick === x.v ? ' disabled' : '') + '>' + h(atLbl(S.at.pick)) + '(으)로 바꾸기</button></div>');
+}
+async function atFixSave(i, v) {
+  const x = S.at.r.people[i]; closeDialog();
+  try { const r = await call('attFix', S.at.r.date, x.name, v); if (!r.ok) return toast(r.error); S.at = { r }; render(); toast(x.name + ' → ' + (v === '(되돌림)' ? '엑셀 값' : atLbl(v))); } catch (e) {}
+}
+/* 기본 휴일 (6장): 소장·부소장·총무만 고침, 다른 사람은 보기만 */
+function atHolOpen(i, sel) {
+  const r = S.at.r, x = r.people[i], cur = sel || (x.hol ? x.hol.split(',') : []), ed = r.canBoss;
+  S.at.hol = cur;
+  dialog('<div style="display:flex;align-items:center;margin-bottom:4px"><div class="fname"><b style="font-size:17px">' + h(x.name) + ' · ' + h(x.role) + ' — 기본 휴일</b><small>' + (ed ? '매주 쉬는 요일을 고르세요 (여러 개)' : '소장·부소장·총무만 고칠 수 있습니다') + '</small></div><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
+    '<div class="atwk" style="margin-top:10px">' + WEEK.map(w => '<button class="' + (cur.indexOf(w) !== -1 ? 'sel' : '') + '" aria-pressed="' + (cur.indexOf(w) !== -1) + '"' + (ed ? ' onclick="atHolTog(' + i + ',\'' + w + '\')"' : ' disabled') + ' style="' + (w === '일' ? 'color:var(--red)' : w === '토' ? 'color:var(--blue)' : '') + '">' + w + '</button>').join('') + '</div>' +
+    '<div class="atchk" style="margin-top:8px">지금: <b>' + (cur.length ? cur.join(' · ') : '없음') + '</b><br>엑셀에서 이 요일이 빈 칸(출근)이면 「휴」로 봅니다. 엑셀에 다른 값(연·9-7 등)이 있으면 엑셀 값이 먼저입니다.</div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn" style="flex:1" onclick="closeDialog()">닫기</button>' + (ed ? '<button class="btn pri" style="flex:1" onclick="atHolSave(' + i + ')">저장</button>' : '') + '</div>');
+}
+function atHolTog(i, w) { const c = S.at.hol.slice(), k = c.indexOf(w); if (k === -1) c.push(w); else c.splice(k, 1); atHolOpen(i, c); }
+async function atHolSave(i) {
+  const x = S.at.r.people[i]; closeDialog();
+  try { const r = await call('attHoliday', x.name, S.at.hol, S.at.r.date); if (!r.ok) return toast(r.error); S.at = { r }; render(); toast(x.name + ' 기본 휴일 저장'); } catch (e) {}
+}
+/* 그림 (5장): 가로 1200px 판을 2배로 그려 PNG — 명일 작업처럼 내려받고 그림도 보여 줌 */
+function atImgHtml(r) {
+  const t = new Date(), p = n => String(n).padStart(2, '0');
+  return '<div class="atimg"><div class="attl"><b>' + h(atKo(r.date)) + ' 근무인원</b><span>에비뉴엘 월드타워 시설관리</span></div>' + atOrg(r.people, false) + atSums(r.people) +
+    '<div class="stamp">업무지원 앱 · ' + t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) + ' ' + p(t.getHours()) + ':' + p(t.getMinutes()) + ' 만듦</div></div>';
+}
+async function atImage() {
+  const r = S.at.r, btn = $('atImgBtn'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 그림 만드는 중'; }
+  const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;z-index:-1';
+  wrap.innerHTML = atImgHtml(r); document.body.appendChild(wrap);
+  try {
+    await loadH2p();
+    try { if (document.fonts) await document.fonts.ready; } catch (e) {}
+    const keepY = window.scrollY; window.scrollTo(0, 0);
+    let url;
+    try { url = await html2pdf().set({ image: { type: 'png' }, html2canvas: { scale: 2, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, windowWidth: 1200 } }).from(wrap.firstChild).outputImg('datauristring'); }
+    finally { window.scrollTo(0, keepY); }
+    const name = r.date + '_출근현황.png';
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    dialog('<div style="display:flex;align-items:center;margin-bottom:10px"><div class="fname"><b style="font-size:17px">그림으로 저장</b><small>' + h(name) + '</small></div><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
+      '<img class="nwimg" id="atImg" src="' + url + '" alt="출근현황 ' + h(r.date) + '">' +
+      '<div class="banner b-info" style="margin-top:10px">내려받기가 되지 않으면 위 그림을 <b>길게 눌러 「이미지 저장」</b>을 고르세요.</div>' +
+      '<a class="btn pri big" style="width:100%;margin-top:10px" href="' + url + '" download="' + h(name) + '">다시 내려받기</a>');
+  } catch (e) { toast('그림을 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
+  finally { wrap.remove(); if (btn) { btn.disabled = false; btn.textContent = '⬇ 그림으로 저장'; } }
+}
+
+/* 엑셀 올리기 (4장): 화면에서 엑셀 읽기 도구(SheetJS)로 읽어 칸 글자만 서버로 */
+let XLS = null;
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  return XLS || (XLS = new Promise((ok, no) => {
+    const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = ok; sc.onerror = () => { XLS = null; no(new Error('엑셀 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.')); };
+    document.head.appendChild(sc);
+  }));
+}
+/** 표(줄×칸 글자) → { ym, rows, tot, unknown } — 날짜 줄(1, 2, 3…)을 찾아 그 왼쪽 2·3·4칸 = 이름·직책·구역 */
+function atParse(aoa) {
+  const c = v => String(v == null ? '' : v).trim();
+  let ym = '', hr = -1, c0 = -1;
+  aoa.slice(0, 6).forEach(row => (row || []).forEach(v => { const m = /(\d{4})\s*년\s*(\d{1,2})\s*월/.exec(c(v)); if (m && !ym) ym = m[1] + '-' + m[2].padStart(2, '0'); }));
+  for (let r = 0; r < Math.min(aoa.length, 20) && hr < 0; r++) { const row = aoa[r] || []; for (let k = 0; k < row.length - 1; k++) if (c(row[k]) === '1' && c(row[k + 1]) === '2') { hr = r; c0 = k; break; } }
+  if (hr < 0 || c0 < 2) return { error: '날짜 줄(1, 2, 3 …)을 찾지 못했습니다. 근무 스케줄 엑셀이 맞는지 확인해 주세요.' };
+  let n = 0; while (n < 31 && c(aoa[hr][c0 + n]) === String(n + 1)) n++;
+  const rows = [], unknown = {}; let sec = '', tot = null;
+  for (let r = hr + 1; r < aoa.length; r++) {
+    const row = aoa[r] || [], a = c0 >= 4 ? c(row[c0 - 4]) : '', role = c(row[c0 - 3]), name = c(row[c0 - 2]);
+    const days = Array.from({ length: n }, (_, i) => c(row[c0 + i]));
+    if (/총원/.test(a + role)) { tot = days.map(Number); continue; }
+    if (/합계/.test(a + role)) continue;
+    if (a) sec = a.replace(/\s+/g, '');
+    if (!role) continue;   // 요일 줄·아래 안내 글은 직책 칸이 비어 있음
+    if (name) days.forEach(v => { if (AT_KNOWN.indexOf(v) === -1) unknown[v] = (unknown[v] || []).concat(name); });
+    rows.push({ sec, role, name, days });
+  }
+  if (!rows.length) return { error: '직원 줄을 찾지 못했습니다.' };
+  const ju = Array.from({ length: n }, (_, i) => rows.filter(x => x.name && atIsDay(x.days[i])).length);
+  const bad = tot ? ju.map((v, i) => v === tot[i] ? 0 : i + 1).filter(Boolean) : null;
+  return { ym, rows, n, bad, unknown };
+}
+function atB64(buf) { let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+async function atFile(el) {
+  const f = el.files && el.files[0]; if (!f) return;
+  S.atup = { busy: true, name: f.name }; render();
+  try {
+    await loadXlsx();
+    const buf = await f.arrayBuffer(), wb = XLSX.read(buf, { type: 'array' });
+    const p = atParse(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' }));
+    S.atup = Object.assign({ name: f.name, day: 1, file: buf.byteLength < 3e6 ? 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + atB64(buf) : '' }, p);
+  } catch (e) { S.atup = { name: f.name, error: '엑셀을 읽지 못했습니다: ' + (e && e.message ? e.message : e) }; }
+  render();
+}
+function renderAttUp() {
+  const u = S.atup || {};
+  let body = '<div class="card" style="padding:16px"><div class="nwhead"><b>근무 스케줄 엑셀 올리기</b></div>' +
+    '<label class="btn" style="width:100%;min-height:64px;border-style:dashed;color:var(--blue);margin-top:10px">📎 엑셀 파일(.xlsx) 고르기<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="atFile(this)" style="position:absolute;width:1px;height:1px;opacity:0"></label>';
+  if (u.busy && !u.rows) body += '<div class="nwmeta"><span class="spin"></span> ' + h(u.name) + ' 읽는 중…</div>';
+  else if (u.error) body += '<div class="banner b-red" style="margin-top:10px">' + h(u.error) + '</div>';
+  else if (u.rows) {
+    const named = u.rows.filter(x => x.name).length, unk = Object.keys(u.unknown);
+    body += '<div class="atchk" style="margin-top:10px">📄 ' + h(u.name) + ' · ' + (u.ym ? '<b>' + h(ymLabel(u.ym)) + '</b> (제목 줄에서 읽음)' : '<span class="w">몇 월인지 못 읽음 — 아래에서 고르세요</span>') + '<br>' +
+      '✅ ' + named + '명' + (u.rows.length > named ? ' + 공석 ' + (u.rows.length - named) + '줄' : '') + ' × ' + u.n + '일 읽음 · 빈 칸 = 출근<br>' +
+      (u.bad == null ? '<span class="w">⚠ 엑셀 「주간근무총원」 줄을 못 찾아 맞춰 보지 못했습니다</span>' : u.bad.length ? '<span class="w">⚠ 엑셀 「주간근무총원」과 다른 날: ' + u.bad.join(', ') + '일</span>' : '✅ 엑셀 「주간근무총원」 줄과 앱 계산 ' + u.n + '일 모두 같음') +
+      unk.map(k => '<br><span class="w">⚠ 처음 보는 기호 「' + h(k) + '」 (' + h(u.unknown[k].filter((x, i, a) => a.indexOf(x) === i).join(', ')) + ' ' + u.unknown[k].length + '칸) → 휴무로 셈</span>').join('') + '</div>' +
+      '<label class="nwmeta" style="display:flex;align-items:center;gap:8px">저장할 달 <input type="month" class="inp" style="width:auto" value="' + h(u.ym) + '" onchange="S.atup.ym=this.value"></label></div>' +
+      '<div class="card" style="padding:16px"><div class="nwhead"><b>미리보기 · ' + u.day + '일</b><button class="btn sm" onclick="S.atup.day=Math.max(1,S.atup.day-1);render()" aria-label="앞 날">‹</button><button class="btn sm" onclick="S.atup.day=Math.min(S.atup.n,S.atup.day+1);render()" aria-label="다음 날">›</button></div>' +
+      '<table class="atst" style="margin-top:10px"><tr><th>구역</th><th>직책</th><th>이름</th><th>' + u.day + '일</th></tr>' +
+      u.rows.map(x => '<tr><td>' + h(x.sec) + '</td><td>' + h(x.role) + '</td><td>' + (x.name ? '<b>' + h(x.name) + '</b>' : '<span class="z">공석</span>') + '</td><td>' + (x.name ? '<span class="attag s-' + atCls(x.days[u.day - 1]) + '">' + h(atLbl(x.days[u.day - 1])) + '</span>' : '') + '</td></tr>').join('') + '</table>' +
+      '<div class="nwmeta">같은 달을 다시 올리면 그 달을 새 것으로 바꿉니다. 그날 고친 것과 기본 휴일은 그대로 둡니다. (기본 휴일은 미리보기에 안 보임)</div></div>';
+  } else body += '<div class="nwmeta">매월 초 만드는 근무 스케줄 엑셀 파일을 고르세요. 첫 번째 시트를 읽습니다.</div></div>';
+  return topbar('출근현황 ›', '엑셀 올리기') + '<div class="wrap list">' + body +
+    '<div class="nwbar"><button class="btn pri" id="atUpSave" onclick="atUpSave()"' + (u.rows && !u.busy ? '' : ' disabled') + '>' + (u.busy && u.rows ? '<span class="spin"></span>' : u.rows && u.ym ? h(ymLabel(u.ym)) + ' 저장' : '저장') + '</button></div></div>';
+}
+async function atUpSave() {
+  const u = S.atup; if (!u || !u.rows || u.busy) return;
+  if (!/^\d{4}-\d{2}$/.test(u.ym || '')) return toast('저장할 달을 골라 주세요');
+  u.busy = true; render();
+  try {
+    const r = await call('attPut', u.ym, u.rows, u.file);
+    if (!r.ok) { u.busy = false; render(); return toast(r.error); }
+    toast(ymLabel(u.ym) + ' 근무 스케줄 ' + r.count + '줄 저장'); S.atup = null; S.at = null; go('att'); loadAtt(S.atToday && S.atToday.slice(0, 7) === u.ym ? '' : u.ym + '-01');
+  } catch (e) { u.busy = false; render(); }
+}
+
 /* ── 점검 ── */
 function renderInspect() {
   return topbar('업무지원 ›', '점검') + '<div class="wrap list">' +
@@ -1092,6 +1363,8 @@ function render() {
   else if (S.view === 'docs') html = renderDocs();
   else if (S.view === 'tbm') html = renderTbm();
   else if (S.view === 'nw') html = renderNw();
+  else if (S.view === 'att') html = renderAtt();
+  else if (S.view === 'attup') html = renderAttUp();
   else if (S.view === 'inspect') html = renderInspect();
   else if (S.view === 'fire') html = renderFire();
   else if (S.view === 'qr') html = renderQr();

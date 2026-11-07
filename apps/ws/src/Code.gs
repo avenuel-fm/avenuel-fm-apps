@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.6.10', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.7.0', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -25,6 +25,9 @@ const SHEETS = {
   '서명': ['sign_id', '근무일', 'staff_id', '이름', '파트명', '서명_id', '서명시각', '들어온길', 'TBM사용', '삭제여부'],
   '명일작업': ['일자', '순번', '부서', '작업장소', '작업내용', '비고', '고친사람', '고친시각'],
   'TBM': ['tbm_id', '근무일', '작성자_id', '작성자명', '회의사진_id', '구호사진_id', '작업표', '체크칸', '서명수', 'pdf_id', 'PDF만든시각', '작성시각', '수정시각', '삭제여부'],
+  '근무표': ['월', '순서', '구역', '직책', '이름', '일별', '올린사람', '올린시각', '삭제여부'],
+  '근무변경': ['날짜', '이름', '원래값', '바꾼값', '바꾼사람', '바꾼시각', '삭제여부'],
+  '기본휴일': ['이름', '요일', '바꾼사람', '바꾼시각'],
   '위험성목록': ['순서', '낱말', '위험요인', '재해형태', '가능성', '중대성', '개선조치1', '개선조치2', '개선조치3', '개선조치4', '사용여부'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
@@ -814,6 +817,174 @@ function nextWorkSave(token, date, rows, ver) {
   }
 }
 
+/* ───────────────────────── 출근현황 (WS_출근현황 15.3.19, 결정 88) ───────────────────────── */
+
+const AT_CODES = ['', '9-7', '휴', '연', '법', '야', '비', '병가', 'A반', 'P반', 'A검진', 'P검진'];   // '' = 출근
+const AT_BOSS = ['소장', '부소장', '총무'];
+const AT_UNDO = '(되돌림)';
+const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** 새 탭 3개는 배포 뒤 「① 초기 설정」을 안 해도 처음 열 때 만듦 (TBM과 같은 방식) */
+function atTabs_() {
+  const ss = db_(), need = ['근무표', '근무변경', '기본휴일'].filter(function (n) { return !ss.getSheetByName(n); });
+  if (!need.length) return;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    need.forEach(function (name) {
+      if (ss.getSheetByName(name)) return;
+      const sh = ss.insertSheet(name);
+      sh.getRange(1, 1, 1, SHEETS[name].length).setValues([SHEETS[name]]);
+      sh.setFrozenRows(1);
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function atMonthRows_(ym) {
+  return readTable_('근무표').rows.filter(function (r) { return r['월'] === ym && r['삭제여부'] !== 'Y'; })
+    .sort(function (a, b) { return Number(a['순서']) - Number(b['순서']); })
+    .map(function (r) { return { sec: r['구역'], role: r['직책'], name: r['이름'], days: jsonOr_(r['일별'], []), by: r['올린사람'], at: r['올린시각'] }; });
+}
+/** 그날 고친 값: 날짜|이름 → 마지막 줄 (되돌림이면 지움) */
+function atFixes_(prefix) {
+  const o = {};
+  readTable_('근무변경').rows.forEach(function (r) {
+    if (r['삭제여부'] === 'Y' || String(r['날짜']).indexOf(prefix) !== 0) return;
+    const k = r['날짜'] + '|' + r['이름'];
+    if (r['바꾼값'] === AT_UNDO) delete o[k]; else o[k] = { v: r['바꾼값'], by: r['바꾼사람'], at: r['바꾼시각'] };
+  });
+  return o;
+}
+function atHolidays_() {
+  const o = {};
+  readTable_('기본휴일').rows.forEach(function (r) { o[r['이름']] = r['요일']; });
+  return o;
+}
+/** 순서: 그날 고친 값 > 엑셀 값(빈 칸 아님) > 기본 휴일 > 출근 (6장) */
+function atValue_(p, date, fixes, hol) {
+  const f = fixes[date + '|' + p.name];
+  if (f) return f.v;
+  const raw = String(p.days[Number(date.slice(8, 10)) - 1] || '');
+  if (raw) return raw;
+  const wd = WEEK_KO[new Date(Date.parse(date + 'T00:00:00Z')).getUTCDay()];
+  return String(hol[p.name] || '').split(',').indexOf(wd) !== -1 ? '휴' : '';
+}
+function atIsDay_(v) { return v === '' || v === '9-7' || /^[AP](반|검진)$|^[전후]반$/.test(v); }   // 엑셀 「근무인원합계」와 같은 셈 (반차·검진 = 주)
+
+/** 소장·부소장·총무 (+ 관리자): 직원 탭 역할 또는 그 달 엑셀 직책(이름으로 찾음) */
+function atBoss_(me, rows) {
+  if (['소장', '부소장', '관리자'].indexOf(me['역할']) !== -1) return true;
+  return rows.some(function (p) { return p.name === me['이름'] && AT_BOSS.indexOf(p.role) !== -1; });
+}
+/** 그날 고치기: 대표 3명 + 그날이나 전날 야간 근무자 (야간은 아침 8시 30분에 끝나 다음 날 아침 게시판도 그 사람이 맞춤) */
+function atCanFix_(me, date, rows, fixes, hol) {
+  if (atBoss_(me, rows)) return true;
+  const prev = new Date(Date.parse(date + 'T00:00:00Z') - DAY_MS).toISOString().slice(0, 10);
+  const mine = rows.filter(function (p) { return p.name === me['이름']; })[0];
+  if (!mine) return false;
+  if (atValue_(mine, date, fixes, hol) === '야') return true;
+  if (prev.slice(0, 7) !== date.slice(0, 7)) {
+    const pr = atMonthRows_(prev.slice(0, 7)).filter(function (p) { return p.name === me['이름']; })[0];
+    return !!pr && atValue_(pr, prev, atFixes_(prev.slice(0, 7)), hol) === '야';
+  }
+  return atValue_(mine, prev, fixes, hol) === '야';
+}
+
+/** 그날 출근현황 + 그 달 날짜별 주간 인원(달력) + 권한. date 비우면 오늘 근무일 */
+function attGet(token, date) {
+  const me = auth_(token);
+  atTabs_();
+  const d = date || workDay_(Date.now());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { ok: false, error: '날짜 형식이 맞지 않습니다' };
+  const ym = d.slice(0, 7), rows = atMonthRows_(ym), fixes = atFixes_(ym), hol = atHolidays_();
+  const months = readTable_('근무표').rows.filter(function (r) { return r['삭제여부'] !== 'Y'; }).map(function (r) { return r['월']; })
+    .filter(function (m, i, a) { return a.indexOf(m) === i; }).sort();
+  const last = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
+  const ju = [];
+  for (let i = 1; i <= last; i++) {
+    const di = ym + '-' + (i < 10 ? '0' : '') + i;
+    ju.push(rows.filter(function (p) { return p.name && atIsDay_(atValue_(p, di, fixes, hol)); }).length);
+  }
+  return {
+    ok: true, date: d, today: workDay_(Date.now()), months: months, ju: rows.length ? ju : [],
+    upBy: rows.length ? rows[0].by : '', upAt: rows.length ? rows[0].at : '',
+    canFix: rows.length ? atCanFix_(me, d, rows, fixes, hol) : false, canBoss: atBoss_(me, rows),
+    people: rows.map(function (p) {
+      const f = p.name ? fixes[d + '|' + p.name] : null;
+      return { sec: p.sec, role: p.role, name: p.name, v: p.name ? atValue_(p, d, fixes, hol) : '', raw: String(p.days[Number(d.slice(8, 10)) - 1] || ''),
+        fix: f ? { by: f.by, at: f.at } : null, hol: p.name ? String(hol[p.name] || '') : '' };
+    })
+  };
+}
+
+/** 엑셀 한 달 저장 (화면에서 읽은 줄). 같은 달은 예전 줄 삭제여부=Y. 고친 값·기본 휴일은 그대로 */
+function attPut(token, ym, rows, fileB64) {
+  const me = auth_(token);
+  atTabs_();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(ym || ''))) return { ok: false, error: '몇 년 몇 월인지 읽지 못했습니다' };
+  const last = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
+  const clean = (Array.isArray(rows) ? rows : []).map(function (r) {
+    return { sec: cleanText_(r && r.sec, 20), role: cleanText_(r && r.role, 20), name: cleanText_(r && r.name, 20),
+      days: (Array.isArray(r && r.days) ? r.days : []).slice(0, last).map(function (v) { return cleanText_(v, 10); }) };
+  }).filter(function (r) { return r.role || r.name; });
+  if (!clean.length || clean.length > 80) return { ok: false, error: '직원 줄을 읽지 못했습니다 (엑셀 모양 확인)' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const t = readTable_('근무표');
+    const cur = t.rows.filter(function (r) { return r['월'] === ym && r['삭제여부'] !== 'Y'; });
+    // 처음 올릴 때는 그 엑셀의 소장·부소장·총무만, 이미 있으면 지금 달의 대표만 바꿀 수 있음
+    if (!atBoss_(me, cur.length ? atMonthRows_(ym) : clean)) return { ok: false, error: '엑셀은 소장·부소장·총무만 올릴 수 있습니다' };
+    const at = now_();
+    clean.forEach(function (r, i) {
+      appendRow_('근무표', { '월': ym, '순서': String(i + 1), '구역': r.sec, '직책': r.role, '이름': r.name, '일별': JSON.stringify(r.days), '올린사람': me['이름'], '올린시각': at, '삭제여부': '' });
+    });
+    cur.forEach(function (r) { updateRow_('근무표', r._row, { '삭제여부': 'Y' }); });
+    let fileId = '';
+    if (fileB64) {
+      const blob = parseDataUrl_(fileB64, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 100, 4000000);
+      if (blob) fileId = saveBlob_(folderPath_(['시설팀 통합업무', '20_업무지원', '서류작업', '출근현황']), blob, ym + '_근무스케줄.xlsx', me['이름'] + ' ' + at);
+    }
+    log_(me['이름'], '근무표 올림', ym, clean.length + '줄' + (fileId ? ' · 원본 ' + fileId : ''));
+    return { ok: true, count: clean.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 그날 상태 고치기 — value가 AT_UNDO면 엑셀 값으로 되돌림 */
+function attFix(token, date, name, value) {
+  const me = auth_(token);
+  atTabs_();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return { ok: false, error: '날짜 형식이 맞지 않습니다' };
+  if (AT_CODES.indexOf(value) === -1 && value !== AT_UNDO) return { ok: false, error: '고를 수 없는 상태입니다' };
+  const ym = date.slice(0, 7), rows = atMonthRows_(ym), fixes = atFixes_(ym), hol = atHolidays_();
+  const p = rows.filter(function (x) { return x.name && x.name === name; })[0];
+  if (!p) return { ok: false, error: '그 달 근무표에 없는 이름입니다' };
+  if (!atCanFix_(me, date, rows, fixes, hol)) return { ok: false, error: '소장·부소장·총무·그날 야간 근무자만 고칠 수 있습니다' };
+  appendRow_('근무변경', { '날짜': date, '이름': name, '원래값': atValue_(p, date, fixes, hol), '바꾼값': value, '바꾼사람': me['이름'], '바꾼시각': now_(), '삭제여부': '' });
+  log_(me['이름'], '출근현황 고침', date, name + ' → ' + (value || '출근'));
+  return attGet(token, date);
+}
+
+/** 기본 휴일 (요일 여러 개) — 소장·부소장·총무 */
+function attHoliday(token, name, days, date) {
+  const me = auth_(token);
+  atTabs_();
+  const ym = String(date || workDay_(Date.now())).slice(0, 7), rows = atMonthRows_(ym);
+  if (!atBoss_(me, rows)) return { ok: false, error: '기본 휴일은 소장·부소장·총무만 정할 수 있습니다' };
+  if (!rows.some(function (p) { return p.name && p.name === name; })) return { ok: false, error: '그 달 근무표에 없는 이름입니다' };
+  const list = (Array.isArray(days) ? days : []).filter(function (w, i, a) { return WEEK_KO.indexOf(w) !== -1 && a.indexOf(w) === i; })
+    .sort(function (a, b) { return WEEK_KO.indexOf(a) - WEEK_KO.indexOf(b); }).join(',');
+  const cur = readTable_('기본휴일').rows.filter(function (r) { return r['이름'] === name; })[0];
+  const patch = { '이름': name, '요일': list, '바꾼사람': me['이름'], '바꾼시각': now_() };
+  if (cur) updateRow_('기본휴일', cur._row, patch); else appendRow_('기본휴일', patch);
+  log_(me['이름'], '기본 휴일', name, list || '없음');
+  return attGet(token, date || '');
+}
+
 /** 개선 C: TBM PDF에 쓰이지 않은 서명은 90일 뒤 휴지통 (매일 예약 작업) */
 function cleanSigns_() {
   const limit = workDay_(Date.now() - 90 * DAY_MS);
@@ -1198,8 +1369,8 @@ function cellOut_(h, v) {
   if (v === null || v === undefined) return '';
   if (Object.prototype.toString.call(v) === '[object Date]') {
     if (isNaN(v.getTime())) return '';
-    if (h === '연월') return Utilities.formatDate(v, TZ, 'yyyy-MM');
-    if (h === '일자') return Utilities.formatDate(v, TZ, 'yyyy-MM-dd');
+    if (h === '연월' || h === '월') return Utilities.formatDate(v, TZ, 'yyyy-MM');
+    if (h === '일자' || h === '날짜') return Utilities.formatDate(v, TZ, 'yyyy-MM-dd');
     return Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm');
   }
   return String(v);
