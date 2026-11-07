@@ -250,6 +250,11 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   let p = tbmSavePdf(hong.token, 'data:application/pdf;filename=generated.pdf;base64,' + 'J'.repeat(400), ids);
   assert(p.ok && files[p.pdf.id].name === '2026-12-19_TBM.pdf' && p.pdf.signs === ids.length, 'TBM: PDF 저장 ' + files[p.pdf.id].name);
   assert(files[p.pdf.id].sharing === 'ANYONE_WITH_LINK:VIEW' && !p.warn, 'TBM: PDF는 링크가 있는 사람 누구나 보기 (구글 로그인 없이 열림)');
+  files[p.pdf.id].sharing = ''; CacheService.getScriptCache().remove('sh_' + p.pdf.id);   // 예전 판에서 만든(공유 안 된) PDF 흉내
+  assert(tbmGet(hong.token).pdf.shared === true && files[p.pdf.id].sharing === 'ANYONE_WITH_LINK:VIEW', 'TBM: 공유 안 된 예전 PDF도 TBM을 열면 공유됨');
+  global.NO_SHARE = true; files[p.pdf.id].sharing = ''; CacheService.getScriptCache().remove('sh_' + p.pdf.id);
+  assert(tbmGet(hong.token).pdf.shared === false, 'TBM: 공유가 실제로 안 바뀌면 shared=false (화면에 빨간 안내)');
+  global.NO_SHARE = false;
   assert(readTable_('서명').rows.filter(r => ids.indexOf(r['sign_id']) !== -1).every(r => r['TBM사용'] === 'Y'), 'TBM: PDF에 쓰인 서명은 TBM사용=Y');
   const first = p.pdf.id;
   p = tbmSavePdf(hong.token, 'data:application/pdf;base64,' + 'K'.repeat(400), ids);

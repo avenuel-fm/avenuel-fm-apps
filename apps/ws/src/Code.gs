@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.6.9', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.6.10', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -644,7 +644,7 @@ function tbmGet(token) {
     ok: true, day: day, signs: signs, manager: mgr ? { name: mgr.name, img: mgr.img } : null, risks: riskList_(),
     works: works, checks: row ? jsonOr_(row['체크칸'], {}) : null, saved: !!row, by: row ? row['작성자명'] : '', at: row ? row['수정시각'] : '',
     photos: { meet: row ? fileB64_(row['회의사진_id']) : '', chant: row ? fileB64_(row['구호사진_id']) : '' },
-    pdf: row && row['pdf_id'] ? { id: row['pdf_id'], at: row['PDF만든시각'], signs: Number(row['서명수']) || 0, url: driveUrl_(row['pdf_id']) } : null
+    pdf: row && row['pdf_id'] ? { id: row['pdf_id'], at: row['PDF만든시각'], signs: Number(row['서명수']) || 0, url: driveUrl_(row['pdf_id']), shared: sharedOnce_(row['pdf_id']) } : null
   };
 }
 
@@ -717,6 +717,7 @@ function tbmSavePdf(token, dataUri, signIds, d) {
     const oldPdf = row['pdf_id'];
     const id = saveBlob_(tbmFolder_(day), Utilities.newBlob(bytes, 'application/pdf'), day + '_TBM.pdf', 'TBM ' + day + ' · 서명 ' + ids.length + '명 · ' + me['이름']);
     const shared = shareLink_(id);
+    if (shared) CacheService.getScriptCache().put('sh_' + id, '1', 21600);
     const at = now_();
     updateRow_('TBM', row._row, { 'pdf_id': id, 'PDF만든시각': at, '서명수': String(ids.length) });
     trashFile_(oldPdf);   // 새 PDF를 저장한 뒤에 옛 PDF를 버림
@@ -724,7 +725,7 @@ function tbmSavePdf(token, dataUri, signIds, d) {
       if (ids.indexOf(r['sign_id']) !== -1 && r['TBM사용'] !== 'Y') updateRow_('서명', r._row, { 'TBM사용': 'Y' });
     });
     log_(me['이름'], 'TBM PDF 저장', day, '서명 ' + ids.length + '명');
-    return { ok: true, pdf: { id: id, at: at, signs: ids.length, url: driveUrl_(id) }, warn: shared ? '' : 'PDF는 저장했지만 공유를 못 했습니다. 구글 로그인 안 한 휴대폰에서는 열리지 않을 수 있습니다.' };
+    return { ok: true, pdf: { id: id, at: at, signs: ids.length, url: driveUrl_(id), shared: shared }, warn: shared ? '' : 'PDF는 저장했지만 공유를 못 했습니다. 구글 로그인 안 한 휴대폰에서는 열리지 않을 수 있습니다.' };
   } finally {
     lock.releaseLock();
   }
@@ -733,8 +734,21 @@ function tbmSavePdf(token, dataUri, signIds, d) {
 /* [PDF 열기]가 구글 로그인 안 한 브라우저에서도 되게 「링크가 있는 사람 누구나 보기」로 (11-07, 도면협의 검토서 PDF와 같음).
    링크(파일 주소)를 아는 사람만 볼 수 있고 고칠 수는 없음 */
 function shareLink_(id) {
-  try { DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); return true; }
-  catch (e) { log_('시스템', 'TBM PDF 공유 실패', id, String(e && e.message || e)); return false; }
+  try {
+    const f = DriveApp.getFileById(id);
+    f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    if (f.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) return true;   // 정말 바뀌었는지 확인 (계정 정책으로 조용히 안 바뀌는 경우)
+    log_('시스템', 'TBM PDF 공유 안 됨', id, '공유 설정이 「링크가 있는 사람」으로 바뀌지 않음 — 드라이브 공유 정책 확인');
+    return false;
+  } catch (e) { log_('시스템', 'TBM PDF 공유 실패', id, String(e && e.message || e)); return false; }
+}
+/** TBM을 열 때 오늘 PDF도 공유 확인 — v0.6.9 전에 만든 PDF도 열리게. 한 번 되면 6시간 기억해 다시 드라이브를 부르지 않음 */
+function sharedOnce_(id) {
+  const cache = CacheService.getScriptCache(), key = 'sh_' + id;
+  if (cache.get(key)) return true;
+  const ok = shareLink_(id);
+  if (ok) cache.put(key, '1', 21600);
+  return ok;
 }
 
 function driveUrl_(id) { return 'https://drive.google.com/file/d/' + id + '/view'; }

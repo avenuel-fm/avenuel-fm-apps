@@ -490,6 +490,7 @@ function renderTbm() {
     '<div class="card tbsum"><span class="fname"><b>서명 ' + r.signs.length + '명</b><small>관리감독자 ' + (r.manager ? h(r.manager.name) : '없음 (소장·부소장 서명 전)') + ' · 로그인 순서대로</small></span>' +
     '<button class="btn sm" onclick="loadTbm()">새로고침</button><button class="btn sm" onclick="S.tbm.showSigns=!S.tbm.showSigns;render()">' + (r.showSigns ? '목록 닫기' : '서명 목록') + '</button></div>' +
     (r.showSigns ? list : '') +
+    (r.pdf && r.pdf.shared === false ? '<div class="banner b-red">이 PDF는 <b>공유가 안 되어</b> 구글 로그인을 안 한 휴대폰·PC에서는 열리지 않습니다. 시설팀 공용 계정의 드라이브에서 파일 공유를 「링크가 있는 모든 사용자」로 바꾸거나 관리자에게 알려 주세요.</div>' : '') +
     (r.pdf ? '<div class="banner ' + (more ? 'b-warn' : 'b-info') + '">PDF 저장됨 ' + h(String(r.pdf.at).slice(11, 16)) + ' · 서명 ' + r.pdf.signs + '명' + (more ? ' — <b>PDF 뒤 서명 ' + more + '명 추가</b>. [PDF로 저장]을 다시 누르면 새로 만듭니다.' : '') + ' <a href="' + h(r.pdf.url) + '" target="_blank" rel="noopener">PDF 열기</a></div>' : '') +
     '<div class="sec">작업 표 — ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 명일 작업 예정에서 가져옴</div>' +
     (r.works.length ? r.works.map(tbmCard).join('') : '<div class="banner b-gray">오늘 날짜의 명일 작업 예정이 없습니다. 아래 [+ 작업 줄 추가]로 넣어 주세요.</div>') +
