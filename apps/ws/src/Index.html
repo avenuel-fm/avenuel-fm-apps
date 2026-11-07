@@ -389,11 +389,11 @@ function renderMain() {
     '<div class="banner b-gray">이 테스트판은 <b>점검 › 소화기 점검</b>과 <b>서류작업 › TBM · 명일 작업 예정</b>만 동작합니다. 다른 메뉴는 디자인 시안만 있습니다.</div>' +
     '<div class="grid6">' +
     t('docs', '서류작업', 'TBM' + (S.docs ? ' · 오늘 서명 ' + S.docs.signs + '명' : ' · 명일 작업 예정'), '#EAF5EF', '#1F7A4D') +
-    t('work', '작업', '준비 중', '#E8F0FA', '#1F5FA8') +
+    t('work', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') +
     t('inspect', '점검', c ? '소화기 ' + (c.ok + c.bad) + ' / ' + c.total + '대' : '소화기 점검', '#1F5FA8', '#fff') +
-    t('plan', '일정', '준비 중', '#E8F0FA', '#1F5FA8') +
-    t('defect', '하자점검', '준비 중', '#FDF0E8', '#B4410F') +
-    (approver ? t('approve', '결재 대기', '준비 중', '#E8F0FA', '#1F5FA8') : t('mydocs', '내 문서', '준비 중', '#E8F0FA', '#1F5FA8')) +
+    t('plan', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') +
+    t('defect', '작업중', '준비 중', '#FDF0E8', '#B4410F') +
+    (approver ? t('approve', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') : t('mydocs', '작업중', '준비 중', '#E8F0FA', '#1F5FA8')) +
     '</div></div>';
 }
 function tile(k) { if (k === 'inspect') go('inspect'); else if (k === 'docs') go('docs'); else toast('디자인 시안만 있는 메뉴입니다 (준비 중)'); }
