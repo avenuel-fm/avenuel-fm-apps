@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.6.7', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.6.8', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -46,11 +46,12 @@ const DEFAULT_SETTINGS = [
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('업무지원')
     .addItem('① 초기 설정', 'setupMenu_')
-    .addItem('② 테스트 직원 등록', 'addStaffMenu_')
+    .addItem('② 직원 등록', 'addStaffMenu_')
     .addItem('③ 웹앱 주소 보기', 'showUrlMenu_')
     .addItem('④ QR 고유번호 짧게 바꾸기 (32자리 → 12자리)', 'shortenTokensMenu_')
     .addItem('⑤ 데이터 점검 (날짜·숫자로 바뀐 칸, 빈 칸)', 'dataCheckMenu_')
     .addItem('⑥ 서명 정리 예약 켜기 (90일 지난 안 쓴 서명 → 휴지통, 매일 새벽 3시)', 'cleanSignsTriggerMenu_')
+    .addItem('⑦ 직원 삭제', 'removeStaffMenu_')
     .addToUi();
 }
 
@@ -174,18 +175,19 @@ function setup_() {
   const folder = monthFolder_(ym_(new Date()));
   return '초기 설정을 마쳤습니다.\n\n- 탭: ' + Object.keys(SHEETS).join(', ') +
     '\n- 사진 폴더: 시설팀 통합업무 › 20_업무지원 › 소화기점검 › ' + folder.getName() +
-    '\n\n다음: 메뉴 ② 테스트 직원 등록 → 웹앱 배포';
+    '\n\n다음: 메뉴 ② 직원 등록 → 웹앱 배포';
 }
 
+/* 직원 등록·삭제 (결정 86): 여기 넣는 직원은 실제 직원. HUB를 만들면 공통 DB `직원`으로 그대로 옮김 → staff_id·hashPin_ 방식 유지 */
 function addStaffMenu_() {
   const ui = SpreadsheetApp.getUi();
-  const n = ui.prompt('테스트 직원 등록 (1/4)', '이름', ui.ButtonSet.OK_CANCEL);
+  const n = ui.prompt('직원 등록 (1/4)', '이름', ui.ButtonSet.OK_CANCEL);
   if (n.getSelectedButton() !== ui.Button.OK) return;
-  const p = ui.prompt('테스트 직원 등록 (2/4)', 'PIN 4자리 (휴대폰 뒷 4자리, 겹치면 앞 4자리)', ui.ButtonSet.OK_CANCEL);
+  const p = ui.prompt('직원 등록 (2/4)', 'PIN 4자리 (휴대폰 뒷 4자리, 겹치면 앞 4자리)', ui.ButtonSet.OK_CANCEL);
   if (p.getSelectedButton() !== ui.Button.OK) return;
-  const part = ui.prompt('테스트 직원 등록 (3/4)', '파트명 (예: 전방파트)', ui.ButtonSet.OK_CANCEL);
+  const part = ui.prompt('직원 등록 (3/4)', '파트명 (예: 전방파트)', ui.ButtonSet.OK_CANCEL);
   if (part.getSelectedButton() !== ui.Button.OK) return;
-  const r = ui.prompt('테스트 직원 등록 (4/4)', '역할: ' + ROLES.join(' / '), ui.ButtonSet.OK_CANCEL);
+  const r = ui.prompt('직원 등록 (4/4)', '역할: ' + ROLES.join(' / '), ui.ButtonSet.OK_CANCEL);
   if (r.getSelectedButton() !== ui.Button.OK) return;
   const res = addStaff_(n.getResponseText(), p.getResponseText(), part.getResponseText(), r.getResponseText());
   ui.alert(res.ok ? (res.name + ' 님을 등록했습니다 (' + res.staff_id + ')') : res.error);
@@ -213,6 +215,50 @@ function addStaff_(name, pin, part, role) {
     CacheService.getScriptCache().remove('staff');
     log_('관리자(시트)', '직원 등록', id, name + ' · ' + role);
     return { ok: true, staff_id: id, name: name };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function removeStaffMenu_() {
+  const ui = SpreadsheetApp.getUi();
+  const list = readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N'; })
+    .map(function (s) { return s['staff_id'] + ' ' + s['이름'] + ' · ' + s['파트명'] + ' · ' + s['역할']; });
+  if (!list.length) { ui.alert('직원 삭제', '사용 중인 직원이 없습니다.', ui.ButtonSet.OK); return; }
+  const q = ui.prompt('직원 삭제', '지울 직원의 이름이나 staff_id(예: S003)를 넣어 주세요.\n\n' + list.join('\n'), ui.ButtonSet.OK_CANCEL);
+  if (q.getSelectedButton() !== ui.Button.OK) return;
+  const f = findStaff_(q.getResponseText());
+  if (!f.ok) { ui.alert('직원 삭제', f.error, ui.ButtonSet.OK); return; }
+  const yes = ui.alert('직원 삭제', f.staff['이름'] + ' (' + f.staff['staff_id'] + ' · ' + f.staff['파트명'] + ' · ' + f.staff['역할'] + ') 님을 삭제할까요?\n\n바로 로그인할 수 없게 됩니다. 시트 줄은 남기고 「사용여부」만 N으로 바꾸므로 서명·점검 기록의 이름은 그대로입니다.', ui.ButtonSet.YES_NO);
+  if (yes !== ui.Button.YES) return;
+  const res = removeStaff_(f.staff['staff_id']);
+  ui.alert('직원 삭제', res.ok ? res.name + ' 님을 삭제했습니다.' : res.error, ui.ButtonSet.OK);
+}
+
+/* 이름이나 staff_id로 사용 중인 직원 찾기. 같은 이름이 둘 이상이면 staff_id로 다시 고르게 함 */
+function findStaff_(key) {
+  key = String(key || '').trim();
+  if (!key) return { ok: false, error: '이름이나 staff_id를 넣어 주세요.' };
+  const live = readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N'; });
+  const byId = live.filter(function (s) { return s['staff_id'].toUpperCase() === key.toUpperCase(); });
+  if (byId.length) return { ok: true, staff: byId[0] };
+  const byName = live.filter(function (s) { return s['이름'] === key; });
+  if (byName.length === 1) return { ok: true, staff: byName[0] };
+  if (byName.length > 1) return { ok: false, error: '이름이 「' + key + '」인 직원이 ' + byName.length + '명입니다. staff_id로 넣어 주세요: ' + byName.map(function (s) { return s['staff_id']; }).join(', ') };
+  return { ok: false, error: '「' + key + '」 직원을 찾지 못했습니다. 이미 삭제했거나 이름이 다릅니다.' };
+}
+
+/* 삭제 = 사용여부 N (줄은 남김, 결정 10·86). 직원 기억을 지워 그 직원의 기기 표도 바로 막힘 */
+function removeStaff_(staffId) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const s = readTable_('직원').rows.filter(function (r) { return r['staff_id'] === staffId && r['사용여부'] !== 'N'; })[0];
+    if (!s) return { ok: false, error: '사용 중인 직원 ' + staffId + '을(를) 찾지 못했습니다.' };
+    updateRow_('직원', s._row, { '사용여부': 'N', '수정일시': now_() });
+    CacheService.getScriptCache().remove('staff');
+    log_('관리자(시트)', '직원 삭제', staffId, s['이름'] + ' · ' + s['역할']);
+    return { ok: true, staff_id: staffId, name: s['이름'] };
   } finally {
     lock.releaseLock();
   }

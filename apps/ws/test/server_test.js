@@ -352,3 +352,24 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   const extra = pub.filter(x => ALLOWED.indexOf(x) === -1);
   assert(!extra.length, '결정80: 밖에서 부를 수 있는 함수는 화면용으로 정한 것만 ' + extra.join(', '));
 }
+
+// 직원 삭제 (결정 86): 사용여부 N, 줄은 남김, 바로 로그인·기기 표 막힘, PIN 다시 쓸 수 있음, 같은 이름은 staff_id로
+{
+  NOW.d = new Date('2026-12-23T09:00:00+09:00'); CacheService.getScriptCache().remove('pinlock_all');
+  assert(addStaff_('삭제시험', '9753', '기건파트', '직원').ok, '결정86: 지울 직원 등록');
+  const lg = login('9753', 'del1', SIG); assert(lg.ok && auth_(lg.token), '결정86: 지우기 전 로그인됨');
+  const f = findStaff_('삭제시험'); assert(f.ok, '결정86: 이름으로 찾음');
+  const n0 = readTable_('직원').rows.length;
+  assert(removeStaff_(f.staff['staff_id']).ok, '결정86: 삭제');
+  const row = readTable_('직원').rows.filter(r => r['staff_id'] === f.staff['staff_id'])[0];
+  assert(readTable_('직원').rows.length === n0 && row['사용여부'] === 'N', '결정86: 줄은 남기고 사용여부만 N');
+  assert(!login('9753', 'del2', SIG).ok, '결정86: 삭제한 직원은 PIN 로그인 안 됨');
+  let blocked = false; try { blocked = !auth_(lg.token); } catch (e) { blocked = true; }
+  assert(blocked, '결정86: 쓰던 기기 표도 바로 막힘');
+  assert(!removeStaff_(f.staff['staff_id']).ok && !findStaff_('삭제시험').ok, '결정86: 이미 지운 직원은 다시 못 찾음');
+  assert(addStaff_('새삭제시험', '9753', '전방파트', '직원').ok, '결정86: 지운 직원의 PIN은 다시 쓸 수 있음');
+  assert(addStaff_('같은이름', '1470', '전방파트', '직원').ok && addStaff_('같은이름', '2580', '기건파트', '직원').ok, '결정86: 같은 이름 둘 등록');
+  const twin = findStaff_('같은이름'); assert(!twin.ok && /staff_id/.test(twin.error), '결정86: 같은 이름이면 staff_id로 고르라고 함');
+  const sid = readTable_('직원').rows.filter(r => r['이름'] === '같은이름')[1]['staff_id'];
+  assert(findStaff_(sid.toLowerCase()).ok && findStaff_(sid).staff['파트명'] === '기건파트', '결정86: staff_id(소문자도)로 찾음');
+}
