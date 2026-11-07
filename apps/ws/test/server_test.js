@@ -313,3 +313,42 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   const g2 = tbmGet(h.token);
   assert(p.ok && g2.works[0].work === '한번에 저장' && g2.photos.meet && g2.pdf.id === p.pdf.id, '결정78: [PDF로 저장]이 저장까지 한 번에');
 }
+
+// 점검 결과 고침 (결정 80)
+{
+  const { files: F } = require('./mock_env.js');
+  const cache = CacheService.getScriptCache();
+  // PIN 전체 잠금: 6시간 안에 3번째 잠금부터 1시간
+  NOW.d = new Date('2026-12-23T09:00:00+09:00'); cache.remove('pinfail_all'); cache.remove('pinlock_all'); cache.remove('pinlock_cnt');
+  const lockOnce = () => { for (let i = 0; i < 30; i++) login('0000', 'b' + i); };
+  lockOnce(); const m1 = login('1234', 'x1', SIG).error; cache.remove('pinlock_all');
+  lockOnce(); cache.remove('pinlock_all');
+  lockOnce(); const m3 = login('1234', 'x3', SIG).error;
+  assert(/10분 동안 모든 로그인/.test(m1) && /60분 동안 모든 로그인/.test(m3), '결정80: 첫 잠금 10분, 6시간 안 3번째 잠금은 1시간 (' + m3 + ')');
+  cache.remove('pinlock_all'); cache.remove('pinlock_cnt');
+  const h = login('1234', 'x4', SIG); assert(h.ok, '결정80: 잠금이 풀리면 다시 로그인');
+  // 앱 연결 키는 로그인 비밀키와 따로
+  const P = PropertiesService.getScriptProperties();
+  const lk = P.getProperty('LINK_KEY');
+  assert(lk && lk !== P.getProperty('HUB_KEY'), '결정80: 앱 연결 키(LINK_KEY)가 로그인 비밀키와 다름');
+  global.ContentService = { MimeType: { JSON: 1 }, createTextOutput: t => ({ getContent: () => t, setMimeType() { return this; } }) };
+  assert(!JSON.parse(api_({ api: 'summary', key: P.getProperty('HUB_KEY') }).getContent()).ok, '결정80: 로그인 비밀키로는 요약을 못 받음');
+  assert(JSON.parse(api_({ api: 'summary', key: lk }).getContent()).ok, '결정80: 연결 키로 요약 받음');
+  P.setProperty('LINK_KEY', 'new-key'); assert(auth_(h.token), '결정80: 연결 키를 바꿔도 로그인 표는 그대로');
+  // 다시 입력할 때 새 파일 저장이 실패하면 옛 파일은 휴지통에 가지 않음
+  const fe = feList(h.token).items[0];
+  const pic = 'data:image/jpeg;base64,' + 'A'.repeat(4000), sg = 'data:image/png;base64,' + 'B'.repeat(800);
+  checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true });
+  const trashed0 = Object.values(F).filter(f => f.trashed).length;
+  const realSave = saveBlob_; let n = 0;
+  globalThis.saveBlob_ = function () { if (++n === 2) throw new Error('Drive 오류'); return realSave.apply(null, arguments); };
+  let threw = false; try { checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true }); } catch (e) { threw = true; }
+  globalThis.saveBlob_ = realSave;
+  assert(threw && Object.values(F).filter(f => f.trashed).length === trashed0, '결정80: 새 파일 저장 중 오류면 옛 점검 사진은 그대로');
+  assert(checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true }).ok && Object.values(F).filter(f => f.trashed).length === trashed0 + 3, '결정80: 성공하면 그때 옛 파일 3개 휴지통');
+  // 밖에서 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴·예약 함수는 모두 _
+  const pub = [...fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(x => !/_$/.test(x));
+  const ALLOWED = ['onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit'];
+  const extra = pub.filter(x => ALLOWED.indexOf(x) === -1);
+  assert(!extra.length, '결정80: 밖에서 부를 수 있는 함수는 화면용으로 정한 것만 ' + extra.join(', '));
+}

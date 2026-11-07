@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.6.4', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.6.5', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -142,6 +142,7 @@ function setup_() {
   const props = PropertiesService.getScriptProperties();
   props.setProperty('APP_DB_ID', ss.getId());
   if (!props.getProperty('HUB_KEY')) props.setProperty('HUB_KEY', randomHex_(32));
+  linkKey_();
 
   Object.keys(SHEETS).forEach(function (name) {
     let sh = ss.getSheetByName(name);
@@ -219,7 +220,15 @@ function addStaff_(name, pin, part, role) {
 
 function showUrlMenu_() {
   const url = ScriptApp.getService().getUrl();
-  SpreadsheetApp.getUi().alert(url ? ('웹앱 주소\n\n' + url) : '아직 웹앱으로 배포하지 않았습니다. 설치 안내 4단계를 보세요.');
+  SpreadsheetApp.getUi().alert(url ? ('웹앱 주소\n\n' + url + '\n\n앱 연결 키 (통합 대시보드가 ?api=summary 부를 때)\n\n' + linkKey_()) : '아직 웹앱으로 배포하지 않았습니다. 설치 안내 4단계를 보세요.');
+}
+
+/* 앱 사이 연결 키 (?api=summary). 로그인 표를 만드는 비밀키 HUB_KEY와 따로 둠 — 연결 키가 새어 바꿔도 직원 로그인은 그대로 (결정 80) */
+function linkKey_() {
+  const props = PropertiesService.getScriptProperties();
+  let k = props.getProperty('LINK_KEY');
+  if (!k) { k = randomHex_(20); props.setProperty('LINK_KEY', k); }
+  return k;
 }
 
 /* ───────────────────────── 웹 진입 ───────────────────────── */
@@ -281,7 +290,7 @@ function api_(p) {
       // GitHub 바로가기 페이지의 QR 입력 화면(check.html)용 — 고유번호만으로 열림 (결정 42)
       out = checkInit(p.fe);
     } else if (p.api === 'summary') {
-      if (!p.key || p.key !== PropertiesService.getScriptProperties().getProperty('HUB_KEY')) throw new Error('키가 맞지 않습니다');
+      if (!p.key || p.key !== PropertiesService.getScriptProperties().getProperty('LINK_KEY')) throw new Error('키가 맞지 않습니다');
       out = summary_();
     } else {
       throw new Error('알 수 없는 요청');
@@ -320,7 +329,8 @@ function login(pin, deviceId, signPng) {
   const cache = CacheService.getScriptCache();
   const lockKey = 'pinlock_' + deviceId;
   if (cache.get(lockKey)) return { ok: false, error: '5번 틀려서 이 기기는 5분 동안 입력할 수 없습니다.' };
-  if (cache.get(PIN_ALL_LOCK)) return { ok: false, error: 'PIN이 여러 번 틀려 10분 동안 모든 로그인을 막았습니다. 잠시 뒤 다시 해 주세요.' };
+  const allLock = cache.get(PIN_ALL_LOCK);
+  if (allLock) return { ok: false, error: 'PIN이 여러 번 틀려 ' + Math.max(1, Math.ceil((Number(allLock) - Date.now()) / 60000)) + '분 동안 모든 로그인을 막았습니다. 잠시 뒤 다시 해 주세요.' };
   if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN 4자리를 넣어 주세요.' };
   const staff = staffRows_().filter(function (s) { return s['사용여부'] !== 'N'; });
   const me = staff.filter(function (s) { return hashPin_(pin, s['pin_salt']) === s['pin_hash']; })[0];
@@ -346,11 +356,18 @@ function login(pin, deviceId, signPng) {
 }
 
 /* 기기 번호는 화면이 보내는 값이라 바꿔 가며 끝없이 시도할 수 있음 → 기기와 상관없이 10분 안에 30번 틀리면 모두 10분 막음 (점검 1, 결정 74).
+   잠금 뒤 6시간 안에 3번째 잠금부터는 1시간 — 풀릴 때마다 다시 30번씩 시도하는 것을 늦춤 (결정 80). 잠금 값 = 풀리는 시각(ms)
    shortcut: 동시에 틀린 요청은 몇 번 덜 셀 수 있음(잠금 없이 셈) — 막는 목적에는 충분 */
 const PIN_ALL_MAX = 30, PIN_ALL_LOCK = 'pinlock_all';
 function pinFailAll_(cache) {
   const n = Number(cache.get('pinfail_all') || 0) + 1;
-  if (n >= PIN_ALL_MAX) { cache.put(PIN_ALL_LOCK, '1', 600); cache.remove('pinfail_all'); log_('보안', 'PIN 전체 잠금', '', '10분 안에 ' + n + '번 틀림'); }
+  if (n >= PIN_ALL_MAX) {
+    const locks = Number(cache.get('pinlock_cnt') || 0) + 1, sec = locks >= 3 ? 3600 : 600;
+    cache.put(PIN_ALL_LOCK, String(Date.now() + sec * 1000), sec);
+    cache.put('pinlock_cnt', String(locks), 21600);   // 캐시는 6시간까지 기억
+    cache.remove('pinfail_all');
+    log_('보안', 'PIN 전체 잠금', '', '10분 안에 ' + n + '번 틀림 · ' + (sec / 60) + '분 잠금 (6시간 안 ' + locks + '번째)');
+  }
   else cache.put('pinfail_all', String(n), 600);
 }
 
@@ -621,12 +638,14 @@ function tbmSave(token, d) {
     const at = now_();
     const patch = { '작업표': JSON.stringify(works), '체크칸': JSON.stringify(checks), '수정시각': at };
     const name = { meet: ['회의사진_id', '_001'], chant: ['구호사진_id', '_002'] };
+    const oldIds = [];
     Object.keys(pics).forEach(function (k) {
-      if (row) trashFile_(row[name[k][0]]);
+      if (row) oldIds.push(row[name[k][0]]);
       patch[name[k][0]] = saveBlob_(tbmFolder_(day), pics[k], day + '_TBM-' + (k === 'meet' ? '회의사진' : '구호사진') + name[k][1] + '.jpg', 'TBM ' + day + ' · ' + me['이름']);
     });
     if (row) updateRow_('TBM', row._row, patch);
     else appendRow_('TBM', Object.assign(patch, { 'tbm_id': 'WS-TB-' + day.replace(/-/g, '') + '-001', '근무일': day, '작성자_id': me['staff_id'], '작성자명': me['이름'], '서명수': '0', '작성시각': at, '삭제여부': 'N' }));
+    oldIds.forEach(trashFile_);   // 새 사진과 시트를 다 쓴 뒤에 옛 사진을 버림 — 중간 오류에도 사진이 남음
     log_(me['이름'], 'TBM 저장', day, works.length + '줄 · 사진 ' + Object.keys(pics).length + '장');
     return { ok: true, at: at };
   } finally {
@@ -649,10 +668,11 @@ function tbmSavePdf(token, dataUri, signIds, d) {
     const day = workDay_(Date.now());
     const row = tbmRow_(day);
     if (!row) return { ok: false, error: '먼저 [저장]을 눌러 주세요' };
-    trashFile_(row['pdf_id']);
+    const oldPdf = row['pdf_id'];
     const id = saveBlob_(tbmFolder_(day), Utilities.newBlob(bytes, 'application/pdf'), day + '_TBM.pdf', 'TBM ' + day + ' · 서명 ' + ids.length + '명 · ' + me['이름']);
     const at = now_();
     updateRow_('TBM', row._row, { 'pdf_id': id, 'PDF만든시각': at, '서명수': String(ids.length) });
+    trashFile_(oldPdf);   // 새 PDF를 저장한 뒤에 옛 PDF를 버림
     readTable_('서명').rows.forEach(function (r) {
       if (ids.indexOf(r['sign_id']) !== -1 && r['TBM사용'] !== 'Y') updateRow_('서명', r._row, { 'TBM사용': 'Y' });
     });
@@ -1000,7 +1020,6 @@ function checkSubmit(qr, d) {
 
     const folder = monthFolder_(ym);
     const base = Utilities.formatDate(now, TZ, 'yyyy-MM-dd') + '_소화기점검-' + safeName_(f.name);
-    if (old) ['사진_id', '문구_id', '이름_id'].forEach(function (k) { trashFile_(old[k]); });
     const desc = f.floor + ' · ' + f.store + ' · ' + f.name + ' · ' + ym + ' · ' + state;
     const pId = saveBlob_(folder, photo, base + '_001.jpg', desc);
     const aId = saveBlob_(folder, signA, base + '_002.png', desc + ' · 문구 손글씨');
@@ -1024,6 +1043,7 @@ function checkSubmit(qr, d) {
       row['덮어쓴횟수'] = '0';
       appendRow_('소화기점검', row);
     }
+    if (old) ['사진_id', '문구_id', '이름_id'].forEach(function (k) { trashFile_(old[k]); });   // 새 파일과 시트를 다 쓴 뒤에 옛 파일을 버림
     fireChanged_();
     log_('매장 직원(QR)', old ? '소화기 점검 다시 입력' : '소화기 점검 입력', checkId, f.name + ' · ' + state + (row['기한후입력'] === 'Y' ? ' · 기한 후' : ''));
     return { ok: true, state: state, late: row['기한후입력'] === 'Y', checkId: checkId, name: f.name, at: at };

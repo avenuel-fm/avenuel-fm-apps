@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.8.5',
+  VERSION: '1.8.6',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
@@ -228,7 +228,7 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-/* ───────── 블럭 연동 (claude/블럭_연동규칙.md) ─────────
+/* ───────── 블럭 연동 (docs/블럭_연동규칙.md) ─────────
  * 다른 블럭(업무지원 앱·전체 대시보드)이 서버끼리 부르는 통로. 웹앱 주소 + 연결 키.
  *   GET  ?api=ping                       → 블럭 이름·버전 (키 없이)
  *   GET  ?api=summary&key=…[&year=2026]   → 대시보드 카드 숫자
@@ -325,7 +325,7 @@ function blockDefect_(p) {
   } finally { lock.releaseLock(); }
 }
 /** 시트 메뉴 ⑥: 연결 키 보기 (없으면 만듦). 업무지원 앱·전체 대시보드 설정에 웹앱 주소와 함께 넣음 */
-function showLinkKey() {
+function showLinkKey_() {
   var ui = SpreadsheetApp.getUi(), key = linkKey_();
   if (key) {
     var r = ui.alert('블럭 연결 키', '연결 키: ' + key + '\n웹앱 주소: ' + (appUrl_() || '(배포 후 표시)') + '\n\n키를 새로 만들까요? (예를 누르면 예전 키를 쓰던 앱은 새 키로 바꿔야 합니다)', ui.ButtonSet.YES_NO);
@@ -345,30 +345,30 @@ function include(name) {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('도면협의')
-    .addItem('① 초기 설정 (시트 만들기)', 'setup')
+    .addItem('① 초기 설정 (시트 만들기)', 'setupMenu_')
     .addSeparator()
-    .addItem('② PIN 설정 – 소장', 'setPinChief')
-    .addItem('② PIN 설정 – 부소장', 'setPinDeputy')
+    .addItem('② PIN 설정 – 소장', 'setPinChief_')
+    .addItem('② PIN 설정 – 부소장', 'setPinDeputy_')
     .addSeparator()
-    .addItem('③ 자동 백업 켜기 (매일 새벽 2시)', 'enableDailyBackup')
-    .addItem('③ 자동 백업 끄기', 'disableDailyBackup')
-    .addItem('지금 백업하기', 'backupNow')
+    .addItem('③ 자동 백업 켜기 (매일 새벽 2시)', 'enableDailyBackup_')
+    .addItem('③ 자동 백업 끄기', 'backupOffMenu_')
+    .addItem('지금 백업하기', 'backupNowMenu_')
     .addSeparator()
-    .addItem('④ 지침 폴더 열기', 'openGuideFolder')
-    .addItem('⑤ 시방서 발송 준비 확인', 'checkSpecSetup')
+    .addItem('④ 지침 폴더 열기', 'openGuideFolder_')
+    .addItem('⑤ 시방서 발송 준비 확인', 'checkSpecSetup_')
     .addSeparator()
-    .addItem('⑥ 블럭 연결 키 보기 (업무지원 앱 연동)', 'showLinkKey')
+    .addItem('⑥ 블럭 연결 키 보기 (업무지원 앱 연동)', 'showLinkKey_')
     .addSeparator()
     .addSubMenu(SpreadsheetApp.getUi().createMenu('⑦ 계정 옮기기')
-      .addItem('1. [기존 계정] 소유권 넘기기 요청', 'migrateSend')
-      .addItem('2. [새 계정] 소유권 받기', 'migrateAccept')
-      .addItem('3. 이전 점검 (파일이 어느 계정 것인지)', 'migrateCheck')
-      .addItem('이어하기 예약 멈추기', 'migrateStop'))
-    .addItem('⑧ 웹앱 주소 · 바로가기 주소', 'showAddresses')
+      .addItem('1. [기존 계정] 소유권 넘기기 요청', 'migrateSend_')
+      .addItem('2. [새 계정] 소유권 받기', 'migrateAccept_')
+      .addItem('3. 이전 점검 (파일이 어느 계정 것인지)', 'migrateCheck_')
+      .addItem('이어하기 예약 멈추기', 'migrateStop_'))
+    .addItem('⑧ 웹앱 주소 · 바로가기 주소', 'showAddresses_')
     .addToUi();
 }
 
-function setup() {
+function setupMenu_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', ss.getId());
 
@@ -392,8 +392,8 @@ function setup() {
   SpreadsheetApp.getUi().alert('초기 설정이 끝났습니다.\n\n다음으로 [도면협의] 메뉴에서 소장·부소장 PIN을 설정한 뒤 웹앱으로 배포하세요.');
 }
 
-function setPinChief() { setPinFor_('소장'); }
-function setPinDeputy() { setPinFor_('부소장'); }
+function setPinChief_() { setPinFor_('소장'); }
+function setPinDeputy_() { setPinFor_('부소장'); }
 
 function setPinFor_(role) {
   var ui = SpreadsheetApp.getUi();
@@ -472,18 +472,26 @@ function hash_(s) {
 }
 
 /* 1.8.5 PIN 틀린 횟수 (결정 39): 기기와 상관없이 10분 안에 20번 틀리면 10분 동안 PIN 입력을 모두 막음.
+   1.8.6 (결정 41): 6시간 안에 3번째 잠금부터는 1시간 — 잠금이 풀릴 때마다 다시 20번씩 시도하는 것을 늦춤.
    기기에 기억된 로그인(token)은 막지 않음 → 남이 일부러 틀려도 소장·부소장 기기는 그대로 열림 */
-var PIN_FAIL_MAX = 20, PIN_FAIL_MS = 600000;
+var PIN_FAIL_MAX = 20, PIN_FAIL_MS = 600000, PIN_LOCK_LONG_MS = 3600000, PIN_LOCK_WINDOW_MS = 6 * 3600000;
 function pinGate_() {
   var v = {}; try { v = JSON.parse(props_().getProperty('PIN_FAIL') || '{}') || {}; } catch (e) { v = {}; }
-  if (v.lock && v.lock > Date.now()) throw new Error('PIN이 여러 번 틀려 10분 동안 PIN 입력을 막았습니다. 잠시 뒤 다시 해 주세요.');
+  if (v.lock && v.lock > Date.now()) throw new Error('PIN이 여러 번 틀려 ' + Math.ceil((v.lock - Date.now()) / 60000) + '분 동안 PIN 입력을 막았습니다. 잠시 뒤 다시 해 주세요.');
   return v;
 }
 function pinFail_(v, msg) {
   var now = Date.now();
+  var locks = v.lt && now - v.lt < PIN_LOCK_WINDOW_MS ? v.locks || 0 : 0, lt = locks ? v.lt : 0;
   if (!v.t || now - v.t > PIN_FAIL_MS) v = { n: 0, t: now };
   v.n = (v.n || 0) + 1;
-  if (v.n >= PIN_FAIL_MAX) { v = { n: 0, t: now, lock: now + PIN_FAIL_MS }; log_('보안', 'PIN 입력 잠금', '', '', '10분 안에 ' + PIN_FAIL_MAX + '번 틀림'); }
+  v.locks = locks; v.lt = lt;
+  if (v.n >= PIN_FAIL_MAX) {
+    locks++;
+    var ms = locks >= 3 ? PIN_LOCK_LONG_MS : PIN_FAIL_MS;
+    v = { n: 0, t: now, lock: now + ms, locks: locks, lt: lt || now };
+    log_('보안', 'PIN 입력 잠금', '', '', '10분 안에 ' + PIN_FAIL_MAX + '번 틀림 · ' + (ms / 60000) + '분 잠금 (6시간 안 ' + locks + '번째)');
+  }
   props_().setProperty('PIN_FAIL', JSON.stringify(v));
   return new Error(msg);
 }
@@ -777,9 +785,9 @@ function apiFireDocUpload(a, storeId, dataUrl) {
     var name = todayText_() + '_' + work + '_001' + (m[1] === 'png' ? '.png' : '.jpg');
     var file = sub.createFile(Utilities.newBlob(bytes, 'image/' + m[1], name));
     try { file.setDescription('종합방재실 협의서 · ' + (found.row.tenant || '') + ' · ' + found.row.docNo); } catch (e) { /* 설명은 없어도 됨 */ }
-    if (old) { try { DriveApp.getFileById(old.f).setTrashed(true); } catch (e) { /* 이미 없음 */ } }
     var info = { f: file.getId(), at: nowText_(), by: role, r: 0, name: name };
     writeRowPatch_(APP.SHEETS.STORES, STORE_COLS, found.rowIndex, { fireDoc: JSON.stringify(info) });
+    if (old) { try { DriveApp.getFileById(old.f).setTrashed(true); } catch (e) { /* 이미 없음 */ } }   // 시트를 고친 뒤 옛 파일을 버림
     log_(role, old ? '방재실 협의서 다시 올림' : '방재실 협의서 올림', storeId, found.row.docNo, name);
   } finally {
     lock.releaseLock();
@@ -1037,8 +1045,15 @@ function writeRowPatch_(name, cols, rowIndex, patch) {
     if (!(c[0] in patch)) return;
     var idx = hi.map[c[1]];
     if (idx == null) return;
-    sh.getRange(rowIndex, idx + 1).setValue(patch[c[0]] == null ? '' : String(patch[c[0]]));
+    sh.getRange(rowIndex, idx + 1).setValue(noFormula_(patch[c[0]]));
   });
+}
+
+/** 시트에 쓰는 글자가 = + - @ 로 시작하면 앞에 ' 를 붙여 수식이 되지 않게 함 (읽을 때 ' 는 안 보임).
+ *  원격 서명 링크를 받은 바깥 사람이 이름 칸에 수식을 넣어 시트 내용을 빼 가는 것을 막음 (결정 41, DW-4 일부) */
+function noFormula_(v) {
+  v = v == null ? '' : String(v);
+  return /^[=+\-@]/.test(v) ? "'" + v : v;
 }
 
 function writeFullRow_(name, cols, rowIndex, obj) {
@@ -1051,7 +1066,7 @@ function writeFullRow_(name, cols, rowIndex, obj) {
   cols.forEach(function (c) {
     var idx = hi.map[c[1]];
     if (idx == null || !(c[0] in obj)) return;
-    row[idx] = obj[c[0]] == null ? '' : String(obj[c[0]]);
+    row[idx] = noFormula_(obj[c[0]]);
   });
   sh.getRange(rowIndex, 1, 1, row.length).setNumberFormat('@').setValues([row]);
 }
@@ -1189,9 +1204,11 @@ function savePdfFile_(found, round, name, dataUri) {
   if (!/\.pdf$/i.test(fname)) fname += '.pdf';
   var root = appFolder_('pdf');
   var subIt = root.getFoldersByName(found.row.docNo), sub = subIt.hasNext() ? subIt.next() : root.createFolder(found.row.docNo);
-  var old = sub.getFilesByName(fname);
-  while (old.hasNext()) old.next().setTrashed(true);
-  return sub.createFile(Utilities.newBlob(bytes, 'application/pdf', fname));
+  var old = [], it = sub.getFilesByName(fname);
+  while (it.hasNext()) old.push(it.next());
+  var file = sub.createFile(Utilities.newBlob(bytes, 'application/pdf', fname));   // 새 파일을 먼저 만든 뒤 옛 파일을 버림 (중간 오류에도 PDF가 남음)
+  old.forEach(function (f) { f.setTrashed(true); });
+  return file;
 }
 
 /**
@@ -1452,7 +1469,7 @@ function publicLink_(query) {
 }
 
 /** 시트 메뉴 ⑧: 웹앱 주소 · 바로가기 주소 보기 / 넣기 */
-function showAddresses() {
+function showAddresses_() {
   var ui = SpreadsheetApp.getUi(), exec = appUrl_(), cur = setting_('바로가기주소');
   var bad = cur && !okShortcut_(cur);
   var msg = [
@@ -1513,14 +1530,14 @@ function readCompanies_() {
 
 /* ───────────────────────── 자동 백업 ───────────────────────── */
 
-function enableDailyBackup() {
+function enableDailyBackup_() {
   disableDailyBackup_(true);
   ScriptApp.newTrigger('backupDaily').timeBased().everyDays(1).atHour(2).create();
   backupNow_();
   SpreadsheetApp.getUi().alert('자동 백업을 켰습니다.\n\n매일 새벽 2시경 드라이브 "' + APP.BACKUP_FOLDER + '" 폴더에 시트 사본이 만들어지고, ' + APP.BACKUP_KEEP_DAYS + '일이 지난 사본은 휴지통으로 옮겨집니다.\n방금 첫 백업도 만들었습니다.');
 }
 
-function disableDailyBackup() {
+function backupOffMenu_() {
   disableDailyBackup_(false);
 }
 
@@ -1827,7 +1844,7 @@ function apiGuideCancel(a) {
 }
 
 /** 시트 메뉴: 지침 폴더 주소 보기 */
-function openGuideFolder() {
+function openGuideFolder_() {
   var root = guideRoot_();
   var html = HtmlService.createHtmlOutput(
     '<div style="font:14px sans-serif;line-height:1.6">' +
@@ -1837,14 +1854,21 @@ function openGuideFolder() {
   SpreadsheetApp.getUi().showModalDialog(html, '지침 폴더');
 }
 
-function backupNow() {
+function backupNowMenu_() {
   var name = backupNow_();
   SpreadsheetApp.getUi().alert('백업했습니다: ' + name);
 }
 
 /** 시간 트리거가 매일 실행 */
-function backupDaily() {
-  backupNow_();
+function backupDaily(e) {
+  if (fromTrigger_(e)) backupNow_();
+}
+
+/** 예약(트리거)이 부른 것인지 확인. 이름이 _로 안 끝나는 함수는 웹앱 화면에서 누구나 부를 수 있어서,
+ *  이 프로젝트에 실제로 있는 예약 번호와 맞을 때만 실행 (결정 41) */
+function fromTrigger_(e) {
+  var uid = String(e && e.triggerUid || '');
+  return !!uid && ScriptApp.getProjectTriggers().some(function (t) { return String(t.getUniqueId()) === uid; });
 }
 
 function backupNow_() {
@@ -1864,7 +1888,7 @@ function backupNow_() {
 
 /* ───────── 시방서 발송 ───────── */
 /** 시트 메뉴 ⑤: 메일 권한 승인 + 보내는 주소·ZIP 파일 확인 */
-function checkSpecSetup() {
+function checkSpecSetup_() {
   var files = specFiles_(), ok = fromAliasOk_();
   var lines = ['보내는 주소 ' + APP.SPEC_FROM + ' : ' + (ok ? '✓ Gmail에 등록됨' : '✗ Gmail "다른 주소에서 메일 보내기"에 없음 (구글 계정 주소로 보내고 답장은 nate로 받음)')];
   SPECS.forEach(function (sp) { lines.push(sp.l + ' : ' + (files[sp.k] ? '✓ ' + files[sp.k].getName() : '✗ 지침 폴더에 이름에 "' + (sp.k === 'tenant' ? 'Tenant' : 'Crown') + '"이 들어간 .zip 없음')); });
@@ -2062,7 +2086,7 @@ function apiSendSpec(a, storeId, round, keys, extra) {
 
 function log_(role, action, storeId, docNo, detail) {
   try {
-    sheet_(APP.SHEETS.LOG).appendRow([nowText_(), role, action, storeId, docNo || '', detail || '']);
+    sheet_(APP.SHEETS.LOG).appendRow([nowText_(), role, action, storeId, docNo || '', detail || ''].map(noFormula_));
   } catch (e) { /* 기록 실패는 무시 */ }
 }
 
@@ -2151,7 +2175,7 @@ function migrateSchedule_(fn, on) {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === fn) ScriptApp.deleteTrigger(t); });
   if (on) ScriptApp.newTrigger(fn).timeBased().after(60 * 1000).create();
 }
-function migrateStop() {
+function migrateStop_() {
   migrateSchedule_('migrateSendResume', false);
   migrateSchedule_('migrateAcceptResume', false);
   var ui = migUi_(); if (ui) ui.alert('이어하기 예약을 멈췄습니다. 메뉴를 다시 누르면 남은 것부터 이어서 합니다.');
@@ -2166,7 +2190,7 @@ function migCountText_(c) {
 }
 
 /* ── 1. 기존 계정: 소유권 넘기기 요청 ── */
-function migrateSend() {
+function migrateSend_() {
   var ui = SpreadsheetApp.getUi(), p = props_(), me = myEmail_();
   var to = p.getProperty('MIGRATE_TO') || '', sh = ss_().getSheetByName(MIG.TAB), resume = false;
   if (to && sh && sh.getLastRow() > 1) {
@@ -2188,7 +2212,7 @@ function migrateSend() {
   var c = migrateSendRun_();
   ui.alert('계정 옮기기 1/2 (기존 계정)', migrateSendMsg_(c, to), ui.ButtonSet.OK);
 }
-function migrateSendResume() { migrateSendRun_(); }
+function migrateSendResume(e) { if (fromTrigger_(e)) migrateSendRun_(); }
 
 function migrateInitSend_(me) {
   var sh = migTab_(MIG.TAB, MIG.HEAD, true), rows = [];
@@ -2267,7 +2291,7 @@ function migrateSendMsg_(c, to) {
 }
 
 /* ── 2. 새 계정: 소유권 받기 ── */
-function migrateAccept() {
+function migrateAccept_() {
   var ui = SpreadsheetApp.getUi(), me = myEmail_(), to = props_().getProperty('MIGRATE_TO') || '';
   var sh = ss_().getSheetByName(MIG.TAB);
   if (!sh || sh.getLastRow() < 2) { ui.alert('먼저 기존 계정에서 [⑦ 계정 옮기기 → 1. 소유권 넘기기 요청]을 해 주세요.'); return; }
@@ -2281,7 +2305,7 @@ function migrateAccept() {
     '', '지금 상태: ' + migCountText_(c), '자세한 목록: 「' + MIG.TAB + '」 탭',
     done ? '\n다음: [3. 이전 점검]으로 빠진 파일이 없는지 확인한 뒤, 이 계정에서 새 배포를 만드세요 (설치 안내 「계정 옮기기」).' : ''].join('\n'), ui.ButtonSet.OK);
 }
-function migrateAcceptResume() { migrateAcceptRun_(); }
+function migrateAcceptResume(e) { if (fromTrigger_(e)) migrateAcceptRun_(); }
 
 function migrateAcceptRun_() {
   var t0 = Date.now(), me = myEmail_(), sh = migTab_(MIG.TAB, MIG.HEAD, false), rows = migRows_(sh), done = true;
@@ -2330,7 +2354,7 @@ function migrateRefs_() {
   return refs;
 }
 
-function migrateCheck() {
+function migrateCheck_() {
   var t0 = Date.now(), me = myEmail_(), ss = ss_(), list = [];
   list.push([ss.getId(), '시트 (Apps Script 포함)']);
   ['photo', 'pdf', 'guide', 'backup'].forEach(function (k) {
