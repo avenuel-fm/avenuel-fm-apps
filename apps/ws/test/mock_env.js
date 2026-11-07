@@ -57,7 +57,8 @@ const files = {}; let fid = 0;
 function mkFolder(name) { return { name, getName: () => name, isTrashed: () => false, getId: () => 'F_' + name, getFoldersByName: n => { const f = mkFolder(n); return { hasNext: () => false, next: () => f }; }, createFolder: n => mkFolder(n),
   createFile: b => { const id = 'file' + (++fid); files[id] = { name: b.name, blob: b, trashed: false, desc: '' }; return { getId: () => id, setDescription: d => files[id].desc = d }; } }; }
 global.DriveApp = { getRootFolder: () => mkFolder('root'), getFolderById: id => mkFolder(id.replace('F_', '')),
-  getFileById: id => ({ setTrashed: t => files[id].trashed = t, getBlob: () => files[id].blob }) };
+  getFileById: id => ({ setTrashed: t => files[id].trashed = t, getBlob: () => files[id].blob, setSharing: (a, p) => { files[id].sharing = a + ':' + p; } }),
+  Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK' }, Permission: { VIEW: 'VIEW' } };
 global.ScriptApp = { getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/TEST/exec' }), getProjectTriggers: () => [] };
 global.HtmlService = {}; global.ContentService = {};
 (0,eval)(fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').replace(/^const /gm, 'var '));

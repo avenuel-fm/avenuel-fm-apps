@@ -570,7 +570,7 @@ async function tbmPdf() {
     r.pdfBusy = false;
     if (!res.ok) { render(); toast(res.error); return; }
     if (save) { Object.assign(r.photos, r.up); r.up = {}; r.saved = true; r.dirty = false; }
-    r.pdf = res.pdf; r.pdfStale = false; render(); toast('PDF로 저장했습니다');
+    r.pdf = res.pdf; r.pdfStale = false; render(); toast(res.warn || 'PDF로 저장했습니다');
   } catch (e) { r.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
 }
 /* PDF = A4 가로 2쪽 (1123×794px). 1쪽 평가표, 2쪽 사진. 양식: docs/양식/WS_TBM_양식_*, 시안: WS_TBM_시안_* */
