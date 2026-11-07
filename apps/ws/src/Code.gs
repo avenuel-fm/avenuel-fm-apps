@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.7.0', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.7.1', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -873,9 +873,9 @@ function atValue_(p, date, fixes, hol) {
 }
 function atIsDay_(v) { return v === '' || v === '9-7' || /^[AP](반|검진)$|^[전후]반$/.test(v); }   // 엑셀 「근무인원합계」와 같은 셈 (반차·검진 = 주)
 
-/** 소장·부소장·총무 (+ 관리자): 직원 탭 역할 또는 그 달 엑셀 직책(이름으로 찾음) */
+/** 소장·부소장·총무: 직원 탭 역할 또는 그 달 엑셀 직책(이름으로 찾음) — 관리자 역할은 넣지 않음 (사용자 11-07) */
 function atBoss_(me, rows) {
-  if (['소장', '부소장', '관리자'].indexOf(me['역할']) !== -1) return true;
+  if (['소장', '부소장'].indexOf(me['역할']) !== -1) return true;
   return rows.some(function (p) { return p.name === me['이름'] && AT_BOSS.indexOf(p.role) !== -1; });
 }
 /** 그날 고치기: 대표 3명 + 그날이나 전날 야간 근무자 (야간은 아침 8시 30분에 끝나 다음 날 아침 게시판도 그 사람이 맞춤) */

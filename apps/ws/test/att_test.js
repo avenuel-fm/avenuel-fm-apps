@@ -10,7 +10,7 @@ function aoa() {
   const day = (fill, set) => Array.from({ length: N }, (_, i) => (set && set[i + 1]) || fill);
   const people = [['관 리', '소장', '홍길동', day('', { [TODAY]: '' })], ['', '총무', '총무가짜', day('병가')],
     ['전기\n방재', '파트장', '김철수', day('')], ['', '교대', '야간가짜', day('야')], ['', '기사', '주간가짜', day('', { [TODAY]: '9-7' })],
-    ['기계\n건축', '기사', '', day('')], ['', '교대', '비번가짜', day('비')]];
+    ['기계\n건축', '기사', '', day('')], ['', '교대반장', '비번가짜', day('비')]];
   const rows = [['(' + Y + '년 ' + M + '월) 근무스케줄'], [], [], [], ['월 일 구분', '', '', '전월OT'].concat(day(0).map((_, i) => i + 1)), ['', '', '', ''].concat(day('월'))];
   people.forEach(p => rows.push([p[0], p[1], p[2], 0].concat(p[3])));
   rows.push(['', '근무인원합계', '', 3].concat(day(1)));
@@ -22,7 +22,9 @@ function aoa() {
   await fetch('http://localhost:8123/seed');
   const b = await chromium.launch();
   const c = await b.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, deviceScaleFactor: 2, acceptDownloads: true });
-  await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: '' }));
+  // 그림 도구(html2pdf)는 진짜를 받아 잘림 없이 그려지는지 봄 — 인터넷이 없으면 흉내로 바꿈
+  const REAL_H2P = await fetch('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js').then(r => r.ok ? r.text() : '').catch(() => '');
+  await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: /html2pdf/.test(r.request().url()) ? REAL_H2P : '' }));
   await c.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
   const p = await c.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
   await p.goto('http://localhost:8123/index'); await p.locator('.key').first().waitFor();
@@ -49,6 +51,9 @@ function aoa() {
   ok(await p.locator('.atp.vac').count() === 1 && await p.locator('.atp:not(.vac)').count() === 6, '사람 6칸 + 공석 1칸');
   const tagOf = n => p.locator('.atp', { hasText: n }).locator('.attag').innerText();
   ok(await tagOf('주간가짜') === '9-7' && await tagOf('총무가짜') === '병가' && await tagOf('비번가짜') === '비', '오늘 상태 딱지 (9-7 · 병가 · 비)');
+  ok(await tagOf('홍길동') === '출', '출근 딱지는 「출」 한 글자');
+  ok((await p.locator('.atp', { hasText: '비번가짜' }).locator('.atnm small').innerText()) === '교대', '교대반장 → 교대로 보임');
+  ok(await p.locator('.k3 .atppl > *').last().evaluate(e => e.classList.contains('vac')), '화면에서도 공석은 맨 끝');
   const sums = await p.locator('.atst').nth(1).innerText();
   ok(/합계\s+3명\s+1명/.test(sums), '금일 근무인원 합계 주 3 · 야 1 — ' + sums.replace(/\s+/g, ' ').slice(-20));
   ok(/합계\s+7명\s+6명\s+1명/.test(await p.locator('.atst').first().innerText()), '파트별 인원 전체 7 · 현재 6 · 공석 1');
@@ -75,16 +80,20 @@ function aoa() {
   ok(await p.locator('.atcal button').count() === N && (await p.locator('.atcal button.on').innerText()).indexOf('주 ') !== -1, '달력: 그 달 ' + N + '일 · 주간 인원 표시');
   await p.click('.dialog .back');
   // 그림: 1200px 판을 그리는지 (그림 도구는 흉내)
-  await p.evaluate(() => { window.html2pdf = () => ({ set() { return this; }, from(el) { window.__w = el.offsetWidth; return this; }, outputImg: async () => 'data:image/png;base64,iVBORw0KGgo=' }); });
+  if (!REAL_H2P) { console.log('(인터넷 없음: 그림 도구 흉내)'); await p.evaluate(() => { window.html2pdf = () => ({ set() { return this; }, from(el) { return this; }, outputImg: async () => { const c = document.createElement('canvas'); c.width = 2400; c.height = document.querySelector('.atimg').offsetHeight * 2; return c.toDataURL(); } }); }); }
   const dl = p.waitForEvent('download');
   await p.click('#atImgBtn');
   const f = await dl;
-  ok(/_출근현황\.png$/.test(f.suggestedFilename()) && await p.evaluate(() => window.__w) === 1200, '그림 저장: ' + f.suggestedFilename() + ' · 판 1200px');
+  await f.saveAs('shot_att_download.png');
+  const wh = await p.evaluate(() => new Promise(ok => { const im = document.getElementById('atImg'); const go = () => ok([im.naturalWidth, im.naturalHeight]); im.complete ? go() : im.onload = go; }));
+  ok(/_출근현황\.png$/.test(f.suggestedFilename()) && wh[0] === 2400 && wh[1] > 900, '그림 저장: ' + f.suggestedFilename() + ' · ' + wh.join('×') + ' (1200px 판 2배)');
   ok(await p.locator('#atImg').count() === 1, '그림도 화면에 보여 줌 (길게 눌러 저장)');
   await p.click('.dialog .back');
   // 그림 모양 찍기
   await p.evaluate(() => { const d = document.createElement('div'); d.id = 'imgShot'; d.innerHTML = atImgHtml(S.at.r); document.body.appendChild(d); });
   await p.locator('#imgShot .atimg').screenshot({ path: 'shot_att_image.png' });
+  ok(await p.evaluate(() => [...document.querySelectorAll('#imgShot .atnm b, .wrap .atnm b')].every(b => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().right <= b.closest('.atp').querySelector('.attag').getBoundingClientRect().left + 1)), '이름이 잘리거나 딱지와 겹치지 않음 (화면·그림)');
+  ok(await p.evaluate(() => [...document.querySelectorAll('#imgShot .atppl')].every(g => { const c = [...g.children]; const v = c.findIndex(x => x.classList.contains('vac')); return v === -1 || c.slice(v).every(x => x.classList.contains('vac')); })), '공석은 구역 맨 끝');
   // PC
   await p.setViewportSize({ width: 1280, height: 900 }); await p.evaluate(() => { document.getElementById('imgShot').remove(); render(); });
   ok(!(await overflow(p)), 'PC 옆 넘침 없음');
