@@ -81,13 +81,14 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   const pdf = await p.evaluate(() => {
     const e = window.__pdfEl, t = e.innerText;
     return { pages: e.querySelectorAll('.pg').length, rows: e.querySelectorAll('.wk tr').length - 1, signs: e.querySelectorAll('.sg img').length, inn: (t.match(/\(인\)/g) || []).length,
-      mgr: e.querySelector('.hd td:last-child').innerText, n: e.querySelector('.hd td:nth-child(3)').innerText, date: e.querySelector('.hd td:nth-child(2)').innerText,
+      mgr: e.querySelector('.hd td:last-child').innerText, mgrImg: !!e.querySelector('.hd .sgn img'), mgrTag: e.querySelector('.hd td:last-child').innerText.indexOf('(서명)') !== -1, n: e.querySelector('.hd td:nth-child(3)').innerText, date: e.querySelector('.hd td:nth-child(2)').innerText,
       lv: t.indexOf('9 (상)') !== -1, ck: e.querySelector('.ck .on').innerText, pn: [...e.querySelectorAll('.pn')].map(x => x.innerText).join(),
       photo: [...e.querySelectorAll('.cell img')].map(i => i.style.width + 'x' + i.style.height).join() };
   });
   ok(pdf.pages === 2 && pdf.pn === '- 1 / 2 -,- 2 / 2 -', 'PDF 2쪽 · 쪽 번호');
   ok(pdf.rows === 8, 'PDF 작업 표 기본 8줄 (4줄 + 빈 4줄)');
   ok(pdf.signs === 2 && pdf.inn === 18 && /홍길동/.test(pdf.mgr) && /2 명/.test(pdf.n), 'PDF 서명란 20칸: 서명 2명 · 빈 칸 (인) 18 · 관리감독자 · 작업인원 2명');
+  ok(pdf.mgrImg && !pdf.mgrTag, '관리감독자 서명은 「(서명)」 자리에, 「(서명)」 글자는 지움');
   ok(pdf.date.indexOf(day.slice(2).replace(/-/g, '.')) !== -1 && pdf.lv && pdf.ck === '○', 'PDF 작업 일시 YY.MM.DD · 위험성 9 (상) · 사다리 ○');
   ok(pdf.photo.split(',').length === 2 && pdf.photo.split(',').every(v => /^\d+pxx\d+px$/.test(v)), 'PDF 사진 2장 칸에 맞춰 줄임 ' + pdf.photo);
   const used = (await run('readTable_', '서명')).rows.filter(r => r['근무일'] === day).every(r => r['TBM사용'] === 'Y');

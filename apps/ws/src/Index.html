@@ -581,7 +581,8 @@ const TBM_PDF_CSS = '.tbp{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;
   '.tbp table{width:100%;border-collapse:collapse;table-layout:fixed}' +
   '.tbp td,.tbp th{border:.25mm solid #a6a6a6;font-size:8.5pt;text-align:center;vertical-align:middle;padding:0 1mm;font-weight:400;line-height:1.25;word-break:keep-all;overflow-wrap:anywhere}' +
   '.tbp .hd td{height:9mm;text-align:left;padding-left:2.5mm;white-space:nowrap}.tbp .hd .v{font-size:10pt;font-weight:700;margin-left:1.5mm}' +
-  '.tbp .hd img{height:9mm;vertical-align:middle;margin-left:2mm}.tbp .hd .tag{color:#555;margin-left:1mm}' +
+  '.tbp .hd .mg{display:flex;align-items:center;justify-content:space-between;padding-right:6mm}' +
+  '.tbp .hd .sgn{width:32mm;display:flex;align-items:center;justify-content:center}.tbp .hd .sgn img{max-height:9mm;max-width:32mm}.tbp .hd .tag{color:#555}' +
   '.tbp .ck td{height:8.5mm;padding:0}.tbp .ck .lb{background:#dce6f1}.tbp .ck .on{font-size:12pt;font-weight:700}' +
   '.tbp .wk{margin-top:2mm}.tbp .wk th{background:#dce6f1;height:10mm}.tbp .wk .l{text-align:left}.tbp .wk .s{text-align:left}' +
   '.tbp .sg{margin-top:2mm}.tbp .sg td{height:10.4mm}.tbp .sg .nm{font-size:10pt}.tbp .sg img{max-height:9.6mm;max-width:95%;vertical-align:middle}' +
@@ -611,7 +612,9 @@ function tbmPdfHtml() {
     '<table class="hd"><colgroup><col style="width:24.5%"><col style="width:23.8%"><col style="width:14.3%"><col style="width:37.4%"></colgroup><tr>' +
     '<td>* 사업소명 :<span class="v">잠실점 에비뉴엘</span></td><td>* 작업 일시 :<span class="v">' + y.slice(2) + '.' + m + '.' + d + '</span></td>' +
     '<td>* 작업인원 :<span class="v">' + signs.length + ' 명</span></td>' +
-    '<td>* 관리감독자/책임자 :' + (mg ? '<span class="v">' + h(mg.name) + '</span>' + img(mg.img, mg.name + ' 서명') : '') + '<span class="tag">(서명)</span></td></tr></table>' +
+    // 서명 그림은 양식의 「(서명)」 자리에, 서명이 있으면 「(서명)」 글자는 지움
+    '<td><div class="mg"><span>* 관리감독자/책임자 :' + (mg ? '<span class="v">' + h(mg.name) + '</span>' : '') + '</span>' +
+    '<span class="sgn">' + (mg && mg.img ? img(mg.img, mg.name + ' 서명') : '<span class="tag">(서명)</span>') + '</span></div></td></tr></table>' +
     '<table class="ck"><tr>' + TBM_CHECKS.map(k => '<td class="lb"' + (k === '테이블리프트' ? ' style="font-size:7.5pt;line-height:1.1">테이블리프트<br>(렌탈)' : '>' + k) + '</td><td class="on">' + (r.checks[k] ? '○' : '') + '</td>').join('') + '</tr></table>' +
     '<table class="wk"><colgroup><col style="width:5%"><col style="width:11.1%"><col style="width:19.8%"><col style="width:5.2%"><col style="width:19.6%"><col style="width:6.4%"><col style="width:6.2%"><col style="width:26.7%"></colgroup>' +
     '<tr><th>NO.</th><th>작업위치</th><th>작업내용</th><th>인원</th><th>위험요인</th><th>재해<br>형태</th><th>위험성</th><th>안전보건 개선조치</th></tr>' + works + '</table>' +
