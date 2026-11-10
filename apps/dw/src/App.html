@@ -1025,33 +1025,26 @@ var GuideIndexer = (function () {
         '<div class="sp-btns"><button type="button" class="btn" id="spClear">다시 쓰기</button><button type="button" class="btn pri" id="spSend">서명 보내기</button></div>' +
         '<div class="small sp-err" id="spErr" role="alert"></div></div>' +
         '<div class="small muted sp-foot">서명은 휴대폰으로 진행 가능합니다 · 링크는 ' + esc(info.until) + '까지</div></div>';
-      var c = $('#spPad'), ctx = c.getContext('2d'), drawn = false, drawing = false, last = null;
+      var c = $('#spPad'), ctx = c.getContext('2d');
       var gd = guideAttach($('#spWrap'), info.guide);
+      var pen = sigPen(c, ctx, gd);
       function fit() {
         var r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-        var keep = drawn ? c.toDataURL() : null;
+        var keep = pen.drawn ? c.toDataURL() : null;
         c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#18202B'; ctx.lineWidth = 3;
         if (keep) { var im = new Image(); im.onload = function () { ctx.drawImage(im, 0, 0, r.width, r.height); }; im.src = keep; }
       }
       fit(); window.addEventListener('resize', fit);
-      function pt(e) { var r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-      c.addEventListener('pointerdown', function (e) { e.preventDefault(); drawing = true; last = pt(e); gd.hide(); try { c.setPointerCapture(e.pointerId); } catch (x) { /* noop */ } });
-      c.addEventListener('pointermove', function (e) {
-        if (!drawing) return; e.preventDefault();
-        var p = pt(e); ctx.lineWidth = e.pointerType === 'pen' && e.pressure ? 1.5 + e.pressure * 3 : 3;
-        ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; drawn = true;
-      });
-      ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { c.addEventListener(t, function () { drawing = false; }); });
-      $('#spClear').onclick = function () { ctx.clearRect(0, 0, c.width, c.height); drawn = false; gd.show(); };
+      $('#spClear').onclick = function () { ctx.clearRect(0, 0, c.width, c.height); pen.reset(); gd.show(); };
       $('#spTel').addEventListener('input', function (e) {
         var d = e.target.value.replace(/\D/g, '').slice(0, 11);
         e.target.value = d.length < 4 ? d : d.length < 8 ? d.slice(0, 3) + '-' + d.slice(3) : d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
       });
       $('#spSend').onclick = function () {
         var name = $('#spName').value.trim(), tel = $('#spTel').value.trim(), err = $('#spErr');
-        if (!name || tel.replace(/\D/g, '').length < 9 || !drawn) { err.textContent = '성명·연락처를 넣고 서명해야 보낼 수 있습니다'; return; }
+        if (!name || tel.replace(/\D/g, '').length < 9 || !pen.drawn) { err.textContent = '성명·연락처를 넣고 서명해야 보낼 수 있습니다'; return; }
         var url = exportSig(c, 480, 160); if (url.length > 44000) url = exportSig(c, 360, 120);
         var btn = $('#spSend'); btn.disabled = true; btn.textContent = '보내는 중…'; err.textContent = '';
         api('apiSignSubmit', token, { name: name, tel: tel, sig: url }).then(function (r) {
@@ -1838,8 +1831,9 @@ var GuideIndexer = (function () {
       '<button type="button" class="btn" style="flex:1;min-height:54px" id="sigCancel">취소</button>' +
       '<button type="button" class="btn pri" style="flex:2;min-height:54px;font-size:16px;font-weight:700" id="sigOk">서명 완료</button>' +
       '</div></section>';
-    var c = $('#sigc'), ctx = c.getContext('2d'), drawn = false, drawing = false, last = null;
+    var c = $('#sigc'), ctx = c.getContext('2d');
     var gd = guideAttach($('.sigpad', layer), S.boot && S.boot.guide);
+    var pen = sigPen(c, ctx, gd);
     var dpr = Math.max(1, window.devicePixelRatio || 1);
     function size() {
       var r = c.getBoundingClientRect();
@@ -1848,28 +1842,7 @@ var GuideIndexer = (function () {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#18202B'; ctx.lineWidth = 3;
     }
     size();
-    function pt(e) { var r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-    c.addEventListener('pointerdown', function (e) {
-      e.preventDefault(); drawing = true; last = pt(e); gd.hide();
-      try { c.setPointerCapture(e.pointerId); } catch (x) { /* noop */ }
-      ctx.beginPath(); ctx.arc(last.x, last.y, 1.5, 0, Math.PI * 2); ctx.fillStyle = '#18202B'; ctx.fill(); drawn = true;
-    });
-    c.addEventListener('pointermove', function (e) {
-      if (!drawing) return;
-      e.preventDefault();
-      var evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-      if (!evs.length) evs = [e];
-      evs.forEach(function (ev) {
-        var p = pt(ev);
-        var w = ev.pointerType === 'pen' && ev.pressure ? 1.5 + ev.pressure * 3 : 3;
-        ctx.lineWidth = w;
-        ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
-        last = p;
-      });
-      drawn = true;
-    });
-    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { c.addEventListener(t, function () { drawing = false; }); });
-    $('#sigClear').onclick = function () { ctx.clearRect(0, 0, c.width, c.height); drawn = false; gd.show(); };
+    $('#sigClear').onclick = function () { ctx.clearRect(0, 0, c.width, c.height); pen.reset(); gd.show(); };
     $('#sigCancel').onclick = closeModal;
     $('.overlay', layer).onclick = closeModal;
     if (has) $('#sigDel').onclick = function () {
@@ -1879,7 +1852,7 @@ var GuideIndexer = (function () {
       saveSigNow(who + ' 서명을 지웠습니다');
     };
     $('#sigOk').onclick = function () {
-      if (!drawn) { toast('서명을 그려 주세요.', true); return; }
+      if (!pen.drawn) { toast('서명을 그려 주세요.', true); return; }
       var url = exportSig(c, 480, 160);
       if (url.length > 44000) url = exportSig(c, 360, 120);
       S.review[key] = url;
@@ -1896,11 +1869,51 @@ var GuideIndexer = (function () {
     save(false, true).then(function (ok) { if (ok) toast(msg); });
   }
 
+  /** 서명 그림을 w×h 안에 그린 모양 그대로(늘이지 않고 비율 유지, 가운데) 넣어 PNG로 */
   function exportSig(src, w, h) {
     var out = document.createElement('canvas');
     out.width = w; out.height = h;
-    out.getContext('2d').drawImage(src, 0, 0, w, h);
+    var k = Math.min(w / src.width, h / src.height), dw = src.width * k, dh = src.height * k;
+    out.getContext('2d').drawImage(src, (w - dw) / 2, (h - dh) / 2, dw, dh);
     return out.toDataURL('image/png');
+  }
+
+  /* 서명 입력 (DW-5): 누른 채 끌기(손가락·펜·마우스)는 그대로.
+   * PC 마우스·터치패드는 한 번 클릭(안내 영상 위 클릭 포함)하면 커서를 따라 그리고, 다시 클릭하면 펜을 듦.
+   * 서명칸 밖으로 나가도 펜을 듦. */
+  function sigPen(c, ctx, gd) {
+    var st = { drawn: false }, down = false, hover = false, last = null, start = null;
+    function pt(e) { var r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    function line(p, ev) {
+      if (!last) { last = p; return; }
+      ctx.lineWidth = ev.pointerType === 'pen' && ev.pressure ? 1.5 + ev.pressure * 3 : 3;
+      ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      last = p; st.drawn = true;
+    }
+    c.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); gd.hide();
+      if (hover) { hover = false; c.classList.remove('pen-on'); return; } // 따라 그리는 중 클릭 = 펜 들기
+      down = true; last = start = pt(e);
+      try { c.setPointerCapture(e.pointerId); } catch (x) { /* noop */ }
+      ctx.beginPath(); ctx.arc(last.x, last.y, 1.5, 0, Math.PI * 2); ctx.fillStyle = '#18202B'; ctx.fill(); st.drawn = true;
+    });
+    c.addEventListener('pointermove', function (e) {
+      if (!down && !hover) return;
+      e.preventDefault();
+      var evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+      if (!evs.length) evs = [e];
+      evs.forEach(function (ev) { line(pt(ev), ev); });
+    });
+    c.addEventListener('pointerup', function (e) {
+      if (!down) return;
+      down = false;
+      var p = pt(e);
+      // 마우스로 제자리 클릭(5px 안) = 커서 따라 그리기 시작
+      if (e.pointerType === 'mouse' && Math.abs(p.x - start.x) < 5 && Math.abs(p.y - start.y) < 5) { hover = true; last = p; c.classList.add('pen-on'); }
+    });
+    ['pointercancel', 'pointerleave'].forEach(function (t) { c.addEventListener(t, function () { down = hover = false; c.classList.remove('pen-on'); }); });
+    st.reset = function () { st.drawn = down = hover = false; last = null; c.classList.remove('pen-on'); };
+    return st;
   }
 
   function refreshSig(key, who) {
