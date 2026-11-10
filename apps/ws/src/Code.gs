@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.7.1', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.7.2', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -393,8 +393,10 @@ function login(pin, deviceId, signPng) {
   }
   cache.remove('pinfail_' + deviceId);
   const day = workDay_(Date.now());
+  const mode = loginMode_(me, Date.now());   // 출근현황으로 서명·PIN만·막힘 (결정 92)
+  if (mode === 'block') { log_(me['이름'], '휴일 접속 막음', me['staff_id'], day); return { ok: false, blocked: true, error: BLOCK_MSG }; }
   let sign = todaySign_(me['staff_id'], day);
-  if (!sign) {
+  if (!sign && mode === 'sign') {
     if (!signPng) return { ok: false, needSign: true, name: me['이름'], part: me['파트명'], day: day };
     const saved = saveSign_(me, signPng, 'PIN');
     if (!saved.ok) return saved;
@@ -434,10 +436,12 @@ function signToday(token, signPng) {
 function bootstrap(token) {
   const me = auth_(token);
   const day = workDay_(Date.now());
+  const mode = loginMode_(me, Date.now());
+  if (mode === 'block') throw new Error('LOGIN');   // 그날 휴무로 바뀌었으면 기기 표도 막음 → 다시 PIN 넣으면 안내
   const signs = daySigns_(day);
   return {
     ok: true, user: userOut_(me), app: APP,
-    needSign: !signs.some(function (r) { return r['staff_id'] === me['staff_id']; }),
+    needSign: mode === 'sign' && !signs.some(function (r) { return r['staff_id'] === me['staff_id']; }),
     docs: { day: day, signs: signs.length },
     fire: fireSummary_()
   };
@@ -892,6 +896,44 @@ function atCanFix_(me, date, rows, fixes, hol) {
   return atValue_(mine, prev, fixes, hol) === '야';
 }
 
+/* ── 출근현황으로 로그인 나누기 (결정 92) ──
+   주간 출근(빈칸·9-7·P반·P검진·후반) = PIN + 서명(TBM 서명란) / 야·A반·A검진·연·법·병가·전반 = PIN만 / 휴·비 = 「휴일 접속 불가」
+   전날 야간 근무자는 다음 날 오전 9시까지 PIN만(퇴근 8시 30분). 소장·부소장·총무는 막지 않음(쉬는 날은 PIN만).
+   근무표가 없거나 이름이 없으면 예전처럼 PIN + 서명 */
+const AT_PIN_ONLY = ['야', 'A반', 'A검진', '연', '법', '병가', '전반'];
+const AT_BLOCK = ['휴', '비'];
+function loginMode_(me, nowMs) {
+  const day = workDay_(nowMs), early = new Date(nowMs + KST_MS).getUTCHours() < 9;
+  const cache = CacheService.getScriptCache();
+  const key = 'lm_' + (cache.get('at_gen') || '0') + '_' + me['staff_id'] + '_' + day + (early ? 'e' : '');
+  const hit = cache.get(key);
+  if (hit) return hit;
+  let mode = 'sign';
+  try {
+    const ym = day.slice(0, 7), rows = atMonthRows_(ym);
+    const mine = rows.filter(function (p) { return p.name && p.name === me['이름']; })[0];
+    if (mine) {
+      const fixes = atFixes_(ym), hol = atHolidays_();
+      const v = atValue_(mine, day, fixes, hol);
+      const prev = new Date(Date.parse(day + 'T00:00:00Z') - DAY_MS).toISOString().slice(0, 10);
+      const prevNight = function () {
+        if (prev.slice(0, 7) === ym) return atValue_(mine, prev, fixes, hol) === '야';
+        const pr = atMonthRows_(prev.slice(0, 7)).filter(function (p) { return p.name === me['이름']; })[0];
+        return !!pr && atValue_(pr, prev, atFixes_(prev.slice(0, 7)), hol) === '야';
+      };
+      if (AT_PIN_ONLY.indexOf(v) !== -1) mode = 'pin';
+      else if (AT_BLOCK.indexOf(v) === -1) mode = 'sign';
+      else if (early && prevNight()) mode = 'pin';
+      else mode = atBoss_(me, rows) ? 'pin' : 'block';
+    }
+  } catch (e) { mode = 'sign'; }   // 근무표 탭이 아직 없음 등 → 예전 방식
+  cache.put(key, mode, 60);
+  return mode;
+}
+/** 출근현황을 고치면 로그인 판단 기억을 모두 버림 */
+function atChanged_() { CacheService.getScriptCache().put('at_gen', String(Date.now()), 21600); }
+const BLOCK_MSG = '휴일 접속 불가 — 오늘은 출근현황에 휴무(휴·비)로 되어 있습니다. 출근하셨으면 소장·부소장·총무에게 출근현황을 고쳐 달라고 해 주세요.';
+
 /** 그날 출근현황 + 그 달 날짜별 주간 인원(달력) + 권한. date 비우면 오늘 근무일 */
 function attGet(token, date) {
   const me = auth_(token);
@@ -947,6 +989,7 @@ function attPut(token, ym, rows, fileB64) {
       const blob = parseDataUrl_(fileB64, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 100, 4000000);
       if (blob) fileId = saveBlob_(folderPath_(['시설팀 통합업무', '20_업무지원', '서류작업', '출근현황']), blob, ym + '_근무스케줄.xlsx', me['이름'] + ' ' + at);
     }
+    atChanged_();
     log_(me['이름'], '근무표 올림', ym, clean.length + '줄' + (fileId ? ' · 원본 ' + fileId : ''));
     return { ok: true, count: clean.length };
   } finally {
@@ -965,6 +1008,7 @@ function attFix(token, date, name, value) {
   if (!p) return { ok: false, error: '그 달 근무표에 없는 이름입니다' };
   if (!atCanFix_(me, date, rows, fixes, hol)) return { ok: false, error: '소장·부소장·총무·그날 야간 근무자만 고칠 수 있습니다' };
   appendRow_('근무변경', { '날짜': date, '이름': name, '원래값': atValue_(p, date, fixes, hol), '바꾼값': value, '바꾼사람': me['이름'], '바꾼시각': now_(), '삭제여부': '' });
+  atChanged_();
   log_(me['이름'], '출근현황 고침', date, name + ' → ' + (value || '출근'));
   return attGet(token, date);
 }
@@ -981,6 +1025,7 @@ function attHoliday(token, name, days, date) {
   const cur = readTable_('기본휴일').rows.filter(function (r) { return r['이름'] === name; })[0];
   const patch = { '이름': name, '요일': list, '바꾼사람': me['이름'], '바꾼시각': now_() };
   if (cur) updateRow_('기본휴일', cur._row, patch); else appendRow_('기본휴일', patch);
+  atChanged_();
   log_(me['이름'], '기본 휴일', name, list || '없음');
   return attGet(token, date || '');
 }

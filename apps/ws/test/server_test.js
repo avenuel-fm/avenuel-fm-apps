@@ -426,3 +426,27 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(attHoliday(boss, '주간가짜', [], '2026-11-07').people.find(x => x.name === '주간가짜').v === '', '결정88: 기본 휴일 비우면 다시 출근');
   assert(attGet(day, '').date === '2026-11-07', '결정88: 날짜 비우면 오늘 근무일');
 }
+// 출근현황으로 로그인 나누기 (결정 92) — 위 결정88 시험의 11월 근무표 그대로 씀
+{
+  const C = CacheService.getScriptCache(); C.remove('pinlock_all');
+  const at = (iso, pin, sig) => { NOW.d = new Date(iso); return login(pin, 'lm-' + pin + iso, sig); };
+  let r = at('2026-11-11T10:00:00+09:00', '3103');
+  assert(r.needSign, '결정92: 주간 출근(빈칸) → PIN + 서명');
+  r = at('2026-11-08T10:00:00+09:00', '3103');
+  assert(r.ok && !r.needSign, '결정92: A반 → 서명 없이 PIN만');
+  r = at('2026-11-08T07:30:00+09:00', '3102');
+  assert(r.ok && !r.needSign, '결정92: 전날 야간 근무자는 다음 날 오전 9시 전엔 「비」여도 PIN만');
+  r = at('2026-11-08T10:00:00+09:00', '3102');
+  assert(!r.ok && r.blocked && /^휴일 접속 불가/.test(r.error), '결정92: 비 → 「휴일 접속 불가」');
+  r = at('2026-11-01T10:00:00+09:00', '1234');
+  assert(r.ok && !r.needSign, '결정92: 소장은 휴무일에도 로그인(PIN만)');
+  r = at('2026-11-12T10:00:00+09:00', '5678');
+  assert(r.needSign, '결정92: 근무표에 없는 직원 → 예전처럼 PIN + 서명');
+  r = at('2026-11-13T10:00:00+09:00', '3103', SIG); assert(r.ok, '결정92: 주간 직원 서명하고 로그인');
+  const boss = at('2026-11-13T10:05:00+09:00', '3101').token || at('2026-11-13T10:05:00+09:00', '3101', SIG).token;
+  attFix(boss, '2026-11-13', '주간가짜', '휴');
+  let threw = false; try { bootstrap(r.token); } catch (e) { threw = /LOGIN/.test(e.message); }
+  assert(threw && at('2026-11-13T10:10:00+09:00', '3103').blocked, '결정92: 그날 휴로 고치면 바로 반영 — 기기 표도 막히고 PIN은 「휴일 접속 불가」');
+  attFix(boss, '2026-11-13', '주간가짜', '야');
+  r = at('2026-11-13T10:12:00+09:00', '3103'); assert(r.ok && !bootstrap(r.token).needSign, '결정92: 야로 고치면 PIN만, 메인에서도 서명 안 물음');
+}
