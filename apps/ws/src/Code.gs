@@ -10,7 +10,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.7.2', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.7.3', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -55,6 +55,7 @@ function onOpen() {
     .addItem('⑤ 데이터 점검 (날짜·숫자로 바뀐 칸, 빈 칸)', 'dataCheckMenu_')
     .addItem('⑥ 서명 정리 예약 켜기 (90일 지난 안 쓴 서명 → 휴지통, 매일 새벽 3시)', 'cleanSignsTriggerMenu_')
     .addItem('⑦ 직원 삭제', 'removeStaffMenu_')
+    .addItem('⑧ 직원 PIN 바꾸기', 'changePinMenu_')
     .addToUi();
 }
 
@@ -223,10 +224,50 @@ function addStaff_(name, pin, part, role) {
   }
 }
 
+function liveStaffList_() {
+  return readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N'; })
+    .map(function (s) { return s['staff_id'] + ' ' + s['이름'] + ' · ' + s['파트명'] + ' · ' + s['역할']; });
+}
+
+function changePinMenu_() {
+  const ui = SpreadsheetApp.getUi();
+  const list = liveStaffList_();
+  if (!list.length) { ui.alert('직원 PIN 바꾸기', '사용 중인 직원이 없습니다.', ui.ButtonSet.OK); return; }
+  const q = ui.prompt('직원 PIN 바꾸기 (1/2)', 'PIN을 바꿀 직원의 이름이나 staff_id(예: S003)를 넣어 주세요.\n\n' + list.join('\n'), ui.ButtonSet.OK_CANCEL);
+  if (q.getSelectedButton() !== ui.Button.OK) return;
+  const f = findStaff_(q.getResponseText());
+  if (!f.ok) { ui.alert('직원 PIN 바꾸기', f.error, ui.ButtonSet.OK); return; }
+  const p = ui.prompt('직원 PIN 바꾸기 (2/2)', f.staff['이름'] + ' (' + f.staff['staff_id'] + ') 님의 새 PIN 4자리\n\n바꾸면 그 직원이 쓰던 기기는 로그아웃되고, 새 PIN으로 다시 로그인해야 합니다.', ui.ButtonSet.OK_CANCEL);
+  if (p.getSelectedButton() !== ui.Button.OK) return;
+  const res = changePin_(f.staff['staff_id'], p.getResponseText());
+  ui.alert('직원 PIN 바꾸기', res.ok ? res.name + ' 님의 PIN을 바꿨습니다.' : res.error, ui.ButtonSet.OK);
+}
+
+/* PIN 바꾸기: 새 salt로 다시 암호화. 기기 표 서명에 pin_hash가 들어가므로 쓰던 기기는 저절로 로그아웃 */
+function changePin_(staffId, pin) {
+  pin = String(pin || '').trim();
+  if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN은 숫자 4자리입니다.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const rows = readTable_('직원').rows.filter(function (r) { return r['사용여부'] !== 'N'; });
+    const s = rows.filter(function (r) { return r['staff_id'] === staffId; })[0];
+    if (!s) return { ok: false, error: '사용 중인 직원 ' + staffId + '을(를) 찾지 못했습니다.' };
+    const dup = rows.some(function (r) { return r['staff_id'] !== staffId && hashPin_(pin, r['pin_salt']) === r['pin_hash']; });
+    if (dup) return { ok: false, error: '이 PIN은 다른 직원이 쓰고 있습니다. 휴대폰 번호 앞 4자리(010 다음)를 넣어 주세요.' };
+    const salt = randomHex_(8);
+    updateRow_('직원', s._row, { 'pin_hash': hashPin_(pin, salt), 'pin_salt': salt, '수정일시': now_() });
+    CacheService.getScriptCache().remove('staff');
+    log_('관리자(시트)', '직원 PIN 바꿈', staffId, s['이름']);
+    return { ok: true, staff_id: staffId, name: s['이름'] };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function removeStaffMenu_() {
   const ui = SpreadsheetApp.getUi();
-  const list = readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N'; })
-    .map(function (s) { return s['staff_id'] + ' ' + s['이름'] + ' · ' + s['파트명'] + ' · ' + s['역할']; });
+  const list = liveStaffList_();
   if (!list.length) { ui.alert('직원 삭제', '사용 중인 직원이 없습니다.', ui.ButtonSet.OK); return; }
   const q = ui.prompt('직원 삭제', '지울 직원의 이름이나 staff_id(예: S003)를 넣어 주세요.\n\n' + list.join('\n'), ui.ButtonSet.OK_CANCEL);
   if (q.getSelectedButton() !== ui.Button.OK) return;

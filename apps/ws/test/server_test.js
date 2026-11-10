@@ -450,3 +450,19 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   attFix(boss, '2026-11-13', '주간가짜', '야');
   r = at('2026-11-13T10:12:00+09:00', '3103'); assert(r.ok && !bootstrap(r.token).needSign, '결정92: 야로 고치면 PIN만, 메인에서도 서명 안 물음');
 }
+
+// 직원 PIN 바꾸기 (결정 94): 새 PIN으로 로그인, 옛 PIN·옛 기기 표는 막힘, 남의 PIN은 거부
+{
+  NOW.d = new Date('2026-12-24T09:00:00+09:00'); CacheService.getScriptCache().remove('pinlock_all');
+  assert(addStaff_('핀변경', '3691', '기건파트', '직원').ok, '결정94: 직원 등록');
+  const lg = login('3691', 'pin1', SIG); assert(lg.ok, '결정94: 옛 PIN 로그인');
+  const id = findStaff_('핀변경').staff['staff_id'];
+  assert(!changePin_(id, '12a4').ok, '결정94: 숫자 4자리 아니면 거부');
+  assert(!changePin_(id, '1234').ok, '결정94: 다른 직원 PIN은 거부');
+  assert(changePin_(id, '3691').ok, '결정94: 자기 PIN 그대로 다시 넣기는 됨');
+  assert(changePin_(id, '4826').ok, '결정94: PIN 바꿈');
+  assert(!login('3691', 'pin2', SIG).ok, '결정94: 옛 PIN은 로그인 안 됨');
+  assert(login('4826', 'pin3', SIG).ok, '결정94: 새 PIN으로 로그인');
+  let blocked = false; try { blocked = !auth_(lg.token); } catch (e) { blocked = true; }
+  assert(blocked, '결정94: 쓰던 기기 표는 로그아웃');
+}
