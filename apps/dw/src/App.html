@@ -497,10 +497,13 @@ var GuideIndexer = (function () {
   function renderTodos(ys) {
     var el = $('#todos'); if (!el) return;
     if (S.dash.todo && TODO[S.dash.todo].chiefOnly && S.auth.role !== '소장') S.dash.todo = null;
-    el.innerHTML = '<span class="lb">할 일</span>' + Object.keys(TODO).filter(function (k) { return !TODO[k].chiefOnly || S.auth.role === '소장'; }).map(function (k) {
+    /* 글자만 · 0인 항목은 숨김(걸러 보는 중인 항목은 끌 수 있게 유지) · 모두 0이면 한 줄 */
+    var btns = Object.keys(TODO).filter(function (k) { return !TODO[k].chiefOnly || S.auth.role === '소장'; }).map(function (k) {
       var t = TODO[k], n = ys.filter(t.f).length, on = S.dash.todo === k;
+      if (!n && !on) return '';
       return '<button type="button" class="todo ' + t.c + (on ? ' pick' : '') + '" aria-pressed="' + on + '" data-act="todo" data-k="' + k + '">' + t.l + ' <b>' + n + '</b></button>';
     }).join('');
+    el.innerHTML = '<span class="lb">할 일</span>' + (btns || '<span class="todo-none">할 일 없음 ✓</span>');
     var c = $('#todoChip');
     if (c) c.innerHTML = S.dash.todo ? '<div class="filterchip ' + TODO[S.dash.todo].c + '">걸러 보기: ' + TODO[S.dash.todo].l + ' <button type="button" data-act="todo" data-k="' + S.dash.todo + '" aria-label="걸러 보기 끄기">✕</button></div>' : '';
   }
@@ -529,7 +532,7 @@ var GuideIndexer = (function () {
       return;
     }
     $('#dashBody').innerHTML =
-      '<table class="tbl"><thead><tr><th>매장</th><th>문서번호</th><th>공사위치</th><th>도면협의 차수 · 컨펌</th><th>최근 검토일</th><th>오픈 예정일</th><th style="text-align:right">검토서</th></tr></thead><tbody>' +
+      '<table class="tbl"><thead><tr><th>매장</th><th>문서번호</th><th>공사위치</th><th>도면협의 차수 · 컨펌</th><th class="c-last">최근 검토일</th><th class="c-open">오픈 예정일</th><th style="text-align:right">검토서</th></tr></thead><tbody>' +
       r.list.map(function (s) {
         var confirmed = s.status === '컨펌완료';
         return '<tr>' +
@@ -1018,11 +1021,12 @@ var GuideIndexer = (function () {
         '<label class="lbl" for="spName" style="margin-top:10px">성명</label><input id="spName" class="inp" maxlength="40" value="' + esc(info.name) + '" autocomplete="name">' +
         '<label class="lbl" for="spTel" style="margin-top:10px">연락처</label><input id="spTel" class="inp" type="tel" inputmode="numeric" maxlength="13" value="' + esc(info.tel) + '" autocomplete="tel"></div>' +
         '<div class="card sp-card"><div class="sp-h">아래 칸에 서명해 주세요</div><div class="small muted">손가락이나 펜, PC에서는 마우스로 쓰면 됩니다</div>' +
-        '<canvas id="spPad" class="sp-pad" aria-label="서명 칸"></canvas>' +
+        '<div class="sp-padwrap" id="spWrap"><canvas id="spPad" class="sp-pad" aria-label="서명 칸"></canvas></div>' +
         '<div class="sp-btns"><button type="button" class="btn" id="spClear">다시 쓰기</button><button type="button" class="btn pri" id="spSend">서명 보내기</button></div>' +
         '<div class="small sp-err" id="spErr" role="alert"></div></div>' +
         '<div class="small muted sp-foot">서명은 휴대폰으로 진행 가능합니다 · 링크는 ' + esc(info.until) + '까지</div></div>';
       var c = $('#spPad'), ctx = c.getContext('2d'), drawn = false, drawing = false, last = null;
+      var gd = guideAttach($('#spWrap'), info.guide);
       function fit() {
         var r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
         var keep = drawn ? c.toDataURL() : null;
@@ -1033,14 +1037,14 @@ var GuideIndexer = (function () {
       }
       fit(); window.addEventListener('resize', fit);
       function pt(e) { var r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-      c.addEventListener('pointerdown', function (e) { e.preventDefault(); drawing = true; last = pt(e); try { c.setPointerCapture(e.pointerId); } catch (x) { /* noop */ } });
+      c.addEventListener('pointerdown', function (e) { e.preventDefault(); drawing = true; last = pt(e); gd.hide(); try { c.setPointerCapture(e.pointerId); } catch (x) { /* noop */ } });
       c.addEventListener('pointermove', function (e) {
         if (!drawing) return; e.preventDefault();
         var p = pt(e); ctx.lineWidth = e.pointerType === 'pen' && e.pressure ? 1.5 + e.pressure * 3 : 3;
         ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; drawn = true;
       });
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { c.addEventListener(t, function () { drawing = false; }); });
-      $('#spClear').onclick = function () { ctx.clearRect(0, 0, c.width, c.height); drawn = false; };
+      $('#spClear').onclick = function () { ctx.clearRect(0, 0, c.width, c.height); drawn = false; gd.show(); };
       $('#spTel').addEventListener('input', function (e) {
         var d = e.target.value.replace(/\D/g, '').slice(0, 11);
         e.target.value = d.length < 4 ? d : d.length < 8 ? d.slice(0, 3) + '-' + d.slice(3) : d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
@@ -1784,6 +1788,40 @@ var GuideIndexer = (function () {
     });
   }
 
+  /* ───────── 서명 안내 영상 (1.8.5, DW-4) ─────────
+   * PC(마우스 있고 가로 1024px 이상)에서만 서명칸 위에 반복 영상을 덮어 보여주고,
+   * 서명칸을 누르는 순간 영상이 사라지며 누른 자리부터 획이 시작됩니다. 「지우기/다시 쓰기」 때 다시 나옵니다.
+   * 영상 파일이 없거나 못 읽으면 영상 없이 서명칸만 (mp4 → 안 되면 gif → 안 되면 없음). */
+  function guideIsPc() {
+    try { return !!(window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine) and (min-width:1024px)').matches); } catch (x) { return false; }
+  }
+  function guideAttach(host, guide) {
+    var api = { show: function () {}, hide: function () {} };
+    if (!host || !guide || !guide.mp4 || !guideIsPc()) return api;
+    var gv = document.createElement('div'); gv.className = 'gv'; gv.setAttribute('aria-hidden', 'true');
+    var v = document.createElement('video');
+    v.muted = true; v.defaultMuted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.preload = 'auto';
+    v.setAttribute('muted', ''); v.setAttribute('loop', ''); v.setAttribute('autoplay', ''); v.setAttribute('playsinline', '');
+    var swapped = false;
+    function gone() { if (gv.parentNode) gv.parentNode.removeChild(gv); api.show = api.hide = function () {}; }
+    function toGif() {
+      if (swapped) { gone(); return; }
+      swapped = true;
+      if (!guide.gif) { gone(); return; }
+      var im = new Image(); im.alt = ''; im.onerror = gone;
+      im.src = guide.gif;
+      if (v.parentNode) v.parentNode.replaceChild(im, v);
+    }
+    v.addEventListener('error', toGif);
+    v.src = guide.mp4;
+    gv.appendChild(v);
+    host.appendChild(gv);
+    api.hide = function () { gv.style.display = 'none'; try { v.pause(); } catch (x) { /* noop */ } };
+    api.show = function () { gv.style.display = ''; try { v.currentTime = 0; var p = v.play(); if (p && p.catch) p.catch(function () { /* noop */ }); } catch (x) { /* noop */ } };
+    var p0 = v.play && v.play(); if (p0 && p0.catch) p0.catch(function () { /* 자동 재생이 막히면 첫 장면만 보임 */ });
+    return api;
+  }
+
   /* ───────── 서명 패드 ───────── */
   function openSig(key, who) {
     var has = !!S.review[key];
@@ -1801,6 +1839,7 @@ var GuideIndexer = (function () {
       '<button type="button" class="btn pri" style="flex:2;min-height:54px;font-size:16px;font-weight:700" id="sigOk">서명 완료</button>' +
       '</div></section>';
     var c = $('#sigc'), ctx = c.getContext('2d'), drawn = false, drawing = false, last = null;
+    var gd = guideAttach($('.sigpad', layer), S.boot && S.boot.guide);
     var dpr = Math.max(1, window.devicePixelRatio || 1);
     function size() {
       var r = c.getBoundingClientRect();
@@ -1811,7 +1850,7 @@ var GuideIndexer = (function () {
     size();
     function pt(e) { var r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
     c.addEventListener('pointerdown', function (e) {
-      e.preventDefault(); drawing = true; last = pt(e);
+      e.preventDefault(); drawing = true; last = pt(e); gd.hide();
       try { c.setPointerCapture(e.pointerId); } catch (x) { /* noop */ }
       ctx.beginPath(); ctx.arc(last.x, last.y, 1.5, 0, Math.PI * 2); ctx.fillStyle = '#18202B'; ctx.fill(); drawn = true;
     });
@@ -1830,7 +1869,7 @@ var GuideIndexer = (function () {
       drawn = true;
     });
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { c.addEventListener(t, function () { drawing = false; }); });
-    $('#sigClear').onclick = function () { ctx.clearRect(0, 0, c.width, c.height); drawn = false; };
+    $('#sigClear').onclick = function () { ctx.clearRect(0, 0, c.width, c.height); drawn = false; gd.show(); };
     $('#sigCancel').onclick = closeModal;
     $('.overlay', layer).onclick = closeModal;
     if (has) $('#sigDel').onclick = function () {

@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.8.6',
+  VERSION: '1.8.7',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
@@ -565,6 +565,7 @@ function apiBootstrap(a) {
     version: APP.VERSION,
     appUrl: appUrl_(),
     publicUrl: publicUrl_(),
+    guide: guideUrls_(),
     phraseCats: PHRASE_CATS,
     synonyms: readSynonyms_(),
     storeLabel: APP.STORE_LABEL,
@@ -1286,7 +1287,8 @@ function apiSignInfo(token) {
   return {
     label: APP.STORE_LABEL, tenant: rv.tenant || '', round: tk.round, docNo: found.row.docNo, who: c.l,
     org: c.org || rv[c.orgKey] || rv.contractorCompany || '', name: rv[c.name] || '', tel: rv[c.tel] || '',
-    pdfUrl: tk.pdfUrl, until: Utilities.formatDate(new Date(tk.exp), 'Asia/Seoul', 'M/d')
+    pdfUrl: tk.pdfUrl, until: Utilities.formatDate(new Date(tk.exp), 'Asia/Seoul', 'M/d'),
+    guide: guideUrls_()
   };
 }
 function apiSignSubmit(token, data) {
@@ -1459,6 +1461,13 @@ function okShortcut_(u) { return /^https:\/\/[^\s?#]+$/.test(String(u || '')); }
 function shortcutUrl_() {
   var u = setting_('바로가기주소');
   return okShortcut_(u) ? u : '';
+}
+/** 서명창 안내 영상 (1.8.5, DW-4): 바로가기주소 폴더의 sign_guide.mp4 (안 나오면 sign_guide.gif). 바로가기주소가 없으면 영상 없음 */
+function guideUrls_() {
+  var b = shortcutUrl_();
+  if (!b) return { mp4: '', gif: '' };
+  if (b.charAt(b.length - 1) !== '/') b += '/';
+  return { mp4: b + 'sign_guide.mp4', gif: b + 'sign_guide.gif' };
 }
 /** 사람이 여는 링크의 기준 주소: 바로가기주소가 있으면 그것, 없으면 /exec */
 function publicUrl_() { return shortcutUrl_() || appUrl_(); }
