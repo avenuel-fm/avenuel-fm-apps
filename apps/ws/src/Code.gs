@@ -3,6 +3,7 @@
  * 기준: claude/통합_업무지원앱_설계정의서.md (RC4) + 수정요청_대기목록 WS-13·WS-14
  * 범위: 로그인(PIN + 근무일 첫 서명) → 메인 → 점검 → 소화기 점검 (QR 관리·인쇄, 월별·층별 현황, QR 점검 입력)
  *       서류작업 → TBM (서명란·작업 표·위험성·사진 2장·PDF), 명일 작업 예정 — docs/설계/WS_서류작업.md
+ *       점검 → 전열필증 (층·매장·기기 관리대장, 50×50 신고필증 라벨, QR 필증 보기) — docs/설계/WS_전열필증.md
  * 나머지 메뉴는 화면만 두고 "준비 중"으로 표시합니다.
  *
  * 테스트판에서 단순화한 것 (정식판에서 공통 DB·cdb로 바꿈)
@@ -10,7 +11,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.7.3', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.8.0', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -29,6 +30,8 @@ const SHEETS = {
   '근무변경': ['날짜', '이름', '원래값', '바꾼값', '바꾼사람', '바꾼시각', '삭제여부'],
   '기본휴일': ['이름', '요일', '바꾼사람', '바꾼시각'],
   '위험성목록': ['순서', '낱말', '위험요인', '재해형태', '가능성', '중대성', '개선조치1', '개선조치2', '개선조치3', '개선조치4', '사용여부'],
+  '전열매장': ['es_id', '층', '매장번호', '매장명', '사용여부', '등록일시', '등록자', '삭제일시'],
+  '전열기기': ['eh_id', 'es_id', '층', '매장명', '관리번호', '기기명', '용량W', '제조사', '책임자정', '책임자부', '승인일자', 'qr_token', '출력일시', '사용여부', '등록일시', '등록자', '수정일시', '삭제일시'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
 
@@ -344,6 +347,12 @@ function doGet(e) {
     t.qr = isQrToken_(p.fe) ? String(p.fe) : '';
     return t.evaluate()
       .setTitle('소화기 점검')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+  if (p.eh !== undefined) {   // 전열필증 QR — 로그인 없이 필증 정보 (결정 96)
+    return HtmlService.createHtmlOutput(ehViewPage_(p.eh))
+      .setTitle('전열기기 신고필증')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
@@ -870,8 +879,10 @@ const AT_UNDO = '(되돌림)';
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
 
 /** 새 탭 3개는 배포 뒤 「① 초기 설정」을 안 해도 처음 열 때 만듦 (TBM과 같은 방식) */
-function atTabs_() {
-  const ss = db_(), need = ['근무표', '근무변경', '기본휴일'].filter(function (n) { return !ss.getSheetByName(n); });
+function atTabs_() { ensureTabs_(['근무표', '근무변경', '기본휴일']); }
+/* 배포 뒤 「① 초기 설정」을 다시 하지 않아도 새 탭을 처음 쓸 때 만듦 */
+function ensureTabs_(names) {
+  const ss = db_(), need = names.filter(function (n) { return !ss.getSheetByName(n); });
   if (!need.length) return;
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -1202,6 +1213,328 @@ function labelSize_() {
   return { w: Number(setting_('라벨가로mm')) || 50, h: Number(setting_('라벨세로mm')) || 50, dpi: Number(setting_('프린터dpi')) || 203 };
 }
 
+/* ───────────────────────── 전열필증 (WS_전열필증 15.3.20, 결정 96) ───────────────────────── */
+
+const EH_FLOORS = ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '팝업'];
+const EH_NO = /^(B[1-3]|[1-6]F|팝업)-(\d+)-(\d+)$/;
+const EH_TABS = ['전열매장', '전열기기'];
+
+function ehTables_() {
+  ensureTabs_(EH_TABS);
+  return { st: readTable_('전열매장'), dv: readTable_('전열기기') };
+}
+function ehLive_(r) { return r['사용여부'] !== 'N'; }
+function ehSeq_(no) { const m = EH_NO.exec(no); return m ? Number(m[3]) : 0; }
+
+/** 층 하나(매장·기기) + 모든 층 개수 + 검색용 매장 이름 */
+function ehList(token, floor) {
+  auth_(token);
+  return ehOut_(ehTables_(), floor);
+}
+function ehOut_(T, floor) {
+  if (EH_FLOORS.indexOf(floor) === -1) floor = '1F';
+  const stores = T.st.rows.filter(ehLive_), items = T.dv.rows.filter(ehLive_);
+  const by = {};
+  items.forEach(function (r) { (by[r['es_id']] = by[r['es_id']] || []).push(r); });
+  const floors = EH_FLOORS.map(function (f) {
+    const s = stores.filter(function (x) { return x['층'] === f; });
+    return { code: f, stores: s.length, items: s.reduce(function (n, x) { return n + (by[x['es_id']] || []).length; }, 0) };
+  });
+  const list = stores.filter(function (x) { return x['층'] === floor; })
+    .sort(function (a, b) { return Number(a['매장번호']) - Number(b['매장번호']); })
+    .map(function (x) {
+      return { id: x['es_id'], no: Number(x['매장번호']) || 0, name: x['매장명'],
+        items: (by[x['es_id']] || []).sort(function (a, b) { return ehSeq_(a['관리번호']) - ehSeq_(b['관리번호']) || (a['관리번호'] < b['관리번호'] ? -1 : 1); }).map(ehItem_) };
+    });
+  return { ok: true, floor: floor, floors: floors, stores: list,
+    names: stores.map(function (x) { return [x['층'], x['매장명'], x['es_id']]; }),
+    empty: !T.dv.rows.length, execUrl: publicUrl_(), dpi: labelSize_().dpi };
+}
+function ehItem_(r) {
+  return { id: r['eh_id'], no: r['관리번호'], name: r['기기명'], w: r['용량W'], maker: r['제조사'], m1: r['책임자정'], m2: r['책임자부'], date: r['승인일자'], printed: r['출력일시'], token: r['qr_token'] };
+}
+
+/* 매장 추가·이름 바꾸기. 매장번호 = 그 층에서 쓴 가장 큰 번호 + 1 (지운 매장·기기 번호도 셈 — 다시 쓰지 않음) */
+function ehStoreSave(token, d) {
+  const me = auth_(token);
+  d = d || {};
+  const name = cleanText_(d.name, 30);
+  if (!name) return { ok: false, error: '매장명을 넣어 주세요.' };
+  ensureTabs_(EH_TABS);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const T = ehTables_();
+    const cur = d.id ? T.st.rows.filter(function (r) { return r['es_id'] === d.id && ehLive_(r); })[0] : null;
+    if (d.id && !cur) return { ok: false, error: '매장을 찾지 못했습니다. 새로고침해 주세요.' };
+    const floor = cur ? cur['층'] : String(d.floor || '');
+    if (EH_FLOORS.indexOf(floor) === -1) return { ok: false, error: '층을 골라 주세요.' };
+    if (T.st.rows.some(function (r) { return ehLive_(r) && r['층'] === floor && r['매장명'] === name && r !== cur; })) return { ok: false, error: floor + '에 「' + name + '」 매장이 이미 있습니다.' };
+    if (cur) {
+      if (cur['매장명'] === name) return ehOut_(T, floor);
+      updateRow_('전열매장', cur._row, { '매장명': name });
+      cur['매장명'] = name;
+      const mine = T.dv.rows.filter(function (r) { return r['es_id'] === cur['es_id']; });
+      mine.forEach(function (r) { r['매장명'] = name; });
+      if (mine.length) writeBack_(T.dv);
+      log_(me['이름'], '전열 매장 이름', cur['es_id'], floor + ' · ' + name);
+    } else {
+      const row = { 'es_id': nextId_('ES', T.st.rows, 'es_id'), '층': floor, '매장번호': String(ehNextStoreNo_(T, floor)), '매장명': name, '사용여부': 'Y', '등록일시': now_(), '등록자': me['이름'], '삭제일시': '' };
+      appendRow_('전열매장', row);
+      T.st.rows.push(row);
+      log_(me['이름'], '전열 매장 추가', row['es_id'], floor + ' · ' + name + ' (' + row['매장번호'] + ')');
+    }
+    return ehOut_(T, floor);
+  } finally {
+    lock.releaseLock();
+  }
+}
+function ehNextStoreNo_(T, floor) {
+  let max = 0;
+  T.st.rows.forEach(function (r) { if (r['층'] === floor) max = Math.max(max, Number(r['매장번호']) || 0); });
+  T.dv.rows.forEach(function (r) { const m = EH_NO.exec(r['관리번호']); if (m && r['층'] === floor) max = Math.max(max, Number(m[2])); });
+  return max + 1;
+}
+
+function ehStoreDelete(token, id) {
+  const me = auth_(token);
+  ensureTabs_(EH_TABS);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const T = ehTables_();
+    const s = T.st.rows.filter(function (r) { return r['es_id'] === id && ehLive_(r); })[0];
+    if (!s) return { ok: false, error: '매장을 찾지 못했습니다. 새로고침해 주세요.' };
+    const t = now_();
+    updateRow_('전열매장', s._row, { '사용여부': 'N', '삭제일시': t });
+    s['사용여부'] = 'N';
+    const n = ehMark_(T.dv, function (r) { return r['es_id'] === id && ehLive_(r); }, { '사용여부': 'N', '삭제일시': t });
+    log_(me['이름'], '전열 매장 삭제', id, s['층'] + ' · ' + s['매장명'] + ' · 기기 ' + n + '대');
+    return Object.assign(ehOut_(T, s['층']), { count: n });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 기기 추가(관리번호·QR 자동)·편집 */
+function ehSave(token, d) {
+  const me = auth_(token);
+  d = d || {};
+  const v = {
+    '기기명': cleanText_(d.name, 40), '제조사': cleanText_(d.maker, 40),
+    '책임자정': cleanText_(d.m1, 30), '책임자부': cleanText_(d.m2, 30),
+    '용량W': String(d.w == null ? '' : d.w).replace(/[,\sWw]/g, ''), '승인일자': String(d.date || '')
+  };
+  if (!v['기기명']) return { ok: false, error: '기기명을 넣어 주세요.' };
+  if (!/^\d{1,5}(\.\d)?$/.test(v['용량W']) || !(Number(v['용량W']) > 0)) return { ok: false, error: '용량은 W 숫자로 넣어 주세요 (예: 1500).' };
+  if (!v['책임자정']) return { ok: false, error: '책임자(정)를 넣어 주세요.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v['승인일자'])) return { ok: false, error: '승인일자를 골라 주세요.' };
+  ensureTabs_(EH_TABS);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const T = ehTables_();
+    if (d.id) {
+      const r = T.dv.rows.filter(function (x) { return x['eh_id'] === d.id && ehLive_(x); })[0];
+      if (!r) return { ok: false, error: '기기를 찾지 못했습니다. 새로고침해 주세요.' };
+      const changed = Object.keys(v).some(function (k) { return r[k] !== v[k]; });
+      if (!changed) return ehOut_(T, r['층']);
+      // 필증에 찍힌 값이 바뀌면 다시 인쇄해야 하므로 「미출력」으로
+      v['출력일시'] = ['책임자정', '승인일자', '용량W'].some(function (k) { return r[k] !== v[k]; }) ? '' : r['출력일시'];
+      v['수정일시'] = now_();
+      updateRow_('전열기기', r._row, v);
+      Object.assign(r, v);
+      log_(me['이름'], '전열기기 편집', r['eh_id'], r['관리번호'] + ' · ' + v['기기명']);
+      return Object.assign(ehOut_(T, r['층']), { saved: r['관리번호'] });
+    }
+    const s = T.st.rows.filter(function (x) { return x['es_id'] === d.esId && ehLive_(x); })[0];
+    if (!s) return { ok: false, error: '매장을 찾지 못했습니다. 새로고침해 주세요.' };
+    const head = s['층'] + '-' + s['매장번호'] + '-';
+    let seq = 0;
+    T.dv.rows.forEach(function (x) { if (x['관리번호'].indexOf(head) === 0) seq = Math.max(seq, ehSeq_(x['관리번호'])); });
+    const used = {};
+    T.dv.rows.forEach(function (x) { used[x['qr_token']] = 1; });
+    const row = Object.assign({ 'eh_id': nextId_('EH', T.dv.rows, 'eh_id'), 'es_id': s['es_id'], '층': s['층'], '매장명': s['매장명'], '관리번호': head + (seq + 1),
+      'qr_token': shortToken_(used), '출력일시': '', '사용여부': 'Y', '등록일시': now_(), '등록자': me['이름'], '수정일시': '', '삭제일시': '' }, v);
+    appendRow_('전열기기', row);
+    T.dv.rows.push(row);
+    log_(me['이름'], '전열기기 추가', row['eh_id'], row['관리번호'] + ' · ' + v['기기명']);
+    return Object.assign(ehOut_(T, s['층']), { saved: row['관리번호'] });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 고른 기기 필증 삭제 (사용여부 N — 붙은 QR은 「삭제된 필증」) */
+function ehDelete(token, ids, floor) { return ehBulk_(token, ids, floor, { '사용여부': 'N', '삭제일시': now_() }, '전열필증 삭제'); }
+/** 인쇄한 기기에 출력일시 */
+function ehPrinted(token, ids, floor) { return ehBulk_(token, ids, floor, { '출력일시': now_() }, '전열필증 출력'); }
+function ehBulk_(token, ids, floor, patch, what) {
+  const me = auth_(token);
+  ids = (ids || []).map(String);
+  if (!ids.length) return { ok: false, error: '기기를 골라 주세요.' };
+  ensureTabs_(EH_TABS);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const T = ehTables_();
+    const nos = [];
+    const n = ehMark_(T.dv, function (r) { if (ids.indexOf(r['eh_id']) !== -1 && ehLive_(r)) { nos.push(r['관리번호']); return true; } return false; }, patch);
+    log_(me['이름'], what, '', n + '대 · ' + nos.slice(0, 30).join(', ') + (nos.length > 30 ? ' …' : ''));
+    return Object.assign(ehOut_(T, floor), { count: n });
+  } finally {
+    lock.releaseLock();
+  }
+}
+/* 여러 줄 고치기: 몇 줄이면 줄마다, 많으면 표를 한 번에 다시 씀 (줄마다 쓰면 수백 번 시트 호출) */
+function ehMark_(t, pick, patch) {
+  const hit = t.rows.filter(pick);
+  hit.forEach(function (r) { Object.assign(r, patch); });
+  if (hit.length > 5) writeBack_(t);
+  else hit.forEach(function (r) { updateRow_('전열기기', r._row, patch); });
+  return hit.length;
+}
+
+/** QR 필증 정보 (로그인 없음) */
+function ehView_(qr) {
+  qr = String(qr || '');
+  if (!isQrToken_(qr)) return { ok: false, error: '필증 QR 주소가 올바르지 않습니다.' };
+  ensureTabs_(EH_TABS);
+  const r = readTable_('전열기기').rows.filter(function (x) { return x['qr_token'] === qr; })[0];
+  if (!r) return { ok: false, error: '등록되지 않은 필증입니다. 시설팀에 알려 주세요.' };
+  if (!ehLive_(r)) return { ok: false, error: '삭제된 필증입니다. 시설팀에 알려 주세요.', no: r['관리번호'] };
+  return { ok: true, item: Object.assign(ehItem_(r), { floor: r['층'], store: r['매장명'], token: undefined, printed: undefined }) };
+}
+function ehViewPage_(qr) {
+  const v = ehView_(qr), i = v.item || {};
+  const esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  const row = function (k, x) { return '<tr><th>' + k + '</th><td>' + esc(x) + '</td></tr>'; };
+  const body = v.ok
+    ? '<table class="eht">' + row('관리번호', i.no) + row('사용장소', i.floor + ' · ' + i.store) + row('기기명', i.name) + row('용량', i.w ? Number(i.w).toLocaleString() + ' W' : '') +
+      row('제조사', i.maker) + row('책임자', i.m1 + (i.m2 ? ' / ' + i.m2 : '')) + row('승인일자', String(i.date).replace(/-/g, '.')) + row('승인', '시설소장') + '</table>'
+    : '<div class="banner">' + esc(v.error) + (v.no ? '<br><small>' + esc(v.no) + '</small>' : '') + '</div>';
+  return include('Styles') + '<style>.w{max-width:520px;margin:0 auto;padding:20px 16px}.eht{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line2);border-radius:12px;overflow:hidden;font-size:16px}' +
+    '.eht th{width:96px;text-align:left;background:var(--blue-bg);color:var(--blue-d);padding:12px;font-size:14px;border-top:1px solid var(--line3)}.eht td{padding:12px;border-top:1px solid var(--line3);font-weight:700}' +
+    '.banner{background:var(--red-bg);color:var(--red);border-radius:12px;padding:16px;line-height:1.6}h1{font-size:20px;margin:0 0 4px}.s{color:var(--muted);font-size:13px;margin-bottom:14px}</style>' +
+    '<div class="w"><h1>전열기기 신고필증</h1><div class="s">롯데백화점 에비뉴엘 월드타워점 · 시설팀</div>' + body + '</div>';
+}
+
+/* ───── 엑셀 「전열기 관리대장」 가져오기 (처음 한 번, 8장) ───── */
+/** sheets = { 시트이름: [[칸…]…] } (브라우저가 읽은 글자 표). save가 아니면 미리 셈만 */
+function ehImport(token, sheets, save) {
+  const me = auth_(token);
+  ensureTabs_(EH_TABS);
+  const P = ehParse_(sheets || {});
+  if (!P.items.length) return { ok: false, error: '전열기기를 찾지 못했습니다. 「2026년 전열기 관리대장」 엑셀이 맞는지 확인해 주세요.' };
+  if (!save) return { ok: true, check: P.check };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const T = ehTables_();
+    if (T.dv.rows.length || T.st.rows.length) return { ok: false, error: '이미 전열기기가 들어 있어 가져오지 않습니다 (처음 한 번만).' };
+    const day = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd'), t = now_(), used = {};
+    const st = P.stores.map(function (s, i) { return { 'es_id': 'WS-ES-' + day + '-' + pad3_(i + 1), '층': s.floor, '매장번호': String(s.no), '매장명': s.name, '사용여부': 'Y', '등록일시': t, '등록자': me['이름'], '삭제일시': '' }; });
+    const dv = P.items.map(function (x, i) {
+      const k = shortToken_(used); used[k] = 1;
+      return { 'eh_id': 'WS-EH-' + day + '-' + pad3_(i + 1), 'es_id': st[x.store]['es_id'], '층': x.floor, '매장명': st[x.store]['매장명'], '관리번호': x.no, '기기명': x.name, '용량W': x.w, '제조사': x.maker,
+        '책임자정': x.m1, '책임자부': x.m2, '승인일자': x.date, 'qr_token': k, '출력일시': '', '사용여부': x.gone ? 'N' : 'Y', '등록일시': t, '등록자': '엑셀 가져오기', '수정일시': '', '삭제일시': x.gone ? t : '' };
+    });
+    appendRows_('전열매장', st);
+    appendRows_('전열기기', dv);
+    log_(me['이름'], '전열 관리대장 가져오기', '', '매장 ' + st.length + '곳 · 기기 ' + dv.length + '대 (새 번호 ' + P.check.renumbered + ', 폐기 ' + P.check.gone + ')');
+    return Object.assign(ehOut_(ehTables_(), '1F'), { check: P.check });
+  } finally {
+    lock.releaseLock();
+  }
+}
+function pad3_(n) { const s = String(n); return s.length < 3 ? ('00' + s).slice(-3) : s; }
+
+/** 관리대장 시트 → 매장·기기. 시트마다 「층 : n」 다음 줄 = 매장명, `No` 머리줄, 그 아래 기기 줄. 쪽이 나뉘어 같은 매장이 또 나오면 합침 */
+function ehParse_(sheets) {
+  const stores = [], key = {}, items = [];
+  Object.keys(sheets).forEach(function (sn) {
+    const fm = /^(B[1-3])F?$|^([1-6]F)$|^(팝업)$/.exec(String(sn).trim());
+    if (!fm) return;
+    const floor = fm[1] || fm[2] || fm[3];
+    const rows = sheets[sn] || [];
+    let cur = null, col = null;
+    rows.forEach(function (r, i) {
+      const c = (r || []).map(function (x) { return String(x == null ? '' : x).trim(); });
+      if (c.some(function (x) { return /^층\s*:/.test(x); })) {
+        const nx = (rows[i + 1] || []).map(function (x) { return String(x == null ? '' : x).trim(); }).filter(String);
+        const name = cleanText_(nx[0], 30);
+        if (!name || name === '0') { cur = null; return; }
+        const k = floor + '|' + name;
+        if (key[k] === undefined) { key[k] = stores.length; stores.push({ floor: floor, name: name, nos: {} }); }
+        cur = key[k];
+        return;
+      }
+      if (c[0] === 'No') {
+        col = {};
+        c.forEach(function (x, j) { x = x.replace(/\s/g, ''); if (x && col[x] === undefined) col[x] = j; });
+        return;
+      }
+      if (cur === null || !col || !/^\d+$/.test(c[0])) return;
+      const g = function (h) { return col[h] === undefined ? '' : (c[col[h]] || ''); };
+      const no = g('관리번호'), name = g('기기명');
+      if (!no && !name) return;
+      const all = c.join(' ');
+      items.push({ floor: floor, store: cur, raw: no, name: cleanText_(name.replace(/\n/g, ' '), 40) || '(이름 없음)',
+        w: ehW_(g('용량(W)')), maker: cleanText_(g('제조사').replace(/\(?폐기\)?/g, ''), 40),
+        m1: cleanText_(g('관리책임자'), 30), m2: col['관리책임자'] === undefined ? '' : cleanText_(c[col['관리책임자'] + 1], 30),
+        date: ehDate_(g('승인일자')), gone: /폐기|매장철수/.test(all) });
+    });
+  });
+  // 1) 쓸 수 있는 번호(모양 맞고 처음 나온 것)는 그대로, 지하는 B1F- → B1-
+  const seen = {};
+  let fixed = 0;
+  items.forEach(function (x) {
+    let no = String(x.raw).split('\n')[0].replace(/\(.*$/, '').trim();
+    const b = no.replace(/^(B[1-3])F-/, '$1-');
+    if (b !== no) { no = b; fixed++; }
+    x.no = EH_NO.test(no) && !seen[no] ? no : '';
+    if (x.no) { seen[no] = 1; const m = EH_NO.exec(no); const s = stores[x.store].nos; s[m[2]] = (s[m[2]] || 0) + 1; }
+  });
+  // 2) 매장번호 = 그 매장 기기 번호에 가장 많이 쓰인 가운데 숫자 (층 안에서 겹치면 새 번호)
+  const taken = {}, maxNo = {};
+  stores.forEach(function (s) {
+    const best = Object.keys(s.nos).sort(function (a, b) { return s.nos[b] - s.nos[a] || a - b; })[0];
+    Object.keys(s.nos).forEach(function (n) { maxNo[s.floor] = Math.max(maxNo[s.floor] || 0, Number(n)); });
+    if (best && !taken[s.floor + '-' + best]) { s.no = Number(best); taken[s.floor + '-' + best] = 1; }
+  });
+  stores.forEach(function (s) { if (!s.no) s.no = maxNo[s.floor] = (maxNo[s.floor] || 0) + 1; });
+  // 3) 번호 없음·모양 다름·겹침 → 그 매장 다음 순번
+  let renumbered = 0;
+  items.forEach(function (x) {
+    if (x.no) return;
+    const s = stores[x.store], head = s.floor + '-' + s.no + '-';
+    let n = 0;
+    Object.keys(seen).forEach(function (k) { if (k.indexOf(head) === 0) n = Math.max(n, ehSeq_(k)); });
+    x.no = head + (n + 1); seen[x.no] = 1; renumbered++;
+  });
+  const check = { stores: stores.length, items: items.length, renumbered: renumbered, bfix: fixed, gone: items.filter(function (x) { return x.gone; }).length,
+    noDate: items.filter(function (x) { return !x.date; }).length,
+    floors: EH_FLOORS.map(function (f) { return [f, stores.filter(function (s) { return s.floor === f; }).length, items.filter(function (x) { return x.floor === f; }).length]; }) };
+  return { stores: stores, items: items, check: check };
+}
+function ehW_(s) { const m = /\d+(\.\d+)?/.exec(String(s).replace(/,/g, '')); return m ? m[0] : ''; }
+/* 2014.12.26 · 23.02.01 · 24.08,29 · 2019-11-30 → YYYY-MM-DD */
+function ehDate_(s) {
+  const m = /(\d{2,4})\s*[.,\-\/]\s*(\d{1,2})\s*[.,\-\/]\s*(\d{1,2})/.exec(String(s));
+  if (!m) return '';
+  const y = m[1].length === 2 ? '20' + m[1] : m[1], mo = Number(m[2]), d = Number(m[3]);
+  if (y.length !== 4 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+  return y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
+}
+
+/* ID {앱}-{종류}-{YYYYMMDD}-{###} — 오늘 가장 큰 번호 + 1 */
+function nextId_(kind, rows, col) {
+  const day = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd'), re = new RegExp('^WS-' + kind + '-' + day + '-(\\d+)$');
+  let n = 0;
+  rows.forEach(function (r) { const m = re.exec(r[col]); if (m) n = Math.max(n, Number(m[1])); });
+  return 'WS-' + kind + '-' + day + '-' + pad3_(n + 1);
+}
+
 /* ───────────────────────── 점검 현황 ───────────────────────── */
 
 function feStatus(token, ym) {
@@ -1494,6 +1827,23 @@ function appendRow_(name, obj) {
   const sh = db_().getSheetByName(name);
   const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
   sh.appendRow(head.map(function (h) { return asText_(obj[h]); }));
+}
+
+/* 여러 줄 한 번에 덧붙이기 (엑셀 가져오기 수천 줄) */
+function appendRows_(name, objs) {
+  if (!objs.length) return;
+  const sh = db_().getSheetByName(name);
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+  sh.getRange(sh.getLastRow() + 1, 1, objs.length, head.length).setValues(objs.map(function (o) { return head.map(function (h) { return asText_(o[h]); }); }));
+}
+/* readTable_로 읽어 고친 표 전체를 한 번에 다시 씀 (잠금 안에서만 — 읽은 뒤 다른 사람이 쓴 줄을 덮지 않게) */
+function writeBack_(t) {
+  const n = t.sheet.getLastRow() - 1;
+  if (n < 1) return;
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(t.head.map(function () { return ''; }));
+  t.rows.forEach(function (r) { if (r._row >= 2 && r._row - 2 < n) out[r._row - 2] = t.head.map(function (h) { return asText_(r[h]); }); });
+  t.sheet.getRange(2, 1, n, t.head.length).setValues(out);
 }
 
 function updateRow_(name, rowNo, patch) {

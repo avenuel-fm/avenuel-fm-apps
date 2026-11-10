@@ -354,7 +354,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true }).ok && Object.values(F).filter(f => f.trashed).length === trashed0 + 3, '결정80: 성공하면 그때 옛 파일 3개 휴지통');
   // 밖에서 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴·예약 함수는 모두 _
   const pub = [...fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(x => !/_$/.test(x));
-  const ALLOWED = ['onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit'];
+  const ALLOWED = ['onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport'];
   const extra = pub.filter(x => ALLOWED.indexOf(x) === -1);
   assert(!extra.length, '결정80: 밖에서 부를 수 있는 함수는 화면용으로 정한 것만 ' + extra.join(', '));
 }
@@ -465,4 +465,78 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(login('4826', 'pin3', SIG).ok, '결정94: 새 PIN으로 로그인');
   let blocked = false; try { blocked = !auth_(lg.token); } catch (e) { blocked = true; }
   assert(blocked, '결정94: 쓰던 기기 표는 로그아웃');
+}
+
+// 전열필증 (결정 96): 매장·기기 추가 · 관리번호 자동 · 편집 · 삭제 · 출력 · QR 보기 · 엑셀 가져오기
+{
+  NOW.d = new Date('2026-12-26T09:00:00+09:00'); CacheService.getScriptCache().remove('pinlock_all');
+  const tk = login('4826', 'eh1', SIG).token;
+  // 엑셀 가져오기 (관리대장과 같은 모양의 작은 표)
+  const blk = (floor, store, rows) => [['', '', '', '', '', '', '', '층 : ' + floor], ['', '', '', '', '', '', '', store], [],
+    ['No', '관리번호', '기기명', '사용처', '용량(W)', '제조사', '관리책임자', '', '승인일자 '], ['', '', '', '', '', '', '정', '부']].concat(rows.map((r, i) => [String(i + 1)].concat(r)));
+  const xl = {
+    '전열기 관리대장(원본)': [['No', '관리번호']],
+    'B1F': blk('B1', '고디바', [['B1-13-1', '온수기', '사용처', '3200W', 'FETCO', '지하1층파트리더', '매장관리자', '2019.11.30'], ['B1F-13-2', '커피머신', '', '2,300', '코퍼스트(폐기)', '지하1층파트리더', '매장관리자', '폐기 23.02.01']])
+      .concat(blk('B1', '고디바', [['', '냉장고', '', '78', '', '지하1층파트리더', '매장관리자', '24.08,29']]))
+      .concat(blk('B1', '조말론', [['B1-13-1', '선풍기', '', '45', '', '지하1층파트리더', '', '2015.3.18'], ['', '', '', '', '', '', '', '']])),
+    '1F': blk('1', '발렌티노', [['1F-1-1', '온풍기', '', '3000', '㈜위닉스', '1층파트리더', '매장관리자', '2014.12.26'], ['1F-1-4', '커피머신', '', '1560', '', '1층파트리더', '매장관리자', '2015.02.02']])
+  };
+  const pre = ehImport(tk, xl, false);
+  assert(pre.ok && pre.check.items === 6 && pre.check.stores === 3, '전열: 가져오기 미리 셈 (매장 3 · 기기 6, 나뉜 매장 합침)');
+  assert(pre.check.renumbered === 2 && pre.check.gone === 1 && pre.check.bfix === 1, '전열: 새 번호 2(빈 번호·겹친 번호) · 폐기 1 · B1F→B1 1');
+  assert(!sheets['전열기기'] || sheets['전열기기'].rows.length === 1, '전열: 미리 셈은 저장 안 함');
+  let r = ehImport(tk, xl, true); assert(r.ok && r.floor === '1F' && r.stores[0].name === '발렌티노', '전열: 가져오기 저장');
+  assert(!ehImport(tk, xl, true).ok, '전열: 두 번째 가져오기는 막음');
+  const b1 = ehList(tk, 'B1');
+  const gd = b1.stores.find(s => s.name === '고디바'), jm = b1.stores.find(s => s.name === '조말론');
+  assert(gd.no === 13 && gd.items.map(i => i.no).join() === 'B1-13-1,B1-13-3', '전열: 고디바 매장번호 13 · 폐기는 빠짐 · 빈 번호는 다음 순번 ' + gd.items.map(i => i.no));
+  assert(jm.no === 14 && jm.items[0].no === 'B1-14-1', '전열: 겹친 번호(B1-13-1)는 새 매장번호로 ' + jm.items[0].no);
+  assert(gd.items[0].w === '3200' && gd.items[0].date === '2019-11-30' && gd.items[1].date === '2024-08-29', '전열: 용량 W 빼기 · 날짜 모양 맞춤');
+  assert(b1.floors.find(f => f.code === 'B1').items === 3 && b1.floors.find(f => f.code === '1F').stores === 1, '전열: 층별 개수');
+  // 기기 추가 · 편집
+  assert(!ehSave(tk, { esId: gd.id, name: '', w: '10', m1: 'x', date: '2026-12-26' }).ok, '전열: 기기명 없으면 거부');
+  assert(!ehSave(tk, { esId: gd.id, name: 'a', w: '열', m1: 'x', date: '2026-12-26' }).ok, '전열: 용량 숫자 아니면 거부');
+  assert(!ehSave(tk, { esId: gd.id, name: 'a', w: '10', m1: 'x', date: '26.12.26' }).ok, '전열: 날짜 모양 거부');
+  r = ehSave(tk, { esId: gd.id, name: '전기포트', w: '1,500W', maker: '필립스', m1: '지하1층파트리더', m2: '매장관리자', date: '2026-12-26' });
+  assert(r.ok && r.saved === 'B1-13-4', '전열: 다음 순번 (지운 B1-13-2도 건너뜀) ' + r.saved);
+  const kettle = r.stores.find(s => s.name === '고디바').items.find(i => i.no === 'B1-13-4');
+  assert(kettle.w === '1500' && /^[2-9a-km-np-z]{12}$/.test(kettle.token), '전열: 용량 숫자 · QR 12자리');
+  ehPrinted(tk, [kettle.id], 'B1');
+  const one = x => x.stores.find(s => s.name === '고디바').items.find(i => i.id === kettle.id);
+  r = ehSave(tk, { id: kettle.id, name: '전기포트2', w: '1500', maker: '필립스', m1: '지하1층파트리더', m2: '매장관리자', date: '2026-12-26' });
+  assert(one(r).printed, '전열: 필증에 없는 칸(기기명) 고치면 출력 표시 그대로');
+  r = ehSave(tk, { id: kettle.id, name: '전기포트2', w: '1800', maker: '필립스', m1: '지하1층파트리더', m2: '매장관리자', date: '2026-12-26' });
+  assert(!one(r).printed, '전열: 용량 고치면 다시 「미출력」');
+  // 매장 추가 · 이름 · 삭제
+  assert(!ehStoreSave(tk, { floor: 'B1', name: '고디바' }).ok, '전열: 같은 층 같은 매장 이름 거부');
+  assert(!ehStoreSave(tk, { floor: '7F', name: 'x' }).ok, '전열: 없는 층 거부');
+  r = ehStoreSave(tk, { floor: 'B1', name: '새매장' }); const nw = r.stores.find(s => s.name === '새매장');
+  assert(nw && nw.no === 15, '전열: 새 매장번호 = 층에서 가장 큰 번호 + 1');
+  r = ehSave(tk, { esId: nw.id, name: '선풍기', w: '40', m1: '지하1층파트리더', date: '2026-12-26' }); assert(r.saved === 'B1-15-1', '전열: 새 매장 첫 기기 B1-15-1');
+  r = ehStoreSave(tk, { id: nw.id, name: '새매장2' }); assert(r.stores.some(s => s.name === '새매장2'), '전열: 매장 이름 바꾸기');
+  assert(readTable_('전열기기').rows.find(x => x['관리번호'] === 'B1-15-1')['매장명'] === '새매장2', '전열: 기기의 매장명도 바뀜');
+  r = ehStoreDelete(tk, nw.id); assert(r.count === 1 && !r.stores.some(s => s.id === nw.id), '전열: 매장 삭제 = 기기도 삭제');
+  assert(ehStoreSave(tk, { floor: 'B1', name: '또새매장' }).stores.find(s => s.name === '또새매장').no === 16, '전열: 지운 매장번호는 다시 안 씀');
+  r = ehStoreSave(tk, { floor: '팝업', name: '팝업매장' }); const pp = r.stores.find(s => s.name === '팝업매장');
+  assert(ehSave(tk, { esId: pp.id, name: '다리미', w: '1600', m1: '5F 파트리더', date: '2026-12-26' }).saved === '팝업-1-1', '전열: 팝업 번호 팝업-1-1');
+  // QR 필증 보기 · 삭제
+  const v = ehView_(kettle.token); assert(v.ok && v.item.no === 'B1-13-4' && v.item.store === '고디바' && !v.item.token, '전열: QR 필증 정보 (로그인 없음)');
+  assert(!ehView_('bad!').ok && !ehView_('zzzzzzzzzzzz').ok, '전열: 이상한·없는 QR 거부');
+  {
+    let html = '';
+    const chain = { setTitle() { return chain; }, addMetaTag() { return chain; }, setXFrameOptionsMode() { return chain; } };
+    global.HtmlService = Object.assign(global.HtmlService || {}, { XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' }, createHtmlOutputFromFile: () => ({ getContent: () => '' }),
+      createHtmlOutput(s) { html = s; return chain; } });
+    doGet({ parameter: { eh: kettle.token } }); assert(/B1-13-4/.test(html) && /시설소장/.test(html), '전열: ?eh= 주소로 필증 화면');
+    doGet({ parameter: { eh: '<x>' } }); assert(/올바르지 않습니다/.test(html) && html.indexOf('<x>') === -1, '전열: 이상한 ?eh= 값은 화면에 그대로 안 나옴');
+  }
+  r = ehDelete(tk, gd.items.map(i => i.id).concat([kettle.id]), 'B1');
+  assert(r.count === 3 && !r.stores.find(s => s.name === '고디바').items.length, '전열: 필증 일괄 삭제 ' + r.count);
+  const dv = ehView_(kettle.token); assert(!dv.ok && /삭제된 필증/.test(dv.error), '전열: 지운 필증 QR은 「삭제된 필증」');
+  // 많이 고칠 때(6줄 이상) 표 한 번에 다시 쓰기
+  for (let i = 0; i < 6; i++) ehSave(tk, { esId: pp.id, name: '기기' + i, w: '10', m1: 'x', date: '2026-12-26' });
+  const ids = ehList(tk, '팝업').stores[0].items.map(i => i.id);
+  r = ehPrinted(tk, ids, '팝업'); assert(r.count === 7 && r.stores[0].items.every(i => i.printed), '전열: 7대 출력 표시 (한 번에 쓰기)');
+  assert(readTable_('전열기기').rows.every(x => x['eh_id'] && x['qr_token']), '전열: 한 번에 다시 써도 다른 줄 그대로');
+  assert(sheets['전열기기'].rows.slice(1).every(row => row.every(c => typeof c === 'string')), '전열: 시트 값은 모두 글자 (결정 54)');
 }
