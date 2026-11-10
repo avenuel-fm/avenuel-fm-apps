@@ -539,4 +539,8 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   r = ehPrinted(tk, ids, '팝업'); assert(r.count === 7 && r.stores[0].items.every(i => i.printed), '전열: 7대 출력 표시 (한 번에 쓰기)');
   assert(readTable_('전열기기').rows.every(x => x['eh_id'] && x['qr_token']), '전열: 한 번에 다시 써도 다른 줄 그대로');
   assert(sheets['전열기기'].rows.slice(1).every(row => row.every(c => typeof c === 'string')), '전열: 시트 값은 모두 글자 (결정 54)');
+  // 엑셀 칸 서식 「매장명 : 」 빼기 · 다른 층 번호(B1 매장에 2F-1-x)는 새 번호, 매장번호도 그 층 번호로만
+  const px = ehParse_({ 'B1F': [['층 : B1'], ['매장명 : 알렉산드르'], ['No', '관리번호', '기기명'], ['1', '2F-1-1', '가'], ['2', '2F-1-2', '나'], ['3', 'B1F-58-1', '다'], ['4', '', '라']] });
+  assert(px.stores[0].name === '알렉산드르' && px.stores[0].no === 58, '전열: 「매장명 :」 빠짐 · 매장번호 58 (2F 번호 무시)');
+  assert(px.items.map(x => x.no).join() === 'B1-58-2,B1-58-3,B1-58-1,B1-58-4', '전열: 다른 층 번호는 B1-58- 다음 순번 ' + px.items.map(x => x.no));
 }

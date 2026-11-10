@@ -11,7 +11,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.8.0', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.8.1', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -1244,7 +1244,7 @@ function ehOut_(T, floor) {
     .sort(function (a, b) { return Number(a['매장번호']) - Number(b['매장번호']); })
     .map(function (x) {
       return { id: x['es_id'], no: Number(x['매장번호']) || 0, name: x['매장명'],
-        items: (by[x['es_id']] || []).sort(function (a, b) { return ehSeq_(a['관리번호']) - ehSeq_(b['관리번호']) || (a['관리번호'] < b['관리번호'] ? -1 : 1); }).map(ehItem_) };
+        items: (by[x['es_id']] || []).sort(function (a, b) { const pa = a['관리번호'].replace(/-\d+$/, ''), pb = b['관리번호'].replace(/-\d+$/, ''); return pa < pb ? -1 : pa > pb ? 1 : ehSeq_(a['관리번호']) - ehSeq_(b['관리번호']); }).map(ehItem_) };
     });
   return { ok: true, floor: floor, floors: floors, stores: list,
     names: stores.map(function (x) { return [x['층'], x['매장명'], x['es_id']]; }),
@@ -1462,7 +1462,7 @@ function ehParse_(sheets) {
       const c = (r || []).map(function (x) { return String(x == null ? '' : x).trim(); });
       if (c.some(function (x) { return /^층\s*:/.test(x); })) {
         const nx = (rows[i + 1] || []).map(function (x) { return String(x == null ? '' : x).trim(); }).filter(String);
-        const name = cleanText_(nx[0], 30);
+        const name = cleanText_(String(nx[0] || '').replace(/^매장명\s*:\s*/, ''), 30);   // 엑셀 칸 서식이 「매장명 : 」을 붙여 읽힘
         if (!name || name === '0') { cur = null; return; }
         const k = floor + '|' + name;
         if (key[k] === undefined) { key[k] = stores.length; stores.push({ floor: floor, name: name, nos: {} }); }
@@ -1492,8 +1492,9 @@ function ehParse_(sheets) {
     let no = String(x.raw).split('\n')[0].replace(/\(.*$/, '').trim();
     const b = no.replace(/^(B[1-3])F-/, '$1-');
     if (b !== no) { no = b; fixed++; }
-    x.no = EH_NO.test(no) && !seen[no] ? no : '';
-    if (x.no) { seen[no] = 1; const m = EH_NO.exec(no); const s = stores[x.store].nos; s[m[2]] = (s[m[2]] || 0) + 1; }
+    const m = EH_NO.exec(no);
+    x.no = m && m[1] === x.floor && !seen[no] ? no : '';   // 다른 층 번호(B1 매장에 2F-1-1 등)는 새 번호
+    if (x.no) { seen[no] = 1; const s = stores[x.store].nos; s[m[2]] = (s[m[2]] || 0) + 1; }
   });
   // 2) 매장번호 = 그 매장 기기 번호에 가장 많이 쓰인 가운데 숫자 (층 안에서 겹치면 새 번호)
   const taken = {}, maxNo = {};

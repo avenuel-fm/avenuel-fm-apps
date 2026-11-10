@@ -10,7 +10,7 @@ const blk = (floor, store, rows) => [['', '', '', '', '', '', '', '층 : ' + flo
 const many = (pre, n) => Array.from({ length: n }, (_, i) => [pre + (i + 1), ['선풍기', '에스프레소머신', '4도어 냉장/냉동고', '공기청정기'][i % 4], '', String([45, 1200, 546, 70][i % 4]) + 'W', i % 3 ? '삼성전자' : '', '1층파트리더', '매장관리자', '2019.11.' + String(10 + i % 20)]);
 const XL = {
   '전열기 관리대장(원본)': [['No']],
-  '1F': blk('1', '발렌티노', many('1F-1-', 12)).concat(blk('1', '아주아주긴이름의매장에비뉴엘월드타워점', many('1F-2-', 3))).concat(blk('1', '까르띠에', [['', '라지에이터', '', '3000', '', '1층파트리더', '매장관리자', '23.02.01']])),
+  '1F': blk('1', '발렌티노', many('1F-1-', 12)).concat(blk('1', '매장명 : 아주아주긴이름의매장 알렉산드르 드 파리 월드타워', many('1F-2-', 3))).concat(blk('1', '까르띠에', [['', '라지에이터', '', '3000', '', '1층파트리더', '매장관리자', '23.02.01']])),
   'B1F': blk('B1', '고디바', [['B1F-13-1', '온수기', '', '3200W', 'FETCO', '지하1층파트리더', '매장관리자', '2019.11.30']]),
   '팝업': blk('5', '필리포 피아나', [['5F-1', '스팀다리미', '', '1600', '', '5F 파트리더', '매장관리자', '25.11.01']])
 };
@@ -49,7 +49,24 @@ const FAKE_XLSX = 'window.XLSX={read:()=>({SheetNames:' + JSON.stringify(Object.
   await pc.locator('.ehtbl tbody input[type=checkbox]').first().check();
   ok(/필증 출력 \(3\)/.test(await pc.locator('.ehph').innerText()), '매장을 옮겨도 고른 것 유지 (3)');
   ok(!(await overflow(pc)), 'PC 옆 넘침 없음');
+  ok(!/매장명\s*:/.test(await pc.locator('.ehph').innerText()), '엑셀 칸 서식 「매장명 :」 빠짐');
   await pc.screenshot({ path: 'shot_eh_pc.png' });
+  // 여러 PC 해상도: 표·단추가 잘리지 않음 (긴 매장명). 1024보다 좁으면 매장 상자 화면
+  for (const w of [1024, 1152, 1280, 1440, 1920]) {
+    await pc.setViewportSize({ width: w, height: 800 }); await pc.waitForSelector('.ehtbl');
+    const cut = await pc.evaluate(() => { const p = document.querySelector('.ehpanel').getBoundingClientRect(), t = document.querySelector('.ehtw');
+      return [...document.querySelectorAll('.ehph button, .ehtbl th')].some(e => e.getBoundingClientRect().right > p.right + 1) || t.scrollWidth > t.clientWidth + 1; });
+    ok(!cut && !(await overflow(pc)), 'PC ' + w + 'px: 표·단추 잘림 없음');
+    if (w === 1024) await pc.screenshot({ path: 'shot_eh_pc1024.png' });
+  }
+  await pc.setViewportSize({ width: 960, height: 800 }); await pc.waitForSelector('.ehst');
+  ok(!(await overflow(pc)) && /출력/.test(await pc.locator('.nwbar').innerText()), '960px: 매장 상자 화면 · 아래 막대에 출력 단추');
+  await pc.setViewportSize({ width: 1366, height: 900 }); await pc.waitForSelector('.ehtbl');
+  // 검색창: 글자를 칠 때 입력칸을 새로 만들지 않음 (새로 만들면 한글 조합이 끊겨 ㄱㅏ처럼 따로 들어감)
+  await pc.evaluate(() => { window.__q = document.getElementById('ehQ'); });
+  await pc.click('#ehQ'); await pc.keyboard.insertText('알렉');
+  ok(await pc.evaluate(() => window.__q === document.getElementById('ehQ') && document.activeElement === window.__q && window.__q.value === '알렉'), '검색창 그대로 (한글 조합 안 끊김)');
+  await pc.waitForSelector('.row:has-text("알렉산드르")'); await pc.fill('#ehQ', ''); await pc.waitForSelector('.ehtbl');
   await pc.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
   await pc.click('button:has-text("필증 출력")'); await pc.waitForSelector('text=필증 미리보기');
   const lab = await pc.$$eval('.ehpv .ehl', ls => ls.map(l => {
