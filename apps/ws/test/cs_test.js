@@ -9,7 +9,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await fetch('http://localhost:8123/seed');
   const SG = fs.readFileSync(__dirname + '/sig_b64.txt', 'utf8');
   await run('addStaff_', '공사관리', '4321', '전방파트', '관리자');
-  await run('login', '4321', 'x', SG);   // 오늘 서명 미리 (PIN만 누르면 들어가게)
+  await run('login', '4321', 'x', SG); await run('login', '5678', 'x', SG);   // 오늘 서명 미리 (PIN만 누르면 들어가게)
   const b = await chromium.launch();
   const errs = [];
   const open = async (pin) => {
@@ -85,9 +85,11 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.click('.csrow:has-text("3F 메종키츠네") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit h3:has-text("양중 작업")').count() === 1 && await p.locator('.csit h3:has-text("고소·사다리")').count() === 0, '새 점검은 고친 기본 항목으로');
 
-  // 직원(관리자 아님)은 기본 항목 단추 없음
-  const q = await open('1234');
-  ok(await q.locator('button:has-text("기본 항목 고치기")').count() === 0, '관리자 아니면 기본 항목 단추 없음');
+  // 소장(홍길동)은 단추 있음, 직원(김철수)은 없음
+  const z = await open('1234');
+  ok(await z.locator('button:has-text("기본 항목 고치기")').count() === 1, '소장도 기본 항목 단추 있음');
+  const q = await open('5678');
+  ok(await q.locator('button:has-text("기본 항목 고치기")').count() === 0, '직원은 기본 항목 단추 없음');
   ok(!errs.length, '화면 오류 없음 ' + errs.join(' / '));
   await b.close();
 })().catch(e => { console.log('FAIL ' + e.message); process.exit(1); });

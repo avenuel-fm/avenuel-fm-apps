@@ -552,6 +552,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   const ad = login('3141', 'cs1', SIG).token, st = login('2718', 'cs2', SIG).token;
   let hm = csHome(st); assert(hm.ok && hm.items.length === 9 && !hm.admin && hm.day === '2026-12-28', '공사: 기본 항목 9개 · 직원은 관리자 아님');
   assert(csHome(ad).admin, '공사: 관리자');
+  assert(csHome(login('1234', 'cs0', SIG).token).admin, '공사: 소장도 기본 항목 고침');
   assert(!csSiteSave(st, { name: '' }).ok, '공사: 현장 이름 없으면 거부');
   let r = csSiteSave(st, { name: '5F 리모와', work: '매장 철거', co: '대성' }); assert(r.ok && r.sites.length === 1, '공사: 현장 추가');
   assert(!csSiteSave(st, { name: '5F 리모와' }).ok, '공사: 같은 이름 거부');

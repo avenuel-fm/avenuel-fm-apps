@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.0', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.1', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -1565,7 +1565,7 @@ function csTabs_() {
     lock.releaseLock();
   }
 }
-function csAdmin_(me) { return me['역할'] === '관리자'; }   // 기본 항목은 관리자만 고침 (사용자 11-11)
+function csAdmin_(me) { return me['역할'] === '관리자' || me['역할'] === '소장'; }   // 기본 항목은 관리자·소장만 고침 (사용자 11-11)
 function csItems_() {
   return readTable_('공사점검항목').rows.filter(function (r) { return r['사용여부'] !== 'N' && r['항목']; })
     .sort(function (a, b) { return Number(a['순서']) - Number(b['순서']); })
@@ -1639,10 +1639,10 @@ function csSiteEnd(token, id) {
   }
 }
 
-/** 기본 항목 바꾸기 (관리자만): 화면의 목록 전체 [{t, d}]를 받아 순서대로 씀. 빠진 항목은 사용여부 N (줄은 남김) */
+/** 기본 항목 바꾸기 (관리자·소장만): 화면의 목록 전체 [{t, d}]를 받아 순서대로 씀. 빠진 항목은 사용여부 N (줄은 남김) */
 function csItemsSave(token, list) {
   const me = auth_(token);
-  if (!csAdmin_(me)) return { ok: false, error: '기본 항목은 관리자만 고칠 수 있습니다.' };
+  if (!csAdmin_(me)) return { ok: false, error: '기본 항목은 관리자·소장만 고칠 수 있습니다.' };
   if (!Array.isArray(list) || !list.length || list.length > CS_MAX_ITEMS) return { ok: false, error: '항목은 1~' + CS_MAX_ITEMS + '개로 해 주세요.' };
   const items = list.map(function (x) { return { t: cleanText_(x && x.t, 30), d: cleanText_(x && x.d, 100) }; });
   if (items.some(function (x) { return !x.t; })) return { ok: false, error: '항목 이름이 빈 줄이 있습니다.' };
