@@ -578,6 +578,8 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   r = csSave(ad, g.date, site, items2.map((x, i) => Object.assign({}, x, { photos: i === 0 ? [{ id: ids[1] }] : [] })));
   r = csSave(ad, g.date, site, items2.map((x, i) => Object.assign({}, x, { photos: i === 0 ? [{ id: ids[1] }, { data: pic, at: '10:40' }] : [] })));
   assert(/_004\.jpg$/.test(files[r.items[0][1]].name) && files[id3].trashed, '공사: 지운 번호는 다시 안 씀 (004)');
+  r = csSave(ad, g.date, site, items2.map((x, i) => Object.assign({}, x, { photos: i === 5 ? Array.from({ length: 7 }, (_, k) => ({ data: pic, at: '11:0' + k })) : i === 0 ? [{ id: ids[1] }, { id: r.items[0][1] }] : [] })));
+  assert(r.ok && r.items[5].length === 6, '공사: 사진은 항목당 6장까지 (7장 보내면 6장)');
   g = csGet(st, '2026-12-28', site);
   assert(g.check && g.items.length === 10 && g.items[0].photos.length === 2 && g.items[0].photos[0].src.indexOf('data:image/jpeg') === 0 && g.items[9].extra, '공사: 다시 열면 저장한 내용 · 사진');
   assert(!csSavePdf(st, g.check.id, 'x').ok, '공사: 이상한 PDF 거부');

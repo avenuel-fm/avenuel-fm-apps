@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.3', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.4', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -1596,7 +1596,7 @@ function ehDate_(s) {
 
 const CS_TABS = ['공사현장', '공사점검항목', '공사점검'];
 const CS_ST = ['양호', '미흡', '해당없음'];
-const CS_MAX_PHOTOS = 4, CS_MAX_ITEMS = 30;
+const CS_MAX_PHOTOS = 6, CS_MAX_ITEMS = 30;   // 사진은 항목당 6장 (한 줄 3장 × 2줄, 11-11)
 /* 기본 점검 항목 9개 (사용자 첨부 「현장 일일 안전점검 보고서」 5개 + 4개, 11-11 확정) — 앱에서 관리자가 더하고 지움 */
 const CS_SEED = [
   ['비치서류', '공정표, 위험성평가표, 작업허가서, MSDS(물질안전보건자료), 작업자 명단 비치'],

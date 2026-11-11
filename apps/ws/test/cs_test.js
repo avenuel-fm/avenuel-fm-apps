@@ -19,7 +19,9 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
     const p = await c.newPage(); p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
     await p.goto('http://localhost:8123/index'); await p.locator('.key').first().waitFor();
     for (const k of pin) await p.click(`.key:text-is("${k}")`);
-    await p.waitForSelector('.grid6'); await p.click('.tile:has(b:text-is("점검"))'); await p.click('text=공사장 점검');
+    await p.waitForSelector('.grid6'); await p.click('.tile:has(b:text-is("점검"))'); await p.waitForSelector('text=공사장 점검');
+    if (pin === '4321') ok(await p.locator('.row').count() === 3 && !(await p.locator('text=일일 점검').count()) && !(await p.locator('text=월간 점검').count()), '점검 메뉴: 소화기·전열필증·공사장 3개 (일일·월간 없음)');
+    await p.click('text=공사장 점검');
     await p.waitForSelector('.cshd'); return p;
   };
   const overflow = p => p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
@@ -37,15 +39,28 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.click('.csrow:has-text("5F 리모와") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit').count() === 9, '기본 항목 9개');
   ok(/처음 저장할 때/.test(await p.locator('.csmeta').innerText()), '저장 전: 점검 시각은 처음 저장할 때');
+  ok(await p.locator('.csit').nth(0).locator('label.ph43').count() === 3, '사진 빈 칸 3개 기본');
+  { // 항목 9에 사진 6장: 3장 뒤 「사진 추가」 1칸(두 번째 줄), 6장이면 칸 없음
+    const it = p.locator('.csit').nth(8);
+    for (let n = 1; n <= 6; n++) {
+      await it.locator('input[type=file]').first().setInputFiles(__dirname + '/gauge.jpg');
+      await p.waitForFunction(k => document.querySelectorAll('.csit')[8].querySelectorAll('img').length === k, n);
+      await p.waitForSelector('.csst.ok', { timeout: 10000 });   // 자동 저장 뒤 다시 그린 다음에 봄
+      if (n === 4) await it.screenshot({ path: __dirname + '/shot_cs_photos.png' });
+      if (n === 3) ok(await it.locator('label.ph43').count() === 1 && /사진 추가/.test(await it.locator('label.ph43').innerText()), '3장 뒤 「사진 추가」 1칸');
+      if (n === 3) { const y = await it.locator('.csph > *').evaluateAll(e => e.map(x => Math.round(x.getBoundingClientRect().top))); ok(y[3] > y[0] && y[0] === y[2], '4번째 칸은 두 번째 줄'); }
+    }
+    ok(await it.locator('label.ph43').count() === 0 && await it.locator('img').count() === 6, '6장이면 더 넣는 칸 없음');
+  }
   const seg = (i, s) => p.locator('.csit').nth(i).locator(`.csseg button:text-is("${s}")`).click();
   for (const i of [0, 1, 2, 4, 5, 8]) await seg(i, '양호');
   await seg(6, '해당없음'); await seg(3, '미흡'); await seg(7, '미흡');
   await p.locator('.csit').nth(3).locator('textarea').fill('3구역 감지기 덮개 씌운 채 퇴근. 업체에 해제 요청.');
-  await p.locator('.csit').nth(0).locator('input[type=file]').setInputFiles(__dirname + '/gauge.jpg');
+  await p.locator('.csit').nth(0).locator('input[type=file]').first().setInputFiles(__dirname + '/gauge.jpg');
   await p.waitForSelector('.csit >> nth=0 >> img');
-  await p.locator('.csit').nth(3).locator('input[type=file]').setInputFiles(__dirname + '/gauge.jpg');
+  await p.locator('.csit').nth(3).locator('input[type=file]').first().setInputFiles(__dirname + '/gauge.jpg');
   await p.locator('.csit').nth(3).locator('img').first().waitFor();
-  await p.locator('.csit').nth(3).locator('input[type=file]').setInputFiles(__dirname + '/gauge.jpg');
+  await p.locator('.csit').nth(3).locator('input[type=file]').first().setInputFiles(__dirname + '/gauge.jpg');
   await p.waitForFunction(() => document.querySelectorAll('.csit')[3].querySelectorAll('img').length === 2);
   ok(/미흡 2 · 양호 6 · 해당없음 1/.test(await p.locator('.csbar').innerText()), '아래 막대 셈: 미흡 2 · 양호 6 · 해당없음 1');
   ok(await p.locator('.csit.bad').count() === 2, '미흡 항목 빨간 테두리 2');
