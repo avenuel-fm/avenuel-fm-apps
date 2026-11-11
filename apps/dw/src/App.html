@@ -1891,29 +1891,49 @@ var GuideIndexer = (function () {
     var n = agreeChecks().filter(Boolean).length, r = S.review;
     return '해당 ' + n + '개 · 책임자 서명 ' + (r.agreeRespSig ? '✓' : '없음') + ' · 롯데백화점 담당자 서명 ' + (r.agreeLotteSig ? '✓' : '없음');
   }
-  function openAgree() {
-    var r = S.review, locked = isLocked(), ck = agreeChecks(), off = locked ? ' disabled' : '';
+  /** 동의서 양식 HTML. print: 출력 쪽용 (체크 칸 ☑/☐, 서명은 그림 또는 빈 밑줄) */
+  function agreePaperHtml(print) {
+    var r = S.review, off = isLocked() ? ' disabled' : '', ck = agreeChecks();
     var d = String(r.reviewDate || todayISO()).match(/^(\d{4})-(\d{2})-(\d{2})/) || [];
     var lines = function (a) { return a.map(function (t) { return esc(t).replace(/^( +)/, function (s) { return s.replace(/ /g, '&nbsp;'); }); }).join('<br>'); };
     var sign = function (key, who) {
+      var img = r[key] ? '<img alt="" src="' + esc(r[key]) + '">' : '';
+      if (print) return '<span class="agsig pr">' + img + '</span>';
       return '<button type="button" class="agsig' + (r[key] ? ' has' : '') + '" data-agsig="' + key + '" data-who="' + esc(who) + '"' + off + ' aria-label="' + esc(who) + (r[key] ? ' 서명 완료, 다시 서명' : ' 서명하기') + '">' +
-        (r[key] ? '<img alt="" src="' + esc(r[key]) + '">' : '눌러서 서명') + '</button>';
+        (img || '눌러서 서명') + '</button>';
     };
     var rows = AGREE_ROWS.map(function (x, i) {
       var g = x[0] && x[1] ? '<td class="c" rowspan="3">' + x[0] + '</td><td class="c">' + x[1] + '</td>' : x[0] ? '<td class="c" colspan="2">' + x[0] + '</td>' : '<td class="c">' + x[1] + '</td>';
-      return '<tr><td class="c"><input type="checkbox" data-agi="' + i + '"' + (ck[i] ? ' checked' : '') + off + ' aria-label="' + esc(x[0] || x[1]).replace(/<br>/g, ' ') + ' 해당"></td>' + g +
+      var box = print ? '<span class="ag-ck">' + (ck[i] ? '☑' : '☐') + '</span>'
+        : '<input type="checkbox" data-agi="' + i + '"' + (ck[i] ? ' checked' : '') + off + ' aria-label="' + esc(x[0] || x[1]).replace(/<br>/g, ' ') + ' 해당">';
+      return '<tr><td class="c">' + box + '</td>' + g +
         '<td>' + lines(x[2]) + '</td>' + (i === 0 ? '<td rowspan="' + AGREE_ROWS.length + '" class="ag-note">' + lines(AGREE_NOTE) + '</td>' : '') + '</tr>';
     }).join('');
-    layer.innerHTML = '<div class="overlay no-print"><section class="dialog agree-dlg" role="dialog" aria-modal="true" aria-label="안전관리규정 준수 동의서">' +
-      '<div class="ag-paper"><div class="ag-tag">공 통</div><h3 class="ag-title">안전관리규정 준수 동의서</h3>' +
-      '<div class="ag-head">■ 롯데백화점 <u>' + esc(r.tenant || '　　　　') + '</u> 店 <u>　　　　　　</u> 공사 「안전관리규정 준수 동의서」</div>' +
+    return '<div class="ag-paper"><div class="ag-tag">공 통</div><h3 class="ag-title">안전관리규정 준수 동의서</h3>' +
+      '<div class="ag-head">■ 롯데백화점 잠실 店 에비뉴엘 <u>' + esc(r.tenant || '　　　　　　') + '</u> 공사 「안전관리규정 준수 동의서」</div>' +
       '<div class="ag-scroll"><table class="ag-tbl"><thead><tr><th style="width:44px">해당<br>여부</th><th colspan="2">구 분</th><th>주요 사항(세부내용 위헙작업별 매뉴얼 참조)</th><th style="width:230px">비 고</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<p class="ag-pledge">※ 상기 롯데백화점 안전관리규정을 철저히 준수하여 공사를 진행하고, 상기 사항 外 안전규정은 산업안전보건법 및 기타 관계 법령의 규정을 철저히 준수 할 것을 확인 합니다.</p>' +
       '<p class="ag-pen">※ 패널티 적용 세부내용<br>&nbsp;&nbsp;旣 공사도급 계약서 명기</p>' +
       '<div class="ag-foot"><div class="ag-date">' + (d[1] || '') + ' 년 ' + (d[2] ? Number(d[2]) : '') + ' 월 ' + (d[3] ? Number(d[3]) : '') + ' 일</div>' +
       '<div class="ag-line">* 업체명 : <b>' + esc(r.tenant || '') + '</b></div>' +
       '<div class="ag-line">* 책임자 : ' + sign('agreeRespSig', '안전관리 동의서 책임자') + ' (서명)</div>' +
-      '<div class="ag-line">* 롯데백화점 담당자 : 발주부서 담당자 ' + sign('agreeLotteSig', '안전관리 동의서 롯데백화점 담당자') + ' (서명)</div></div></div>' +
+      '<div class="ag-line">* 롯데백화점 담당자 : 발주부서 담당자 ' + sign('agreeLotteSig', '안전관리 동의서 롯데백화점 담당자') + ' (서명)</div></div></div>';
+  }
+  /** 출력 맨 끝 쪽: 가로로 긴 양식을 1000px 폭으로 그린 뒤 A4 세로 폭에 맞춰 줄임 (높이도 넘으면 더 줄임) */
+  function agreePageHtml() {
+    return '<div class="page ag-page"><div class="agp">' + agreePaperHtml(true) + '</div>' +
+      '<div class="pfoot" style="padding-top:6px"><span>문서번호 ' + esc(S.store ? S.store.docNo : '') + ' · ' + S.round + '차 검토 · 안전관리규정 준수 동의서</span><span class="pnum"></span></div></div>';
+  }
+  function fitAgreePage(page) {
+    var a = $('.agp', page), foot = $('.pfoot', page), cs = getComputedStyle(page);
+    var w = page.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    var h = page.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - foot.offsetHeight - 6;
+    var k = Math.min(w / a.offsetWidth, h / a.scrollHeight);
+    a.style.transform = 'scale(' + k + ')';
+    a.style.marginBottom = (a.scrollHeight * k - a.scrollHeight) + 'px';
+  }
+  function openAgree() {
+    layer.innerHTML = '<div class="overlay no-print"><section class="dialog agree-dlg" role="dialog" aria-modal="true" aria-label="안전관리규정 준수 동의서">' + agreePaperHtml(false) +
       '<div class="acts"><button type="button" class="btn pri main-act" id="agClose">닫기</button></div></section></div>';
     $$('[data-agi]', layer).forEach(function (cb) {
       cb.onchange = function () {
@@ -3530,7 +3550,7 @@ var GuideIndexer = (function () {
   }
 
   /** 출력 쪽 만들기 (화면 출력용 #pages, 또는 편집칸 별지 경계 계산용 숨은 칸) */
-  function buildPages(host) {
+  function buildPages(host, notesOnly) {
     host.innerHTML = '<div class="page-holder">' + page1Html() + '</div>';
     var page1 = $('.page', host);
     fitPage(page1);
@@ -3552,6 +3572,13 @@ var GuideIndexer = (function () {
       var before = queue.length + '|' + (queue[0] ? queue[0].o + ':' + queue[0].t.length : '');
       fill(inb, queue, ctx);
       if (queue.length + '|' + (queue[0] ? queue[0].o + ':' + queue[0].t.length : '') === before) break; // 안전장치
+    }
+    if (!notesOnly) { // 안전관리규정 준수 동의서는 늘 맨 끝 쪽 (DW-6)
+      var ah = document.createElement('div');
+      ah.className = 'page-holder';
+      ah.innerHTML = agreePageHtml();
+      host.appendChild(ah);
+      fitAgreePage($('.page', ah));
     }
     return { pages: $$('.page', host), boxes: boxes };
   }
