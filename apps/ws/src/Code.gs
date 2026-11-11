@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.4', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.5', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -35,7 +35,7 @@ const SHEETS = {
   '전열기기': ['eh_id', 'es_id', '층', '매장명', '관리번호', '기기명', '용량W', '제조사', '책임자정', '책임자부', '승인일자', 'qr_token', '출력일시', '사용여부', '등록일시', '등록자', '수정일시', '삭제일시'],
   '공사현장': ['cs_id', '현장명', '공사내용', '업체', '사용여부', '등록일시', '등록자', '끝낸일시'],
   '공사점검항목': ['순서', '항목', '설명', '사용여부', '바꾼사람', '바꾼시각'],
-  '공사점검': ['ck_id', '점검일', 'cs_id', '현장명', '공사내용', '업체', '점검자_id', '점검자', '점검시각', '항목', '양호', '미흡', '해당없음', '사진번호', 'pdf_id', 'PDF만든시각', '수정시각', '고친사람', '삭제여부'],
+  '공사점검': ['ck_id', '점검일', 'cs_id', '현장명', '공사내용', '업체', '점검자_id', '점검자', '점검시각', '항목', '양호', '미흡', '해당없음', '사진번호', 'pdf_id', 'PDF만든시각', '수정시각', '고친사람', '삭제여부', '회차'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
 
@@ -1596,7 +1596,8 @@ function ehDate_(s) {
 
 const CS_TABS = ['공사현장', '공사점검항목', '공사점검'];
 const CS_ST = ['양호', '미흡', '해당없음'];
-const CS_MAX_PHOTOS = 6, CS_MAX_ITEMS = 30;   // 사진은 항목당 6장 (한 줄 3장 × 2줄, 11-11)
+const CS_MAX_PHOTOS = 6, CS_MAX_ITEMS = 30;
+const CS_ROUNDS = ['오전', '오후', '작업종료'];   // 하루 3번, 순서대로 1·2·3회차 (사용자 11-11)   // 사진은 항목당 6장 (한 줄 3장 × 2줄, 11-11)
 /* 기본 점검 항목 9개 (사용자 첨부 「현장 일일 안전점검 보고서」 5개 + 4개, 11-11 확정) — 앱에서 관리자가 더하고 지움 */
 const CS_SEED = [
   ['비치서류', '공정표, 위험성평가표, 작업허가서, MSDS(물질안전보건자료), 작업자 명단 비치'],
@@ -1612,8 +1613,12 @@ const CS_SEED = [
 
 /** 탭이 없으면 만들고 기본 항목 9개를 넣음 (두 사람이 처음 동시에 열어도 한 번만) */
 function csTabs_() {
-  const ss = db_(), it = ss.getSheetByName('공사점검항목');
-  if (it && it.getLastRow() > 1 && ss.getSheetByName('공사현장') && ss.getSheetByName('공사점검')) return;
+  const ss = db_(), it = ss.getSheetByName('공사점검항목'), ck = ss.getSheetByName('공사점검');
+  if (ck) {   // v0.9.4까지 만든 탭엔 「회차」 열이 없음 → 맨 끝에 붙임 (빈 칸 = 1회차 오전)
+    const head = ck.getRange(1, 1, 1, ck.getLastColumn()).getValues()[0].map(String);
+    if (head.indexOf('회차') === -1) ck.getRange(1, head.length + 1, 1, 1).setValues([['회차']]);
+  }
+  if (it && it.getLastRow() > 1 && ss.getSheetByName('공사현장') && ck) return;
   ensureTabs_(CS_TABS);
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -1632,19 +1637,21 @@ function csItems_() {
 }
 function csSites_() { return readTable_('공사현장').rows.filter(function (r) { return r['사용여부'] !== 'N'; }); }
 function csSiteOut_(r) { return { id: r['cs_id'], name: r['현장명'], work: r['공사내용'], co: r['업체'] }; }
+function csRound_(r) { return Number(r['회차']) || 1; }
+function csRoundArg_(n) { n = Number(n); return n >= 1 && n <= 3 && Math.floor(n) === n ? n : 0; }
 function csCheckOut_(r) {
-  return { id: r['ck_id'], date: r['점검일'], site: r['cs_id'], name: r['현장명'], by: r['점검자'], at: r['점검시각'], ok: Number(r['양호']) || 0, bad: Number(r['미흡']) || 0, na: Number(r['해당없음']) || 0,
+  return { id: r['ck_id'], date: r['점검일'], site: r['cs_id'], round: csRound_(r), name: r['현장명'], work: r['공사내용'], co: r['업체'], by: r['점검자'], at: r['점검시각'], ok: Number(r['양호']) || 0, bad: Number(r['미흡']) || 0, na: Number(r['해당없음']) || 0,
     saved: r['수정시각'], pdf: r['pdf_id'] ? { url: driveUrl_(r['pdf_id']), at: r['PDF만든시각'] } : null, stale: !!(r['pdf_id'] && r['수정시각'] > r['PDF만든시각']) };
 }
 function csFolder_(date) { return folderPath_(['시설팀 통합업무', '20_업무지원', '점검', '공사장점검', date.slice(0, 4), date.slice(0, 7)]); }
 function csDate_(date) { return /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? String(date) : workDay_(Date.now()); }
 
-/** 첫 화면: 오늘(근무일) · 진행 중 현장 · 오늘 점검 결과 · 지난 점검(최근 300줄) · 기본 항목 */
+/** 첫 화면: 오늘(근무일) · 진행 중 현장 · 오늘 점검 결과 · 지난 점검(전부 — 검색용, 항목 JSON은 안 보냄) · 기본 항목 */
 function csHome(token) {
   const me = auth_(token);
   csTabs_();
   const day = workDay_(Date.now());
-  const checks = readTail_('공사점검', 300).rows.filter(function (r) { return r['삭제여부'] !== 'Y'; }).map(csCheckOut_);
+  const checks = readTable_('공사점검').rows.filter(function (r) { return r['삭제여부'] !== 'Y'; }).map(csCheckOut_);
   return {
     ok: true, day: day, admin: csAdmin_(me), items: csItems_(),
     sites: csSites_().map(csSiteOut_),
@@ -1725,21 +1732,29 @@ function csItemsSave(token, list) {
   }
 }
 
-function csRow_(date, siteId) {
-  return readTable_('공사점검').rows.filter(function (r) { return r['점검일'] === date && r['cs_id'] === siteId && r['삭제여부'] !== 'Y'; })[0] || null;
+/** 그날 그 현장의 점검 줄들 (회차 순) */
+function csDayRows_(date, siteId) {
+  return readTable_('공사점검').rows.filter(function (r) { return r['점검일'] === date && r['cs_id'] === siteId && r['삭제여부'] !== 'Y'; })
+    .sort(function (a, b) { return csRound_(a) - csRound_(b); });
+}
+function csRow_(date, siteId, round) {
+  return csDayRows_(date, siteId).filter(function (r) { return csRound_(r) === (round || 1); })[0] || null;
 }
 
-/** 현장 하나의 그날 점검: 저장한 것이 있으면 그 항목(사진은 data URL), 없으면 기본 항목으로 새 점검 */
-function csGet(token, date, siteId) {
+/** 현장 하나의 그날 한 회차: 저장한 것이 있으면 그 항목(사진은 data URL), 없으면 기본 항목으로 빈 점검.
+ *  회차를 안 주면 아직 안 한 첫 회차 (3회차까지 다 했으면 3회차) */
+function csGet(token, date, siteId, round) {
   auth_(token);
   csTabs_();
   date = csDate_(date);
-  const row = csRow_(date, siteId);
+  const day = csDayRows_(date, siteId), done = day.map(csRound_);
+  round = csRoundArg_(round) || [1, 2, 3].filter(function (n) { return done.indexOf(n) === -1; })[0] || 3;
+  const row = day.filter(function (r) { return csRound_(r) === round; })[0] || null;
   const site = row ? { id: row['cs_id'], name: row['현장명'], work: row['공사내용'], co: row['업체'] } : (csSites_().filter(function (r) { return r['cs_id'] === siteId; }).map(csSiteOut_)[0] || null);
   if (!site) return { ok: false, error: '현장을 찾지 못했습니다. 새로고침해 주세요.' };
   const items = row ? jsonOr_(row['항목'], []) : csItems_().map(function (x) { return { t: x.t, d: x.d, st: '', memo: '', photos: [] }; });
   items.forEach(function (x) { x.photos = (x.photos || []).map(function (p) { return { id: p.id, at: p.at, src: fileB64_(p.id) }; }); });
-  return { ok: true, date: date, site: site, items: items, check: row ? csCheckOut_(row) : null };
+  return { ok: true, date: date, round: round, site: site, items: items, check: row ? csCheckOut_(row) : null, rounds: day.map(csCheckOut_) };
 }
 
 function csCleanItems_(list) {
@@ -1757,9 +1772,10 @@ function csCleanItems_(list) {
  * 저장 (자동 저장도 이것): 항목 전체 + 새 사진(data). 새 사진은 드라이브에 저장하고 id를 돌려줌.
  * 점검자·점검시각 = 처음 저장한 사람·시각 (결정 100). 뺀 사진은 시트를 다 쓴 뒤 휴지통 (결정 80과 같은 순서)
  */
-function csSave(token, date, siteId, list) {
+function csSave(token, date, siteId, list, round) {
   const me = auth_(token);
   date = csDate_(date);
+  round = csRoundArg_(round) || 1;
   const items = csCleanItems_(list);
   if (!items) return { ok: false, error: '항목은 1~' + CS_MAX_ITEMS + '개로 해 주세요.' };
   for (const x of items) for (const p of x.photos) {
@@ -1769,13 +1785,13 @@ function csSave(token, date, siteId, list) {
   const lock = LockService.getScriptLock();
   lock.waitLock(25000);
   try {
-    const row = csRow_(date, siteId);
+    const row = csRow_(date, siteId, round);
     const site = row ? { name: row['현장명'], work: row['공사내용'], co: row['업체'] } : csSites_().filter(function (r) { return r['cs_id'] === siteId; }).map(function (r) { return { name: r['현장명'], work: r['공사내용'], co: r['업체'] }; })[0];
     if (!site) return { ok: false, error: '현장을 찾지 못했습니다. 새로고침해 주세요.' };
     const oldN = {};   // 예전 사진 id → 파일 번호. 화면이 보낸 id는 이 점검의 사진일 때만 받음
     if (row) jsonOr_(row['항목'], []).forEach(function (x) { (x.photos || []).forEach(function (p) { oldN[p.id] = Number(p.n) || 0; }); });
     let seq = Math.max.apply(null, [Number(row && row['사진번호']) || 0].concat(Object.keys(oldN).map(function (k) { return oldN[k]; })));   // 지운 사진 번호도 다시 안 씀
-    const base = date + '_공사장점검-' + safeName_(site.name), used = {};
+    const base = date + '_공사장점검-' + safeName_(site.name) + '_' + CS_ROUNDS[round - 1], used = {};
     items.forEach(function (x) {
       x.photos = x.photos.filter(function (p) { return p.data || oldN[p.id] !== undefined; });
       x.photos.forEach(function (p) { if (p.id && !p.data) { used[p.id] = true; p.n = oldN[p.id]; } });
@@ -1785,7 +1801,7 @@ function csSave(token, date, siteId, list) {
       x.photos.forEach(function (p) {
         if (!p.data) return;
         p.n = ++seq;
-        p.id = saveBlob_(folder, parseDataUrl_(p.data, 'image/jpeg', 1000, 4000000), base + '_' + pad3_(p.n) + '.jpg', '공사장 점검 ' + date + ' · ' + site.name + ' · ' + x.t + ' · ' + me['이름']);
+        p.id = saveBlob_(folder, parseDataUrl_(p.data, 'image/jpeg', 1000, 4000000), base + '_' + pad3_(p.n) + '.jpg', '공사장 점검 ' + date + ' ' + CS_ROUNDS[round - 1] + ' · ' + site.name + ' · ' + x.t + ' · ' + me['이름']);
         delete p.data;
       });
     });
@@ -1797,16 +1813,18 @@ function csSave(token, date, siteId, list) {
     if (row) { id = row['ck_id']; updateRow_('공사점검', row._row, patch); }
     else {
       id = nextId_('CK', readTable_('공사점검').rows, 'ck_id');
-      appendRow_('공사점검', Object.assign(patch, { 'ck_id': id, '점검일': date, 'cs_id': siteId, '현장명': site.name, '공사내용': site.work, '업체': site.co, '점검자_id': me['staff_id'], '점검자': me['이름'], '점검시각': at, '삭제여부': 'N' }));
+      appendRow_('공사점검', Object.assign(patch, { 'ck_id': id, '점검일': date, 'cs_id': siteId, '현장명': site.name, '공사내용': site.work, '업체': site.co, '점검자_id': me['staff_id'], '점검자': me['이름'], '점검시각': at, '삭제여부': 'N', '회차': String(round) }));
     }
     Object.keys(oldN).forEach(function (o) { if (!used[o]) trashFile_(o); });
-    return { ok: true, items: items.map(function (x) { return x.photos.map(function (p) { return p.id; }); }), check: csCheckOut_(csRow_(date, siteId)) };
+    const day = csDayRows_(date, siteId);
+    return { ok: true, items: items.map(function (x) { return x.photos.map(function (p) { return p.id; }); }), check: csCheckOut_(day.filter(function (r) { return csRound_(r) === round; })[0]), rounds: day.map(csCheckOut_) };
   } finally {
     lock.releaseLock();
   }
 }
 
-/** 화면이 만든 A4 PDF (날짜별·현장별 1개, 사용자 11-11)를 저장. 다시 만들면 예전 PDF는 휴지통 */
+/** 화면이 만든 A4 PDF (현장마다 하루 1개 — 오전·오후·작업종료를 한 파일에, 사용자 11-11)를 저장.
+ *  그날 그 현장의 모든 회차 줄에 같은 pdf_id를 적음. 다시 만들면 예전 PDF는 휴지통 */
 function csSavePdf(token, ckId, dataUri) {
   const me = auth_(token);
   const m = /^data:application\/pdf[^,]*;base64,(.+)$/.exec(String(dataUri || ''));
@@ -1819,11 +1837,12 @@ function csSavePdf(token, ckId, dataUri) {
     const row = readTable_('공사점검').rows.filter(function (r) { return r['ck_id'] === ckId && r['삭제여부'] !== 'Y'; })[0];
     if (!row) return { ok: false, error: '먼저 저장해 주세요' };
     const id = saveBlob_(csFolder_(row['점검일']), Utilities.newBlob(bytes, 'application/pdf'), row['점검일'] + '_공사장점검-' + safeName_(row['현장명']) + '.pdf', '공사장 점검 ' + row['점검일'] + ' · ' + row['현장명'] + ' · ' + me['이름']);
-    const shared = shareLink_(id);
-    updateRow_('공사점검', row._row, { 'pdf_id': id, 'PDF만든시각': now_() });
-    trashFile_(row['pdf_id']);
+    const shared = shareLink_(id), at = now_(), old = {};
+    csDayRows_(row['점검일'], row['cs_id']).forEach(function (r) { if (r['pdf_id']) old[r['pdf_id']] = true; updateRow_('공사점검', r._row, { 'pdf_id': id, 'PDF만든시각': at }); });
+    Object.keys(old).forEach(trashFile_);
     log_(me['이름'], '공사장 점검 PDF', ckId, row['점검일'] + ' · ' + row['현장명']);
-    return { ok: true, check: csCheckOut_(readTable_('공사점검').rows.filter(function (r) { return r['ck_id'] === ckId; })[0]), warn: shared ? '' : 'PDF는 저장했지만 공유를 못 했습니다. 구글 로그인 안 한 휴대폰에서는 열리지 않을 수 있습니다.' };
+    const day = csDayRows_(row['점검일'], row['cs_id']);
+    return { ok: true, check: csCheckOut_(day.filter(function (r) { return r['ck_id'] === ckId; })[0]), rounds: day.map(csCheckOut_), warn: shared ? '' : 'PDF는 저장했지만 공유를 못 했습니다. 구글 로그인 안 한 휴대폰에서는 열리지 않을 수 있습니다.' };
   } finally {
     lock.releaseLock();
   }

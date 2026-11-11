@@ -157,4 +157,36 @@ if(v==='pdf'){
  <div class="foot"><span>출력 2026-11-11 11:20 · 업무지원 앱</span><span>2 / 5 쪽</span></div>
  </div></div>`;
 }
+
+/* v2 (11-11): 하루 3번 (오전·오후·작업종료) + 검색창 */
+const RCSS=`<style>.rd{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}.rd span{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.rd .ok{color:var(--green);background:var(--green-bg)}.rd .bad{color:var(--red);background:var(--red-bg)}.rd .wait{color:var(--muted);background:var(--line3)}
+.srch{flex:1;min-width:0;position:relative}.srch input{width:100%;min-height:40px;border:1px solid var(--line);border-radius:999px;padding:0 12px 0 34px;font-size:15px;background:#fff;font-family:inherit}
+.srch::before{content:'';position:absolute;left:13px;top:12px;width:11px;height:11px;border:2px solid var(--faint);border-radius:50%}.srch::after{content:'';position:absolute;left:24px;top:24px;width:6px;height:2px;background:var(--faint);transform:rotate(45deg)}
+.rtabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;margin-bottom:10px}.rtabs button{flex:1;min-height:48px;border:0;background:#fff;font-size:15px;font-weight:700;color:var(--sub);line-height:1.2}
+.rtabs button+button{border-left:1px solid var(--line)}.rtabs button small{display:block;font-size:11px;font-weight:500;color:var(--muted)}.rtabs .on{background:var(--blue);color:#fff}.rtabs .on small{color:#DCE8F6}
+.rsum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}.rsum div{background:var(--ground);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}.rsum b{display:block;font-size:15px;color:var(--ink)}</style>`;
+if(v==='list2'){
+ const S=[['3F 메종키츠네','매장 인테리어 · ㈜한빛인테리어',[['ok','오전 양호'],['ok','오후 양호'],['wait','작업종료 전']]],['5F 리모와','매장 철거 · 대성건설',[['bad','오전 미흡 2'],['ok','오후 양호'],['wait','작업종료 전']]],['B1 식품관 카페','설비 교체 · 동원설비',[['ok','오전 양호'],['wait','오후 전'],['wait','작업종료 전']]],['7F 공용 화장실','방수 공사 · 협력업체',[['wait','오전 전'],['wait','오후 전'],['wait','작업종료 전']]]];
+ app.innerHTML=RCSS+topbar('점검','공사장 점검')+`<main>
+ <div class="card"><div class="round"><div style="flex:1"><div class="d">11월 11일 (수) 공사장 점검</div><div class="s">현장 4곳 · 하루 3번 (오전 · 오후 · 작업종료)</div></div><span class="chip bad">미흡 2건</span></div>
+ <div class="rsum"><div>오전<b>3 / 4곳</b></div><div>오후<b>2 / 4곳</b></div><div>작업종료<b>0 / 4곳</b></div></div></div>
+ <div class="sec">오늘 점검할 현장 <label class="srch"><input placeholder="현장명·업체·날짜 검색"></label></div>
+ <div class="card list">${S.map((s,i)=>`<div class="site"><span class="no">${i+1}</span><div class="main"><div class="nm">${s[0]}</div><div class="l2">${s[1]}</div><div class="rd">${s[2].map(c=>`<span class="${c[0]}">${c[1]}</span>`).join('')}</div></div><span class="chev"></span></div>`).join('')}</div>
+ <div style="display:flex;gap:8px"><button class="btn add" style="flex:2">＋ 새 공사 현장 추가</button><button class="btn" style="flex:1;min-height:44px">기본 항목 고치기 (9)</button></div>
+ <div class="sec">지난 점검</div>
+ <div class="card list past"><div class="site"><div class="main"><div class="nm" style="font-size:15px">11월 10일 (화) · 5F 리모와</div><div class="rd"><span class="ok">오전 양호</span><span class="bad">오후 미흡 1</span><span class="ok">작업종료 양호</span></div></div><button class="btn sm">PDF</button></div></div>
+ </main>`;
+}
+if(v==='check2'){
+ app.innerHTML=RCSS+topbar('11월 11일 (수) 공사장 점검','5F 리모와')+`<main>
+ <div class="rtabs"><button>오전<small>✓ 10:31 김시설</small></button><button class="on">오후<small>지금 점검</small></button><button>작업종료<small>점검 전</small></button></div>
+ <div class="card"><div class="meta"><div><div class="k">현장</div><div class="v">5F 리모와</div></div><div><div class="k">공사 내용 · 업체</div><div class="v">매장 철거 · 대성건설</div></div>
+ <div><div class="k">점검자 <span class="auto">자동</span></div><div class="v">김시설 (방재)</div></div><div><div class="k">오후 점검 시각 <span class="auto">자동</span></div><div class="v">2026-11-11 14:05</div></div></div></div>
+ ${ITEMS.slice(0,2).map((it,i)=>`<div class="card item"><div class="h"><div class="tt">${i+1}. ${it[0]}</div></div><div class="ds">${it[1]}</div>
+ <div class="seg"><button class="ok ${i?'':'on'}">양호</button><button class="bad">미흡</button><button class="na">해당없음</button></div>
+ <div class="photos"><div class="ph add"><b>＋</b>사진</div><div class="ph add"><b>＋</b>사진</div><div class="ph add"><b>＋</b>사진</div></div><textarea class="inp memo" placeholder="특이사항 (미흡이면 꼭 적기)"></textarea></div>`).join('')}
+ <div class="card" style="text-align:center;color:var(--muted);font-size:13px">… 3 ~ 9번 항목 이어짐</div>
+ </main><div class="bar"><div class="bar-in"><div class="info"><b>오후 · 양호 1 · 안 고름 8</b><br><span class="saved">● 저장됨 14:06</span></div><button class="btn pri" style="padding:0 22px">점검 끝 · PDF</button></div></div>`;
+}
 </script></body></html>

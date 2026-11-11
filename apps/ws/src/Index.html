@@ -261,8 +261,17 @@ button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
 .cschip{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;flex:none}
 .cschip.ok{color:var(--green);background:var(--green-bg)}.cschip.bad{color:var(--red);background:var(--red-bg)}.cschip.wait{color:var(--muted);background:var(--line3)}
 .cshd{padding:14px}.cshd b{font-size:19px}.cshd small{display:block;font-size:13px;color:var(--muted);margin-top:2px}
-.csprog{height:8px;border-radius:999px;background:var(--line3);margin-top:12px;overflow:hidden}.csprog i{display:block;height:100%;background:var(--blue)}
+.csrsum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:12px}.csrsum div{background:var(--ground);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}.csrsum b{display:block;font-size:15px;color:var(--ink)}
 .cssec{display:flex;align-items:center;gap:8px;margin:8px 2px 0;font-size:13px;font-weight:700;color:var(--sub)}.cssec .btn{margin-left:auto}
+.cssrch{flex:1;min-width:0;position:relative}.cssrch input{width:100%;min-height:42px;border:1px solid var(--line);border-radius:999px;padding:0 12px 0 34px;font-size:15px;background:#fff;color:var(--ink);font-family:inherit}
+.cssrch::before{content:'';position:absolute;left:13px;top:13px;width:11px;height:11px;border:2px solid var(--muted);border-radius:50%}.cssrch::after{content:'';position:absolute;left:24px;top:25px;width:6px;height:2px;background:var(--muted);transform:rotate(45deg)}
+.csrd{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}.csrd span{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.csrd .ok{color:var(--green);background:var(--green-bg)}.csrd .bad{color:var(--red);background:var(--red-bg)}.csrd .wait{color:var(--muted);background:var(--line3)}
+.csbtns{display:flex;gap:8px}.csbtns .csadd{flex:2;width:auto}.csbtns>.btn:not(.csadd){flex:1;min-height:48px;padding:0 8px}
+.csrtabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.csrtabs button{flex:1;min-width:0;min-height:50px;border:0;background:#fff;font-size:15px;font-weight:700;color:var(--sub);line-height:1.2;cursor:pointer;font-family:inherit;padding:4px}
+.csrtabs button+button{border-left:1px solid var(--line)}.csrtabs button small{display:block;font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csrtabs .on{background:var(--blue);color:#fff;cursor:default}.csrtabs .on small{color:#DCE8F6}.csrtabs button:disabled{color:var(--line);cursor:default}
 .cslist{overflow:hidden}
 .csrow{display:flex;align-items:center;gap:10px;padding:8px 6px 8px 14px;min-height:60px}
 .csrow+.csrow{border-top:1px solid var(--line3)}
@@ -1796,35 +1805,68 @@ function csAddSlots(x, i) {
 function csDay(d) { return Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + '일월화수목금토'[new Date(d + 'T00:00:00').getDay()] + ')'; }
 function csNow(dateToo) { const d = new Date(), p = n => String(n).padStart(2, '0'); return (dateToo ? d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' : '') + p(d.getHours()) + ':' + p(d.getMinutes()); }
 function csCnt(k) { const c = { '양호': 0, '미흡': 0, '해당없음': 0 }; k.items.forEach(x => { if (c[x.st] !== undefined) c[x.st]++; }); return c; }
-function csChip(c) {
-  if (!c) return '<span class="cschip wait">점검 전</span>';
-  if (c.bad) return '<span class="cschip bad">미흡 ' + c.bad + '</span>';
-  return '<span class="cschip ok">양호 ' + c.ok + (c.na ? ' · 해당없음 ' + c.na : '') + '</span>';
+const CS_RD = ['오전', '오후', '작업종료'];   // 하루 3번, 순서대로 1·2·3회차 (사용자 11-11)
+function csRdChip(c, n) {
+  const L = CS_RD[n - 1];
+  if (!c) return '<span class="wait">' + L + ' 전</span>';
+  return c.bad ? '<span class="bad">' + L + ' 미흡 ' + c.bad + '</span>' : '<span class="ok">' + L + ' 양호</span>';
+}
+// 점검 줄들을 날짜·현장별로 묶음 (회차 1·2·3 → r)
+function csGroups(list) {
+  const out = [], by = {};
+  list.forEach(c => { const key = c.date + '|' + c.site; let g = by[key]; if (!g) out.push(g = by[key] = { date: c.date, site: c.site, name: c.name, work: c.work, co: c.co, r: {}, list: [] }); g.r[c.round] = c; g.list.push(c); });
+  return out;
+}
+// 현장·하루 PDF 1개: 세 회차 줄에 같은 PDF. 그 뒤 고치거나 새 회차를 하면 옛 판
+function csDayPdf(list) {
+  const p = (list || []).find(c => c.pdf);
+  return p ? { url: p.pdf.url, stale: list.some(c => !c.pdf || c.stale) } : null;
+}
+// 검색: 현장명·업체·공사 내용·날짜 (2026-11-11, 11-11, 11/11, 11.11, 11월 11일, 11월). 띄어쓰기 무시
+function csHit(q, g) {
+  if (!q) return true;
+  const d = g.date, m = Number(d.slice(5, 7)), dd = Number(d.slice(8, 10));
+  return [g.name, g.co, g.work, d, m + '-' + dd, m + '/' + dd, m + '.' + dd, m + '월' + dd + '일', m + '월'].join('|').replace(/\s/g, '').toLowerCase().indexOf(q) !== -1;
 }
 async function openCs() { go('cs'); await loadCs(); }
 async function loadCs() { const r = await call('csHome'); S.cs = r; if (S.view === 'cs') render(); }
 function renderCs() {
   const r = S.cs;
   if (!r) return topbar('점검 ›', '공사장 점검') + '<div class="wrap list"><div class="banner b-gray">불러오는 중…</div></div>';
-  const by = {}; r.today.forEach(c => { by[c.site] = c; });
-  const sites = r.sites.map(s => Object.assign({ live: true }, s));
-  r.today.forEach(c => { if (!sites.some(s => s.id === c.site)) sites.push({ id: c.site, name: c.name }); });   // 오늘 점검 뒤 공사 끝낸 현장도 오늘 칸엔 보임
-  const done = sites.filter(s => by[s.id]).length, bad = r.today.reduce((a, c) => a + c.bad, 0);
-  const days = []; r.past.forEach(c => { let g = days[days.length - 1]; if (!g || g.date !== c.date) days.push(g = { date: c.date, list: [] }); g.list.push(c); });
+  const sites = csSitesToday(), today = csGroups(r.today), bad = r.today.reduce((a, c) => a + c.bad, 0);
+  const sum = [1, 2, 3].map(n => '<div>' + CS_RD[n - 1] + '<b>' + sites.filter(s => today.some(g => g.site === s.id && g.r[n])).length + ' / ' + sites.length + '곳</b></div>').join('');
   return topbar('점검 ›', '공사장 점검') + '<div class="wrap list">' +
-    '<div class="card cshd"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><b>' + csDay(r.day) + ' 순찰</b><small>현장 ' + sites.length + '곳 중 ' + done + '곳 점검</small></div>' +
-    (bad ? '<span class="cschip bad">미흡 ' + bad + '건</span>' : '') + '</div><div class="csprog"><i style="width:' + (sites.length ? Math.round(done / sites.length * 100) : 0) + '%"></i></div></div>' +
-    '<div class="cssec">오늘 점검할 현장' + (r.admin ? '<button class="btn sm" onclick="csItemsOpen()">기본 항목 고치기 (' + r.items.length + ')</button>' : '') + '</div>' +
-    (sites.length ? '<div class="card cslist">' + sites.map((s, i) => csRowHtml(s, by[s.id], r.day, i + 1)).join('') + '</div>' : '<div class="banner b-gray">진행 중인 공사 현장이 없습니다. 아래에서 현장을 추가해 주세요.</div>') +
-    '<button class="btn big csadd" onclick="csSiteOpen()">＋ 새 공사 현장 추가</button>' +
-    (days.length ? '<div class="cssec">지난 점검</div><div class="card cslist">' + days.slice(0, 30).map(g => '<div class="csday">' + csDay(g.date) + '</div>' + g.list.map(c => csRowHtml({ id: c.site, name: c.name }, c, c.date, 0)).join('')).join('') + '</div>' : '') +
-    '</div>';
+    '<div class="card cshd"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><b>' + csDay(r.day) + ' 공사장 점검</b><small>현장 ' + sites.length + '곳 · 하루 3번 (오전 · 오후 · 작업종료)</small></div>' +
+    (bad ? '<span class="cschip bad">미흡 ' + bad + '건</span>' : '') + '</div><div class="csrsum">' + sum + '</div></div>' +
+    '<div class="cssec">오늘 점검할 현장<label class="cssrch"><input id="csQ" type="search" enterkeyhint="search" placeholder="현장명·업체·날짜 검색" aria-label="현장명·업체·날짜 검색" value="' + h(S.csQ || '') + '" oninput="csSearch(this.value)"></label></div>' +
+    '<div id="csRes" class="list">' + csResHtml() + '</div></div>';
 }
-function csRowHtml(s, c, date, no) {
-  const info = [no ? [s.work, s.co].filter(Boolean).join(' · ') : '', c ? c.by + ' ' + String(c.at).slice(11, 16) : ''].filter(Boolean).join(' · ');
-  return '<div class="csrow"><button class="csgo" onclick="csOpen(\'' + date + '\',\'' + h(s.id) + '\')">' + (no ? '<span class="csno">' + no + '</span>' : '') +
-    '<span class="fname"><b>' + h(s.name) + '</b><small>' + h(info) + '</small></span>' + csChip(c) + '</button>' +
-    (c && c.pdf ? '<a class="btn sm" href="' + h(c.pdf.url) + '" target="_blank" rel="noopener">PDF</a>' : '') +
+function csSitesToday() {
+  const r = S.cs, sites = r.sites.map(s => Object.assign({ live: true }, s));
+  r.today.forEach(c => { if (!sites.some(s => s.id === c.site)) sites.push({ id: c.site, name: c.name, work: c.work, co: c.co }); });   // 오늘 점검 뒤 공사 끝낸 현장도 오늘 칸엔 보임
+  return sites;
+}
+// 검색하면 이 칸만 다시 그림 (글자 칸은 그대로 — 한글 입력 끊기지 않게)
+function csSearch(v) { S.csQ = v; const e = $('csRes'); if (e) e.innerHTML = csResHtml(); }
+function csResHtml() {
+  const r = S.cs, q = String(S.csQ || '').replace(/\s/g, '').toLowerCase();
+  const by = {}; csGroups(r.today).forEach(g => { by[g.site] = g; });
+  const sites = csSitesToday().filter(s => csHit(q, Object.assign({ date: r.day }, s)));
+  const past = csGroups(r.past).filter(g => csHit(q, g));
+  const more = past.length > 60 ? '<div class="banner b-gray">' + (q ? '찾은 것이 많아 60개만 보입니다. 검색어를 더 넣어 주세요.' : '최근 60개만 보입니다. 날짜·현장으로 검색해 주세요.') + '</div>' : '';
+  return (sites.length ? '<div class="card cslist">' + sites.map((s, i) => csRowHtml(s, by[s.id], r.day, i + 1)).join('') + '</div>'
+    : '<div class="banner b-gray">' + (q ? '오늘 현장 중 「' + h(S.csQ) + '」 없음' : '진행 중인 공사 현장이 없습니다. 아래에서 현장을 추가해 주세요.') + '</div>') +
+    '<div class="csbtns"><button class="btn big csadd" onclick="csSiteOpen()">＋ 새 공사 현장 추가</button>' + (r.admin ? '<button class="btn" onclick="csItemsOpen()">기본 항목 고치기 (' + r.items.length + ')</button>' : '') + '</div>' +
+    (past.length ? '<div class="cssec">지난 점검' + (q ? ' · ' + past.length + '건' : '') + '</div><div class="card cslist">' + past.slice(0, 60).map(g => csRowHtml({ id: g.site, name: g.name }, g, g.date, 0)).join('') + '</div>' + more
+      : q ? '<div class="cssec">지난 점검</div><div class="banner b-gray">「' + h(S.csQ) + '」 지난 점검 없음</div>' : '');
+}
+function csRowHtml(s, g, date, no) {
+  const pdf = g && csDayPdf(g.list), sub = no ? [s.work, s.co].filter(Boolean).join(' · ') : '';
+  const round = no ? '' : ',' + Math.min.apply(null, g.list.map(c => c.round));   // 지난 점검은 첫 회차부터 (위 칸으로 다른 회차)
+  return '<div class="csrow"><button class="csgo" onclick="csOpen(\'' + date + '\',\'' + h(s.id) + '\'' + round + ')">' + (no ? '<span class="csno">' + no + '</span>' : '') +
+    '<span class="fname"><b>' + h(no ? s.name : csDay(date) + ' · ' + s.name) + '</b>' + (sub ? '<small>' + h(sub) + '</small>' : '') +
+    '<span class="csrd">' + [1, 2, 3].map(n => csRdChip(g && g.r[n], n)).join('') + '</span></span></button>' +
+    (pdf ? '<a class="btn sm" href="' + h(pdf.url) + '" target="_blank" rel="noopener">PDF</a>' : '') +
     (no && s.live ? '<button class="btn sm ehmore" onclick="csSiteMenu(\'' + h(s.id) + '\')" aria-label="' + h(s.name) + ' 고치기·공사 끝">⋯</button>' : '') + '</div>';
 }
 function csSiteOpen(id) {
@@ -1877,12 +1919,26 @@ async function csItemsSaveBtn() {
   } catch (e) { $('ciSb').disabled = false; }
 }
 /* 현장 점검: 고칠 때마다 1.5초 뒤 자동 저장, 사진은 고르면 바로 저장. 저장은 한 번에 하나씩 (같은 사진 두 번 안 올림) */
-async function csOpen(date, id) {
-  S.ck = null; go('csck');
-  const r = await call('csGet', date, id);
+async function csOpen(date, id, round, same) {
+  S.ck = null; go('csck', !same);
+  const r = await call('csGet', date, id, round);
   if (!r.ok) { toast(r.error); go('cs'); return; }
   S.ck = Object.assign(r, { ver: 0, dirty: false, saving: null, err: false, pdfBusy: false });
   if (S.view === 'csck') render();
+}
+// 회차 칸: 저장한 회차와 그다음 회차만 누를 수 있음 (오전 → 오후 → 작업종료 순서)
+function csTabsHtml(k) {
+  const by = {}; (k.rounds || []).forEach(c => { by[c.round] = c; });
+  return '<div class="csrtabs" role="tablist" aria-label="점검 회차">' + [1, 2, 3].map(n => {
+    const c = by[n], on = n === k.round, can = !!(c || n === 1 || by[n - 1]);
+    const sub = c ? '✓ ' + String(c.at).slice(11, 16) + ' ' + c.by : on ? '지금 점검' : '점검 전';
+    return '<button type="button" role="tab" aria-selected="' + on + '"' + (on ? ' class="on"' : can ? ' onclick="csRound(' + n + ')"' : ' disabled') + '>' + CS_RD[n - 1] + '<small>' + h(sub) + '</small></button>';
+  }).join('') + '</div>';
+}
+async function csRound(n) {
+  const k = S.ck; if (!k || k.pdfBusy) return;
+  if ((k.dirty || k.saving) && !(await csFlush()) && !confirm('저장하지 못했습니다. 그래도 넘어갈까요? (고친 내용이 사라질 수 있습니다)')) return;
+  csOpen(k.date, k.site.id, n, true);
 }
 function csStateHtml() {
   const k = S.ck;
@@ -1895,14 +1951,15 @@ function renderCsCk() {
   const k = S.ck;
   if (!k) return topbar('공사장 점검 ›', '불러오는 중') + '<div class="wrap list"><div class="banner b-gray">불러오는 중…</div></div>';
   const c = csCnt(k), left = k.items.length - c['양호'] - c['미흡'] - c['해당없음'];
-  return topbar(csDay(k.date) + ' 점검', k.site.name) + '<div class="wrap list" style="padding-bottom:16px">' +
+  const R = CS_RD[k.round - 1], dp = csDayPdf(k.rounds);
+  return topbar(csDay(k.date) + ' 공사장 점검', k.site.name) + '<div class="wrap list" style="padding-bottom:16px">' + csTabsHtml(k) +
     '<div class="card csmeta"><div><small>현장</small><b>' + h(k.site.name) + '</b></div><div><small>공사 내용 · 업체</small><b>' + h([k.site.work, k.site.co].filter(Boolean).join(' · ') || '-') + '</b></div>' +
-    '<div><small>점검자 <em>자동</em></small><b>' + h(k.check ? k.check.by : S.user.name) + '</b></div><div><small>점검 시각 <em>자동</em></small><b>' + h(k.check ? k.check.at : '처음 저장할 때') + '</b></div></div>' +
+    '<div><small>점검자 <em>자동</em></small><b>' + h(k.check ? k.check.by : S.user.name) + '</b></div><div><small>' + R + ' 점검 시각 <em>자동</em></small><b>' + h(k.check ? k.check.at : '처음 저장할 때') + '</b></div></div>' +
     k.items.map(csItemHtml).join('') +
     '<button class="btn big csadd" onclick="csExtraOpen()">＋ 이 현장에 점검 항목 추가</button></div>' +
-    '<div class="csbar"><div class="csbar-in"><div><b>미흡 ' + c['미흡'] + ' · 양호 ' + c['양호'] + ' · 해당없음 ' + c['해당없음'] + '</b>' + (left ? ' · 안 고름 ' + left : '') + '<br><span id="csSt">' + csStateHtml() + '</span></div>' +
-    (k.check && k.check.pdf && !k.pdfBusy ? '<a class="btn big" href="' + h(k.check.pdf.url) + '" target="_blank" rel="noopener">PDF 열기</a>' : '') +
-    '<button class="btn big pri" onclick="csPdf()"' + (k.pdfBusy ? ' disabled' : '') + '>' + (k.pdfBusy ? '<span class="spin"></span> PDF 만드는 중' : k.check && k.check.pdf ? 'PDF 다시' : '점검 끝 · PDF') + '</button></div></div>';
+    '<div class="csbar"><div class="csbar-in"><div><b>' + R + ' · 미흡 ' + c['미흡'] + ' · 양호 ' + c['양호'] + ' · 해당없음 ' + c['해당없음'] + '</b>' + (left ? ' · 안 고름 ' + left : '') + '<br><span id="csSt">' + csStateHtml() + '</span></div>' +
+    (dp && !dp.stale && !k.pdfBusy ? '<a class="btn big" href="' + h(dp.url) + '" target="_blank" rel="noopener">PDF 열기</a>' : '') +
+    '<button class="btn big pri" onclick="csPdf()"' + (k.pdfBusy ? ' disabled' : '') + '>' + (k.pdfBusy ? '<span class="spin"></span> PDF 만드는 중' : dp && !dp.stale ? 'PDF 다시' : '점검 끝 · PDF') + '</button></div></div>';
 }
 function csItemHtml(x, i) {
   return '<div class="card csit' + (x.st === '미흡' ? ' bad' : '') + '"><h3><span>' + (i + 1) + '. ' + h(x.t) + '</span>' + (x.extra ? '<button class="btn sm warn" onclick="csExtraDel(' + i + ')">지우기</button>' : '') + '</h3>' +
@@ -1943,10 +2000,10 @@ function csFlush() {
   clearTimeout(CS_T);
   const ver = k.ver, sent = k.items.map(x => x.photos.slice());
   const body = k.items.map(x => ({ t: x.t, d: x.d, st: x.st, memo: x.memo, extra: !!x.extra, photos: x.photos.map(p => ({ id: p.id, at: p.at, data: p.id ? '' : p.src })) }));
-  k.saving = call('csSave', k.date, k.site.id, body).then(r => {
+  k.saving = call('csSave', k.date, k.site.id, body, k.round).then(r => {
     if (!r.ok) { k.err = true; toast(r.error); return false; }
     r.items.forEach((ids, i) => ids.forEach((id, j) => { if (sent[i] && sent[i][j]) sent[i][j].id = id; }));
-    k.check = r.check; if (k.ver === ver) k.dirty = false;
+    k.check = r.check; k.rounds = r.rounds; if (k.ver === ver) k.dirty = false;
     toast('자동 저장했습니다');
     return true;
   }, () => { k.err = true; return false; }).then(ok => {
@@ -1975,26 +2032,34 @@ async function csPdf() {
   try {
     if (!(await csFlush()) || !k.check) throw new Error('저장하지 못했습니다');
     await loadH2p();
-    const r = await call('csSavePdf', k.check.id, await csMakePdf(k));
+    // 현장·하루 1개: 저장한 회차를 오전 → 오후 → 작업종료 순으로 (지금 회차는 화면 것, 나머지는 불러옴)
+    const secs = [];
+    for (const c of k.rounds) {
+      if (c.round === k.round) { secs.push(k); continue; }
+      const g = await call('csGet', k.date, k.site.id, c.round);
+      if (!g.ok || !g.check) throw new Error(g.error || CS_RD[c.round - 1] + ' 점검을 불러오지 못했습니다');
+      secs.push(g);
+    }
+    const r = await call('csSavePdf', k.check.id, await csMakePdf(k, secs));
     if (!r.ok) throw new Error(r.error);
-    k.check = r.check; toast(r.warn || 'PDF를 저장했습니다');
+    k.check = r.check; k.rounds = r.rounds; toast(r.warn || 'PDF를 저장했습니다' + (secs.length > 1 ? ' (' + secs.map(x => CS_RD[x.round - 1]).join('·') + ')' : ''));
   } catch (e) { toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
   k.pdfBusy = false; if (S.ck === k) render();
 }
-/* PDF = A4 세로, 현장 1곳 = 1파일 (항목이 많으면 2쪽째로). 시안 docs/양식/WS_공사장점검_시안_pdf.png */
-function csPdfHtml(k) {
+/* PDF = A4 세로, 현장·하루 1파일, 회차마다 새 쪽 (항목이 많으면 다음 쪽으로). 시안 docs/양식/WS_공사장점검_시안_pdf.png */
+function csPdfHtml(k, i) {
   const c = csCnt(k), L = { '양호': 'ok', '미흡': 'bad', '해당없음': 'na' };
-  return '<div class="cspdf"><div class="pt">공사장 안전점검 보고서</div><div class="ps">에비뉴엘 잠실점 시설팀 · ' + k.date.slice(0, 4) + '년 ' + csDay(k.date) + ' 점검</div>' +
+  return '<div class="cspdf"' + (i ? ' style="page-break-before:always"' : '') + '><div class="pt">공사장 안전점검 보고서</div><div class="ps">에비뉴엘 잠실점 시설팀 · ' + k.date.slice(0, 4) + '년 ' + csDay(k.date) + ' · <b>' + CS_RD[k.round - 1] + ' 점검</b></div>' +
     '<table><tr><th>현장</th><td>' + h(k.site.name) + '</td><th>공사 내용</th><td>' + h(k.site.work || '-') + '</td><th>업체</th><td>' + h(k.site.co || '-') + '</td></tr>' +
     '<tr><th>점검자</th><td>' + h(k.check.by) + '</td><th>점검 시각</th><td>' + h(k.check.at) + '</td><th>결과</th><td>' + (c['미흡'] ? '<b style="color:#C0261A">미흡 ' + c['미흡'] + '</b> · ' : '') + '양호 ' + c['양호'] + ' · 해당없음 ' + c['해당없음'] + '</td></tr></table>' +
     '<div class="g">' + k.items.map((x, i) => '<div class="pc"><h4><span>' + (i + 1) + '. ' + h(x.t) + '</span><em class="' + (L[x.st] || '') + '">' + (x.st || '안 고름') + '</em></h4><p>' + h(x.d) + '</p>' +
       '<div class="pp n' + x.photos.length + '">' + (x.photos.length ? x.photos.map(p => '<div class="cell"><img src="' + h(p.src) + '" alt=""></div>').join('') : '사진 없음') + '</div>' +
       '<div class="cm">' + h(x.memo) + '</div></div>').join('') + '</div>' +
-    '<div class="ft"><span>출력 ' + csNow(true) + ' · 업무지원 앱</span><span>' + h(k.site.name) + '</span></div></div>';
+    '<div class="ft"><span>출력 ' + csNow(true) + ' · 업무지원 앱</span><span>' + h(k.site.name) + ' · ' + CS_RD[k.round - 1] + '</span></div></div>';
 }
-async function csMakePdf(k) {
+async function csMakePdf(k, secs) {
   const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;z-index:-1';
-  wrap.innerHTML = csPdfHtml(k); document.body.appendChild(wrap);
+  wrap.innerHTML = '<div style="width:734px">' + secs.map(csPdfHtml).join('') + '</div>'; document.body.appendChild(wrap);
   const pg = wrap.firstChild;
   try {
     try { if (document.fonts) await document.fonts.ready; } catch (e) {}
