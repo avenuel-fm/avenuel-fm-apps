@@ -4,6 +4,7 @@
  * 범위: 로그인(PIN + 근무일 첫 서명) → 메인 → 점검 → 소화기 점검 (QR 관리·인쇄, 월별·층별 현황, QR 점검 입력)
  *       서류작업 → TBM (서명란·작업 표·위험성·사진 2장·PDF), 명일 작업 예정 — docs/설계/WS_서류작업.md
  *       점검 → 전열필증 (층·매장·기기 관리대장, 50×50 신고필증 라벨, QR 필증 보기) — docs/설계/WS_전열필증.md
+ *       점검 → 공사장 점검 (공사 현장 순찰, 사진, 날짜별·현장별 PDF) — docs/설계/WS_공사장점검.md
  * 나머지 메뉴는 화면만 두고 "준비 중"으로 표시합니다.
  *
  * 테스트판에서 단순화한 것 (정식판에서 공통 DB·cdb로 바꿈)
@@ -11,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.8.1', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.0', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -32,6 +33,9 @@ const SHEETS = {
   '위험성목록': ['순서', '낱말', '위험요인', '재해형태', '가능성', '중대성', '개선조치1', '개선조치2', '개선조치3', '개선조치4', '사용여부'],
   '전열매장': ['es_id', '층', '매장번호', '매장명', '사용여부', '등록일시', '등록자', '삭제일시'],
   '전열기기': ['eh_id', 'es_id', '층', '매장명', '관리번호', '기기명', '용량W', '제조사', '책임자정', '책임자부', '승인일자', 'qr_token', '출력일시', '사용여부', '등록일시', '등록자', '수정일시', '삭제일시'],
+  '공사현장': ['cs_id', '현장명', '공사내용', '업체', '사용여부', '등록일시', '등록자', '끝낸일시'],
+  '공사점검항목': ['순서', '항목', '설명', '사용여부', '바꾼사람', '바꾼시각'],
+  '공사점검': ['ck_id', '점검일', 'cs_id', '현장명', '공사내용', '업체', '점검자_id', '점검자', '점검시각', '항목', '양호', '미흡', '해당없음', '사진번호', 'pdf_id', 'PDF만든시각', '수정시각', '고친사람', '삭제여부'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
 
@@ -1529,6 +1533,243 @@ function ehDate_(s) {
 }
 
 /* ID {앱}-{종류}-{YYYYMMDD}-{###} — 오늘 가장 큰 번호 + 1 */
+/* ───────────────────────── 공사장 점검 (WS_공사장점검, 결정 100) ───────────────────────── */
+
+const CS_TABS = ['공사현장', '공사점검항목', '공사점검'];
+const CS_ST = ['양호', '미흡', '해당없음'];
+const CS_MAX_PHOTOS = 4, CS_MAX_ITEMS = 30;
+/* 기본 점검 항목 9개 (사용자 첨부 「현장 일일 안전점검 보고서」 5개 + 4개, 11-11 확정) — 앱에서 관리자가 더하고 지움 */
+const CS_SEED = [
+  ['비치서류', '공정표, 위험성평가표, 작업허가서, MSDS(물질안전보건자료), 작업자 명단 비치'],
+  ['화기작업 관리', '화기작업 허가, 불티 방지포, 소화기 2대·화재감시자 배치, 작업 후 30분 잔불 확인'],
+  ['위험물 보관', '인화성 물질(도료·시너·가스) 격리 보관, 보관함 잠금, 반입량 최소'],
+  ['소방시설 보호', '감지기 덮개 작업 후 해제, 스프링클러·소화전·방화셔터 앞 막힘 없음'],
+  ['전기 안전', '임시 분전반 누전차단기, 전선 피복 손상·문어발 없음, 퇴근 시 전원 차단'],
+  ['개인 보호구', '안전모·안전화 착용, 고소작업 시 안전대 체결'],
+  ['고소·사다리 작업', '말비계·사다리 고정, 2인 1조, 작업 구간 통제'],
+  ['정리정돈·통로', '자재 적치 정돈, 피난통로·비상구 확보, 가림막·출입 통제'],
+  ['안전수칙 위반', '흡연, 음주, 무단 화기 사용, 개구부 덮개 미설치 등']
+];
+
+/** 탭이 없으면 만들고 기본 항목 9개를 넣음 (두 사람이 처음 동시에 열어도 한 번만) */
+function csTabs_() {
+  const ss = db_(), it = ss.getSheetByName('공사점검항목');
+  if (it && it.getLastRow() > 1 && ss.getSheetByName('공사현장') && ss.getSheetByName('공사점검')) return;
+  ensureTabs_(CS_TABS);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    if (db_().getSheetByName('공사점검항목').getLastRow() > 1) return;
+    appendRows_('공사점검항목', CS_SEED.map(function (s, i) { return { '순서': String(i + 1), '항목': s[0], '설명': s[1], '사용여부': 'Y', '바꾼사람': '처음 목록', '바꾼시각': now_() }; }));
+  } finally {
+    lock.releaseLock();
+  }
+}
+function csAdmin_(me) { return me['역할'] === '관리자'; }   // 기본 항목은 관리자만 고침 (사용자 11-11)
+function csItems_() {
+  return readTable_('공사점검항목').rows.filter(function (r) { return r['사용여부'] !== 'N' && r['항목']; })
+    .sort(function (a, b) { return Number(a['순서']) - Number(b['순서']); })
+    .map(function (r) { return { t: r['항목'], d: r['설명'] }; });
+}
+function csSites_() { return readTable_('공사현장').rows.filter(function (r) { return r['사용여부'] !== 'N'; }); }
+function csSiteOut_(r) { return { id: r['cs_id'], name: r['현장명'], work: r['공사내용'], co: r['업체'] }; }
+function csCheckOut_(r) {
+  return { id: r['ck_id'], date: r['점검일'], site: r['cs_id'], name: r['현장명'], by: r['점검자'], at: r['점검시각'], ok: Number(r['양호']) || 0, bad: Number(r['미흡']) || 0, na: Number(r['해당없음']) || 0,
+    saved: r['수정시각'], pdf: r['pdf_id'] ? { url: driveUrl_(r['pdf_id']), at: r['PDF만든시각'] } : null, stale: !!(r['pdf_id'] && r['수정시각'] > r['PDF만든시각']) };
+}
+function csFolder_(date) { return folderPath_(['시설팀 통합업무', '20_업무지원', '점검', '공사장점검', date.slice(0, 4), date.slice(0, 7)]); }
+function csDate_(date) { return /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? String(date) : workDay_(Date.now()); }
+
+/** 첫 화면: 오늘(근무일) · 진행 중 현장 · 오늘 점검 결과 · 지난 점검(최근 300줄) · 기본 항목 */
+function csHome(token) {
+  const me = auth_(token);
+  csTabs_();
+  const day = workDay_(Date.now());
+  const checks = readTail_('공사점검', 300).rows.filter(function (r) { return r['삭제여부'] !== 'Y'; }).map(csCheckOut_);
+  return {
+    ok: true, day: day, admin: csAdmin_(me), items: csItems_(),
+    sites: csSites_().map(csSiteOut_),
+    today: checks.filter(function (c) { return c.date === day; }),
+    past: checks.filter(function (c) { return c.date < day; }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; })
+  };
+}
+
+/** 현장 추가·고치기 (누구나). id 있으면 고침 */
+function csSiteSave(token, d) {
+  const me = auth_(token);
+  d = d || {};
+  const name = cleanText_(d.name, 30), work = cleanText_(d.work, 30), co = cleanText_(d.co, 30);
+  if (!name) return { ok: false, error: '현장 이름을 넣어 주세요. (예: 5F 리모와)' };
+  csTabs_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const t = readTable_('공사현장');
+    const live = t.rows.filter(function (r) { return r['사용여부'] !== 'N'; });
+    const cur = d.id ? live.filter(function (r) { return r['cs_id'] === d.id; })[0] : null;
+    if (d.id && !cur) return { ok: false, error: '현장을 찾지 못했습니다. 새로고침해 주세요.' };
+    if (live.some(function (r) { return r !== cur && r['현장명'] === name; })) return { ok: false, error: '「' + name + '」 현장이 이미 있습니다.' };
+    if (cur) {
+      updateRow_('공사현장', cur._row, { '현장명': name, '공사내용': work, '업체': co });
+      log_(me['이름'], '공사 현장 고침', cur['cs_id'], name);
+    } else {
+      const id = nextId_('CS', t.rows, 'cs_id');
+      appendRow_('공사현장', { 'cs_id': id, '현장명': name, '공사내용': work, '업체': co, '사용여부': 'Y', '등록일시': now_(), '등록자': me['이름'] });
+      log_(me['이름'], '공사 현장 추가', id, name);
+    }
+    return { ok: true, sites: csSites_().map(csSiteOut_) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 공사 끝: 목록에서 뺌 (지난 점검·PDF는 그대로) */
+function csSiteEnd(token, id) {
+  const me = auth_(token);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const r = csSites_().filter(function (x) { return x['cs_id'] === id; })[0];
+    if (!r) return { ok: false, error: '현장을 찾지 못했습니다.' };
+    updateRow_('공사현장', r._row, { '사용여부': 'N', '끝낸일시': now_() });
+    log_(me['이름'], '공사 끝', id, r['현장명']);
+    return { ok: true, sites: csSites_().map(csSiteOut_) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 기본 항목 바꾸기 (관리자만): 화면의 목록 전체 [{t, d}]를 받아 순서대로 씀. 빠진 항목은 사용여부 N (줄은 남김) */
+function csItemsSave(token, list) {
+  const me = auth_(token);
+  if (!csAdmin_(me)) return { ok: false, error: '기본 항목은 관리자만 고칠 수 있습니다.' };
+  if (!Array.isArray(list) || !list.length || list.length > CS_MAX_ITEMS) return { ok: false, error: '항목은 1~' + CS_MAX_ITEMS + '개로 해 주세요.' };
+  const items = list.map(function (x) { return { t: cleanText_(x && x.t, 30), d: cleanText_(x && x.d, 100) }; });
+  if (items.some(function (x) { return !x.t; })) return { ok: false, error: '항목 이름이 빈 줄이 있습니다.' };
+  csTabs_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const t = readTable_('공사점검항목'), at = now_(), used = {};
+    const out = items.map(function (x, i) {
+      const r = t.rows.filter(function (r) { return !used[r._row] && r['항목'] === x.t; })[0];
+      if (r) { used[r._row] = true; Object.assign(r, { '순서': String(i + 1), '설명': x.d, '사용여부': 'Y', '바꾼사람': me['이름'], '바꾼시각': at }); return null; }
+      return { '순서': String(i + 1), '항목': x.t, '설명': x.d, '사용여부': 'Y', '바꾼사람': me['이름'], '바꾼시각': at };
+    }).filter(Boolean);
+    t.rows.forEach(function (r) { if (!used[r._row] && r['사용여부'] !== 'N') Object.assign(r, { '사용여부': 'N', '바꾼사람': me['이름'], '바꾼시각': at }); });
+    writeBack_(t);
+    appendRows_('공사점검항목', out);
+    log_(me['이름'], '공사 점검 기본 항목', '', items.map(function (x) { return x.t; }).join(', '));
+    return { ok: true, items: csItems_() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function csRow_(date, siteId) {
+  return readTable_('공사점검').rows.filter(function (r) { return r['점검일'] === date && r['cs_id'] === siteId && r['삭제여부'] !== 'Y'; })[0] || null;
+}
+
+/** 현장 하나의 그날 점검: 저장한 것이 있으면 그 항목(사진은 data URL), 없으면 기본 항목으로 새 점검 */
+function csGet(token, date, siteId) {
+  auth_(token);
+  csTabs_();
+  date = csDate_(date);
+  const row = csRow_(date, siteId);
+  const site = row ? { id: row['cs_id'], name: row['현장명'], work: row['공사내용'], co: row['업체'] } : (csSites_().filter(function (r) { return r['cs_id'] === siteId; }).map(csSiteOut_)[0] || null);
+  if (!site) return { ok: false, error: '현장을 찾지 못했습니다. 새로고침해 주세요.' };
+  const items = row ? jsonOr_(row['항목'], []) : csItems_().map(function (x) { return { t: x.t, d: x.d, st: '', memo: '', photos: [] }; });
+  items.forEach(function (x) { x.photos = (x.photos || []).map(function (p) { return { id: p.id, at: p.at, src: fileB64_(p.id) }; }); });
+  return { ok: true, date: date, site: site, items: items, check: row ? csCheckOut_(row) : null };
+}
+
+function csCleanItems_(list) {
+  if (!Array.isArray(list) || !list.length || list.length > CS_MAX_ITEMS) return null;
+  return list.map(function (x) {
+    x = x || {};
+    const photos = (Array.isArray(x.photos) ? x.photos : []).slice(0, CS_MAX_PHOTOS).map(function (p) {
+      return { id: /^[\w-]{1,80}$/.test(String(p && p.id || '')) ? String(p.id) : '', at: /^\d{1,2}:\d{2}$/.test(String(p && p.at || '')) ? String(p.at) : '', data: p && p.data ? String(p.data) : '' };
+    }).filter(function (p) { return p.id || p.data; });
+    return { t: cleanText_(x.t, 30) || '(이름 없음)', d: cleanText_(x.d, 100), st: CS_ST.indexOf(x.st) !== -1 ? x.st : '', memo: String(x.memo || '').replace(/[\u0000-\u0009\u000b-\u001f<>]/g, '').trim().slice(0, 300), extra: !!x.extra, photos: photos };
+  });
+}
+
+/**
+ * 저장 (자동 저장도 이것): 항목 전체 + 새 사진(data). 새 사진은 드라이브에 저장하고 id를 돌려줌.
+ * 점검자·점검시각 = 처음 저장한 사람·시각 (결정 100). 뺀 사진은 시트를 다 쓴 뒤 휴지통 (결정 80과 같은 순서)
+ */
+function csSave(token, date, siteId, list) {
+  const me = auth_(token);
+  date = csDate_(date);
+  const items = csCleanItems_(list);
+  if (!items) return { ok: false, error: '항목은 1~' + CS_MAX_ITEMS + '개로 해 주세요.' };
+  for (const x of items) for (const p of x.photos) {
+    if (p.data && !parseDataUrl_(p.data, 'image/jpeg', 1000, 4000000)) return { ok: false, error: '「' + x.t + '」 사진을 읽지 못했습니다. 다시 찍어 주세요.' };
+  }
+  csTabs_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const row = csRow_(date, siteId);
+    const site = row ? { name: row['현장명'], work: row['공사내용'], co: row['업체'] } : csSites_().filter(function (r) { return r['cs_id'] === siteId; }).map(function (r) { return { name: r['현장명'], work: r['공사내용'], co: r['업체'] }; })[0];
+    if (!site) return { ok: false, error: '현장을 찾지 못했습니다. 새로고침해 주세요.' };
+    const oldN = {};   // 예전 사진 id → 파일 번호. 화면이 보낸 id는 이 점검의 사진일 때만 받음
+    if (row) jsonOr_(row['항목'], []).forEach(function (x) { (x.photos || []).forEach(function (p) { oldN[p.id] = Number(p.n) || 0; }); });
+    let seq = Math.max.apply(null, [Number(row && row['사진번호']) || 0].concat(Object.keys(oldN).map(function (k) { return oldN[k]; })));   // 지운 사진 번호도 다시 안 씀
+    const base = date + '_공사장점검-' + safeName_(site.name), used = {};
+    items.forEach(function (x) {
+      x.photos = x.photos.filter(function (p) { return p.data || oldN[p.id] !== undefined; });
+      x.photos.forEach(function (p) { if (p.id && !p.data) { used[p.id] = true; p.n = oldN[p.id]; } });
+    });
+    const folder = items.some(function (x) { return x.photos.some(function (p) { return p.data; }); }) ? csFolder_(date) : null;
+    items.forEach(function (x) {
+      x.photos.forEach(function (p) {
+        if (!p.data) return;
+        p.n = ++seq;
+        p.id = saveBlob_(folder, parseDataUrl_(p.data, 'image/jpeg', 1000, 4000000), base + '_' + pad3_(p.n) + '.jpg', '공사장 점검 ' + date + ' · ' + site.name + ' · ' + x.t + ' · ' + me['이름']);
+        delete p.data;
+      });
+    });
+    const cnt = { '양호': 0, '미흡': 0, '해당없음': 0 };
+    items.forEach(function (x) { if (cnt[x.st] !== undefined) cnt[x.st]++; });
+    const at = now_();
+    const patch = { '항목': JSON.stringify(items), '사진번호': String(seq), '양호': String(cnt['양호']), '미흡': String(cnt['미흡']), '해당없음': String(cnt['해당없음']), '수정시각': at, '고친사람': me['이름'] };
+    let id;
+    if (row) { id = row['ck_id']; updateRow_('공사점검', row._row, patch); }
+    else {
+      id = nextId_('CK', readTable_('공사점검').rows, 'ck_id');
+      appendRow_('공사점검', Object.assign(patch, { 'ck_id': id, '점검일': date, 'cs_id': siteId, '현장명': site.name, '공사내용': site.work, '업체': site.co, '점검자_id': me['staff_id'], '점검자': me['이름'], '점검시각': at, '삭제여부': 'N' }));
+    }
+    Object.keys(oldN).forEach(function (o) { if (!used[o]) trashFile_(o); });
+    return { ok: true, items: items.map(function (x) { return x.photos.map(function (p) { return p.id; }); }), check: csCheckOut_(csRow_(date, siteId)) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 화면이 만든 A4 PDF (날짜별·현장별 1개, 사용자 11-11)를 저장. 다시 만들면 예전 PDF는 휴지통 */
+function csSavePdf(token, ckId, dataUri) {
+  const me = auth_(token);
+  const m = /^data:application\/pdf[^,]*;base64,(.+)$/.exec(String(dataUri || ''));
+  if (!m || m[1].length < 100) return { ok: false, error: 'PDF 내용이 올바르지 않습니다' };
+  const bytes = Utilities.base64Decode(m[1]);
+  if (bytes.length > 30 * 1024 * 1024) return { ok: false, error: 'PDF가 너무 큽니다' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const row = readTable_('공사점검').rows.filter(function (r) { return r['ck_id'] === ckId && r['삭제여부'] !== 'Y'; })[0];
+    if (!row) return { ok: false, error: '먼저 저장해 주세요' };
+    const id = saveBlob_(csFolder_(row['점검일']), Utilities.newBlob(bytes, 'application/pdf'), row['점검일'] + '_공사장점검-' + safeName_(row['현장명']) + '.pdf', '공사장 점검 ' + row['점검일'] + ' · ' + row['현장명'] + ' · ' + me['이름']);
+    const shared = shareLink_(id);
+    updateRow_('공사점검', row._row, { 'pdf_id': id, 'PDF만든시각': now_() });
+    trashFile_(row['pdf_id']);
+    log_(me['이름'], '공사장 점검 PDF', ckId, row['점검일'] + ' · ' + row['현장명']);
+    return { ok: true, check: csCheckOut_(readTable_('공사점검').rows.filter(function (r) { return r['ck_id'] === ckId; })[0]), warn: shared ? '' : 'PDF는 저장했지만 공유를 못 했습니다. 구글 로그인 안 한 휴대폰에서는 열리지 않을 수 있습니다.' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function nextId_(kind, rows, col) {
   const day = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd'), re = new RegExp('^WS-' + kind + '-' + day + '-(\\d+)$');
   let n = 0;

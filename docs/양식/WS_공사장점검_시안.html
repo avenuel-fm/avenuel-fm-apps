@@ -1,0 +1,160 @@
+<!doctype html>
+<!-- 시안 전용 (앱 코드 아님). ?v=list | check | pdf. 기준 양식 = 사용자 첨부 「현장 일일 안전점검 보고서」 -->
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>공사장 점검 시안</title>
+<style>
+:root{--ink:#18202B;--sub:#3F4855;--muted:#5B6573;--faint:#7A8494;--line:#CBD2DB;--line2:#DCE1E7;--line3:#EDF0F3;--ground:#F4F6F8;
+--blue:#1F5FA8;--blue-d:#174A84;--blue-bg:#E8F0FA;--green:#1F7A4D;--green-bg:#EAF5EF;--orange:#B4410F;--orange-bg:#FDF0E8;--red:#C0261A;--red-bg:#FDECEA}
+*{box-sizing:border-box}
+html,body{margin:0;word-break:keep-all;background:var(--ground);color:var(--ink);font-family:'Noto Sans KR','Malgun Gothic',system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:14px;font-weight:500;white-space:nowrap}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.sm{min-height:36px;padding:0 12px;font-size:13px}
+.topbar{background:#fff;border-bottom:1px solid var(--line2)}
+.topbar-in{max-width:760px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:10px}
+.back{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:18px}
+.t1{font-size:12px;color:var(--muted)}.t2{font-size:18px;font-weight:700}
+.whoami{margin-left:auto;font-size:13px;font-weight:700;color:var(--blue-d);background:var(--blue-bg);border-radius:999px;padding:6px 12px}
+main{max-width:760px;margin:0 auto;padding:14px 16px 110px}
+.inp{width:100%;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:16px;background:#fff;font-family:inherit}
+textarea.inp{min-height:64px;resize:none}
+.card{background:#fff;border:1px solid var(--line2);border-radius:12px;padding:14px;margin-bottom:10px}
+.sec{font-size:13px;font-weight:700;color:var(--sub);margin:16px 2px 8px;display:flex;align-items:center;gap:8px}
+.sec .btn{margin-left:auto}
+.chip{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.chip.ok{color:var(--green);background:var(--green-bg)}.chip.bad{color:var(--red);background:var(--red-bg)}
+.chip.wait{color:var(--muted);background:var(--line3)}.chip.blue{color:var(--blue-d);background:var(--blue-bg)}
+/* 순찰 머리 */
+.round{display:flex;align-items:center;gap:12px}
+.round .d{font-size:20px;font-weight:700}.round .s{font-size:13px;color:var(--muted);margin-top:2px}
+.prog{height:8px;border-radius:999px;background:var(--line3);margin-top:12px;overflow:hidden}.prog i{display:block;height:100%;width:60%;background:var(--blue)}
+/* 현장 줄 */
+.site{display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:64px}
+.site+.site{border-top:1px solid var(--line3)}
+.site .no{width:28px;height:28px;border-radius:50%;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+.site .main{flex:1;min-width:0}.site .nm{font-size:16px;font-weight:700}.site .l2{font-size:12.5px;color:var(--muted);margin-top:2px}
+.chev{width:9px;height:9px;border-right:2px solid var(--faint);border-bottom:2px solid var(--faint);transform:rotate(-45deg);flex:none}
+.list{padding:0;overflow:hidden}
+.add{width:100%;color:var(--blue-d);border-style:dashed;border-color:#A9C3E3;background:var(--blue-bg);font-weight:700}
+.past .site{min-height:54px}
+/* 입력 화면 */
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meta .k{font-size:12px;color:var(--muted)}.meta .v{font-size:15px;font-weight:700;margin-top:2px}
+.meta .auto{font-size:11px;color:var(--blue-d);font-weight:500}
+.lab{font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:500}
+.item .h{display:flex;align-items:flex-start;gap:8px}
+.item .tt{font-size:15px;font-weight:700;flex:1}
+.item .ds{font-size:12.5px;color:var(--muted);margin:3px 0 10px;line-height:1.45}
+.more{width:32px;height:32px;border:0;background:transparent;font-size:18px;color:var(--muted);border-radius:8px;margin:-4px -6px 0 0}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;min-height:44px;border:0;background:#fff;font-size:15px;font-weight:700;color:var(--sub)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg .ok.on{background:var(--blue);color:#fff}.seg .bad.on{background:var(--red);color:#fff}.seg .na.on{background:var(--muted);color:#fff}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.ph{aspect-ratio:4/3;border-radius:8px;background:#E9EDF1;position:relative;overflow:hidden}
+.ph.add{border:2px dashed var(--line);background:#FAFBFC;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;color:var(--muted);font-weight:500}
+.ph.add b{font-size:22px;line-height:1;color:var(--blue)}
+.ph .tm{position:absolute;left:0;right:0;bottom:0;font-size:10.5px;color:#fff;background:rgba(0,0,0,.45);padding:2px 6px}
+.ph .x{position:absolute;right:4px;top:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center}
+.memo{margin-top:10px}
+.item.bad{border-color:#EDB5AF;box-shadow:inset 4px 0 0 var(--red)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line2);padding:10px 16px 12px;box-shadow:0 -2px 10px rgba(24,32,43,.06)}
+.bar-in{max-width:760px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.bar .btn{min-height:52px;font-size:16px;font-weight:700}
+.bar .info{font-size:13px;color:var(--muted);margin-right:auto;line-height:1.35}.bar .info b{color:var(--ink);font-size:14px}
+.saved{font-size:12px;color:var(--green);font-weight:500}
+/* 그림 (사진 대신) */
+.ph svg{width:100%;height:100%;display:block}
+/* PDF A4 */
+.paper{width:794px;min-height:1123px;margin:0 auto;background:#fff;padding:34px 38px;color:#000}
+.p-title{text-align:center;font-size:22px;font-weight:700;letter-spacing:2px;margin-bottom:4px}
+.p-sub{text-align:center;font-size:12px;color:#444;margin-bottom:14px}
+table.m{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px}
+table.m th,table.m td{border:1px solid #000;padding:6px 8px;text-align:left}
+table.m th{background:#EEF1F4;width:13%;font-weight:700;white-space:nowrap}
+.sum{display:flex;gap:6px;margin-bottom:10px;font-size:12px}
+.sum span{border:1px solid #000;padding:3px 10px}
+.grid2{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.pc{border:1.2px solid #000;padding:7px;break-inside:avoid}
+.pc .tt{font-size:12.5px;font-weight:700;display:flex;gap:6px;align-items:center}
+.pc .tt em{margin-left:auto;font-style:normal;font-size:11px;padding:1px 8px;border:1px solid #000}
+.pc .tt em.ok{background:#1F5FA8;color:#fff;border-color:#1F5FA8}.pc .tt em.bad{background:#C0261A;color:#fff;border-color:#C0261A}.pc .tt em.na{background:#5B6573;color:#fff;border-color:#5B6573}
+.pc .ds{font-size:9.5px;color:#444;margin:2px 0 5px;line-height:1.3;min-height:25px}
+.pc .pp{display:grid;grid-template-columns:1fr 1fr;gap:3px;aspect-ratio:4/3;background:#F1F3F5}
+.pc .pp .ph{border-radius:0;background:#E9EDF1;aspect-ratio:auto;height:100%}
+.pc .pp.none{display:flex;align-items:center;justify-content:center;font-size:10px;color:#999}
+.pc .pp.one{grid-template-columns:1fr}
+.pc .cm{font-size:10.5px;border:1px solid #888;padding:4px 6px;margin-top:5px;min-height:36px;line-height:1.35}
+.foot{display:flex;justify-content:space-between;font-size:10.5px;color:#444;margin-top:12px;border-top:1px solid #000;padding-top:6px}
+</style></head><body>
+<div id="app"></div>
+<script>
+const v=new URLSearchParams(location.search).get('v')||'list';
+const W='김시설 · 방재';
+const ITEMS=[
+ ['비치서류','공정표, 위험성평가표, 작업허가서, MSDS(물질안전보건자료), 작업자 명단 비치'],
+ ['화기작업 관리','화기작업 허가, 불티 방지포, 소화기 2대·화재감시자 배치, 작업 후 30분 잔불 확인'],
+ ['위험물 보관','인화성 물질(도료·시너·가스) 격리 보관, 보관함 잠금, 반입량 최소'],
+ ['소방시설 보호','감지기 덮개 작업 후 해제, 스프링클러·소화전·방화셔터 앞 막힘 없음'],
+ ['전기 안전','임시 분전반 누전차단기, 전선 피복 손상·문어발 없음, 퇴근 시 전원 차단'],
+ ['개인 보호구','안전모·안전화 착용, 고소작업 시 안전대 체결'],
+ ['고소·사다리 작업','말비계·사다리 고정, 2인 1조, 작업 구간 통제'],
+ ['정리정돈·통로','자재 적치 정돈, 피난통로·비상구 확보, 가림막·출입 통제'],
+ ['안전수칙 위반','흡연, 음주, 무단 화기 사용, 개구부 덮개 미설치 등'],
+];
+const pic=(h,c)=>`<svg viewBox="0 0 120 90" preserveAspectRatio="xMidYMid slice"><rect width="120" height="90" fill="${c||'#C9D3DD'}"/><rect x="0" y="58" width="120" height="32" fill="#9AA7B4"/><rect x="${18+h%40}" y="26" width="34" height="34" fill="#E3E8ED"/><rect x="${62-h%20}" y="38" width="28" height="22" fill="#B7C2CD"/><circle cx="96" cy="18" r="8" fill="#F1F4F7"/></svg>`;
+const topbar=(t1,t2)=>`<div class="topbar"><div class="topbar-in"><button class="back">‹</button><div><div class="t1">${t1}</div><div class="t2">${t2}</div></div><span class="whoami">${W}</span></div></div>`;
+const app=document.getElementById('app');
+
+if(v==='list'){
+ const S=[['3F 메종키츠네','매장 인테리어 · ㈜한빛인테리어','ok','양호 9','10:12'],['5F 리모와','매장 철거 · 대성건설','bad','미흡 2','10:31'],['B1 식품관 카페','설비 교체 · 동원설비','ok','양호 8 · 해당없음 1','10:48'],['7F 공용 화장실','방수 공사 · 시설팀 협력업체','wait','점검 전',''],['2F 디올','매장 인테리어 · ㈜성원디자인','wait','점검 전','']];
+ app.innerHTML=topbar('점검','공사장 점검')+`<main>
+ <div class="card"><div class="round"><div style="flex:1"><div class="d">11월 11일 (수) 순찰</div><div class="s">점검자 김시설 · 시작 10:05 · 현장 5곳 중 3곳 끝</div></div><span class="chip bad">미흡 2건</span></div><div class="prog"><i></i></div></div>
+ <div class="sec">오늘 점검할 현장 <button class="btn sm">현장 고르기</button></div>
+ <div class="card list">${S.map((s,i)=>`<div class="site"><span class="no">${i+1}</span><div class="main"><div class="nm">${s[0]}</div><div class="l2">${s[1]}${s[4]?' · 점검 '+s[4]:''}</div></div><span class="chip ${s[2]}">${s[3]}</span><span class="chev"></span></div>`).join('')}</div>
+ <button class="btn add">＋ 새 공사 현장 추가</button>
+ <div class="sec">지난 순찰</div>
+ <div class="card list past">${[['11월 7일 (토)','현장 4곳 · 미흡 1건 · 이방재','bad','PDF'],['11월 4일 (수)','현장 4곳 · 모두 양호 · 김시설','ok','PDF']].map(s=>`<div class="site"><div class="main"><div class="nm" style="font-size:15px">${s[0]}</div><div class="l2">${s[1]}</div></div><button class="btn sm">PDF 보기</button></div>`).join('')}</div>
+ </main><div class="bar"><div class="bar-in"><div class="info"><b>3 / 5곳 점검</b><br>남은 현장은 「점검 전」으로 남음</div><button class="btn pri" style="padding:0 22px">순찰 끝 · PDF 만들기</button></div></div>`;
+}
+
+if(v==='check'){
+ const st=['ok','ok','ok','bad','ok','ok','na','bad','ok'];
+ const memo={3:'3구역 감지기 덮개 씌운 채 퇴근. 업체 소장에게 즉시 해제 요청함.',7:'피난통로에 석고보드 적치. 오후 2시까지 정리 약속.'};
+ const n={0:1,1:2,3:2,7:1};
+ app.innerHTML=topbar('공사장 점검 · 11월 11일 순찰','5F 리모와')+`<main>
+ <div class="card"><div class="meta">
+  <div><div class="k">현장</div><div class="v">5F 리모와</div></div>
+  <div><div class="k">공사 내용 · 업체</div><div class="v">매장 철거 · 대성건설</div></div>
+  <div><div class="k">점검자 <span class="auto">자동</span></div><div class="v">김시설 (방재)</div></div>
+  <div><div class="k">점검 시각 <span class="auto">자동</span></div><div class="v">2026-11-11 10:31</div></div>
+ </div></div>
+ ${ITEMS.slice(0,5).map((it,i)=>`<div class="card item ${st[i]==='bad'?'bad':''}">
+  <div class="h"><div class="tt">${i+1}. ${it[0]}</div><button class="more">⋯</button></div>
+  <div class="ds">${it[1]}</div>
+  <div class="seg"><button class="ok ${st[i]==='ok'?'on':''}">양호</button><button class="bad ${st[i]==='bad'?'on':''}">미흡</button><button class="na ${st[i]==='na'?'on':''}">해당없음</button></div>
+  <div class="photos">${Array.from({length:n[i]||0},(_,k)=>`<div class="ph">${pic(i*13+k*29)}<span class="x">✕</span><span class="tm">10:${31+k} 촬영</span></div>`).join('')}<div class="ph add"><b>＋</b>사진</div></div>
+  ${memo[i]?`<textarea class="inp memo">${memo[i]}</textarea>`:`<textarea class="inp memo" placeholder="특이사항 (미흡이면 꼭 적기)"></textarea>`}
+ </div>`).join('')}
+ <div class="card" style="text-align:center;color:var(--muted);font-size:13px">… 6 ~ 9번 항목 이어짐</div>
+ <button class="btn add">＋ 이 현장에 점검 항목 추가</button>
+ </main><div class="bar"><div class="bar-in"><div class="info"><b>미흡 2 · 양호 6 · 해당없음 1</b><br><span class="saved">● 자동 저장됨 10:36</span></div><button class="btn pri" style="padding:0 26px">이 현장 점검 끝</button></div></div>`;
+}
+
+if(v==='pdf'){
+ document.body.style.background='#888';
+ const st=['ok','ok','ok','bad','ok','ok','na','bad','ok'], L={ok:'양호',bad:'미흡',na:'해당없음'};
+ const memo={3:'3구역 감지기 덮개 씌운 채 퇴근. 업체 소장에게 즉시 해제 요청함.',7:'피난통로에 석고보드 적치. 오후 2시까지 정리 약속.',6:'고소작업 없음.'};
+ const n={0:1,1:2,3:2,7:1,4:1,5:1};
+ app.innerHTML=`<div style="padding:20px 0"><div class="paper">
+ <div class="p-title">공사장 안전점검 보고서</div><div class="p-sub">에비뉴엘 잠실점 시설팀 · 2026년 11월 11일 (수) 순찰 · 현장 2 / 5</div>
+ <table class="m"><tr><th>현장</th><td>5F 리모와</td><th>공사 내용</th><td>매장 철거</td><th>업체</th><td>대성건설</td></tr>
+ <tr><th>점검자</th><td>김시설 (방재)</td><th>점검 시각</th><td>2026-11-11 10:31</td><th>결과</th><td><b style="color:#C0261A">미흡 2</b> · 양호 6 · 해당없음 1</td></tr></table>
+ <div class="grid2">${ITEMS.map((it,i)=>`<div class="pc"><div class="tt">${i+1}. ${it[0]}<em class="${st[i]}">${L[st[i]]}</em></div><div class="ds">${it[1]}</div>
+ ${n[i]?`<div class="pp ${n[i]===1?'one':''}">${Array.from({length:n[i]},(_,k)=>`<div class="ph">${pic(i*13+k*29)}</div>`).join('')}</div>`:'<div class="pp none">사진 없음</div>'}
+ <div class="cm">${memo[i]||''}</div></div>`).join('')}</div>
+ <div class="foot"><span>출력 2026-11-11 11:20 · 업무지원 앱</span><span>2 / 5 쪽</span></div>
+ </div></div>`;
+}
+</script></body></html>

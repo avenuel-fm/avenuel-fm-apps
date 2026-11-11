@@ -354,7 +354,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true }).ok && Object.values(F).filter(f => f.trashed).length === trashed0 + 3, '결정80: 성공하면 그때 옛 파일 3개 휴지통');
   // 밖에서 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴·예약 함수는 모두 _
   const pub = [...fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(x => !/_$/.test(x));
-  const ALLOWED = ['onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport'];
+  const ALLOWED = ['onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport', 'csHome', 'csSiteSave', 'csSiteEnd', 'csItemsSave', 'csGet', 'csSave', 'csSavePdf'];
   const extra = pub.filter(x => ALLOWED.indexOf(x) === -1);
   assert(!extra.length, '결정80: 밖에서 부를 수 있는 함수는 화면용으로 정한 것만 ' + extra.join(', '));
 }
@@ -543,4 +543,52 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   const px = ehParse_({ 'B1F': [['층 : B1'], ['매장명 : 알렉산드르'], ['No', '관리번호', '기기명'], ['1', '2F-1-1', '가'], ['2', '2F-1-2', '나'], ['3', 'B1F-58-1', '다'], ['4', '', '라']] });
   assert(px.stores[0].name === '알렉산드르' && px.stores[0].no === 58, '전열: 「매장명 :」 빠짐 · 매장번호 58 (2F 번호 무시)');
   assert(px.items.map(x => x.no).join() === 'B1-58-2,B1-58-3,B1-58-1,B1-58-4', '전열: 다른 층 번호는 B1-58- 다음 순번 ' + px.items.map(x => x.no));
+}
+
+// 공사장 점검 (결정 100): 현장 · 기본 항목 9개 · 저장(점검자·시각 자동, 사진) · PDF 날짜별·현장별 · 관리자만 기본 항목
+{
+  NOW.d = new Date('2026-12-28T10:00:00+09:00'); CacheService.getScriptCache().remove('pinlock_all');
+  assert(addStaff_('공사관리', '3141', '전방파트', '관리자').ok && addStaff_('공사직원', '2718', '기건파트', '직원').ok, '공사: 직원 등록');
+  const ad = login('3141', 'cs1', SIG).token, st = login('2718', 'cs2', SIG).token;
+  let hm = csHome(st); assert(hm.ok && hm.items.length === 9 && !hm.admin && hm.day === '2026-12-28', '공사: 기본 항목 9개 · 직원은 관리자 아님');
+  assert(csHome(ad).admin, '공사: 관리자');
+  assert(!csSiteSave(st, { name: '' }).ok, '공사: 현장 이름 없으면 거부');
+  let r = csSiteSave(st, { name: '5F 리모와', work: '매장 철거', co: '대성' }); assert(r.ok && r.sites.length === 1, '공사: 현장 추가');
+  assert(!csSiteSave(st, { name: '5F 리모와' }).ok, '공사: 같은 이름 거부');
+  const site = r.sites[0].id;
+  let g = csGet(st, '', site); assert(g.ok && g.date === '2026-12-28' && g.items.length === 9 && !g.check, '공사: 새 점검은 기본 항목');
+  const pic = 'data:image/jpeg;base64,' + 'P'.repeat(3000);
+  g.items[0].st = '양호'; g.items[0].photos = [{ data: pic, at: '10:01' }, { data: pic, at: '10:02' }];
+  g.items[3].st = '미흡'; g.items[3].memo = '감지기 덮개';
+  g.items[1].photos = [{ id: 'file1', at: '09:00' }];   // 남의 파일 id는 안 받음
+  g.items.push({ t: '추가 항목', d: '', st: '해당없음', photos: [], extra: true });
+  r = csSave(st, g.date, site, g.items);
+  assert(r.ok && r.items[0].length === 2 && r.items[1].length === 0 && r.check.by === '공사직원' && r.check.bad === 1 && r.check.ok === 1 && r.check.na === 1, '공사: 저장 (사진 2 · 점검자 자동 · 남의 사진 거부)');
+  const names = Object.values(files).filter(f => /공사장점검/.test(f.name)).map(f => f.name);
+  assert(names.join() === '2026-12-28_공사장점검-5F-리모와_001.jpg,2026-12-28_공사장점검-5F-리모와_002.jpg', '공사: 사진 이름 ' + names);
+  const at0 = r.check.at, ids = r.items[0];
+  NOW.d = new Date('2026-12-28T10:30:00+09:00');
+  const items2 = g.items.map((x, i) => Object.assign({}, x, { photos: i === 0 ? [{ id: ids[1], at: '10:02' }, { data: pic, at: '10:30' }] : [] }));
+  r = csSave(ad, g.date, site, items2);
+  assert(r.ok && r.check.by === '공사직원' && r.check.at === at0 && r.check.saved === '2026-12-28 10:30', '공사: 점검자·시각은 처음 저장한 것, 고친 시각은 따로');
+  assert(files[ids[0]].trashed && !files[ids[1]].trashed, '공사: 지운 사진만 휴지통');
+  const id3 = r.items[0][1];
+  assert(/_003\.jpg$/.test(files[id3].name), '공사: 새 사진 번호 이어서 003');
+  r = csSave(ad, g.date, site, items2.map((x, i) => Object.assign({}, x, { photos: i === 0 ? [{ id: ids[1] }] : [] })));
+  r = csSave(ad, g.date, site, items2.map((x, i) => Object.assign({}, x, { photos: i === 0 ? [{ id: ids[1] }, { data: pic, at: '10:40' }] : [] })));
+  assert(/_004\.jpg$/.test(files[r.items[0][1]].name) && files[id3].trashed, '공사: 지운 번호는 다시 안 씀 (004)');
+  g = csGet(st, '2026-12-28', site);
+  assert(g.check && g.items.length === 10 && g.items[0].photos.length === 2 && g.items[0].photos[0].src.indexOf('data:image/jpeg') === 0 && g.items[9].extra, '공사: 다시 열면 저장한 내용 · 사진');
+  assert(!csSavePdf(st, g.check.id, 'x').ok, '공사: 이상한 PDF 거부');
+  r = csSavePdf(st, g.check.id, 'data:application/pdf;base64,' + 'J'.repeat(400)); assert(r.ok && r.check.pdf && !r.check.stale, '공사: PDF 저장');
+  assert(Object.values(files).some(f => f.name === '2026-12-28_공사장점검-5F-리모와.pdf'), '공사: PDF 이름 = 날짜_현장');
+  assert(!csItemsSave(st, [{ t: 'x' }]).ok, '공사: 직원은 기본 항목 못 고침');
+  r = csItemsSave(ad, hm.items.slice(1).concat([{ t: '양중 작업', d: '크레인' }]));
+  assert(r.ok && r.items.length === 9 && r.items[0].t === '화기작업 관리' && r.items[8].t === '양중 작업', '공사: 관리자 항목 지우기·더하기');
+  assert(csHome(st).items[0].t === '화기작업 관리' && csGet(st, '2026-12-28', site).items[0].t === '비치서류', '공사: 새 목록은 새 점검부터, 저장한 점검은 그대로');
+  NOW.d = new Date('2026-12-29T09:00:00+09:00');
+  const st2 = login('2718', 'cs2', SIG).token;
+  hm = csHome(st2); assert(hm.today.length === 0 && hm.past.length === 1 && hm.past[0].pdf, '공사: 다음 날 — 지난 점검에 PDF');
+  assert(csSiteEnd(st2, site).ok && csHome(st2).sites.length === 0, '공사: 공사 끝 → 목록에서 빠짐');
+  assert(sheets['공사점검'].rows.slice(1).every(row => row.every(c => typeof c === 'string')), '공사: 시트 값은 모두 글자 (결정 54)');
 }
