@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.1', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.2', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -204,7 +204,7 @@ function addStaffMenu_() {
   ui.alert(res.ok ? (res.name + ' 님을 등록했습니다 (' + res.staff_id + ')') : res.error);
 }
 
-function addStaff_(name, pin, part, role) {
+function addStaff_(name, pin, part, role, by) {
   name = String(name || '').trim();
   pin = String(pin || '').trim();
   part = String(part || '').trim() || '전방파트';
@@ -224,7 +224,7 @@ function addStaff_(name, pin, part, role) {
     const salt = randomHex_(8);
     appendRow_('직원', { 'staff_id': id, '이름': name, '파트명': part, '역할': role, 'pin_hash': hashPin_(pin, salt), 'pin_salt': salt, '사용여부': 'Y', '수정일시': now_() });
     CacheService.getScriptCache().remove('staff');
-    log_('관리자(시트)', '직원 등록', id, name + ' · ' + role);
+    log_(by || '관리자(시트)', '직원 등록', id, name + ' · ' + role);
     return { ok: true, staff_id: id, name: name };
   } finally {
     lock.releaseLock();
@@ -251,7 +251,7 @@ function changePinMenu_() {
 }
 
 /* PIN 바꾸기: 새 salt로 다시 암호화. 기기 표 서명에 pin_hash가 들어가므로 쓰던 기기는 저절로 로그아웃 */
-function changePin_(staffId, pin) {
+function changePin_(staffId, pin, by) {
   pin = String(pin || '').trim();
   if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN은 숫자 4자리입니다.' };
   const lock = LockService.getScriptLock();
@@ -265,7 +265,7 @@ function changePin_(staffId, pin) {
     const salt = randomHex_(8);
     updateRow_('직원', s._row, { 'pin_hash': hashPin_(pin, salt), 'pin_salt': salt, '수정일시': now_() });
     CacheService.getScriptCache().remove('staff');
-    log_('관리자(시트)', '직원 PIN 바꿈', staffId, s['이름']);
+    log_(by || '관리자(시트)', '직원 PIN 바꿈', staffId, s['이름']);
     return { ok: true, staff_id: staffId, name: s['이름'] };
   } finally {
     lock.releaseLock();
@@ -300,7 +300,7 @@ function findStaff_(key) {
 }
 
 /* 삭제 = 사용여부 N (줄은 남김, 결정 10·86). 직원 기억을 지워 그 직원의 기기 표도 바로 막힘 */
-function removeStaff_(staffId) {
+function removeStaff_(staffId, by) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -308,11 +308,70 @@ function removeStaff_(staffId) {
     if (!s) return { ok: false, error: '사용 중인 직원 ' + staffId + '을(를) 찾지 못했습니다.' };
     updateRow_('직원', s._row, { '사용여부': 'N', '수정일시': now_() });
     CacheService.getScriptCache().remove('staff');
-    log_('관리자(시트)', '직원 삭제', staffId, s['이름'] + ' · ' + s['역할']);
+    log_(by || '관리자(시트)', '직원 삭제', staffId, s['이름'] + ' · ' + s['역할']);
     return { ok: true, staff_id: staffId, name: s['이름'] };
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ── 환경설정 (앱, 결정 102): 소장·관리자만. 직원 추가·편집·삭제·PIN, 알림 표시 시간 ── */
+function bossOnly_(token) {
+  const me = auth_(token);
+  if (me['역할'] !== '소장' && me['역할'] !== '관리자') throw new Error('환경설정은 소장만 쓸 수 있습니다.');
+  return me;
+}
+function staffOut_() {
+  return readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N'; }).map(userOut_);
+}
+function toastSec_() { const v = Number(setting_('알림표시초')); return v >= 0.5 && v <= 10 ? v : 2.6; }
+function adminStaff(token) {
+  bossOnly_(token);
+  return { ok: true, staff: staffOut_(), toastSec: toastSec_() };
+}
+function adminSetToast(token, sec) {
+  const me = bossOnly_(token);
+  sec = Number(sec);
+  if (!(sec >= 0.5 && sec <= 10)) return { ok: false, error: '0.5~10초 사이로 골라 주세요.' };
+  setSetting_('알림표시초', String(sec));
+  log_(me['이름'], '알림 표시 시간', '', sec + '초');
+  return { ok: true, toastSec: sec };
+}
+function adminStaffSave(token, d) {
+  const me = bossOnly_(token);
+  d = d || {};
+  if (!d.staff_id) {
+    const r = addStaff_(d.name, d.pin, d.part, d.role, me['이름']);
+    return r.ok ? { ok: true, staff: staffOut_() } : r;
+  }
+  const name = String(d.name || '').trim(), part = String(d.part || '').trim();
+  let role = String(d.role || '').trim();
+  if (!name) return { ok: false, error: '이름을 넣어 주세요.' };
+  if (!part) return { ok: false, error: '파트를 넣어 주세요.' };
+  if (d.staff_id === me['staff_id']) role = me['역할'];   // 내 역할은 못 바꿈 (환경설정을 잃지 않게)
+  if (ROLES.indexOf(role) === -1) return { ok: false, error: '역할은 ' + ROLES.join(' / ') + ' 중 하나입니다.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const s = readTable_('직원').rows.filter(function (r) { return r['staff_id'] === d.staff_id && r['사용여부'] !== 'N'; })[0];
+    if (!s) return { ok: false, error: '사용 중인 직원 ' + d.staff_id + '을(를) 찾지 못했습니다.' };
+    updateRow_('직원', s._row, { '이름': name, '파트명': part, '역할': role, '수정일시': now_() });
+    CacheService.getScriptCache().remove('staff');
+    log_(me['이름'], '직원 편집', d.staff_id, name + ' · ' + part + ' · ' + role);
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: true, staff: staffOut_() };
+}
+function adminStaffPin(token, staffId, pin) {
+  const me = bossOnly_(token);
+  return changePin_(String(staffId || ''), pin, me['이름']);
+}
+function adminStaffRemove(token, staffId) {
+  const me = bossOnly_(token);
+  if (staffId === me['staff_id']) return { ok: false, error: '내 계정은 지울 수 없습니다.' };
+  const r = removeStaff_(String(staffId || ''), me['이름']);
+  return r.ok ? { ok: true, staff: staffOut_() } : r;
 }
 
 function showUrlMenu_() {
@@ -494,7 +553,7 @@ function bootstrap(token) {
   if (mode === 'block') throw new Error('LOGIN');   // 그날 휴무로 바뀌었으면 기기 표도 막음 → 다시 PIN 넣으면 안내
   const signs = daySigns_(day);
   return {
-    ok: true, user: userOut_(me), app: APP,
+    ok: true, user: userOut_(me), app: APP, toastSec: toastSec_(),
     needSign: mode === 'sign' && !signs.some(function (r) { return r['staff_id'] === me['staff_id']; }),
     docs: { day: day, signs: signs.length },
     fire: fireSummary_()

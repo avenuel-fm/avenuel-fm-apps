@@ -709,3 +709,18 @@ img,svg,video,canvas{max-width:100%}
   .page:last-child{break-after:auto;page-break-after:auto}
 }
 </style>
+<style>
+/* 어두운 화면 (결정 98): 화면만 색을 뒤집고 사진·서명·QR은 되돌림. 인쇄·저장 이미지는 그대로 흰 바탕 */
+@media screen{
+html[data-theme=dark]{filter:invert(1) hue-rotate(180deg)}
+html[data-theme=dark] :is(img,video,canvas,.keep-color):not(.keep-color *){filter:invert(1) hue-rotate(180deg)}
+html[data-theme=dark] :is(.dialog-back,.overlay,.pinpop,.gprev.modal){background:rgba(255,255,255,.5)}
+}
+</style>
+<script>
+/* 기기에 고른 값 → 없으면 휴대폰 설정. 화면 그리기 전에 정해서 번쩍임 없음 */
+(function () { var t = null; try { t = localStorage.getItem('fm_theme'); } catch (e) {} if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark'; if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); })();
+function themeDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+function toggleTheme() { var t = themeDark() ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('fm_theme', t); } catch (e) {} document.querySelectorAll('.theme-btn').forEach(function (b) { b.textContent = themeLabel(); }); }
+function themeLabel() { return themeDark() ? '밝게' : '어둡게'; }
+</script>

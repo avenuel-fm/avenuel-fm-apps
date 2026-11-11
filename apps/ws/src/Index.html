@@ -8,6 +8,8 @@
 .wrap{max-width:1100px;margin:0 auto;padding:12px 16px 40px}
 .top{background:#fff;border-bottom:1px solid var(--line2);position:sticky;top:0;z-index:20}
 .top-in{max-width:1100px;margin:0 auto;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.backbar{padding-top:4px;padding-bottom:calc(32px + env(safe-area-inset-bottom))}.backbar .btn{width:100%}body:has(.csbar) .backbar{padding-bottom:120px}
+.setseg button{padding:0 2px;white-space:nowrap}.sth{margin:6px 0 0;font-size:15px}.strow{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line3)}.strow:last-child{border-bottom:0}.strow .fname{flex:1;min-width:0}
 .back{width:44px;height:44px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px}
 .ttl{display:flex;flex-direction:column;flex:1;min-width:0}
 .ttl small{font-size:12px;color:var(--muted)}
@@ -340,7 +342,7 @@ button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
 const EXEC_URL = <?!= JSON.stringify(execUrl) ?>;
 const FLOORS = ['B1','1F','2F','3F','4F','5F','6F'];
 const CAN_PRINT = window.matchMedia('(hover: hover) and (pointer: fine)').matches && window.innerWidth >= 900;
-const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false };
+const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: store('ws_ver') || '' };
 
 /* ── 도우미 ── */
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
@@ -375,12 +377,20 @@ async function call(fn, ...args) {
     throw e;
   }
 }
-let toastTimer;
+/* 알림은 줄을 세워 하나씩: 보이는 시간(환경설정, 기본 2.6초) → 0.5초 쉬고 다음 (결정 102) */
+const TOASTQ = [];
+let toastBusy = false;
+function toastMs() { const v = Number(store('ws_toast_sec')); return (v >= 0.5 && v <= 10 ? v : 2.6) * 1000; }
 function toast(msg) {
+  if (TOASTQ[TOASTQ.length - 1] === msg) return;   // 같은 글이 바로 이어 들어오면 한 번만
+  TOASTQ.push(msg); if (!toastBusy) toastNext();
+}
+function toastNext() {
   let t = document.querySelector('.toast');
-  if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
-  t.textContent = msg; t.classList.remove('hide');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hide'), 2600);
+  if (!t) { t = document.createElement('div'); t.className = 'toast hide'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  if (!TOASTQ.length) { toastBusy = false; return; }
+  toastBusy = true; t.textContent = TOASTQ.shift(); t.classList.remove('hide');
+  setTimeout(() => { t.classList.add('hide'); setTimeout(toastNext, 500); }, toastMs());
 }
 function dialog(html) { $('layer').innerHTML = '<div class="dialog-back" onclick="if(event.target===this)closeDialog()"><div class="dialog" role="dialog" aria-modal="true">' + html + '</div></div>'; }
 function closeDialog() { $('layer').innerHTML = ''; }
@@ -402,15 +412,16 @@ function go(view, push) {
 }
 async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; S.fireAt = Date.now(); if (S.view === 'fire') render(); } catch (e) {} }
 try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
-const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', tbm: 'docs', nw: 'docs', att: 'docs', attup: 'att' };
+const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', set: 'main', tbm: 'docs', nw: 'docs', att: 'docs', attup: 'att' };
 function back() { if (S.view === 'csck') return csLeave(); if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
 
 function topbar(sub, title) {
   const u = S.user || {};
   return '<header class="top"><div class="top-in">' +
-    (S.view !== 'main' ? '<button class="back" onclick="back()" aria-label="뒤로">' + ICON.back + '</button>' : '') +
     '<div class="ttl"><small>' + h(sub) + '</small><b>' + h(title) + '</b></div>' +
     '<span class="me">' + h(u.name) + ' · ' + h(u.part) + '</span>' +
+    (S.view === 'main' ? '<button class="btn sm theme-btn" onclick="toggleTheme()">' + themeLabel() + '</button>' : '') +
+    (S.view === 'main' && isBoss() ? '<button class="btn sm" onclick="openSet()">환경설정</button>' : '') +
     '<button class="btn sm" onclick="logout()">로그아웃</button>' +
     '</div></header>';
 }
@@ -539,7 +550,11 @@ async function boot(fromStart) {
     toast('서버 오류: ' + (e && e.message ? e.message : e)); throw e;
   }
   if (my !== bootSeq) return;
+  const wasCached = S.cached && S.view === 'main';
   S.user = r.user; S.fire = r.fire; S.docs = r.docs || null; S.cached = false; S.fireAt = Date.now();
+  S.ver = r.app && r.app.version; store('ws_ver', S.ver || null);
+  if (r.toastSec) store('ws_toast_sec', String(r.toastSec));
+  if (wasCached && !r.needSign) toast('최신 내용으로 불러왔습니다');
   if (!r.needSign) setTimeout(prefetch, 0);   // 메인이 뜬 뒤 TBM·명일 작업을 뒤에서 미리 받음
   if (!r.needSign) store('ws_main', JSON.stringify({ sid: r.user.staff_id, user: r.user, fire: r.fire, docs: r.docs }));   // 다음 접속 때 먼저 보여 줄 메인 화면
   if (r.needSign) { S.sign = { mode: 'token', name: r.user.name, part: r.user.part, busy: false, msg: '' }; S.view = 'sign'; render(); return; }   // 표는 있는데 오늘 서명이 없음
@@ -561,7 +576,7 @@ function renderMain() {
   const c = S.fire ? S.fire.counts : null;
   const t = (key, label, sub, bg, fg, on) => '<button class="tile' + (on ? ' on' : '') + '" onclick="tile(\'' + key + '\')"><span class="ico" style="background:' + bg + ';color:' + fg + ';font-weight:700">' + label.slice(0, 1) + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
   return topbar('잠실점 에비뉴엘 · ' + today, '업무지원') + '<div class="wrap" style="display:flex;flex-direction:column;gap:14px">' +
-    '<div class="banner b-gray">이 테스트판은 <b>점검 › 소화기 점검</b>과 <b>서류작업 › TBM · 명일 작업 예정 · 출근현황</b>만 동작합니다. 다른 메뉴는 디자인 시안만 있습니다.</div>' +
+    '<div class="banner b-gray">이 버전은 테스트판 입니다. <b>v' + h(S.ver || '') + '</b></div>' +
     '<div class="grid6">' +
     t('docs', '서류작업', 'TBM' + (S.docs ? ' · 오늘 서명 ' + S.docs.signs + '명' : ' · 명일 작업 예정'), '#EAF5EF', '#1F7A4D') +
     t('work', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') +
@@ -572,6 +587,75 @@ function renderMain() {
     '</div></div>';
 }
 function tile(k) { if (k === 'inspect') go('inspect'); else if (k === 'docs') go('docs'); else toast('디자인 시안만 있는 메뉴입니다 (준비 중)'); }
+
+/* ── 환경설정 (소장·관리자만, 결정 102): 알림 시간, 직원 추가·편집·삭제·PIN ── */
+const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
+function isBoss() { return !!S.user && (S.user.role === '소장' || S.user.role === '관리자'); }
+async function openSet() { S.set = null; go('set'); try { const r = await call('adminStaff'); if (!r.ok) { toast(r.error); return back(); } S.set = r; if (S.view === 'set') render(); } catch (e) {} }
+function renderSet() {
+  const r = S.set;
+  if (!r) return topbar('업무지원 ›', '환경설정') + '<div class="wrap" style="text-align:center;padding:40px"><span class="spin" style="color:var(--blue)"></span></div>';
+  const secs = [1, 1.5, 2, 2.6, 3, 4, 5];
+  return topbar('업무지원 ›', '환경설정') + '<div class="wrap list">' +
+    '<h3 class="sth">알림 표시 시간</h3><div class="card" style="padding:14px 16px"><small style="color:var(--muted)">저장·동기화가 끝나면 아래에 뜨는 알림이 보이는 시간입니다. 알림이 여러 개면 0.5초 쉬고 다음 알림을 보여 줍니다.</small>' +
+    '<div class="seg setseg" role="group" aria-label="알림 표시 시간" style="margin-top:10px">' + secs.map(v => '<button type="button" class="' + (Number(r.toastSec) === v ? 'on' : '') + '" aria-pressed="' + (Number(r.toastSec) === v) + '" onclick="setToastSec(' + v + ')">' + v + '초</button>').join('') + '</div></div>' +
+    '<div style="display:flex;align-items:center;margin-top:8px"><h3 class="sth" style="flex:1">직원 ' + r.staff.length + '명</h3><button class="btn sm pri" onclick="staffDlg()">+ 직원 추가</button></div>' +
+    '<div class="card">' + r.staff.map(x => '<div class="strow"><span class="fname"><b>' + h(x.name) + '</b><small>' + h(x.part) + ' · ' + h(x.role) + ' · ' + h(x.staff_id) + '</small></span>' +
+      '<button class="btn sm" onclick="staffDlg(\'' + x.staff_id + '\')">편집</button><button class="btn sm" onclick="staffPinDlg(\'' + x.staff_id + '\')">PIN 변경</button>' +
+      (x.staff_id === S.user.staff_id ? '' : '<button class="btn sm warn" onclick="staffDel(\'' + x.staff_id + '\')">삭제</button>') + '</div>').join('') + '</div></div>';
+}
+async function setToastSec(v) {
+  const r = await call('adminSetToast', v);
+  if (!r.ok) return toast(r.error);
+  S.set.toastSec = v; store('ws_toast_sec', String(v)); render(); toast('알림 시간 ' + v + '초로 저장');
+}
+function staffOf(id) { return S.set.staff.find(x => x.staff_id === id); }
+function staffDlg(id) {
+  const x = id ? staffOf(id) : null, me = x && x.staff_id === S.user.staff_id;
+  const parts = Array.from(new Set(S.set.staff.map(s => s.part).concat(['전방파트', '기건파트'])));
+  dialog('<h2 class="ehdh">' + (x ? '직원 편집' : '직원 추가') + '</h2>' +
+    '<label class="ehf">이름<input id="sfN" class="inp" maxlength="20" value="' + h(x ? x.name : '') + '"></label>' +
+    '<label class="ehf">파트<input id="sfP" class="inp" maxlength="20" list="sfPL" value="' + h(x ? x.part : '전방파트') + '"><datalist id="sfPL">' + parts.map(p => '<option value="' + h(p) + '">').join('') + '</datalist></label>' +
+    '<label class="ehf">역할<select id="sfR" class="inp"' + (me ? ' disabled' : '') + '>' + ROLES.map(o => '<option' + ((x ? x.role : '직원') === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></label>' +
+    (me ? '<small style="color:var(--muted)">내 역할은 여기서 바꿀 수 없습니다.</small>' : '') +
+    (x ? '' : '<label class="ehf">PIN 4자리<input id="sfX" class="inp" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="휴대폰 뒷 4자리"></label>') +
+    '<div id="sfM" role="alert" class="ehmsg"></div>' +
+    '<div class="ehda"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button id="sfB" class="btn big pri" style="flex:2" onclick="staffSaveGo(\'' + (id || '') + '\')">저장</button></div>');
+  setTimeout(() => { const n = $('sfN'); if (n) n.focus(); }, 50);
+}
+async function staffSaveGo(id) {
+  const d = { staff_id: id, name: $('sfN').value, part: $('sfP').value, role: $('sfR').value, pin: id ? '' : $('sfX').value };
+  $('sfB').disabled = true;
+  try {
+    const r = await call('adminStaffSave', d);
+    if (!r.ok) { $('sfM').textContent = r.error; $('sfB').disabled = false; return; }
+    closeDialog(); S.set.staff = r.staff; render(); toast(id ? d.name.trim() + ' 님 정보를 저장했습니다' : d.name.trim() + ' 님을 추가했습니다');
+  } catch (e) { $('sfB').disabled = false; }
+}
+function staffPinDlg(id) {
+  const x = staffOf(id);
+  dialog('<h2 class="ehdh">PIN 변경</h2><p class="ehdp">' + h(x.name) + ' 님의 새 PIN 4자리. 바꾸면 이 직원이 쓰던 휴대폰은 로그아웃되고 새 PIN으로 다시 로그인합니다.</p>' +
+    '<label class="ehf">새 PIN<input id="spX" class="inp" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
+    '<div id="spM" role="alert" class="ehmsg"></div>' +
+    '<div class="ehda"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button id="spB" class="btn big pri" style="flex:2" onclick="staffPinGo(\'' + id + '\')">바꾸기</button></div>');
+  setTimeout(() => { const n = $('spX'); if (n) n.focus(); }, 50);
+}
+async function staffPinGo(id) {
+  $('spB').disabled = true;
+  try {
+    const r = await call('adminStaffPin', id, $('spX').value);
+    if (!r.ok) { $('spM').textContent = r.error; $('spB').disabled = false; return; }
+    closeDialog(); toast(r.name + ' 님의 PIN을 바꿨습니다');
+    if (id === S.user.staff_id) logout(true);   // 내 PIN을 바꾸면 이 기기 표도 무효
+  } catch (e) { $('spB').disabled = false; }
+}
+async function staffDel(id) {
+  const x = staffOf(id);
+  if (!confirm(x.name + ' (' + x.part + ' · ' + x.role + ') 님을 삭제할까요?\n바로 로그인할 수 없게 됩니다. 서명·점검 기록의 이름은 그대로 남습니다.')) return;
+  const r = await call('adminStaffRemove', id);
+  if (!r.ok) return toast(r.error);
+  S.set.staff = r.staff; render(); toast(x.name + ' 님을 삭제했습니다');
+}
 
 /* ── 서류작업 (WS_서류작업.md) ── */
 function renderDocs() {
@@ -1805,7 +1889,7 @@ function renderCsCk() {
   const k = S.ck;
   if (!k) return topbar('공사장 점검 ›', '불러오는 중') + '<div class="wrap list"><div class="banner b-gray">불러오는 중…</div></div>';
   const c = csCnt(k), left = k.items.length - c['양호'] - c['미흡'] - c['해당없음'];
-  return topbar(csDay(k.date) + ' 점검', k.site.name) + '<div class="wrap list" style="padding-bottom:120px">' +
+  return topbar(csDay(k.date) + ' 점검', k.site.name) + '<div class="wrap list" style="padding-bottom:16px">' +
     '<div class="card csmeta"><div><small>현장</small><b>' + h(k.site.name) + '</b></div><div><small>공사 내용 · 업체</small><b>' + h([k.site.work, k.site.co].filter(Boolean).join(' · ') || '-') + '</b></div>' +
     '<div><small>점검자 <em>자동</em></small><b>' + h(k.check ? k.check.by : S.user.name) + '</b></div><div><small>점검 시각 <em>자동</em></small><b>' + h(k.check ? k.check.at : '처음 저장할 때') + '</b></div></div>' +
     k.items.map(csItemHtml).join('') +
@@ -1857,6 +1941,7 @@ function csFlush() {
     if (!r.ok) { k.err = true; toast(r.error); return false; }
     r.items.forEach((ids, i) => ids.forEach((id, j) => { if (sent[i] && sent[i][j]) sent[i][j].id = id; }));
     k.check = r.check; if (k.ver === ver) k.dirty = false;
+    toast('자동 저장했습니다');
     return true;
   }, () => { k.err = true; return false; }).then(ok => {
     k.saving = null;
@@ -1945,7 +2030,9 @@ function render() {
   else if (S.view === 'csck') html = renderCsCk();
   else if (S.view === 'status') html = renderStatus();
   else if (S.view === 'floor') html = S.st ? renderFloor() : renderStatus();
+  else if (S.view === 'set' && isBoss()) html = renderSet();
   else html = renderMain();
+  if (PARENT[S.view] && S.token && S.user) html += '<div class="wrap backbar"><button class="btn big" onclick="back()">' + ICON.back + '뒤로</button></div>';   // 아래 뒤로 버튼 (위 < 는 뺌, 결정 102)
   $('app').innerHTML = html;
   if (S.view === 'qr') drawQrs();
   if (S.view === 'sign') mountSign();

@@ -354,7 +354,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true }).ok && Object.values(F).filter(f => f.trashed).length === trashed0 + 3, '결정80: 성공하면 그때 옛 파일 3개 휴지통');
   // 밖에서 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴·예약 함수는 모두 _
   const pub = [...fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(x => !/_$/.test(x));
-  const ALLOWED = ['onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport', 'csHome', 'csSiteSave', 'csSiteEnd', 'csItemsSave', 'csGet', 'csSave', 'csSavePdf'];
+  const ALLOWED = ['adminStaff', 'adminSetToast', 'adminStaffSave', 'adminStaffPin', 'adminStaffRemove', 'onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport', 'csHome', 'csSiteSave', 'csSiteEnd', 'csItemsSave', 'csGet', 'csSave', 'csSavePdf'];
   const extra = pub.filter(x => ALLOWED.indexOf(x) === -1);
   assert(!extra.length, '결정80: 밖에서 부를 수 있는 함수는 화면용으로 정한 것만 ' + extra.join(', '));
 }
@@ -592,4 +592,26 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   hm = csHome(st2); assert(hm.today.length === 0 && hm.past.length === 1 && hm.past[0].pdf, '공사: 다음 날 — 지난 점검에 PDF');
   assert(csSiteEnd(st2, site).ok && csHome(st2).sites.length === 0, '공사: 공사 끝 → 목록에서 빠짐');
   assert(sheets['공사점검'].rows.slice(1).every(row => row.every(c => typeof c === 'string')), '공사: 시트 값은 모두 글자 (결정 54)');
+}
+
+// 환경설정 (결정 102): 소장만 · 직원 추가·편집·PIN·삭제 · 알림 시간
+{
+  NOW.d = new Date('2026-12-30T09:00:00+09:00'); CacheService.getScriptCache().remove('pinlock_all');
+  assert(addStaff_('설정소장', '4111', '관리파트', '소장').ok && addStaff_('설정직원', '5222', '전방파트', '직원').ok, '결정102: 직원 등록');
+  const bs = login('4111', 'set1', SIG).token, em = login('5222', 'set2', SIG).token;
+  let no = false; try { adminStaff(em); } catch (e) { no = /소장/.test(e.message); }
+  assert(no, '결정102: 직원은 환경설정 못 씀');
+  let r = adminStaff(bs); assert(r.ok && r.staff.some(x => x.name === '설정직원') && r.toastSec === 2.6, '결정102: 소장 직원 목록 · 알림 기본 2.6초');
+  assert(!adminSetToast(bs, 30).ok && adminSetToast(bs, 1.5).ok && bootstrap(em).toastSec === 1.5, '결정102: 알림 시간 저장 → 모두에게');
+  assert(!adminStaffSave(bs, { name: '새직원', pin: '4111', part: '기건파트', role: '직원' }).ok, '결정102: 남의 PIN으로 추가 거부');
+  r = adminStaffSave(bs, { name: '새직원', pin: '6333', part: '기건파트', role: '직원' }); assert(r.ok && r.staff.some(x => x.name === '새직원'), '결정102: 직원 추가');
+  const nid = r.staff.filter(x => x.name === '새직원')[0].staff_id;
+  r = adminStaffSave(bs, { staff_id: nid, name: '새직원2', part: '전방파트', role: '파트장' });
+  assert(r.ok && r.staff.some(x => x.staff_id === nid && x.name === '새직원2' && x.role === '파트장'), '결정102: 직원 편집');
+  const bid = findStaff_('설정소장').staff['staff_id'];
+  r = adminStaffSave(bs, { staff_id: bid, name: '설정소장', part: '관리파트', role: '직원' }); assert(r.ok && r.staff.some(x => x.staff_id === bid && x.role === '소장'), '결정102: 내 역할은 안 바뀜');
+  assert(adminStaffPin(bs, nid, '7444').ok && login('7444', 'set3', SIG).ok, '결정102: PIN 변경 → 새 PIN 로그인');
+  assert(!adminStaffRemove(bs, bid).ok, '결정102: 내 계정은 못 지움');
+  assert(adminStaffRemove(bs, nid).ok && !login('7444', 'set4', SIG).ok, '결정102: 삭제 → 로그인 안 됨');
+  assert(sheets['변경기록'].rows.some(x => x[1] === '설정소장' && x[2] === '직원 삭제'), '결정102: 누가 했는지 기록');
 }

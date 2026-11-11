@@ -69,12 +69,12 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await pp.screenshot({ path: __dirname + '/shot_cs_pdf.png', fullPage: true });
 
   // 다시 열기 → 저장한 것 그대로
-  await p.click('.back'); await p.waitForSelector('.cshd');
+  await p.click('.backbar button'); await p.waitForSelector('.cshd');
   ok(await p.locator('.csrow:has-text("5F 리모와") .cschip.bad').innerText() === '미흡 2' && await p.locator('.csrow:has-text("5F 리모와") a:has-text("PDF")').count() === 1, '목록: 미흡 2 · PDF 단추');
   await p.screenshot({ path: __dirname + '/shot_cs_list.png' });
   await p.click('.csrow:has-text("5F 리모와") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit').count() === 10 && await p.locator('.csit').nth(3).locator('img').count() === 2 && /감지기 덮개/.test(await p.locator('.csit').nth(3).locator('textarea').inputValue()), '다시 열면 사진·메모·추가 항목 그대로');
-  await p.click('.back'); await p.waitForSelector('.cshd');
+  await p.click('.backbar button'); await p.waitForSelector('.cshd');
 
   // 관리자 기본 항목: 하나 지우고 하나 더하기
   await p.click('button:has-text("기본 항목 고치기")');
