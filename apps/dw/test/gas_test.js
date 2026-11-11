@@ -212,6 +212,12 @@ ok(['waterproof', 'waterTest', 'kitchenExt', 'exhaustCmh', 'gasGrade', 'gasAlarm
 ok(b6.safetySigDate === '2026-10-23', '서명일 저장');
 const nr6 = run('apiNextRound(A, "' + run('apiListStores(A)').find(x => x.tenant === '주방없음').id + '")');
 ok(nr6.reviews[1].safetySigDate === '' && nr6.reviews[1].kitchenExt === '해당없음', '다음 차수: 서명일 비움, 해당없음 유지');
+// 1.8.9 안전관리규정 준수 동의서 (DW-6)
+ctx.RA = { tenant: '동의서매장', reviewDate: '2026-11-11', agreeChecks: '101000001', agreeRespSig: 'data:image/png;base64,iVBORw0KGgo=', agreeRespSigDate: '2026-11-11', agreeLotteSig: 'javascript:alert(1)' };
+const ba = run('apiSaveReview(A, RA, false)');
+ok(ba.reviews[0].agreeChecks === '101000001' && ba.reviews[0].agreeRespSig.indexOf('data:image/png') === 0 && ba.reviews[0].agreeLotteSig === '', '동의서: 체크·책임자 서명 저장, PNG 아닌 서명은 버림');
+const na = run('apiNextRound(A, "' + ba.store.id + '")');
+ok(na.reviews[1].agreeChecks === '' && na.reviews[1].agreeRespSig === '' && na.reviews[0].agreeRespSig !== '', '동의서: 다음 차수는 비우고 이전 차수는 그대로');
 const boot2 = run('apiBootstrap(A)');
 ok(boot2.companies === undefined, '부트스트랩에서 업체 목록은 빼고 (첫 로딩 빠르게) 검토서를 열 때 따로');
 const comp = run('apiCompanies(A)').find(c => c.name === '가나건설');
@@ -336,7 +342,7 @@ const ix = run('apiGuideIndex(A)');
 ok(ix.length === 1 && ix[0].d === ctx.BID && ix[0].p === 91, '검색 색인 제공 (항목마다 지침 ID)');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 91)`) === img, '쪽 이미지 data URL');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 999)`) === null, '없는 쪽은 null');
-ok(run('apiBootstrap(A)').version === '1.8.8' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
+ok(run('apiBootstrap(A)').version === '1.8.9' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
 
 // 개정판: 다른 PDF로 같은 지침 바꾸기
 const pdf2 = mkFile('통합안전관리지침_27.pdf', 'application/pdf', Buffer.from('new'), gRoot.id);

@@ -165,6 +165,7 @@ var GuideIndexer = (function () {
     { id: 's5', name: '제출서류', done: function (r) { return ['docInsurance', 'docCad', 'docFR', 'docFRPlan'].every(function (k) { return r[k]; }); } },
     { id: 's6', name: '특이사항', done: function (r) { return !!String(r.notes || '').trim() || !!r.notesPhotos; } },
     { id: 'sR', name: '준수사항 확인', done: function (r) { return !!r.rulesAck; } },
+    { id: 'sA', name: '안전관리규정 준수 동의서', done: function (r) { return !!(r.agreeRespSig && r.agreeLotteSig); } },
     { id: 's7', name: '담당 확인 · 서명', done: function (r) { return !!(r.safetySig && r.salesSig && r.respSig); } },
     { id: 's9', name: '시설 소장 확인', done: function (r) { return !!r.chiefOk; } }
   ];
@@ -1387,16 +1388,21 @@ var GuideIndexer = (function () {
       '<ol class="rule">' + S.boot.rules.map(function (t) { return '<li>' + emph(t) + '</li>'; }).join('') + '</ol>' +
       '<label class="ack"><input type="checkbox" data-field="rulesAck"' + (r.rulesAck ? ' checked' : '') + dis() + '>시공업체가 준수사항을 확인했습니다</label></section>' +
 
-      // 7. 서명
-      '<section id="s7" class="card sec"><div class="sh"><span class="dot" data-dot="s7">8</span><h2>담당 확인 · 서명</h2><p>서명 칸을 눌러 마우스, 손가락, 펜으로 서명합니다. 현장에 없는 분은 「원격 서명 요청」으로 메일을 보내 휴대폰·PC에서 서명받을 수 있습니다.</p></div>' +
+      // 8. 안전관리규정 준수 동의서 (DW-6): 「작성하기」 → 양식 팝업
+      '<section id="sA" class="card sec"><div class="sh"><span class="dot" data-dot="sA">8</span><h2>안전관리규정 준수 동의서</h2>' +
+      '<p>「' + (isLocked() ? '보기' : '작성하기') + '」를 눌러 양식을 열고, 해당 작업에 체크한 뒤 공사 책임자와 롯데백화점 담당자 서명을 받습니다.</p></div>' +
+      '<div class="agree-row"><button type="button" class="btn pri" data-act="agree">' + (isLocked() ? '보기' : '작성하기') + '</button><span class="small muted" id="agreeSum">' + agreeSummary() + '</span></div></section>' +
+
+      // 9. 서명
+      '<section id="s7" class="card sec"><div class="sh"><span class="dot" data-dot="s7">9</span><h2>담당 확인 · 서명</h2><p>서명 칸을 눌러 마우스, 손가락, 펜으로 서명합니다. 현장에 없는 분은 「원격 서명 요청」으로 메일을 보내 휴대폰·PC에서 서명받을 수 있습니다.</p></div>' +
       '<div class="sigwrap"><table class="sigtbl"><thead><tr><th>담당</th><th>소속</th><th>성명</th><th>연락처</th><th style="width:200px">서명</th></tr></thead><tbody>' +
       '<tr><td class="k">안전관리팀</td><td class="k muted" data-label="소속" style="font-weight:400">롯데쇼핑</td><td data-label="성명">' + fInput('safetyName', { bare: true, aria: '안전관리팀 성명' }) + '</td><td data-label="연락처">' + fInput('safetyTel', { bare: true, aria: '안전관리팀 연락처' }) + '</td><td class="sigc">' + sigCell('safetySig', '안전관리팀') + '<div class="sreqw" data-sreq="safety">' + sigReqHtml('safety') + '</div></td></tr>' +
       '<tr><td class="k">영업팀</td><td class="k muted" data-label="소속" style="font-weight:400">롯데쇼핑</td><td data-label="성명">' + fInput('salesName', { bare: true, aria: '영업팀 성명' }) + '</td><td data-label="연락처">' + fInput('salesTel', { bare: true, aria: '영업팀 연락처' }) + '</td><td class="sigc">' + sigCell('salesSig', '영업팀') + '<div class="sreqw" data-sreq="sales">' + sigReqHtml('sales') + '</div></td></tr>' +
       '<tr><td class="k">인테리어 공사 책임자</td><td data-label="소속">' + fInput('respOrg', { bare: true, aria: '공사 책임자 소속', ph: '시공업체' }) + '</td><td data-label="성명">' + fInput('respName', { bare: true, aria: '공사 책임자 성명' }) + '</td><td data-label="연락처">' + fInput('respTel', { bare: true, aria: '공사 책임자 연락처' }) + '</td><td class="sigc">' + sigCell('respSig', '인테리어 공사 책임자') + '<div class="sreqw" data-sreq="resp">' + sigReqHtml('resp') + '</div></td></tr>' +
       '</tbody></table></div></section>' +
 
-      // 9. 소장 확인 (소장만, 차수마다, 잠긴 검토서도 가능)
-      '<section id="s9" class="card sec"><div class="sh"><span class="dot" data-dot="s9">9</span><h2>시설 소장 확인</h2></div>' +
+      // 10. 소장 확인 (소장만, 차수마다, 잠긴 검토서도 가능)
+      '<section id="s9" class="card sec"><div class="sh"><span class="dot" data-dot="s9">10</span><h2>시설 소장 확인</h2></div>' +
       '<label class="chiefbox' + (S.auth.role === '소장' ? '' : ' off') + '"' + (S.auth.role === '소장' ? '' : ' title="소장 PIN으로 접속했을 때 체크할 수 있습니다"') + '>' +
       '<input type="checkbox" id="chiefOk"' + (S.review.chiefOk ? ' checked' : '') + (S.auth.role === '소장' ? '' : ' disabled') + ' aria-label="시설 소장 확인"></label></section>' +
 
@@ -1454,7 +1460,8 @@ var GuideIndexer = (function () {
       (req ? '<button type="button" class="btn docreq" data-act="docReq">✉ 미제출 서류 요청</button>' : '') : '';
   }
 
-  var CHG_SKIP = ['reviewDate', 'notes', 'rulesAck', 'safetySig', 'salesSig', 'respSig', 'safetySigDate', 'salesSigDate', 'respSigDate'];
+  var CHG_SKIP = ['reviewDate', 'notes', 'rulesAck', 'safetySig', 'salesSig', 'respSig', 'safetySigDate', 'salesSigDate', 'respSigDate',
+    'agreeChecks', 'agreeRespSig', 'agreeRespSigDate', 'agreeLotteSig', 'agreeLotteSigDate'];
   function updateChanges() {
     var prev = prevReview(), n = 0;
     S.boot.fields.forEach(function (f) {
@@ -1816,7 +1823,9 @@ var GuideIndexer = (function () {
   }
 
   /* ───────── 서명 패드 ───────── */
-  function openSig(key, who) {
+  /** back: 서명창을 닫은 뒤 돌아갈 화면 (안전관리 동의서 팝업에서 열 때) */
+  function openSig(key, who, back) {
+    function closeModal() { layer.innerHTML = ''; if (back) back(); }
     var has = !!S.review[key];
     layer.innerHTML =
       '<div class="overlay no-print" style="align-items:flex-end;padding:0"></div>' +
@@ -1860,6 +1869,65 @@ var GuideIndexer = (function () {
       closeModal(); refreshSig(key, who); markDirty(); updateProgress();
       saveSigNow(who + ' 서명을 저장했습니다');
     };
+  }
+
+  /* ───────── 안전관리규정 준수 동의서 (DW-6, 「안전관리규정 준수 동의서.pptx」 그대로) ─────────
+   * 해당 여부 9칸은 agreeChecks에 '0'/'1' 9글자로, 서명 2개는 agreeRespSig·agreeLotteSig. 날짜는 검토일, 업체명·店은 테넌트명 */
+  var AGREE_ROWS = [
+    ['기본<br>준수사항', '', ['· 모든 작업자는 작업 유형에 관계 없이 기본 안전보호구(안전모, 안전화, 안전대)를 반드시 착용 후 작업 실시', '  (안전모 안쪽에 일반 모자 착용 금지)  ※ 안전보호구 손상·결함 여부 확인', '· 안전관리자는 상시 공사장에 상주하여 위해·위험요인 확인, 제거 등의 안전관리 수행']],
+    ['고소<br>작업', '사다리/비계', ['· 사다리 사용 시 : 기본 안전장구 착용, 2인 1조 작업, 아웃트리거 부착형 사다리 사용', '  (일자형 사다리는 산업안전보건법 규정에 따라 이동 수단으로만 사용 가능)', '· 말비계, 이동식 비계 작업 시', '  - 안전난간 설치(하중 100kg 이상, 높이 0.9m 이상), 아웃트리거 부착, 철 재질 규격 발판사용', '  - 추락예방 조치(안전대+죔줄 체결 必), 벌어짐 방지장치 설치', '  - 비계 불법개조 사용불가[산업안전규정에 적합한 비계 SET 사용]']],
+    ['', '로프시공(달비계)', ['· 로프시공시 줄타는 작업자 제외, 현장관리자 옥상 1인, 현장 아래 1인으로 구성된다.', '· 안전대 별도의 수직구명줄에 체결 등 로프 자체의 안전상태 확인 및 산업안전보건 기준에 준수', '*고소로프 작업 시 기본 안전수칙 준수', '· 로프고정:2개 이상의 지지점에 견고히 고정 / 로프점검:고정점과 로프의 안전성을 점검', '· 구명줄 설치:별도의 고정점과 연결된 구명줄 설치 / 개인보호구:안전대와 구명줄을 연결하고, 안전모 착용', '· 기본 안전수칙에 대한 정기적인 교육실시 / 작업 전 관리감독자가 기본 안전수칙 준수 여부 확인']],
+    ['', '크레인, 스카이,<br>하역<br>장비', ['- 크레인작업 진행시 작업자 제외, 현장관리자 1인 + 신호수 1인으로 인원 구성된다.', '  *크레인 등 위험기계 인증제품 사용 및 정기검사 실시', '  *작업계획서 작성 및 준수 : 추락 및 낙하 등 위험이 있는곳은 안전대책 수립, 관계자 외 접근 금지 표시', '  *현장관리자(관리감독자) 작업 전 안전점검 실시']],
+    ['화기<br>작업 시', '', ['· 용접/절단 : 바닥면 소방포(버미글라스), 불티 방지막, 불티 받이, 소화기 비치, 역화방지기(산소) 및 전격방지기(전기) 설치 제품 사용, 2인 1조 작업  (화기감시자는 감시 외 다른 작업 일체 불가)', '· 스프링클러, 옥내소화전 퇴수 상태 화기 작업 불가']],
+    ['전기/활선<br>작업', '', ['· LOTO 이행: 전원 차단 후 잠금장치 및 표지판 설치(Lock-Out, Tag-Out)', '· 검전기를 사용하여 무전압 상태를 반드시 확인 후 작업 개시', '· 임시 분전반 내 외함 접지 및 누전차단기(ELB) 정격 감도 확인']],
+    ['밀폐공간 작업', '', ['· 가스 측정: 작업 전 및 작업 중 수시로 5대 가스(산소, 황화수소 등) 농도 측정', '· 기준치 확인: 산소 18~23.5% 등 정상 수치 확인 및 기록 필수', '· 지속 환기: 작업 전(최소 15분 이상) 및 작업 중 지속적인 강제 환기팬 가동', '· 구조 장비: 맨홀 등 수직 개구부 진입 시 구조용 삼각대 거치 및 전신안전대 체결', '· 호흡 보호구: 환기 불충분 시 송기마스크 또는 공기호흡기 필수 착용 (방독마스크 불가)', '· 비상 구조: 사고 발생 시, 보호구 미착용 상태로 구조 목적 맨몸 진입 절대 금지']],
+    ['도장<br>작업 시', '', ['· 유성 페인트 작업 원칙적으로 금지, 불가피하게 사용해야 할 경우 외부에서 희석, 4ℓ 이상 반입 금지', '· 유성 페인트 작업 시 유증기가 체류하지 않도록 환기 조치 실시', '  (작업자에게 페인트 작업에 적합한 유기증기용 방진 마스크 착용 후 작업 및 충분한 휴식 부여)', '· 유성 페인트 작업 시 화기, 불티 작업 병행 불가', '· 위험물은 MSDS와 함께 철재 위험물 보관함 비치 및 사용 후 반드시 위험물 보관함에 보관']],
+    ['안전관리지침<br>위반 시', '', ['· 공사장 작업안전규정 위반시 공사도급계약서 上 삼진아웃제 적용', '  - 1,2회 위반 : 경고조치, 위험요인 제거 및 작업자 전원 안전교육 진행', '  - 3회 위반 : 작업중단, 계약해지, 입찰참여 제한(1년)']]
+  ];
+  var AGREE_NOTE = ['▶ 위험 작업별 매뉴얼', ' ① 고소작업 : 7_1', ' ② 화기작업 : 7_2', ' ③ 도장 작업 : 7_3', ' ④ 전기작업 : 7_4', ' ⑤ 밀폐공간 작업 : 7_5', '', '▶ 기 타 준수 사항', ' ③ 우레탄 폼 사용시 B1 등급(방염) 사용', '   (B2 등급(난연) 소량 사용시 가능,', '    B3 등급 사용 불가)', ' ④ 지정장소 외 자재 적재 금지', '   (철거 폐기물은 지정된 장소에 보관하고,', '    당일 반출을 원칙으로 함)', ' ⑤ 담배 및 라이터 현장 휴대금지', '   (담배 보관함에 보관 후 현장 투입)', ' ⑥ 작업 前 바닥 물뿌림, 집진기 가동으로', '   비산먼지 발생 예방 및 화재예방 활동 실시', ' ⑦ 테이블 리프트(렌탈) 사용시 과상승 방지봉', '   설치상태 확인'];
+  function agreeChecks() { var s = String(S.review.agreeChecks || ''); return AGREE_ROWS.map(function (x, i) { return s.charAt(i) === '1'; }); }
+  function agreeSummary() {
+    if (!S.review) return '';
+    var n = agreeChecks().filter(Boolean).length, r = S.review;
+    return '해당 ' + n + '개 · 책임자 서명 ' + (r.agreeRespSig ? '✓' : '없음') + ' · 롯데백화점 담당자 서명 ' + (r.agreeLotteSig ? '✓' : '없음');
+  }
+  function openAgree() {
+    var r = S.review, locked = isLocked(), ck = agreeChecks(), off = locked ? ' disabled' : '';
+    var d = String(r.reviewDate || todayISO()).match(/^(\d{4})-(\d{2})-(\d{2})/) || [];
+    var lines = function (a) { return a.map(function (t) { return esc(t).replace(/^( +)/, function (s) { return s.replace(/ /g, '&nbsp;'); }); }).join('<br>'); };
+    var sign = function (key, who) {
+      return '<button type="button" class="agsig' + (r[key] ? ' has' : '') + '" data-agsig="' + key + '" data-who="' + esc(who) + '"' + off + ' aria-label="' + esc(who) + (r[key] ? ' 서명 완료, 다시 서명' : ' 서명하기') + '">' +
+        (r[key] ? '<img alt="" src="' + esc(r[key]) + '">' : '눌러서 서명') + '</button>';
+    };
+    var rows = AGREE_ROWS.map(function (x, i) {
+      var g = x[0] && x[1] ? '<td class="c" rowspan="3">' + x[0] + '</td><td class="c">' + x[1] + '</td>' : x[0] ? '<td class="c" colspan="2">' + x[0] + '</td>' : '<td class="c">' + x[1] + '</td>';
+      return '<tr><td class="c"><input type="checkbox" data-agi="' + i + '"' + (ck[i] ? ' checked' : '') + off + ' aria-label="' + esc(x[0] || x[1]).replace(/<br>/g, ' ') + ' 해당"></td>' + g +
+        '<td>' + lines(x[2]) + '</td>' + (i === 0 ? '<td rowspan="' + AGREE_ROWS.length + '" class="ag-note">' + lines(AGREE_NOTE) + '</td>' : '') + '</tr>';
+    }).join('');
+    layer.innerHTML = '<div class="overlay no-print"><section class="dialog agree-dlg" role="dialog" aria-modal="true" aria-label="안전관리규정 준수 동의서">' +
+      '<div class="ag-paper"><div class="ag-tag">공 통</div><h3 class="ag-title">안전관리규정 준수 동의서</h3>' +
+      '<div class="ag-head">■ 롯데백화점 <u>' + esc(r.tenant || '　　　　') + '</u> 店 <u>　　　　　　</u> 공사 「안전관리규정 준수 동의서」</div>' +
+      '<div class="ag-scroll"><table class="ag-tbl"><thead><tr><th style="width:44px">해당<br>여부</th><th colspan="2">구 분</th><th>주요 사항(세부내용 위헙작업별 매뉴얼 참조)</th><th style="width:230px">비 고</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="ag-pledge">※ 상기 롯데백화점 안전관리규정을 철저히 준수하여 공사를 진행하고, 상기 사항 外 안전규정은 산업안전보건법 및 기타 관계 법령의 규정을 철저히 준수 할 것을 확인 합니다.</p>' +
+      '<p class="ag-pen">※ 패널티 적용 세부내용<br>&nbsp;&nbsp;旣 공사도급 계약서 명기</p>' +
+      '<div class="ag-foot"><div class="ag-date">' + (d[1] || '') + ' 년 ' + (d[2] ? Number(d[2]) : '') + ' 월 ' + (d[3] ? Number(d[3]) : '') + ' 일</div>' +
+      '<div class="ag-line">* 업체명 : <b>' + esc(r.tenant || '') + '</b></div>' +
+      '<div class="ag-line">* 책임자 : ' + sign('agreeRespSig', '안전관리 동의서 책임자') + ' (서명)</div>' +
+      '<div class="ag-line">* 롯데백화점 담당자 : 발주부서 담당자 ' + sign('agreeLotteSig', '안전관리 동의서 롯데백화점 담당자') + ' (서명)</div></div></div>' +
+      '<div class="acts"><button type="button" class="btn pri main-act" id="agClose">닫기</button></div></section></div>';
+    $$('[data-agi]', layer).forEach(function (cb) {
+      cb.onchange = function () {
+        var a = agreeChecks(); a[Number(cb.dataset.agi)] = cb.checked;
+        S.review.agreeChecks = a.map(function (b) { return b ? '1' : '0'; }).join('');
+        markDirty();
+      };
+    });
+    $$('[data-agsig]', layer).forEach(function (b) { b.onclick = function () {
+      openSig(b.dataset.agsig, b.dataset.who, function () { openAgree(); var f = $('.ag-foot', layer); if (f) f.scrollIntoView({ block: 'center' }); });
+    }; });
+    function done() { closeModal(); var s = $('#agreeSum'); if (s) s.textContent = agreeSummary(); updateProgress(); }
+    $('#agClose', layer).onclick = done;
+    $('.overlay', layer).onclick = function (e) { if (e.target === e.currentTarget) done(); };
   }
 
   /** 서명 완료·삭제 직후 바로 구글시트에 저장 (테넌트명이 있을 때). 저장 중이면 끝난 뒤 이어서 */
@@ -3722,6 +3790,7 @@ var GuideIndexer = (function () {
       case 'drivePdf': savePdf(true); break;
       case 'brkpopup': openBreakerPopup(); break;
       case 'sig': openSig(el.dataset.key, el.dataset.who); break;
+      case 'agree': openAgree(); break;
       case 'guide': openGuide({}); break;
       case 'gadmin': openGuideAdmin(); break;
       case 'gadminRefresh': openGuideAdmin(true); break;

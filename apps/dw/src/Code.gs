@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.8.8',
+  VERSION: '1.8.9',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
@@ -147,7 +147,13 @@ var FIELDS = [
   ['respName', '공사책임자_성명', 'text'],
   ['respTel', '공사책임자_연락처', 'tel'],
   ['respSig', '공사책임자_서명', 'sig'],
-  ['respSigDate', '공사책임자_서명일', 'date']
+  ['respSigDate', '공사책임자_서명일', 'date'],
+  // 1.8.9 안전관리규정 준수 동의서 (DW-6): 해당여부는 9칸 0/1 글자, 서명 2개
+  ['agreeChecks', '안전동의서_해당여부', 'text'],
+  ['agreeRespSig', '안전동의서_책임자서명', 'sig'],
+  ['agreeRespSigDate', '안전동의서_책임자서명일', 'date'],
+  ['agreeLotteSig', '안전동의서_롯데담당자서명', 'sig'],
+  ['agreeLotteSigDate', '안전동의서_롯데담당자서명일', 'date']
 ];
 
 /** 주방공사가 "없음"이면 자동으로 "해당없음"이 되는 항목 */
@@ -855,7 +861,8 @@ function apiNextRound(a, storeId) {
     var last = reviews[reviews.length - 1] || {};
     var next = {};
     FIELDS.forEach(function (f) { next[f[0]] = last[f[0]] || ''; });
-    ['notes', 'notesPhotos', 'rulesAck', 'safetySig', 'salesSig', 'respSig', 'safetySigDate', 'salesSigDate', 'respSigDate'].forEach(function (k) { next[k] = ''; });
+    ['notes', 'notesPhotos', 'rulesAck', 'safetySig', 'salesSig', 'respSig', 'safetySigDate', 'salesSigDate', 'respSigDate',
+      'agreeChecks', 'agreeRespSig', 'agreeRespSigDate', 'agreeLotteSig', 'agreeLotteSigDate'].forEach(function (k) { next[k] = ''; });
     next.reviewDate = todayText_();
     next.id = Utilities.getUuid();
     next.storeId = storeId;
