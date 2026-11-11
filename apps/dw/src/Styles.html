@@ -712,7 +712,7 @@ img,svg,video,canvas{max-width:100%}
 <style>
 /* 어두운 화면 (결정 98): 화면만 색을 뒤집고 사진·서명·QR은 되돌림. 인쇄·저장 이미지는 그대로 흰 바탕 */
 @media screen{
-html[data-theme=dark]{filter:invert(1) hue-rotate(180deg)}
+html[data-theme=dark]{filter:invert(1) hue-rotate(180deg) contrast(.78)}   /* 검정 대신 진한 회색 (사용자 11-11) */
 html[data-theme=dark] :is(img,video,canvas,.keep-color):not(.keep-color *){filter:invert(1) hue-rotate(180deg)}
 html[data-theme=dark] :is(.dialog-back,.overlay,.pinpop,.gprev.modal){background:rgba(255,255,255,.5)}
 }

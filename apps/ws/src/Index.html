@@ -9,9 +9,9 @@
 .top{background:#fff;border-bottom:1px solid var(--line2);position:sticky;top:0;z-index:20}
 .top-in{max-width:1100px;margin:0 auto;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .backbar{padding-top:4px;padding-bottom:calc(32px + env(safe-area-inset-bottom))}.backbar .btn{width:100%}body:has(.csbar) .backbar{padding-bottom:120px}
-.setseg button{padding:0 2px;white-space:nowrap}.sth{margin:6px 0 0;font-size:15px}.strow{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line3)}.strow:last-child{border-bottom:0}.strow .fname{flex:1;min-width:0}
+.seg.setseg button{padding:0;white-space:nowrap;font-size:13px;text-align:center}.mainfoot{display:flex;justify-content:space-between;gap:8px}.sth{margin:6px 0 0;font-size:15px}.strow{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line3)}.strow:last-child{border-bottom:0}.strow .fname{flex:1;min-width:0}
 .back{width:44px;height:44px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px}
-.ttl{display:flex;flex-direction:column;flex:1;min-width:0}
+.ttl{display:flex;flex-direction:column;flex:1 1 150px;min-width:0}
 .ttl small{font-size:12px;color:var(--muted)}
 .ttl b{font-size:18px}
 .me{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:700;white-space:nowrap}
@@ -342,7 +342,7 @@ button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
 const EXEC_URL = <?!= JSON.stringify(execUrl) ?>;
 const FLOORS = ['B1','1F','2F','3F','4F','5F','6F'];
 const CAN_PRINT = window.matchMedia('(hover: hover) and (pointer: fine)').matches && window.innerWidth >= 900;
-const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: store('ws_ver') || '' };
+const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: <?!= JSON.stringify(APP.version) ?> || store('ws_ver') || '' };
 
 /* ── 도우미 ── */
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
@@ -420,8 +420,6 @@ function topbar(sub, title) {
   return '<header class="top"><div class="top-in">' +
     '<div class="ttl"><small>' + h(sub) + '</small><b>' + h(title) + '</b></div>' +
     '<span class="me">' + h(u.name) + ' · ' + h(u.part) + '</span>' +
-    (S.view === 'main' ? '<button class="btn sm theme-btn" onclick="toggleTheme()">' + themeLabel() + '</button>' : '') +
-    (S.view === 'main' && isBoss() ? '<button class="btn sm" onclick="openSet()">환경설정</button>' : '') +
     '<button class="btn sm" onclick="logout()">로그아웃</button>' +
     '</div></header>';
 }
@@ -576,7 +574,7 @@ function renderMain() {
   const c = S.fire ? S.fire.counts : null;
   const t = (key, label, sub, bg, fg, on) => '<button class="tile' + (on ? ' on' : '') + '" onclick="tile(\'' + key + '\')"><span class="ico" style="background:' + bg + ';color:' + fg + ';font-weight:700">' + label.slice(0, 1) + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
   return topbar('잠실점 에비뉴엘 · ' + today, '업무지원') + '<div class="wrap" style="display:flex;flex-direction:column;gap:14px">' +
-    '<div class="banner b-gray">이 버전은 테스트판 입니다. <b>v' + h(S.ver || '') + '</b></div>' +
+    '<div class="banner b-gray">이 버전은 테스트판 입니다.' + (S.ver ? ' <b>v' + h(S.ver) + '</b>' : '') + '</div>' +
     '<div class="grid6">' +
     t('docs', '서류작업', 'TBM' + (S.docs ? ' · 오늘 서명 ' + S.docs.signs + '명' : ' · 명일 작업 예정'), '#EAF5EF', '#1F7A4D') +
     t('work', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') +
@@ -584,13 +582,16 @@ function renderMain() {
     t('plan', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') +
     t('defect', '작업중', '준비 중', '#FDF0E8', '#B4410F') +
     (approver ? t('approve', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') : t('mydocs', '작업중', '준비 중', '#E8F0FA', '#1F5FA8')) +
-    '</div></div>';
+    '</div>' +
+    '<div class="mainfoot"><button class="btn theme-btn" onclick="toggleTheme()">' + themeLabel() + '</button>' +
+    (isBoss() ? '<button class="btn" onclick="openSet()">환경설정</button>' : '') + '</div>' +
+    '</div>';
 }
 function tile(k) { if (k === 'inspect') go('inspect'); else if (k === 'docs') go('docs'); else toast('디자인 시안만 있는 메뉴입니다 (준비 중)'); }
 
-/* ── 환경설정 (소장·관리자만, 결정 102): 알림 시간, 직원 추가·편집·삭제·PIN ── */
+/* ── 환경설정 (소장만, 결정 102): 알림 시간, 직원 추가·편집·삭제·PIN ── */
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
-function isBoss() { return !!S.user && (S.user.role === '소장' || S.user.role === '관리자'); }
+function isBoss() { return !!S.user && S.user.role === '소장'; }
 async function openSet() { S.set = null; go('set'); try { const r = await call('adminStaff'); if (!r.ok) { toast(r.error); return back(); } S.set = r; if (S.view === 'set') render(); } catch (e) {} }
 function renderSet() {
   const r = S.set;

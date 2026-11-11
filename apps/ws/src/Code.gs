@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.2', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.3', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -315,10 +315,10 @@ function removeStaff_(staffId, by) {
   }
 }
 
-/* ── 환경설정 (앱, 결정 102): 소장·관리자만. 직원 추가·편집·삭제·PIN, 알림 표시 시간 ── */
+/* ── 환경설정 (앱, 결정 102): 소장만. 직원 추가·편집·삭제·PIN, 알림 표시 시간 ── */
 function bossOnly_(token) {
   const me = auth_(token);
-  if (me['역할'] !== '소장' && me['역할'] !== '관리자') throw new Error('환경설정은 소장만 쓸 수 있습니다.');
+  if (me['역할'] !== '소장') throw new Error('환경설정은 소장만 쓸 수 있습니다.');
   return me;
 }
 function staffOut_() {

@@ -8,7 +8,7 @@ function mk(st){return new Proxy({},{get(_,k){if(k==='withSuccessHandler')return
 return (...args)=>fetch('/run',{method:'POST',body:JSON.stringify({fn:k,args})}).then(r=>r.json()).then(j=>{if(j&&j.__error){st.no&&st.no(new Error(j.__error))}else st.ok&&st.ok(j)}).catch(e=>st.no&&st.no(e));}})}window.google.script.run=mk({});</script>`;
 function page(name, vars) {
   let s = fs.readFileSync(path.join(SRC, name + '.html'), 'utf8').replace("<?!= include('Styles'); ?>", styles);
-  s = s.replace('<?!= JSON.stringify(execUrl) ?>', JSON.stringify(vars.execUrl || '')).replace('<?!= JSON.stringify(qr) ?>', JSON.stringify(vars.qr || ''));
+  s = s.replace('<?!= JSON.stringify(APP.version) ?>', JSON.stringify(APP.version)).replace('<?!= JSON.stringify(execUrl) ?>', JSON.stringify(vars.execUrl || '')).replace('<?!= JSON.stringify(qr) ?>', JSON.stringify(vars.qr || ''));
   return s.replace('<head>', '<head>' + shim);
 }
 global.ScriptApp = { getService: () => ({ getUrl: () => 'http://localhost:8123/check-base' }) };
