@@ -138,7 +138,7 @@
   .nwbar .btn{flex:none;min-width:170px;min-height:44px;font-size:15px}
 }
 /* 출근현황 (WS_출근현황, 결정 88) — 상태 딱지 색은 엑셀 색을 부드럽게 */
-.attag{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;padding:0 9px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;border:1px solid transparent;background:#fff;flex:none}
+.attag{display:inline-block;text-align:center;line-height:26px;vertical-align:middle;box-sizing:border-box;min-width:42px;height:28px;padding:0 9px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;border:1px solid transparent;background:#fff;flex:none}
 button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent}
 button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
 .s-on{background:var(--green-bg);color:var(--green)}.s-97{color:var(--sub);border-color:var(--line)}
@@ -150,11 +150,11 @@ button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
 .atsec{background:#fff;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
 .atsec h2{margin:0;font-size:15px;font-weight:700;padding:10px 14px;display:flex;align-items:center;border-bottom:1px solid var(--line3)}
 .atsec h2 small{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}
-.k0 h2{background:#EEF1F5}.k1 h2{background:#F1EDF8;color:#4B3A78}.k2 h2{background:var(--blue-bg);color:var(--blue-d)}.k3 h2{background:var(--green-bg);color:var(--green)}
+.k0 h2{background:#EEF1F5}.k1 h2{background:#F1EDF8;color:#4B3A78}.k2 h2{background:var(--blue-bg);color:var(--blue-d)}.k3 h2{background:var(--green-bg);color:var(--green)}.k4 h2{background:#FFF1E0;color:#9A4A00}
 .atppl{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;padding:10px}
 .atp{display:flex;align-items:center;gap:8px;border:1px solid var(--line3);border-radius:10px;padding:8px;min-width:0;background:#fff}
-.atav{width:34px;height:34px;border-radius:17px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;background:#E3E7EC;color:var(--sub)}
-.k1 .atav{background:#E7E1F3;color:#4B3A78}.k2 .atav{background:#D9E6F7;color:var(--blue-d)}.k3 .atav{background:#D5ECDF;color:var(--green)}
+.atav{width:34px;height:34px;line-height:34px;text-align:center;border-radius:17px;flex:none;display:inline-block;font-weight:700;font-size:14px;background:#E3E7EC;color:var(--sub)}
+.k1 .atav{background:#E7E1F3;color:#4B3A78}.k2 .atav{background:#D9E6F7;color:var(--blue-d)}.k3 .atav{background:#D5ECDF;color:var(--green)}.k4 .atav{background:#FDE3C8;color:#9A4A00}
 .atnm{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:0;background:none;padding:0;cursor:pointer}
 .atnm small{font-size:11px;color:var(--muted);line-height:1.2}
 .atnm b{font-size:15px;line-height:1.3;white-space:nowrap}
@@ -163,7 +163,7 @@ button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
 .atsums{display:grid;gap:12px}
 .atduo{display:grid;gap:12px}
 .atst{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:#fff;font-size:14px}
-.atst caption{text-align:left;font-weight:700;font-size:14px;padding:0 2px 6px}
+.atst caption{text-align:center;font-weight:700;font-size:14px;padding:0 2px 6px}
 .atst th{background:var(--blue-bg);color:var(--blue-d);font-weight:700;padding:8px 6px;font-size:13px}
 .atst th.g2{background:#F1EDF8;color:#4B3A78}
 .atst td{padding:8px 6px;border-top:1px solid var(--line3);text-align:center}
@@ -172,7 +172,7 @@ button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
 .atst tr.sum td{font-weight:700;background:#F8FAFC}
 .atst .z{color:var(--muted)}
 .atopts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.atopts .attag{height:44px;font-size:15px;width:100%;border-radius:10px}
+.atopts .attag{height:44px;line-height:42px;font-size:15px;width:100%;border-radius:10px}
 .atopts .attag::after{content:none}
 .atopts .attag.sel{outline:3px solid var(--blue);outline-offset:1px}
 .atwk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -191,9 +191,11 @@ button.attag::after{content:'▾';font-size:10px;margin-left:3px;opacity:.7}
 .atimg .attl{display:flex;align-items:baseline;gap:14px;margin-bottom:16px}.atimg .attl b{font-size:24px}.atimg .attl span{font-size:14px;color:var(--muted)}
 .atimg .atorg,.atimg .atduo{grid-template-columns:1fr 1fr}
 .atimg .atsums{grid-template-columns:1fr 2fr;margin-top:14px}
+/* 그림 도구(html2canvas)는 글자를 약 3px 아래로 그림 → 그림 만들 때만 딱지·동그라미 글자를 3px 올림 (WS-21) */
+.atimg.cap .attag{line-height:20px}.atimg.cap .atav{line-height:28px}
 .atimg .stamp{margin-top:10px;color:var(--muted);font-size:12px;text-align:right}
 @media(min-width:900px){.wrap .atorg{grid-template-columns:1fr 1fr}.wrap .atsums{grid-template-columns:1fr 2fr}.wrap .atduo{grid-template-columns:1fr 1fr}}
-@media(max-width:480px){.wrap .atppl{grid-template-columns:repeat(2,minmax(0,1fr))}.wrap .atnm b{font-size:14px}.wrap .atp{gap:6px;padding:7px 6px}.wrap .atav{width:28px;height:28px;font-size:13px}.wrap .attag{min-width:0;padding:0 7px;font-size:12.5px}.wrap .atppl{gap:6px;padding:8px}}
+@media(max-width:480px){.wrap .atppl{grid-template-columns:repeat(2,minmax(0,1fr))}.wrap .atnm b{font-size:14px}.wrap .atp{gap:6px;padding:7px 6px}.wrap .atav{width:28px;height:28px;line-height:28px;font-size:13px}.wrap .attag{min-width:0;padding:0 7px;font-size:12.5px}.wrap .atppl{gap:6px;padding:8px}}
 /* 전열필증 (WS_전열필증 15.3.20, 결정 96) */
 .ehfls{display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}
 .ehfl{flex:none;min-width:60px;min-height:48px;border-radius:10px;border:1px solid var(--line2);background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;cursor:pointer;padding:4px 8px}
@@ -1082,7 +1084,7 @@ function atIsDay(v) { return v === '' || v === '9-7' || /^[AP](반|검진)$|^[�
 function atGrp(v) { return atIsDay(v) ? '주' : v === '야' ? '야' : v === '비' ? '비번' : '휴무'; }
 function atWd(d) { return WEEK[new Date(d + 'T12:00:00+09:00').getDay()]; }
 function atKo(d) { return Number(d.slice(0, 4)) + '년 ' + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + atWd(d) + ')'; }
-function atTitle(sec) { return sec.indexOf('관') === 0 ? '관리파트' : /^[가-힣]{4}$/.test(sec) ? sec.slice(0, 2) + '·' + sec.slice(2) : sec; }
+function atTitle(sec) { return sec.indexOf('관') === 0 ? '관리파트' : /^공사장/.test(sec) ? sec.replace(/^공사장(?=\S)/, '공사장 ') : /^[가-힣]{4}$/.test(sec) ? sec.slice(0, 2) + '·' + sec.slice(2) : sec; }
 /* 엑셀 줄 → 조직도 구역: 소장 = 사업소장, 나머지는 엑셀 구역 순서대로 (5장) */
 function atGroups(people) {
   const out = [{ t: '사업소장', p: [] }];
@@ -1092,12 +1094,13 @@ function atGroups(people) {
     if (!g) { g = { t, p: [] }; out.push(g); }
     g.p.push(Object.assign({ i }, x));
   });
+  out.sort((a, b) => /^공사장/.test(a.t) - /^공사장/.test(b.t));   // 공사장 안전관리는 맨 아래 (엑셀에선 가운데, 사용자 11-13)
   out.forEach(g => g.p.sort((a, b) => !a.name - !b.name));   // 공석은 구역 맨 끝 (sort는 같은 값끼리 순서 유지)
   return out.filter(g => g.p.length);
 }
 function atOrg(people, ed) {
   const a = S.at || {};
-  return '<div class="atorg">' + atGroups(people).map((g, k) => '<section class="atsec k' + Math.min(k, 3) + '"><h2>' + h(g.t) + '<small>' + g.p.filter(x => x.name).length + '명</small></h2><div class="atppl">' +
+  return '<div class="atorg">' + atGroups(people).map((g, k) => '<section class="atsec k' + Math.min(k, 4) + '"><h2>' + h(g.t) + '<small>' + g.p.filter(x => x.name).length + '명</small></h2><div class="atppl">' +
     g.p.map(x => x.name ? '<div class="atp"><span class="atav" aria-hidden="true">' + h(x.name.slice(0, 1)) + '</span>' +
       (ed ? '<button class="atnm" onclick="atHolOpen(' + x.i + ')" aria-label="' + h(x.name) + ' 기본 휴일"><small>' + h(atRole(x.role)) + '</small><b>' + h(x.name) + '</b></button>' : '<span class="atnm"><small>' + h(atRole(x.role)) + '</small><b>' + h(x.name) + '</b></span>') +
       (ed && x.fix ? '<span class="atfix" title="고침: ' + h(x.fix.by) + ' ' + h(x.fix.at) + '"></span>' : '') +
@@ -1184,14 +1187,14 @@ async function atHolSave(i) {
 /* 그림 (5장): 가로 1200px 판을 2배로 그려 PNG — 명일 작업처럼 내려받고 그림도 보여 줌 */
 function atImgHtml(r) {
   const t = new Date(), p = n => String(n).padStart(2, '0');
-  return '<div class="atimg"><div class="attl"><b>' + h(atKo(r.date)) + ' 근무인원</b><span>에비뉴엘 월드타워 시설관리</span></div>' + atOrg(r.people, false) + atSums(r.people) +
-    '<div class="stamp">업무지원 앱 · ' + t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) + ' ' + p(t.getHours()) + ':' + p(t.getMinutes()) + ' 만듦</div></div>';
+  return '<div class="atimg"><div class="attl"><b>' + h(atKo(r.date)) + ' 근무인원</b><span>잠실점 에비뉴엘 시설관리</span></div>' + atOrg(r.people, false) + atSums(r.people) +
+    '<div class="stamp">업무지원 앱 · ' + t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) + ' ' + p(t.getHours()) + ':' + p(t.getMinutes()) + '</div></div>';
 }
 async function atImage() {
   const r = S.at.r, btn = $('atImgBtn'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 그림 만드는 중'; }
   const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;z-index:-1';
   wrap.innerHTML = atImgHtml(r); document.body.appendChild(wrap);
-  const box = wrap.firstChild; const W = box.offsetWidth, H = box.offsetHeight;
+  const box = wrap.firstChild; box.classList.add('cap'); const W = box.offsetWidth, H = box.offsetHeight;
   try {
     await loadH2p();
     try { if (document.fonts) await document.fonts.ready; } catch (e) {}
@@ -1220,8 +1223,8 @@ function loadXlsx() {
     document.head.appendChild(sc);
   }));
 }
-/** 표(줄×칸 글자) → { ym, rows, tot, unknown } — 날짜 줄(1, 2, 3…)을 찾아 그 왼쪽 2·3·4칸 = 이름·직책·구역 */
-function atParse(aoa) {
+/** 표(줄×칸 글자) → { ym, rows, tot, unknown } — 날짜 줄(1, 2, 3…)을 찾아 그 왼쪽 2·3·4칸 = 이름·직책·구역. hid[줄] = 엑셀에서 숨긴 줄 */
+function atParse(aoa, hid) {
   const c = v => String(v == null ? '' : v).trim();
   let ym = '', hr = -1, c0 = -1;
   aoa.slice(0, 6).forEach(row => (row || []).forEach(v => { const m = /(\d{4})\s*년\s*(\d{1,2})\s*월/.exec(c(v)); if (m && !ym) ym = m[1] + '-' + m[2].padStart(2, '0'); }));
@@ -1232,16 +1235,17 @@ function atParse(aoa) {
   for (let r = hr + 1; r < aoa.length; r++) {
     const row = aoa[r] || [], a = c0 >= 4 ? c(row[c0 - 4]) : '', role = c(row[c0 - 3]), name = c(row[c0 - 2]);
     const days = Array.from({ length: n }, (_, i) => c(row[c0 + i]));
-    if (/총원/.test(a + role)) { tot = days.map(Number); continue; }
+    if (/총원/.test(a + role)) { tot = days.map(v => v === '' ? null : Number(v)); continue; }   // 빈 칸(엑셀이 안 센 날)은 맞춰 보지 않음
     if (/합계/.test(a + role)) continue;
     if (a) sec = a.replace(/\s+/g, '');
-    if (!role) continue;   // 요일 줄·아래 안내 글은 직책 칸이 비어 있음
+    if (!role && !name) continue;   // 요일 줄·아래 안내 글 (공사장 안전관리는 구역·직책 칸이 합쳐져 직책이 비어 있음)
+    if (!name && hid && hid[r]) continue;   // 숨긴 빈 줄은 공석 아님 (숨긴 줄이라도 이름 있으면 읽음, 사용자 11-13)
     if (name) days.forEach(v => { if (AT_KNOWN.indexOf(v) === -1) unknown[v] = (unknown[v] || []).concat(name); });
     rows.push({ sec, role, name, days });
   }
   if (!rows.length) return { error: '직원 줄을 찾지 못했습니다.' };
-  const ju = Array.from({ length: n }, (_, i) => rows.filter(x => x.name && atIsDay(x.days[i])).length);
-  const bad = tot ? ju.map((v, i) => v === tot[i] ? 0 : i + 1).filter(Boolean) : null;
+  const ju = Array.from({ length: n }, (_, i) => rows.filter(x => x.name && !/^공사장/.test(x.sec) && atIsDay(x.days[i])).length);   // 엑셀 「주간근무총원」은 공사장 안전관리를 빼고 셈
+  const bad = tot ? ju.map((v, i) => tot[i] == null || v === tot[i] ? 0 : i + 1).filter(Boolean) : null;
   return { ym, rows, n, bad, unknown };
 }
 function atB64(buf) { let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
@@ -1250,8 +1254,9 @@ async function atFile(el) {
   S.atup = { busy: true, name: f.name }; render();
   try {
     await loadXlsx();
-    const buf = await f.arrayBuffer(), wb = XLSX.read(buf, { type: 'array' });
-    const p = atParse(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' }));
+    const buf = await f.arrayBuffer(), wb = XLSX.read(buf, { type: 'array', cellStyles: true }), ws = wb.Sheets[wb.SheetNames[0]];
+    const r0 = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).s.r : 0, hid = (ws['!rows'] || []).slice(r0).map(x => !!(x && x.hidden));
+    const p = atParse(XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: true }), hid);
     S.atup = Object.assign({ name: f.name, day: 1, file: buf.byteLength < 3e6 ? 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + atB64(buf) : '' }, p);
   } catch (e) { S.atup = { name: f.name, error: '엑셀을 읽지 못했습니다: ' + (e && e.message ? e.message : e) }; }
   render();
