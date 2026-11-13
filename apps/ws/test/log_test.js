@@ -20,6 +20,7 @@ async function open(b, opt) {
   const today0 = new Date(Date.now() + 9 * 3600e3 - 6 * 3600e3).toISOString().slice(0, 10);
   await run('appendRow_', 'TBM', { 'tbm_id': 'T1', '근무일': today0, '삭제여부': 'N', '작업표': JSON.stringify([{ place: '2층', work: '자동문 재결선', dept: '전방파트', risk: '감전' }, { place: '옥상', work: '배수구 청소', dept: '기건파트' }]
     .concat(Array.from({ length: 11 }, (_, i) => ({ place: 'B' + (i + 1), work: '순찰', dept: '전방파트' })))) });   // 전기방재 12줄 → 10줄만
+  await run('eval', 'AC.hvac = [{date:"' + today0 + '",unit:28,startMin:600,endMin:1220,off:false},{date:"' + today0 + '",unit:12,startMin:null,endMin:null,off:true},{date:"' + today0 + '",unit:3,startMin:600,endMin:1200,off:false}]; AC.curtain = [{date:"' + today0 + '",unit:"1REAR-1",startMin:600,endMin:1170,off:false}]');   // 온습도 앱 기록 흉내
   const b = await chromium.launch();
   const p = await open(b, { viewport: { width: 1600, height: 1000 } });
   await p.waitForSelector('.lgs');
@@ -28,7 +29,11 @@ async function open(b, opt) {
   ok(day === today, '오늘 근무일로 열림 ' + day);
   ok(await p.locator('.lgs h1').innerText() === '에비뉴엘 종합업무일지' && await p.locator('.lgsign th').count() === 4, '제목 · 서명란 4칸');
   ok(await p.locator('.lgmc').count() === 8 && await p.locator('.lgmh .lgin').count() === 8 && !(await p.locator('[data-bars="급탕"],[data-bars="실온수"]').count()), '에너지 막대 칸 8개 (급탕·환탕·급탕탱크·실온수 뺌)');
-  ok(await p.locator('.lgwork li').count() === 20 && await p.locator('textarea[data-k="비고"]').count() === 1, '금일작업 10줄씩 + 아래 비고');
+  ok(await p.locator('.lgwork li').count() === 20 && !(await p.locator('textarea[data-k="비고"]').count()), '금일작업 10줄씩 · 비고 칸 없음');
+  const ac = await p.evaluate(() => [...document.querySelectorAll('.lgac .acb')].map(e => e.querySelector('.ach span').innerText + '|' + e.querySelector('.acs em').innerText + '|' + e.querySelectorAll('.bb i').length + '|' + e.querySelectorAll('.bb i.off').length));
+  ok(ac.join(' / ') === '입력 2/38대 · 미가동 1대|10.3|38|1 / 입력 1/36대 · 미가동 0대|9.5|36|0', '공조기·에어커튼 가동: 대수·일일 합·장비 막대 (3번 뺌) ' + ac.join(' / '));
+  const ly = await p.evaluate(() => { const e = document.querySelector('.lgegrid'), a = document.querySelector('.lgac'), w = document.querySelector('.lgrow'); return e.getBoundingClientRect().bottom <= a.getBoundingClientRect().top && a.getBoundingClientRect().bottom <= w.getBoundingClientRect().top; });
+  ok(ly, '가동 칸 = 에너지 사용량 아래, 금일작업 위');
   ok(!(await p.locator('.lgtools,.lgchip').count()), '종이 위 문구·TBM 줄 없음');
   const wv = (d, i) => p.inputValue('.lgin[data-d="' + d + '"][data-i="' + i + '"]');
   ok(await wv('전기방재', 0) === '2층 자동문 재결선' && await wv('전기방재', 9) === 'B9 순찰' && await wv('기계건축', 0) === '옥상 배수구 청소' && (await p.locator('#lgState').innerText()).indexOf('저장 안 함') !== -1, '새 날: TBM 작업 표로 금일작업 채워 둠 (10줄까지, 11번부터 뺌)');
@@ -40,7 +45,7 @@ async function open(b, opt) {
   const set = (k, v) => p.locator('.lgin[data-k="' + k + '"]').fill(v);
   await set('영업시간', '9.5'); await set('날씨', '흐림'); await set('최저', '8'); await set('최고', '16'); await set('미세먼지', '38');
   await p.selectOption('select.lgin', '보통');
-  await set('시수', '102'); await set('전기', '17906'); await set('비고', '1층 누수 확인\n내일 업체 방문');
+  await set('시수', '102'); await set('전기', '17906');
   const bars = k => p.locator('[data-bars="' + k + '"] .lgbv .c').allInnerTexts();
   ok((await bars('시수')).join('|') === '102|102|102', '입력하면 일일·월누계·년누계 바로 바뀜 ' + (await bars('시수')).join('|'));
   ok(await p.locator('#lgHours').innerText() === '9.5', '영업시간 월누계 바로 바뀜');
@@ -50,7 +55,7 @@ async function open(b, opt) {
   await p.click('#lgSave'); await p.waitForFunction(() => S.lg && !S.lg.busy && !S.lg.dirty);
   const tk = await p.evaluate(() => S.token);
   let g = await run('logGet', tk, day);
-  ok(g.cur && g.cur['시수'] === '102' && g.cur.works['전기방재'][0] === '공사장 안전 점검' && g.cur.works['전기방재'].length === 10 && g.cur['비고'] === '1층 누수 확인\n내일 업체 방문', '저장 → 일지 시트 (10줄 · 비고 줄바꿈)');
+  ok(g.cur && g.cur['시수'] === '102' && g.cur.works['전기방재'][0] === '공사장 안전 점검' && g.cur.works['전기방재'].length === 10, '저장 → 일지 시트 (10줄)');
   ok(g.cur['야간그림_id'] && g.night.indexOf('data:image/jpeg') === 0 && await p.locator('#lgNight img').count() === 1, '야간 그림 저장 → 다시 열어도 보임');
   ok(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), '옆으로 넘침 없음 (1600px)');
   await p.screenshot({ path: 'shot_log_pc.png', fullPage: true });
@@ -67,8 +72,8 @@ async function open(b, opt) {
   // B4 인쇄
   await p.evaluate(() => { window.print = () => { window.__printed = true; }; });
   await p.click('#lgBar button:has-text("인쇄")'); await p.waitForFunction(() => window.__printed);
-  const pr = await p.evaluate(() => ({ css: $('print').innerHTML.indexOf('size:364mm 257mm') !== -1, inputs: $('print').querySelectorAll('input,button,.lgchip').length, v: $('print').innerText.indexOf('102') !== -1, img: $('print').querySelectorAll('.lgnight img').length }));
-  ok(pr.css && pr.inputs === 0 && pr.v && pr.img === 1, '인쇄: B4 가로(364×257mm) · 입력칸·버튼 없이 값과 야간 그림만');
+  const pr = await p.evaluate(() => ({ css: $('print').innerHTML.indexOf('size:364mm 257mm') !== -1, inputs: $('print').querySelectorAll('input,button,.lgchip').length, v: $('print').innerText.indexOf('102') !== -1, img: $('print').querySelectorAll('.lgnight img').length, ac: $('print').querySelectorAll('.lgac .acb').length }));
+  ok(pr.css && pr.inputs === 0 && pr.v && pr.img === 1 && pr.ac === 2, '인쇄: B4 가로(364×257mm) · 입력칸·버튼 없이 값·가동 칸·야간 그림만');
   await p.emulateMedia({ media: 'print' });
   const sz = await p.evaluate(() => { const r = $('print').querySelector('.lgs').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
   ok(Math.abs(sz[0] - 1376) <= 2 && sz[1] <= 972, '인쇄 크기 ' + sz.join('×') + 'px = 364×257mm 안');

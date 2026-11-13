@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.13', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.14', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -949,7 +949,7 @@ const LOG_METERS = ['시수', '중수', '식당시수', '식당온수', '식당�
 const LOG_NUMS = ['영업시간', '최저', '최고', '최고풍속', '미세먼지', '전기'].concat(LOG_METERS);
 const LOG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
 const LOG_DEPTS = ['전기방재', '기계건축'];
-const LOG_MAX_LINES = 10;   // 부서마다 10줄, 남는 곳은 비고 (사용자 11-13)
+const LOG_MAX_LINES = 10;   // 부서마다 10줄 (사용자 11-13). 비고 칸은 화면에서 뺌(결정 120), 시트 열·옛 값은 그대로
 const LOG_WX = ['날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급'];   // 네이버 오후 1시 값이 들어가는 칸
 const LOG_WX_REGION = '09710101';   // 네이버 날씨 지역 번호: 서울 송파구 잠실동
 const LOG_TBM_DEPT = { '전방파트': '전기방재', '기건파트': '기계건축' };
@@ -1069,7 +1069,7 @@ function logData_(day) {
     year: { c: logSum_(map, day.slice(0, 5) + '01-01', day), p: logSum_(map, prev.slice(0, 5) + '01-01', prev) },
     ver: cur && cur._new ? cur['수정시각'] : '', by: cur && cur._new ? cur['수정자'] : '',
     pdf: cur && cur._new && cur['pdf_id'] ? { id: cur['pdf_id'], at: cur['PDF만든시각'], url: driveUrl_(cur['pdf_id']) } : null,
-    night: cur ? fileB64_(cur['야간그림_id']) : '', tbm: logTbm_(day)
+    night: cur ? fileB64_(cur['야간그림_id']) : '', tbm: logTbm_(day), ac: logAc_(day)
   };
 }
 
@@ -1224,6 +1224,59 @@ function logWeatherMenu_() {
   try { w = logWeatherFetch_(workDay_(Date.now())); } catch (e) { w = null; }
   SpreadsheetApp.getUi().alert('날씨 자동을 켰습니다. 매일 오후 1시쯤 네이버 날씨(잠실동)를 그날 일지에 넣습니다.\n\n' +
     (w ? '지금 읽어 본 값: ' + LOG_WX.map(function (k) { return k + ' ' + (w[k] || '-'); }).join(' · ') : '지금은 네이버 날씨를 읽지 못했습니다. 화면에서 직접 입력해 주세요.'));
+}
+
+/* 공조기·에어커튼 가동 (결정 120): 같은 계정의 [구역별 온습도 확인] 앱 기록을 그 앱 읽기 주소(listUsage)로 받아 그날·월·년 가동시간 합.
+   그 앱은 고치지 않음. 장비마다 「종료 − 시작」, 미가동 = 0시간, 시작·종료가 빈 장비 = 아직 입력 안 함.
+   shortcut: 주소·키·장비 목록은 온습도 앱 config.json(hvac.floorGroups · curtain.groups)을 옮겨 적음 — 그 앱에서 장비를 더하거나 주소가 바뀌면 여기도 고침 */
+const LOG_AC_URL = 'https://script.google.com/macros/s/AKfycbyCzSYO4rJY989K-PdRWYeWGMxA4imOJx5vDzlsRATmBHJU2Ar4GugtkvFWAmxFEFMT/exec';
+const LOG_AC_TOKEN = 'avenuel02', LOG_AC_SITE = 'mall-001';
+function logAcKeys_(key, n) { const a = []; for (let i = 1; i <= n; i++) a.push(key + '-' + i); return a; }
+const LOG_AC = {   // 목록에 없는 번호(공조기 3·37·38번)는 온습도 앱처럼 뺌
+  hvac: { name: '공조기', groups: [['6층', [28, 32, 34, 36, 39]], ['5층', [27, 29, 30, 31, 33, 35]], ['4층', [21, 22, 23, 24, 25, 26]], ['3층', [15, 16, 17, 18, 19, 20]],
+    ['2층', [9, 10, 11, 12, 13, 14]], ['1층', [4, 5, 6, 7, 8]], ['B1', [1, 2]], ['B3', [40, 41]]] },
+  curtain: { name: '에어커튼', groups: [['B1 24G', logAcKeys_('B1G24', 2)], ['1G OUT', logAcKeys_('1G1OUT', 7)], ['1G IN', logAcKeys_('1G1IN', 5)], ['2G OUT', logAcKeys_('1G2OUT', 3)],
+    ['2G IN', logAcKeys_('1G2IN', 3)], ['6G OUT', logAcKeys_('1G6OUT', 3)], ['6G IN', logAcKeys_('1G6IN', 3)], ['후방 도어', logAcKeys_('1REAR', 8)], ['4·6 브릿지', ['4BR-1', '6BR-1']]] }
+};
+function logAcFetch_(kind, days) {
+  const r = UrlFetchApp.fetch(LOG_AC_URL + '?action=listUsage&kind=' + kind + '&site=' + LOG_AC_SITE + '&days=' + days + '&token=' + LOG_AC_TOKEN, { muteHttpExceptions: true, followRedirects: true });
+  const j = r.getResponseCode() === 200 ? jsonOr_(r.getContentText(), null) : null;
+  if (!j || !j.ok || !Array.isArray(j.records)) throw new Error(j && j.error ? j.error : '응답 ' + r.getResponseCode());
+  return j.records;
+}
+/** 그날 장비별 시간 + 올해·전년 일일·월누계·년누계. 못 읽으면 { err } (화면에 「불러오기 실패」) */
+function logAc_(day) {
+  const cache = CacheService.getScriptCache(), key = 'lgac_' + day, hit = cache.get(key);
+  if (hit) return jsonOr_(hit, null);
+  const prev = logPrevYear_(day), from = prev.slice(0, 5) + '01-01';
+  const days = Math.round((Date.parse(workDay_(Date.now()) + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / DAY_MS) + 1;
+  const r1 = function (x) { return Math.round(x * 10) / 10; };
+  let out;
+  try {
+    out = {};
+    Object.keys(LOG_AC).forEach(function (kind) {
+      const K = LOG_AC[kind], keys = {}, h = {};   // h[날짜][장비] = 시간
+      K.groups.forEach(function (g) { g[1].forEach(function (u) { keys[String(u)] = 1; }); });
+      logAcFetch_(kind, days).forEach(function (r) {
+        const u = String(r.unit), hr = r.off ? 0 : r.startMin != null && r.endMin != null ? Math.max(0, r.endMin - r.startMin) / 60 : null;
+        if (keys[u] && hr != null && r.date >= from && r.date <= day) (h[r.date] = h[r.date] || {})[u] = hr;
+      });
+      const sum = function (a, b) {
+        let s = 0, any = false;
+        Object.keys(h).forEach(function (d) { if (d >= a && d <= b) Object.keys(h[d]).forEach(function (u) { s += h[d][u]; any = true; }); });
+        return any ? r1(s) : null;
+      };
+      const dh = h[day] || {}, set = function (d) { return { d: sum(d, d), m: sum(d.slice(0, 8) + '01', d), y: sum(d.slice(0, 5) + '01-01', d) }; };
+      out[kind] = { name: K.name, total: Object.keys(keys).length, entered: Object.keys(dh).length,
+        off: Object.keys(dh).filter(function (u) { return dh[u] === 0; }).length,
+        groups: K.groups.map(function (g) { return [g[0], g[1].map(function (u) { const v = dh[String(u)]; return v == null ? null : r1(v); })]; }),
+        c: set(day), p: set(prev) };
+    });
+  } catch (e) {
+    out = { err: String(e && e.message || e).slice(0, 100) };
+  }
+  cache.put(key, JSON.stringify(out), out.err ? 300 : day < workDay_(Date.now()) ? 21600 : 600);   // 오늘은 10분마다 새로 (직원이 계속 입력함)
+  return out;
 }
 
 /* ───────────────────────── 출근현황 (WS_출근현황 15.3.19, 결정 88) ───────────────────────── */

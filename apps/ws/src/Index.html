@@ -386,18 +386,23 @@ select.lgin{text-align:center;padding:0}
 .lgbv{font-size:11px;line-height:13px;text-align:right}.lgbv span{display:block}.lgbv .p{color:#5B6573}.lgbv .c{font-weight:500}
 .lgrt{font-size:11.5px;text-align:right;color:#3F4855}
 .lglg{display:inline-flex;align-items:center;gap:4px;margin-left:8px}.lglg i{width:10px;height:7px;border-radius:2px;display:inline-block}
-.lgrow{display:grid;grid-template-columns:1fr 500px;gap:16px}
+.lgrow{display:grid;grid-template-columns:1fr 360px;gap:16px}
+.lgac2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.acb{border:1px solid #DCE1E7;border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:6px}
+.ach{display:flex;align-items:baseline;gap:8px}.ach b{font-size:13px;font-weight:600}.ach span{margin-left:auto;font-size:11px;color:#5B6573}
+.acs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.acs div{border-top:2px solid #18202B;padding-top:2px}.acs small{display:block;font-size:11px;color:#5B6573}.acs em{font-style:normal;font-size:15px;font-weight:600}.acs i{font-style:normal;font-size:11px;color:#5B6573;margin-left:6px}
+.acu{display:flex;gap:6px;align-items:flex-end}.acg{display:flex;flex-direction:column;gap:2px;min-width:0}.acg .bb{display:flex;gap:2px;align-items:flex-end;height:44px;border-bottom:1px solid #8A94A3}
+.acg .bb i{flex:1;background:#1F5FA8;border-radius:1px 1px 0 0}.acg .bb i.off{background:none;border:1px dashed #C0261A;height:4px}.acg .bb i.na{background:#E3E7EC;height:100%}
+.acg .gl{font-size:10px;color:#5B6573;text-align:center;white-space:nowrap;overflow:hidden}.aclg{font-size:10.5px;color:#5B6573;display:flex;gap:10px;margin-top:4px}.aclg i{display:inline-block;width:8px;height:8px;margin-right:3px;vertical-align:-1px}
+.acerr{border:1px dashed #CBD2DB;border-radius:8px;padding:12px;font-size:13px;color:#5B6573}
 .lgworks{display:flex;flex-direction:column;gap:10px}
 .lgwk2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.lgnote{flex:1;display:flex;flex-direction:column}
-.lgnote .lgnt{flex:1;border:1px solid #CBD2DB;border-radius:4px;padding:6px 8px;font:inherit;font-size:13.5px;line-height:1.5;color:#18202B;white-space:pre-wrap;min-height:96px;resize:none;width:100%}
-.lgnote textarea.lgnt:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:var(--blue)}
 .lgwork ol{margin:0;padding:0;list-style:none;border-top:2px solid #18202B}
 .lgwork li{display:flex;gap:8px;align-items:center;min-height:28px;border-bottom:1px solid #CBD2DB;font-size:13.5px;padding:0 4px}
 .lgwork li .n{width:20px;flex:none;color:#5B6573;text-align:right}
 .lgwork li .lgin{text-align:left;border-color:transparent;font-size:13.5px;height:24px}
 .lgwork li .lgin:placeholder-shown{border-color:#DCE1E7}
-.lgnight{border:1px solid #CBD2DB;height:422px;display:flex;align-items:center;justify-content:center;color:#5B6573;font-size:13px;position:relative;overflow:hidden;background:#fff}
+.lgnight{border:1px solid #CBD2DB;height:282px;display:flex;align-items:center;justify-content:center;color:#5B6573;font-size:13px;position:relative;overflow:hidden;background:#fff}
 .lgnight img{max-width:100%;max-height:100%;object-fit:contain;display:block}
 .lgnight .lgnb{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
 .lgnight .lgnadd{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;color:#1F5FA8;font-size:14px;padding:24px}
@@ -1300,6 +1305,17 @@ function lgBars(k) {
       '<span class="lgbv"><span class="p">' + lgF(p) + '</span><span class="c">' + lgF(c) + '</span></span><span class="lgrt ' + rt[1] + '">' + rt[0] + '</span></div>';
   }).join('');
 }
+/** 공조기·에어커튼 가동 (결정 120): 온습도 앱 기록. 막대 끝 = 12시간, 미가동 = 빨간 점선, 아직 입력 안 함 = 회색 */
+function lgAc(ac) {
+  const head = '<div class="lgsec">공조기 · 에어커튼 가동 <small>온습도 앱 기록 자동 · 그날 장비별 가동시간 합</small></div>';
+  if (!ac || ac.err) return '<div class="lgac">' + head + '<div class="acerr">온습도 앱 기록을 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.</div></div>';
+  const v = x => x == null ? '—' : lgF(x);
+  const blk = k => '<div class="acb" data-ac="' + k.name + '"><div class="ach"><b>' + k.name + '</b><span>입력 ' + k.entered + '/' + k.total + '대 · 미가동 ' + k.off + '대</span></div>' +
+    '<div class="acs">' + [['일일', 'd'], ['월누계', 'm'], ['년누계', 'y']].map(([l, x]) => '<div><small>' + l + ' (시간)</small><em>' + v(k.c[x]) + '</em><i>전년 ' + v(k.p[x]) + '</i></div>').join('') + '</div>' +
+    '<div class="acu">' + k.groups.map(([g, hs]) => '<div class="acg" style="flex:' + hs.length + '"><div class="bb">' + hs.map(x => x === 0 ? '<i class="off"></i>' : x == null ? '<i class="na"></i>' : '<i style="height:' + Math.min(100, x / 12 * 100) + '%" title="' + x + '시간"></i>').join('') + '</div><div class="gl">' + g + '</div></div>').join('') + '</div></div>';
+  return '<div class="lgac">' + head + '<div class="lgac2">' + blk(ac.hvac) + blk(ac.curtain) + '</div>' +
+    '<div class="aclg"><span><i style="background:#1F5FA8"></i>가동시간 (막대 끝 = 12시간)</span><span><i style="border:1px dashed #C0261A"></i>미가동</span><span><i style="background:#E3E7EC"></i>아직 입력 안 함</span></div></div>';
+}
 function lgSheet(edit) {
   const g = S.lg, s = g.srv, f = g.f, pv = s.prev || {};
   const inp = (k, w) => edit ? '<input class="lgin" data-k="' + k + '" value="' + h(f[k]) + '" oninput="lgIn(this)" inputmode="' + (k === '날씨' ? 'text' : 'decimal') + '"' + (w ? ' style="text-align:center"' : '') + ' aria-label="' + k + '">' : h(f[k]);
@@ -1320,8 +1336,9 @@ function lgSheet(edit) {
     '<tr><td class="p">' + lgF(pE) + '</td><td class="c">' + inp('전기') + '</td><td id="lgE1" class="' + r1[1] + '">' + r1[0] + '</td><td id="lgE2" class="' + r2[1] + '">' + r2[0] + '</td></tr></table></div></div>' +
     '<div><div class="lgsec">에너지 사용량 <small>막대 = 같은 줄 안에서 전년과 비교<span class="lglg"><i style="background:#CBD2DB"></i>' + s.prevDay.slice(0, 4) + '</span><span class="lglg"><i style="background:#1F5FA8"></i>' + dd.slice(0, 4) + '</span> · 증감율 빨강 = 늘어남</small></div>' +
     '<div class="lgegrid">' + LG_METERS.map(([k, nm]) => '<div class="lgmc"><div class="lgmh"><b>' + nm + '</b>' + (edit ? inp(k) : '') + '</div><div data-bars="' + k + '">' + lgBars(k) + '</div></div>').join('') + '</div></div>' +
+    lgAc(s.ac) +
     '<div class="lgrow"><div class="lgworks"><div class="lgwk2">' + work('전기방재') + work('기계건축') + '</div>' +
-    '<div class="lgnote"><div class="lgsec">비고</div>' + (edit ? '<textarea class="lgnt lgin" data-k="비고" maxlength="500" oninput="lgIn(this)" aria-label="비고">' + h(f['비고']) + '</textarea>' : '<div class="lgnt">' + h(f['비고']) + '</div>') + '</div></div>' +
+    '</div>' +
     '<div><div class="lgsec">야간 일일 작업 현황</div><div class="lgnight" id="lgNight">' + lgNight(edit) + '</div></div></div>' +
     '<div class="lgfoot">- 1 / 1 -</div></div>';
 }
