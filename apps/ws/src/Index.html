@@ -8,7 +8,7 @@
 .wrap{max-width:1100px;margin:0 auto;padding:12px 16px 40px}
 .top{background:#fff;border-bottom:1px solid var(--line2);position:sticky;top:0;z-index:20}
 .top-in{max-width:1100px;margin:0 auto;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.backbar{padding-top:4px;padding-bottom:calc(32px + env(safe-area-inset-bottom))}.backbar .btn{width:100%}
+.backbar{position:sticky;bottom:0;z-index:14;background:var(--ground);border-top:1px solid var(--line2);padding:10px 16px calc(12px + env(safe-area-inset-bottom))}.backbar .btn{width:100%}
 .btn.back-in{flex:none!important;min-width:0!important;margin-right:auto;padding:0 14px 0 8px;gap:2px}
 body:has(.csbar) #app{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
 @media (max-width:599px){.nwbar{gap:6px}.nwbar .btn{min-width:0;padding:0 10px;font-size:15px}.nwbar .btn.green svg{display:none}.nwbar>span{flex:0 1 auto;min-width:0;font-size:12px}.btn.back-in{padding:0 10px 0 4px}}
@@ -85,8 +85,9 @@ body:has(.csbar) #app{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
 .nwhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .nwhead b{flex:1 1 auto;font-size:17px}
 .nwdate{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer}
-.nwdate input{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;font-size:16px;cursor:pointer}
-.nwdate:focus-within{outline:3px solid #9CC0EC;outline-offset:2px}
+button.nwdate{border:0;font-family:inherit}
+.nwdate:focus-visible{outline:3px solid #9CC0EC;outline-offset:2px}
+.atcal button:disabled{opacity:.35;cursor:default}
 .nwmeta{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.5;font-variant-numeric:tabular-nums}
 .nwnote{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--sub);line-height:1.5}
 .nwsw{flex:none;width:4px;height:20px;border-radius:2px;background:var(--red)}
@@ -728,13 +729,21 @@ function tbmLv(p, s) { const v = p * s; return v ? v + ' (' + (v >= 6 ? '상' : 
 // 인원 = 그 줄 부서(=파트)의 오늘 서명 인원, 소장·부소장 빼고. 직접 넣으면 그 숫자
 function tbmAutoN(w) { return S.tbm.signs.filter(x => x.part === w.dept && x.role !== '소장' && x.role !== '부소장').length; }
 function tbmN(w) { return w.n !== '' && w.n != null ? Number(w.n) : tbmAutoN(w); }
-async function loadTbm(quiet) {
+async function loadTbm(quiet, day) {
   if (!quiet && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 버리고 새로 불러올까요?')) return;
-  const r = await call('tbmGet');
+  const r = await call('tbmGet', day || (S.tbm ? S.tbm.day : ''));
   const t = S.tbm;
   // 뒤에서 새로 받는 중에 고치거나 저장 중이면, 고친 것은 두고 서명만 새로
-  if (quiet && t && (t.dirty || t.busy || t.pdfBusy)) { Object.assign(t, { signs: r.signs, manager: r.manager }); if (S.view === 'tbm') render(); return; }
+  if (quiet && t && t.day === r.day && (t.dirty || t.busy || t.pdfBusy)) { Object.assign(t, { signs: r.signs, manager: r.manager }); if (S.view === 'tbm') render(); return; }
   tbmUse(r);
+}
+/** TBM 날짜 바꾸기 — 지난 날짜도 열어서 고치고 저장·PDF 가능 (11-13, 사용자) */
+function tbmCal() {
+  const r = S.tbm;
+  pickDate({ cur: r.day, home: r.today || r.day, max: r.today || r.day, homeLbl: '오늘 TBM으로', fn: ds => {
+    if (ds === S.tbm.day || (S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 버리고 다른 날짜를 열까요?'))) return;
+    S.tbm = null; render(); loadTbm(true, ds);
+  } });
 }
 function tbmUse(r) {
   const keep = S.tbm;
@@ -785,14 +794,17 @@ function renderTbm() {
   const list = !r.signs.length ? '<div class="banner b-gray">아직 서명한 직원이 없습니다.</div>' :
     '<div class="card">' + r.signs.map(x => '<div class="sgrow"><span class="sgno">' + x.no + '</span><span class="fname"><b>' + h(x.name) + '</b><small>' + h(x.part) + (x.role === '소장' || x.role === '부소장' ? ' · ' + h(x.role) : '') + '</small></span>' +
       '<span class="sgimg">' + (x.img ? '<img src="' + x.img + '" alt="' + h(x.name) + ' 서명">' : '') + '<small>' + h(x.at) + '</small></span></div>').join('') + '</div>';
-  return topbar('서류작업 ›', 'TBM · ' + dl) + '<div class="wrap list">' +
+  const past = r.today && r.day < r.today;
+  return topbar('서류작업 ›', 'TBM') + '<div class="wrap list">' +
+    '<div class="card" style="padding:16px"><div class="nwhead"><b>TBM</b><button class="nwdate" data-date="' + h(r.day) + '" onclick="tbmCal()" aria-label="날짜 바꾸기">' + ICON.cal + dl + '</button></div>' +
+    (past ? '<div class="nwmeta">지난 날짜입니다. 고쳐서 저장하면 이 날짜 TBM이 바뀝니다.</div>' : '') + '</div>' +
     '<div class="card tbsum"><span class="fname"><b>서명 ' + r.signs.length + '명</b><small>관리감독자 ' + (r.manager ? h(r.manager.name) : '없음 (소장·부소장 서명 전)') + ' · 로그인 순서대로</small></span>' +
     '<button class="btn sm" onclick="loadTbm()">새로고침</button><button class="btn sm" onclick="S.tbm.showSigns=!S.tbm.showSigns;render()">' + (r.showSigns ? '목록 닫기' : '서명 목록') + '</button></div>' +
     (r.showSigns ? list : '') +
     (r.pdf && r.pdf.shared === false ? '<div class="banner b-red">이 PDF는 <b>공유가 안 되어</b> 구글 로그인을 안 한 휴대폰·PC에서는 열리지 않습니다. 시설팀 공용 계정의 드라이브에서 파일 공유를 「링크가 있는 모든 사용자」로 바꾸거나 관리자에게 알려 주세요.</div>' : '') +
     (r.pdf ? '<div class="banner ' + (more ? 'b-warn' : 'b-info') + '">PDF 저장됨 ' + h(String(r.pdf.at).slice(11, 16)) + ' · 서명 ' + r.pdf.signs + '명' + (more ? ' — <b>PDF 뒤 서명 ' + more + '명 추가</b>. [PDF로 저장]을 다시 누르면 새로 만듭니다.' : '') + ' <a href="' + h(r.pdf.url) + '" target="_blank" rel="noopener">PDF 열기</a></div>' : '') +
     '<div class="sec">작업 표 — ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 명일 작업 예정에서 가져옴</div>' +
-    (r.works.length ? r.works.map(tbmCard).join('') : '<div class="banner b-gray">오늘 날짜의 명일 작업 예정이 없습니다. 아래 [+ 작업 줄 추가]로 넣어 주세요.</div>') +
+    (r.works.length ? r.works.map(tbmCard).join('') : '<div class="banner b-gray">이 날짜의 명일 작업 예정이 없습니다. 아래 [+ 작업 줄 추가]로 넣어 주세요.</div>') +
     '<button class="btn nwadd" onclick="tbmAdd()"' + (r.works.length >= 30 ? ' disabled' : '') + '>+ 작업 줄 추가</button>' +
     '<div class="sec">위쪽 체크 칸 — 작업 내용 낱말로 자동, 눌러서 바꿈</div>' +
     '<div class="card tbck">' + TBM_CHECKS.map(k => '<button type="button" class="' + (r.checks[k] ? 'on' : '') + '" aria-pressed="' + !!r.checks[k] + '" onclick="tbmCheck(\'' + k + '\')">' + k + (r.checks[k] ? ' ○' : '') + '</button>').join('') + '</div>' +
@@ -841,7 +853,7 @@ async function tbmSaveBtn(quiet) {
   const r = S.tbm; if (r.busy) return false;
   r.busy = true; render();
   try {
-    const res = await call('tbmSave', { works: r.works, checks: r.checks, meet: r.up.meet || '', chant: r.up.chant || '' });
+    const res = await call('tbmSave', { day: r.day, works: r.works, checks: r.checks, meet: r.up.meet || '', chant: r.up.chant || '' });
     r.busy = false;
     if (!res.ok) { render(); toast(res.error); return false; }
     Object.assign(r.photos, r.up); r.up = {}; r.saved = true; r.dirty = false; r.at = res.at;
@@ -861,12 +873,12 @@ function loadH2p() {
 async function tbmPdf() {
   const r = S.tbm; if (r.busy || r.pdfBusy) return;
   if (!(r.up.meet || r.photos.meet) || !(r.up.chant || r.photos.chant)) { if (!confirm('사진이 비어 있습니다. 그래도 PDF로 저장할까요?')) return; }
-  const save = r.dirty || !r.saved ? { works: r.works, checks: r.checks, meet: r.up.meet || '', chant: r.up.chant || '' } : null;
+  const save = r.dirty || !r.saved ? { day: r.day, works: r.works, checks: r.checks, meet: r.up.meet || '', chant: r.up.chant || '' } : null;
   r.pdfBusy = true; render();
   try {
     await loadH2p();
     const uri = await tbmMakePdf();
-    const res = await call('tbmSavePdf', uri, r.signs.slice(0, 20).map(x => x.id), save);   // 저장 + PDF를 서버 한 번에
+    const res = await call('tbmSavePdf', uri, r.signs.slice(0, 20).map(x => x.id), save, r.day);   // 저장 + PDF를 서버 한 번에
     r.pdfBusy = false;
     if (!res.ok) { render(); toast(res.error); return; }
     if (save) { Object.assign(r.photos, r.up); r.up = {}; r.saved = true; r.dirty = false; }
@@ -966,10 +978,10 @@ function nwSet(r) {
     rows: r.rows.length ? r.rows.map(x => Object.assign({}, x)) : [nwBlank()], dirty: false, busy: false };
   if (S.view === 'nw') render();
 }
-function nwDateChange(el) {
-  if (!el.value || el.value === S.nw.date) return;
-  if (!nwLeaveOk()) { el.value = S.nw.date; return; }
-  loadNw(el.value);
+function nwCal() {
+  const n = S.nw, d = n.defaultDate || n.date;
+  pickDate({ cur: n.date, home: d, homeLbl: '기본 일자로 (' + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일)',
+    fn: ds => { if (ds !== S.nw.date && nwLeaveOk()) loadNw(ds); } });
 }
 function nwKo(d, wd) { return new Date(d + 'T12:00:00+09:00').toLocaleDateString('ko-KR', Object.assign({ year: 'numeric', month: 'long', day: 'numeric' }, wd ? { weekday: 'short' } : {})); }
 function nwState() {
@@ -991,7 +1003,7 @@ function renderNw() {
     '<button type="button" class="btn nwdel" onclick="nwDel(' + i + ')" aria-label="' + (i + 1) + '번 줄 지우기">' + ICON.x + '</button></div>').join('');
   return topbar('서류작업 ›', '명일 작업') + '<div class="wrap list">' +
     '<div class="card" style="padding:16px"><div class="nwhead"><b>명일 작업 일정 현황</b>' +
-    '<label class="nwdate">' + ICON.cal + md(n.date) + ' (' + wd + ')<input type="date" value="' + h(n.date) + '" onchange="nwDateChange(this)" onclick="try{this.showPicker()}catch(e){}" aria-label="일자 바꾸기"></label></div>' +
+    '<button class="nwdate" data-date="' + h(n.date) + '" onclick="nwCal()" aria-label="일자 바꾸기">' + ICON.cal + md(n.date) + ' (' + wd + ')</button></div>' +
     '<div class="nwmeta">' + meta + '</div>' +
     '<div class="nwnote"><i class="nwsw"></i><span>작업 내용·비고에 <b>' + NW_WORDS.join('·') + '</b>가 있으면 그 줄이 빨간색</span></div></div>' +
     '<div class="nwrows"><div class="nwhd" aria-hidden="true"><span>순번</span><span>부서</span><span>작업장소</span><span>작업 내용</span><span>비고</span><span></span></div>' + rows +
@@ -1185,6 +1197,23 @@ function atCal() {
     (r.months.length ? '<div class="nwmeta">스케줄이 있는 달: ' + r.months.map(h).join(', ') + ' · 「주 n」 = 그날 주간 근무 인원</div>' : '') +
     '<button class="btn" style="width:100%;margin-top:10px" onclick="closeDialog();S.at=null;render();loadAtt(\'\')">오늘 근무일로</button>');
 }
+/* 날짜 고르기 달력 (명일 작업 · TBM, 11-13) — 바로가기 페이지 안에서는 휴대폰 기본 날짜 칸이 안 열리는 기기가 있어 출근현황 달력 모양으로 */
+let PICK = null;
+function pickDate(o) { PICK = o; pickDraw(o.cur.slice(0, 7)); }
+function pickDraw(ym) {
+  const o = PICK, y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate(), first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+  let g = WEEK.map(w => '<span class="w">' + w + '</span>').join('') + '<span></span>'.repeat(first);
+  for (let d = 1; d <= last; d++) {
+    const ds = ym + '-' + String(d).padStart(2, '0'), wd = (first + d - 1) % 7;
+    g += '<button class="' + (wd === 0 ? 'sun ' : wd === 6 ? 'sat ' : '') + (ds === o.cur ? 'on ' : '') + (ds === o.home ? 'today' : '') + '" data-d="' + ds + '" onclick="pickGo(\'' + ds + '\')" aria-label="' + m + '월 ' + d + '일"' + (o.max && ds > o.max ? ' disabled' : '') + '><b>' + d + '</b></button>';
+  }
+  const mv = k => new Date(Date.UTC(y, m - 1 + k, 1)).toISOString().slice(0, 7), nx = mv(1);
+  dialog('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><button class="btn sm" onclick="pickDraw(\'' + mv(-1) + '\')" aria-label="앞 달">‹</button><b style="flex:1;text-align:center;font-size:17px">' + y + '년 ' + m + '월</b>' +
+    '<button class="btn sm" onclick="pickDraw(\'' + nx + '\')" aria-label="다음 달"' + (o.max && nx > o.max.slice(0, 7) ? ' disabled' : '') + '>›</button><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
+    '<div class="atcal">' + g + '</div><button class="btn" style="width:100%;margin-top:10px" onclick="pickGo(\'' + o.home + '\')">' + h(o.homeLbl) + '</button>');
+}
+function pickGo(ds) { closeDialog(); PICK.fn(ds); }
 /* 그날 상태 고르기 (6장) */
 function atFixOpen(i, keep) {
   const r = S.at.r, x = r.people[i]; if (!keep) S.at.pick = x.v;

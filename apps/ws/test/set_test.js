@@ -35,6 +35,7 @@ const fmFile = require('./fm_serve.js');
   await fr().locator('button:text-is("환경설정")').click();
   await fr().locator('.strow').first().waitFor();
   ok(await fr().locator('.top .back').count() === 0 && await fr().locator('.backbar button').count() === 1, '4) 위 < 없음, 아래 뒤로 버튼');
+  ok(await fr().locator('.backbar').evaluate(e => getComputedStyle(e).position === 'sticky' && e.getBoundingClientRect().bottom <= innerHeight + 1), '4-1) 뒤로 줄이 화면 아래에 붙어 늘 보임 (11-13)');
   ok(await fr().locator('.strow:has-text("김철수")').count() === 1, '5) 직원 목록에 김철수');
   await fr().locator('button:text-is("+ 직원 추가")').click();
   await fr().locator('#sfN').fill('박영희'); await fr().locator('#sfP').fill('기건파트'); await fr().locator('#sfX').fill('2468');

@@ -318,6 +318,14 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   const p = tbmSavePdf(h.token, 'data:application/pdf;base64,' + 'P'.repeat(400), g.signs.map(x => x.id), { works: [{ place: '1층', work: '한번에 저장', dept: '전방파트' }], checks: {}, meet: 'data:image/jpeg;base64,' + 'Q'.repeat(3000) });
   const g2 = tbmGet(h.token);
   assert(p.ok && g2.works[0].work === '한번에 저장' && g2.photos.meet && g2.pdf.id === p.pdf.id, '결정78: [PDF로 저장]이 저장까지 한 번에');
+  // TBM 지난 날짜 열기·고치기 (11-13)
+  NOW.d = new Date('2026-12-23T09:00:00+09:00'); const h2 = login('1234', 'sp3', SIG);
+  const old = tbmGet(h2.token, '2026-12-22');
+  assert(old.day === '2026-12-22' && old.today === '2026-12-23' && old.works[0].work === '한번에 저장' && old.signs.length === g.signs.length && old.pdf, 'TBM: 지난 날짜 열면 그날 작업 표·서명·PDF');
+  assert(tbmGet(h2.token, '2027-01-05').day === '2026-12-23' && tbmGet(h2.token, 'x').day === '2026-12-23', 'TBM: 앞날·틀린 날짜는 오늘');
+  assert(tbmSave(h2.token, { day: '2026-12-22', works: [{ place: '2층', work: '지난날 고침', dept: '기건파트' }], checks: {} }).ok, 'TBM: 지난 날짜 저장');
+  const p2 = tbmSavePdf(h2.token, 'data:application/pdf;base64,' + 'R'.repeat(400), [], null, '2026-12-22');
+  assert(tbmGet(h2.token, '2026-12-22').works[0].work === '지난날 고침' && p2.ok && tbmGet(h2.token, '2026-12-22').pdf.id === p2.pdf.id && !tbmGet(h2.token).saved, 'TBM: 지난 날짜만 바뀌고 오늘은 그대로');
 }
 
 // 점검 결과 고침 (결정 80)

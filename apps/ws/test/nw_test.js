@@ -21,9 +21,12 @@ const overflow = p => p.evaluate(() => document.documentElement.scrollWidth > in
   const b = await chromium.launch();
   // 1) 휴대폰
   const p = await open(b, { viewport: { width: 390, height: 844 }, hasTouch: true, deviceScaleFactor: 2 });   // isMobile은 시험 페이지에 viewport 줄이 없어 980px로 그려져서 뺌
-  const date = await p.inputValue('.nwdate input');
+  const date = await p.getAttribute('.nwdate', 'data-date');
   const tomorrow = new Date(Date.now() + 9 * 3600e3 - 6 * 3600e3 + 864e5).toISOString().slice(0, 10);
   ok(date === tomorrow, '일자 = 근무일 다음 날 ' + date);
+  await p.click('.nwdate');
+  ok(await p.locator('.dialog .atcal button[data-d="' + date + '"].on').count() === 1, '일자 누르면 달력이 열리고 지금 일자 표시 (11-13)');
+  await p.click('.dialog button[aria-label="닫기"]');
   const DATA = [['전방파트', '전층', 'EPS실 순찰 및 공사장 안전점검', ''], ['전방파트', '전층', '직무고시', ''], ['기건파트', '전층', '식당가 및 공조실 순찰', ''],
     ['기건파트', '전층', '미세먼지 측정', ''], ['기건파트', '전층', '일일계량기 검침', ''], ['기건파트', '2층,3층,4층', '층별 전 공조기 구리스 주입', '사다리'], ['기건파트', '전층', '미세먼지 측정', '']];
   for (let i = 0; i < DATA.length; i++) {

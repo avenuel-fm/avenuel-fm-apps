@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.9', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.10', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -627,7 +627,7 @@ function auth_(token) {
 
 const SIGN_TAIL = 400;   // 서명은 하루 20줄 안팎 → 맨 아래 400줄(약 20일)만 보면 오늘 줄이 다 있음
 function daySigns_(day) {
-  return readTail_('서명', SIGN_TAIL).rows
+  return (day === workDay_(Date.now()) ? readTail_('서명', SIGN_TAIL) : readTable_('서명')).rows   // 지난 날(TBM 날짜 고르기)은 전체에서
     .filter(function (r) { return r['근무일'] === day && r['삭제여부'] !== 'Y'; })
     .sort(function (a, b) { return a['서명시각'] < b['서명시각'] ? -1 : a['서명시각'] > b['서명시각'] ? 1 : 0; });
 }
@@ -742,16 +742,22 @@ function tbmFolder_(day) {
   return folderPath_(['시설팀 통합업무', '20_업무지원', '서류작업', 'TBM', day.slice(0, 4), day.slice(0, 7)]);
 }
 
+/** TBM 날짜: 화면이 고른 지난 날짜, 없거나 틀리거나 앞날이면 오늘 근무일 (11-13) */
+function tbmDay_(v) {
+  const today = workDay_(Date.now());
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) && v < today ? v : today;
+}
+
 function jsonOr_(s, dflt) { try { const v = JSON.parse(s); return v == null ? dflt : v; } catch (e) { return dflt; } }
 
 /**
  * TBM 화면 불러오기: 오늘 서명(로그인 순) · 관리감독자(역할 소장, 없으면 부소장) · 위험성 목록 · 저장한 작업 표·사진.
  * 아직 저장 안 했으면 작업 표는 오늘 근무일 날짜의 명일 작업 예정에서 가져옴 (위험성은 화면에서 낱말로 미리 고름)
  */
-function tbmGet(token) {
+function tbmGet(token, want) {
   auth_(token);
   ensureTbmTabs_();
-  const day = workDay_(Date.now());
+  const day = tbmDay_(want);
   const roles = {};
   staffRows_().forEach(function (s) { roles[s['staff_id']] = s['역할']; });
   const signs = daySigns_(day).map(function (r, i) {
@@ -761,7 +767,7 @@ function tbmGet(token) {
   const row = tbmRow_(day);
   const works = row ? jsonOr_(row['작업표'], []) : nwSheet_(day).rows.map(function (r) { return { place: r.place, work: r.work, note: r.note, dept: r.dept, n: '' }; });   // note(비고)는 위험성 미리 고르기에만 씀
   return {
-    ok: true, day: day, signs: signs, manager: mgr ? { name: mgr.name, img: mgr.img } : null, risks: riskList_(),
+    ok: true, day: day, today: workDay_(Date.now()), signs: signs, manager: mgr ? { name: mgr.name, img: mgr.img } : null, risks: riskList_(),
     works: works, checks: row ? jsonOr_(row['체크칸'], {}) : null, saved: !!row, by: row ? row['작성자명'] : '', at: row ? row['수정시각'] : '',
     photos: { meet: row ? fileB64_(row['회의사진_id']) : '', chant: row ? fileB64_(row['구호사진_id']) : '' },
     pdf: row && row['pdf_id'] ? { id: row['pdf_id'], at: row['PDF만든시각'], signs: Number(row['서명수']) || 0, url: driveUrl_(row['pdf_id']), shared: sharedOnce_(row['pdf_id']) } : null
@@ -799,7 +805,7 @@ function tbmSave(token, d) {
   const lock = LockService.getScriptLock();
   lock.waitLock(25000);
   try {
-    const day = workDay_(Date.now());
+    const day = tbmDay_(d.day);
     const row = tbmRow_(day);
     const at = now_();
     const patch = { '작업표': JSON.stringify(works), '체크칸': JSON.stringify(checks), '수정시각': at };
@@ -820,7 +826,7 @@ function tbmSave(token, d) {
 }
 
 /** [PDF로 저장]: 화면이 만든 A4 가로 2쪽 PDF를 드라이브에 저장. 다시 누르면 새로 만들고 예전 PDF는 휴지통. 쓰인 서명은 TBM사용=Y */
-function tbmSavePdf(token, dataUri, signIds, d) {
+function tbmSavePdf(token, dataUri, signIds, d, want) {
   const me = auth_(token);
   if (d) { const s = tbmSave(token, d); if (!s.ok) return s; }   // 저장 + PDF를 서버 한 번 부르기로 (결정 78)
   const m = /^data:application\/pdf[^,]*;base64,(.+)$/.exec(String(dataUri || ''));
@@ -831,7 +837,7 @@ function tbmSavePdf(token, dataUri, signIds, d) {
   const lock = LockService.getScriptLock();
   lock.waitLock(25000);
   try {
-    const day = workDay_(Date.now());
+    const day = tbmDay_(want);
     const row = tbmRow_(day);
     if (!row) return { ok: false, error: '먼저 [저장]을 눌러 주세요' };
     const oldPdf = row['pdf_id'];

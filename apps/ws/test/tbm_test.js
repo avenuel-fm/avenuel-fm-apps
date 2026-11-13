@@ -96,6 +96,14 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   ok(used, 'PDF에 쓰인 서명 TBM사용=Y');
   const r8 = await p.evaluate(() => { const keep = S.tbm.works.slice(); for (let i = 0; i < 6; i++) S.tbm.works.push(Object.assign({}, keep[0])); const hh = tbmPdfHtml(); S.tbm.works = keep; return (hh.match(/<tr style="height:8\.20mm;font-size:7\.20pt"/g) || []).length; });
   ok(r8 === 10, '작업 10줄이면 줄 높이·글자 줄여 10줄 (8.2mm · 7.2pt)');
+  // 날짜 버튼 → 달력 → 어제 TBM (11-13)
+  const yday = await p.evaluate(() => new Date(Date.parse(S.tbm.day + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10));
+  await p.click('.nwdate'); await p.evaluate(y => pickDraw(y.slice(0, 7)), yday);
+  ok(await p.locator('.dialog .atcal button[data-d="' + yday + '"]').isEnabled(), 'TBM 날짜 누르면 달력');
+  await p.click('.dialog .atcal button[data-d="' + yday + '"]'); await p.waitForFunction(y => S.tbm && S.tbm.day === y, yday);
+  ok((await p.locator('.nwdate').getAttribute('data-date')) === yday && /지난 날짜/.test(await p.locator('.nwmeta').first().innerText()) && await p.locator('.nwbar button.pri').count() === 1, '지난 날짜 TBM 열림 · 저장 버튼 그대로');
+  await p.click('.nwdate'); await p.click('.dialog button:text-is("오늘 TBM으로")'); await p.waitForFunction(d => S.tbm && S.tbm.day === d, day);
+  ok(await p.locator('.nwmeta:has-text("지난 날짜")').count() === 0, '「오늘 TBM으로」 → 오늘');
   await p.setViewportSize({ width: 1180, height: 900 });
   await p.evaluate(() => { const d = document.createElement('div'); d.id = 'pdfview'; d.style.cssText = 'position:absolute;left:0;top:0;z-index:999;background:#fff'; d.appendChild(window.__pdfEl); document.body.appendChild(d); window.scrollTo(0, 0); });
   await p.locator('#pdfview .pg').nth(0).screenshot({ path: 'shot_tbm_pdf_1.png' });
