@@ -28,12 +28,12 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
 
   const p = await open('4321');
   ok(await p.locator('text=진행 중인 공사 현장이 없습니다').count() === 1, '처음: 현장 없음 안내');
-  ok(await p.locator('button:has-text("기본 항목 고치기 (9)")').count() === 1, '관리자: 기본 항목 고치기 (9)');
+  ok(await p.locator('button:has-text("기본 항목 고치기 (2 / 9)")').count() === 1, '관리자: 기본 항목 고치기 (2 / 9)');
   for (const [n, w, co] of [['5F 리모와', '매장 철거', '대성건설'], ['3F 메종키츠네', '매장 인테리어', '한빛인테리어']]) {
     await p.click('text=새 공사 현장 추가'); await p.fill('#csN', n); await p.fill('#csW', w); await p.fill('#csC', co); await p.click('#csSb');
     await p.waitForSelector(`.csrow:has-text("${n}")`);
   }
-  ok(await p.locator('.csrow').count() === 2 && await p.locator('.csrd .wait').count() === 6, '현장 2곳 · 오전·오후·작업종료 모두 전');
+  ok(await p.locator('.csrow').count() === 2 && await p.locator('.csrd .wait').count() === 4 && /하루 2번 \(오후점검 · 퇴실점검\)/.test(await p.locator('.cshd').innerText()), '현장 2곳 · 오후점검·퇴실점검 모두 전');
   ok(/^\d+월 \d+일 \(.\) 공사장 점검$/.test(await p.locator('.cshd b').first().innerText()) && !/순찰/.test(await p.locator('.cshd').innerText()), '제목: 「…일 (요일) 공사장 점검」');
   { // 검색: 「오늘 점검할 현장」 오른쪽 칸. 글자 칸은 그대로 두고 목록만 바뀜
     const y = await p.evaluate(() => { const s = document.querySelector('.cssec'), i = document.getElementById('csQ'); const c = e => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; }; return [c(s), c(i), i.getBoundingClientRect().left]; });
@@ -46,12 +46,24 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
     await q('없는현장'); ok(await p.locator('.csrow').count() === 0 && await p.locator('text=없는현장」 없음').count() === 1, '없는 말 → 「없음」 안내');
     await q(''); ok(await p.locator('.csrow').count() === 2, '검색 지우면 다시 2곳');
   }
-  ok(await p.locator('.csbtns button:has-text("새 공사 현장 추가") + button:has-text("기본 항목 고치기")').count() === 1, '[기본 항목 고치기]는 [새 공사 현장 추가] 옆');
+  ok(await p.locator('.csbtns button:has-text("새 공사 현장 추가") + button:has-text("기본 항목 고치기 (2 / 9)")').count() === 1, '[기본 항목 고치기 (2 / 9)]는 [새 공사 현장 추가] 옆');
+  // 처음엔 「점검에 넣기」 2개만: 오후점검은 1. 정리정돈·통로 · 2. 안전수칙 위반 (나가도 줄 안 생김)
+  await p.click('.csrow:has-text("5F 리모와") .csgo'); await p.waitForSelector('.csit');
+  ok(await p.locator('.csit').count() === 2 && /^1\. 정리정돈·통로/.test(await p.locator('.csit h3').first().innerText()) && /^2\. 안전수칙 위반/.test(await p.locator('.csit h3').nth(1).innerText()), '오후점검 = 정리정돈·통로 · 안전수칙 위반 → 1·2번');
+  await p.evaluate(() => window.scrollTo(0, 0)); await p.screenshot({ path: __dirname + '/shot_cs_two.png' });
+  await p.evaluate(() => back()); await p.waitForSelector('.cshd');
+  // 관리자: 기본 항목에서 「점검에 넣기」 모두 체크 → 9 / 9 (아래 시험은 9개로)
+  await p.click('button:has-text("기본 항목 고치기")');
+  ok(await p.locator('.csitems .csuse input:checked').count() === 2, '기본 항목: 체크는 2개 (8·9번)');
+  await p.locator('.csitems .row').first().screenshot({ path: __dirname + '/shot_cs_use.png' });
+  for (const c of await p.locator('.csitems .csuse input').all()) await c.check();
+  await p.click('#ciSb'); await p.waitForSelector('button:has-text("기본 항목 고치기 (9 / 9)")');
+  ok(true, '「점검에 넣기」 모두 체크 → 기본 항목 고치기 (9 / 9)');
 
   // 현장 점검
   await p.click('.csrow:has-text("5F 리모와") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit').count() === 9, '기본 항목 9개');
-  ok(/오전/.test(await p.locator('.csrtabs .on').innerText()) && await p.locator('.csrtabs button:disabled').count() === 2, '첫 점검 = 오전 (오후·작업종료는 아직 못 누름)');
+  ok(/오후점검/.test(await p.locator('.csrtabs .on').innerText()) && await p.locator('.csrtabs button').count() === 2 && await p.locator('.csrtabs button:disabled').count() === 1, '첫 점검 = 오후점검 (퇴실점검은 아직 못 누름, 칸 2개)');
   ok(/처음 저장할 때/.test(await p.locator('.csmeta').innerText()), '저장 전: 점검 시각은 처음 저장할 때');
   ok(await p.locator('.csit').nth(0).locator('label.ph43').count() === 3, '사진 빈 칸 3개 기본');
   { // 항목 9에 사진 6장: 3장 뒤 「사진 추가」 1칸(두 번째 줄), 6장이면 칸 없음
@@ -90,7 +102,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.click('.csbar button:has-text("점검 끝 · PDF")');
   await p.waitForSelector('.csbar a:has-text("PDF 열기")', { timeout: 15000 });
   const pdf = await p.evaluate(() => window.__pdfEl || '');
-  ok((pdf.match(/class="pc"/g) || []).length === 10 && /5F 리모와/.test(pdf) && /공사관리/.test(pdf) && /오전 점검/.test(pdf), 'PDF 화면: 항목 10칸 · 현장 · 점검자 · 오전');
+  ok((pdf.match(/class="pc"/g) || []).length === 10 && /5F 리모와/.test(pdf) && /공사관리/.test(pdf) && /오후점검/.test(pdf), 'PDF 화면: 항목 10칸 · 현장 · 점검자 · 오후점검');
   const pp = await b.newPage({ viewport: { width: 794, height: 1123 } });
   const css = await p.evaluate(() => [...document.querySelectorAll('style')].map(s => s.textContent).join('\n'));
   await pp.setContent('<style>' + css + '</style><div style="padding:30px;background:#fff">' + pdf + '</div>');
@@ -100,36 +112,36 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   // 다시 열기 → 저장한 것 그대로
   ok(await p.locator('.backbar').count() === 0 && await p.locator('.csbar-in > .back-in:first-child').count() === 1, '뒤로 버튼은 아래 줄 맨 왼쪽 (WS-25)');
   await p.click('.csbar .back-in'); await p.waitForSelector('.cshd');
-  ok(await p.locator('.csrow:has-text("5F 리모와") .csrd .bad').innerText() === '오전 미흡 2' && await p.locator('.csrow:has-text("5F 리모와") a:has-text("PDF")').count() === 1, '목록: 오전 미흡 2 · PDF 단추');
+  ok(await p.locator('.csrow:has-text("5F 리모와") .csrd .bad').innerText() === '오후점검 미흡 2' && await p.locator('.csrow:has-text("5F 리모와") a:has-text("PDF")').count() === 1, '목록: 오후점검 미흡 2 · PDF 단추');
 
   // 두 번째 = 오후 (빈 칸에서 시작) → 오전 칸 눌러 오전 그대로 → PDF 한 파일에 오전·오후
   await p.click('.csrow:has-text("5F 리모와") .csgo'); await p.waitForSelector('.csit');
-  ok(/오후/.test(await p.locator('.csrtabs .on').innerText()) && /✓ \d\d:\d\d 공사관리/.test(await p.locator('.csrtabs button').first().innerText()) && await p.locator('.csit').count() === 9 && await p.locator('.csit img').count() === 0 && await p.locator('.csseg .on').count() === 0, '두 번째 점검 = 오후, 빈 칸에서 시작 (오전 ✓ 시각·점검자)');
-  ok(/오후 점검 시각/.test(await p.locator('.csmeta').innerText()), '오후 점검 시각 칸');
+  ok(/퇴실점검/.test(await p.locator('.csrtabs .on').innerText()) && /\d\d:\d\d 공사관리/.test(await p.locator('.csrtabs button').first().innerText()) && await p.locator('.csit').count() === 9 && await p.locator('.csit img').count() === 0 && await p.locator('.csseg .on').count() === 0, '두 번째 점검 = 퇴실점검, 빈 칸에서 시작 (오후점검 시각·점검자)');
+  ok(/퇴실점검 시각/.test(await p.locator('.csmeta').innerText()), '퇴실점검 시각 칸');
   await p.locator('.csit').nth(0).locator('.csseg button:text-is("양호")').click();
   await p.waitForSelector('.csst.ok', { timeout: 10000 });
-  ok(await p.locator('.csrtabs button:disabled').count() === 0, '오후 저장 뒤 작업종료 칸 누를 수 있음');
+  ok(await p.locator('.csrtabs button:disabled').count() === 0, '퇴실점검 저장 뒤 두 칸 다 누를 수 있음');
   ok(!(await overflow(p)), '회차 칸 · 휴대폰 가로 넘침 없음');
   await p.evaluate(() => window.scrollTo(0, 0)); await p.screenshot({ path: __dirname + '/shot_cs_round.png' });
   await p.locator('.csrtabs button').first().click();
-  await p.waitForFunction(() => /오전/.test((document.querySelector('.csrtabs .on') || {}).textContent || '') && document.querySelectorAll('.csit').length === 10);
-  ok(await p.locator('.csit').nth(3).locator('img').count() === 2 && /감지기 덮개/.test(await p.locator('.csit').nth(3).locator('textarea').inputValue()), '오전 칸 → 사진·메모·추가 항목 그대로');
-  ok(!/PDF 열기/.test(await p.locator('.csbar').innerText()) && /점검 끝 · PDF/.test(await p.locator('.csbar').innerText()), '오후를 더했으니 옛 PDF 대신 「점검 끝 · PDF」');
+  await p.waitForFunction(() => /오후점검/.test((document.querySelector('.csrtabs .on') || {}).textContent || '') && document.querySelectorAll('.csit').length === 10);
+  ok(await p.locator('.csit').nth(3).locator('img').count() === 2 && /감지기 덮개/.test(await p.locator('.csit').nth(3).locator('textarea').inputValue()), '오후점검 칸 → 사진·메모·추가 항목 그대로');
+  ok(!/PDF 열기/.test(await p.locator('.csbar').innerText()) && /점검 끝 · PDF/.test(await p.locator('.csbar').innerText()), '퇴실점검을 더했으니 옛 PDF 대신 「점검 끝 · PDF」');
   await p.evaluate(() => { window.__pdfEl = ''; }); await p.click('.csbar button:has-text("점검 끝 · PDF")');
   await p.waitForSelector('.csbar button:has-text("PDF 다시")', { timeout: 15000 });
   const pdf2 = await p.evaluate(() => window.__pdfEl || '');
-  ok((pdf2.match(/class="cspdf"/g) || []).length === 2 && /오전 점검[\s\S]*오후 점검/.test(pdf2) && /page-break-before/.test(pdf2) && (pdf2.match(/class="pc"/g) || []).length === 19, 'PDF 한 파일: 오전(10칸) → 새 쪽 오후(9칸)');
-  await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와") .csrd .ok:text-is("오후 양호")');
-  ok(await p.locator('.csrow:has-text("5F 리모와") .csrd .ok:text-is("오후 양호")').count() === 1 && await p.locator('.csrow:has-text("5F 리모와") .csrd .wait:text-is("작업종료 전")').count() === 1, '목록: 오전 미흡 2 · 오후 양호 · 작업종료 전');
-  ok(/오전\s*1 \/ 2곳/.test(await p.locator('.csrsum').innerText()) && /오후\s*1 \/ 2곳/.test(await p.locator('.csrsum').innerText()), '위 칸: 오전 1/2곳 · 오후 1/2곳');
+  ok((pdf2.match(/class="cspdf"/g) || []).length === 2 && /오후점검[\s\S]*퇴실점검/.test(pdf2) && /page-break-before/.test(pdf2) && (pdf2.match(/class="pc"/g) || []).length === 19, 'PDF 한 파일: 오후점검(10칸) → 새 쪽 퇴실점검(9칸)');
+  await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와") .csrd .ok:text-is("퇴실점검 양호")');
+  ok(await p.locator('.csrow:has-text("5F 리모와") .csrd .ok:text-is("퇴실점검 양호")').count() === 1 && await p.locator('.csrow:has-text("5F 리모와") .csrd span').count() === 2, '목록: 오후점검 미흡 2 · 퇴실점검 양호 (딱지 2개)');
+  ok(/오후점검\s*1 \/ 2곳/.test(await p.locator('.csrsum').innerText()) && /퇴실점검\s*1 \/ 2곳/.test(await p.locator('.csrsum').innerText()), '위 칸: 오후점검 1/2곳 · 퇴실점검 1/2곳');
   await p.screenshot({ path: __dirname + '/shot_cs_list.png' });
 
   // 관리자 기본 항목: 하나 지우고 하나 더하기
   await p.click('button:has-text("기본 항목 고치기")');
   await p.locator('.csitems .row').nth(6).locator('button:has-text("지우기")').click();
   await p.fill('#ciT', '양중 작업'); await p.fill('#ciD', '크레인 신호수'); await p.click('text=목록에 더하기');
-  ok(await p.locator('.csitems .row').count() === 9, '항목 지우기·더하기 → 9개');
-  await p.click('#ciSb'); await p.waitForSelector('button:has-text("기본 항목 고치기 (9)")');
+  ok(await p.locator('.csitems .row').count() === 9 && await p.locator('.csitems .row').last().locator('.csuse input:checked').count() === 1, '항목 지우기·더하기 → 9개 (새 항목은 점검에 넣기 체크)');
+  await p.click('#ciSb'); await p.waitForSelector('button:has-text("기본 항목 고치기 (9 / 9)")');
   await p.click('.csrow:has-text("3F 메종키츠네") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit h3:has-text("양중 작업")').count() === 1 && await p.locator('.csit h3:has-text("고소·사다리")').count() === 0, '새 점검은 고친 기본 항목으로');
 

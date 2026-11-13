@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.8', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.9', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -34,7 +34,7 @@ const SHEETS = {
   '전열매장': ['es_id', '층', '매장번호', '매장명', '사용여부', '등록일시', '등록자', '삭제일시'],
   '전열기기': ['eh_id', 'es_id', '층', '매장명', '관리번호', '기기명', '용량W', '제조사', '책임자정', '책임자부', '승인일자', 'qr_token', '출력일시', '사용여부', '등록일시', '등록자', '수정일시', '삭제일시'],
   '공사현장': ['cs_id', '현장명', '공사내용', '업체', '사용여부', '등록일시', '등록자', '끝낸일시'],
-  '공사점검항목': ['순서', '항목', '설명', '사용여부', '바꾼사람', '바꾼시각'],
+  '공사점검항목': ['순서', '항목', '설명', '사용여부', '바꾼사람', '바꾼시각', '점검사용'],
   '공사점검': ['ck_id', '점검일', 'cs_id', '현장명', '공사내용', '업체', '점검자_id', '점검자', '점검시각', '항목', '양호', '미흡', '해당없음', '사진번호', 'pdf_id', 'PDF만든시각', '수정시각', '고친사람', '삭제여부', '회차'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
@@ -1597,7 +1597,10 @@ function ehDate_(s) {
 const CS_TABS = ['공사현장', '공사점검항목', '공사점검'];
 const CS_ST = ['양호', '미흡', '해당없음'];
 const CS_MAX_PHOTOS = 6, CS_MAX_ITEMS = 30;
-const CS_ROUNDS = ['오전', '오후', '작업종료'];   // 하루 3번, 순서대로 1·2·3회차 (사용자 11-11)   // 사진은 항목당 6장 (한 줄 3장 × 2줄, 11-11)
+// 사진은 항목당 6장 (한 줄 3장 × 2줄, 11-11)
+// 하루 2번: 1회차 오후점검 · 2회차 퇴실점검 (사용자 11-13, 결정 112). 3회차는 11-11~12에 하루 3번 하던 기록만 (「추가 점검」으로 보임)
+const CS_ROUNDS = ['오후점검', '퇴실점검', '추가 점검'];
+const CS_USE_SEED = ['정리정돈·통로', '안전수칙 위반'];   // 처음 「점검에 넣기」 항목 (사용자 11-13: 8·9번만)
 /* 기본 점검 항목 9개 (사용자 첨부 「현장 일일 안전점검 보고서」 5개 + 4개, 11-11 확정) — 앱에서 관리자가 더하고 지움 */
 const CS_SEED = [
   ['비치서류', '공정표, 위험성평가표, 작업허가서, MSDS(물질안전보건자료), 작업자 명단 비치'],
@@ -1618,13 +1621,22 @@ function csTabs_() {
     const head = ck.getRange(1, 1, 1, ck.getLastColumn()).getValues()[0].map(String);
     if (head.indexOf('회차') === -1) ck.getRange(1, head.length + 1, 1, 1).setValues([['회차']]);
   }
+  if (it && it.getLastRow() > 1) {   // v0.9.7까지 만든 탭엔 「점검사용」 열이 없음 → 붙이고 처음 값 (정리정돈·통로 · 안전수칙 위반만 Y)
+    const ih = it.getRange(1, 1, 1, it.getLastColumn()).getValues()[0].map(String);
+    if (ih.indexOf('점검사용') === -1) {
+      it.getRange(1, ih.length + 1, 1, 1).setValues([['점검사용']]);
+      const t = readTable_('공사점검항목');
+      t.rows.forEach(function (r) { r['점검사용'] = CS_USE_SEED.indexOf(r['항목']) !== -1 ? 'Y' : 'N'; });
+      writeBack_(t);
+    }
+  }
   if (it && it.getLastRow() > 1 && ss.getSheetByName('공사현장') && ck) return;
   ensureTabs_(CS_TABS);
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     if (db_().getSheetByName('공사점검항목').getLastRow() > 1) return;
-    appendRows_('공사점검항목', CS_SEED.map(function (s, i) { return { '순서': String(i + 1), '항목': s[0], '설명': s[1], '사용여부': 'Y', '바꾼사람': '처음 목록', '바꾼시각': now_() }; }));
+    appendRows_('공사점검항목', CS_SEED.map(function (s, i) { return { '순서': String(i + 1), '항목': s[0], '설명': s[1], '사용여부': 'Y', '바꾼사람': '처음 목록', '바꾼시각': now_(), '점검사용': CS_USE_SEED.indexOf(s[0]) !== -1 ? 'Y' : 'N' }; }));
   } finally {
     lock.releaseLock();
   }
@@ -1633,7 +1645,7 @@ function csAdmin_(me) { return me['역할'] === '관리자' || me['역할'] === 
 function csItems_() {
   return readTable_('공사점검항목').rows.filter(function (r) { return r['사용여부'] !== 'N' && r['항목']; })
     .sort(function (a, b) { return Number(a['순서']) - Number(b['순서']); })
-    .map(function (r) { return { t: r['항목'], d: r['설명'] }; });
+    .map(function (r) { return { t: r['항목'], d: r['설명'], use: r['점검사용'] === 'Y' }; });
 }
 function csSites_() { return readTable_('공사현장').rows.filter(function (r) { return r['사용여부'] !== 'N'; }); }
 function csSiteOut_(r) { return { id: r['cs_id'], name: r['현장명'], work: r['공사내용'], co: r['업체'] }; }
@@ -1710,8 +1722,9 @@ function csItemsSave(token, list) {
   const me = auth_(token);
   if (!csAdmin_(me)) return { ok: false, error: '기본 항목은 관리자·소장만 고칠 수 있습니다.' };
   if (!Array.isArray(list) || !list.length || list.length > CS_MAX_ITEMS) return { ok: false, error: '항목은 1~' + CS_MAX_ITEMS + '개로 해 주세요.' };
-  const items = list.map(function (x) { return { t: cleanText_(x && x.t, 30), d: cleanText_(x && x.d, 100) }; });
+  const items = list.map(function (x) { return { t: cleanText_(x && x.t, 30), d: cleanText_(x && x.d, 100), use: !!(x && x.use) }; });
   if (items.some(function (x) { return !x.t; })) return { ok: false, error: '항목 이름이 빈 줄이 있습니다.' };
+  if (!items.some(function (x) { return x.use; })) return { ok: false, error: '「점검에 넣기」 항목을 1개 이상 골라 주세요.' };
   csTabs_();
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -1719,13 +1732,13 @@ function csItemsSave(token, list) {
     const t = readTable_('공사점검항목'), at = now_(), used = {};
     const out = items.map(function (x, i) {
       const r = t.rows.filter(function (r) { return !used[r._row] && r['항목'] === x.t; })[0];
-      if (r) { used[r._row] = true; Object.assign(r, { '순서': String(i + 1), '설명': x.d, '사용여부': 'Y', '바꾼사람': me['이름'], '바꾼시각': at }); return null; }
-      return { '순서': String(i + 1), '항목': x.t, '설명': x.d, '사용여부': 'Y', '바꾼사람': me['이름'], '바꾼시각': at };
+      if (r) { used[r._row] = true; Object.assign(r, { '순서': String(i + 1), '설명': x.d, '사용여부': 'Y', '바꾼사람': me['이름'], '바꾼시각': at, '점검사용': x.use ? 'Y' : 'N' }); return null; }
+      return { '순서': String(i + 1), '항목': x.t, '설명': x.d, '사용여부': 'Y', '바꾼사람': me['이름'], '바꾼시각': at, '점검사용': x.use ? 'Y' : 'N' };
     }).filter(Boolean);
     t.rows.forEach(function (r) { if (!used[r._row] && r['사용여부'] !== 'N') Object.assign(r, { '사용여부': 'N', '바꾼사람': me['이름'], '바꾼시각': at }); });
     writeBack_(t);
     appendRows_('공사점검항목', out);
-    log_(me['이름'], '공사 점검 기본 항목', '', items.map(function (x) { return x.t; }).join(', '));
+    log_(me['이름'], '공사 점검 기본 항목', '', items.map(function (x) { return (x.use ? '[점검] ' : '') + x.t; }).join(', '));
     return { ok: true, items: csItems_() };
   } finally {
     lock.releaseLock();
@@ -1748,11 +1761,11 @@ function csGet(token, date, siteId, round) {
   csTabs_();
   date = csDate_(date);
   const day = csDayRows_(date, siteId), done = day.map(csRound_);
-  round = csRoundArg_(round) || [1, 2, 3].filter(function (n) { return done.indexOf(n) === -1; })[0] || 3;
+  round = csRoundArg_(round) || [1, 2].filter(function (n) { return done.indexOf(n) === -1; })[0] || 2;   // 회차 안 주면 아직 안 한 회차 (둘 다 했으면 퇴실점검)
   const row = day.filter(function (r) { return csRound_(r) === round; })[0] || null;
   const site = row ? { id: row['cs_id'], name: row['현장명'], work: row['공사내용'], co: row['업체'] } : (csSites_().filter(function (r) { return r['cs_id'] === siteId; }).map(csSiteOut_)[0] || null);
   if (!site) return { ok: false, error: '현장을 찾지 못했습니다. 새로고침해 주세요.' };
-  const items = row ? jsonOr_(row['항목'], []) : csItems_().map(function (x) { return { t: x.t, d: x.d, st: '', memo: '', photos: [] }; });
+  const items = row ? jsonOr_(row['항목'], []) : csItems_().filter(function (x) { return x.use; }).map(function (x) { return { t: x.t, d: x.d, st: '', memo: '', photos: [] }; });
   items.forEach(function (x) { x.photos = (x.photos || []).map(function (p) { return { id: p.id, at: p.at, src: fileB64_(p.id) }; }); });
   return { ok: true, date: date, round: round, site: site, items: items, check: row ? csCheckOut_(row) : null, rounds: day.map(csCheckOut_) };
 }

@@ -189,4 +189,45 @@ if(v==='check2'){
  <div class="card" style="text-align:center;color:var(--muted);font-size:13px">… 3 ~ 9번 항목 이어짐</div>
  </main><div class="bar"><div class="bar-in"><div class="info"><b>오후 · 양호 1 · 안 고름 8</b><br><span class="saved">● 저장됨 14:06</span></div><button class="btn pri" style="padding:0 22px">점검 끝 · PDF</button></div></div>`;
 }
+/* 시안3 (11-13): 하루 2번 오후점검·퇴실점검, 점검에 쓰는 기본 항목만 (정리정돈·통로, 안전수칙 위반 → 1·2번). 굵기 600/500 (WS-25 다듬기와 같은 규칙) */
+const R3=RCSS+`<style>body *{font-weight:500}.d,.nm,.tt,h3{font-weight:600!important}.rsum{grid-template-columns:repeat(2,1fr)}
+.irow{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-top:1px solid var(--line3)}.irow:first-child{border-top:0}.irow .m{flex:1;min-width:0}.irow .m b{display:block;font-size:15px;font-weight:600}.irow .m small{display:block;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.ck{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);white-space:nowrap;min-height:32px}.ck i{width:20px;height:20px;border:1.5px solid var(--line);border-radius:4px;display:inline-flex;align-items:center;justify-content:center}.ck.on i{background:var(--blue);border-color:var(--blue)}.ck.on i::after{content:'';width:9px;height:5px;border:2px solid #fff;border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}.irow.off .m{opacity:.55}</style>`;
+const I3=ITEMS.slice(7);
+if(v==='list3'){
+ const S=[['3F 메종키츠네','매장 인테리어 · ㈜한빛인테리어',[['ok','오후점검 양호'],['wait','퇴실점검 전']]],['5F 리모와','매장 철거 · 대성건설',[['bad','오후점검 미흡 1'],['wait','퇴실점검 전']]],['B1 식품관 카페','설비 교체 · 동원설비',[['ok','오후점검 양호'],['ok','퇴실점검 양호']]],['7F 공용 화장실','방수 공사 · 협력업체',[['wait','오후점검 전'],['wait','퇴실점검 전']]]];
+ app.innerHTML=R3+topbar('점검','공사장 점검')+`<main>
+ <div class="card"><div class="round"><div style="flex:1"><div class="d">11월 13일 (금) 공사장 점검</div><div class="s">현장 4곳 · 하루 2번 (오후점검 · 퇴실점검)</div></div><span class="chip bad">미흡 1건</span></div>
+ <div class="rsum"><div>오후점검<b>3 / 4곳</b></div><div>퇴실점검<b>1 / 4곳</b></div></div></div>
+ <div class="sec">오늘 점검할 현장 <label class="srch"><input placeholder="현장명·업체·날짜 검색"></label></div>
+ <div class="card list">${S.map((s,i)=>`<div class="site"><span class="no">${i+1}</span><div class="main"><div class="nm">${s[0]}</div><div class="l2">${s[1]}</div><div class="rd">${s[2].map(c=>`<span class="${c[0]}">${c[1]}</span>`).join('')}</div></div><span class="chev"></span></div>`).join('')}</div>
+ <div style="display:flex;gap:8px"><button class="btn add" style="flex:2">＋ 새 공사 현장 추가</button><button class="btn" style="flex:1;min-height:44px">기본 항목 고치기 (2 / 9)</button></div>
+ <div class="sec">지난 점검</div>
+ <div class="card list past"><div class="site"><div class="main"><div class="nm" style="font-size:15px">11월 11일 (수) · 5F 리모와</div><div class="rd"><span class="ok">오후점검 양호</span><span class="bad">퇴실점검 미흡 1</span><span class="ok">추가 점검 양호</span></div></div><button class="btn sm">PDF</button></div></div>
+ </main>`;
+}
+if(v==='check3'||v==='check4'){
+ app.innerHTML=R3+topbar('11월 13일 (금) 공사장 점검','5F 리모와')+`<main>
+ <div class="rtabs"><button class="on">오후점검<small>지금 점검</small></button><button>퇴실점검<small>점검 전</small></button></div>
+ <div class="card"><div class="meta"><div><div class="k">현장</div><div class="v">5F 리모와</div></div><div><div class="k">공사 내용 · 업체</div><div class="v">매장 철거 · 대성건설</div></div>
+ <div><div class="k">점검자 <span class="auto">자동</span></div><div class="v">김시설 (방재)</div></div><div><div class="k">오후점검 시각 <span class="auto">자동</span></div><div class="v">2026-11-13 14:05</div></div></div></div>
+ ${I3.map((it,i)=>`<div class="card item${i?' bad':''}"><div class="h"><div class="tt">${i+1}. ${it[0]}</div></div><div class="ds">${it[1]}</div>
+ <div class="seg"><button class="ok ${i?'':'on'}">양호</button><button class="bad ${i?'on':''}">미흡</button><button class="na">해당없음</button></div>
+ <div class="photos">${i?`<div class="ph">${pic(7)}<span class="tm">14:03 촬영</span></div><div class="ph add"><b>＋</b>사진</div><div class="ph add"><b>＋</b>사진</div>`:'<div class="ph add"><b>＋</b>사진</div><div class="ph add"><b>＋</b>사진</div><div class="ph add"><b>＋</b>사진</div>'}</div><textarea class="inp memo" placeholder="특이사항 (미흡이면 꼭 적기)">${i?'비상구 앞 자재 적치. 업체에 치우라고 함':''}</textarea></div>`).join('')}
+ <button class="btn add">＋ 이 현장에 점검 항목 추가</button>
+ </main><div class="bar"><div class="bar-in"><div class="info"><b>오후점검 · 미흡 1 · 양호 1</b><br><span class="saved">● 저장됨 14:06</span></div><button class="btn pri" style="padding:0 22px">점검 끝 · PDF</button></div></div>`;
+}
+if(v==='items3'){
+ app.innerHTML=R3+topbar('공사장 점검','기본 항목 고치기')+`<main>
+ <div class="s" style="font-size:13px;color:var(--muted);padding:0 4px">체크한 항목만 오후점검·퇴실점검에 들어갑니다. 번호는 체크한 순서대로 1, 2 …</div>
+ <div class="card list">${ITEMS.map((it,i)=>`<div class="irow${i>6?'':' off'}"><span class="no">${i+1}</span><div class="m"><b>${it[0]}</b><small>${it[1]}</small></div><span class="ck${i>6?' on':''}"><i></i>점검에 넣기</span></div>`).join('')}</div>
+ <div style="display:flex;gap:8px"><button class="btn" style="flex:1;min-height:48px">취소</button><button class="btn pri" style="flex:2;min-height:48px">저장</button></div>
+ </main>`;
+}
+if(v==='check4'){ /* 뒤로 버튼을 아래 막대 맨 왼쪽으로 (11-13) */
+ document.querySelector('.topbar .back').remove();
+ const ib=document.querySelector('.bar .info b'); ib.textContent=ib.textContent.replace('오후점검 · ','');
+ document.head.insertAdjacentHTML('beforeend','<style>.bar .bk{display:inline-flex;align-items:center;gap:4px;min-height:52px;padding:0 12px 0 8px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:15px;color:var(--ink);flex:none}.bar .bk svg{width:18px;height:18px}</style>');
+ document.querySelector('.bar-in').insertAdjacentHTML('afterbegin','<button class="bk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>뒤로</button>');
+}
 </script></body></html>
