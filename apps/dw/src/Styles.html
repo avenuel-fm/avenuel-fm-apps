@@ -240,7 +240,10 @@ canvas.pen-on{cursor:crosshair}
 .sigbtn{width:100%;height:56px;border:1px dashed #9AA4B2;background:#fff;border-radius:8px;font-size:13px;color:var(--blue);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .sigbtn.has{border:1px solid var(--green);background:#F5FBF8}
 .sigbtn img{max-height:44px;max-width:100%}
-.foot-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;padding:8px 0 32px}
+/* 검토서 아래 버튼 줄: 모든 화면에서 아래에 고정, 맨 왼쪽 「뒤로」 (DW-7) */
+.foot-actions{position:sticky;bottom:0;z-index:15;display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;align-items:center;margin-top:8px;border-radius:12px 12px 0 0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);border:1px solid var(--line2);border-bottom:0;box-shadow:0 -6px 18px rgba(0,0,0,.06)}
+.foot-actions .back-in{margin-right:auto;padding:0 14px 0 8px;gap:2px}
+.fa-br{display:none}
 .menu{position:absolute;z-index:51;background:#fff;border:1px solid var(--line2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:6px;max-width:min(520px,calc(100vw - 32px))}
 .menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:6px;font-size:14px;line-height:1.5;cursor:pointer}
 @media (hover:hover){.menu button:hover{background:var(--ground)}}
@@ -662,16 +665,18 @@ img,svg,video,canvas{max-width:100%}
 @media (max-width:640px),(max-height:520px){
   .topbar,.print-bar{position:static}
   .wide-only{display:none!important}
-  .foot-actions{position:sticky;bottom:0;z-index:15;justify-content:stretch;align-items:center;gap:8px;margin:0;border-radius:12px 12px 0 0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);border-top:1px solid var(--line2);box-shadow:0 -6px 18px rgba(0,0,0,.06)}
+  .foot-actions{justify-content:stretch;gap:8px;margin:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-width:1px 0 0}
   .foot-actions .btn{flex:1 1 auto;min-width:0}
   .foot-actions .btn.pri{flex:2 1 auto}
-  .savestate.fs{display:flex;flex-basis:100%;justify-content:center;margin:0;font-size:12px}
-  .savestate.fs:empty{display:none}
+  .foot-actions .btn.back-in{flex:none;padding:0 10px 0 4px}
+  .fa-br{display:block;flex-basis:100%;height:0}
+  .savestate.fs{display:flex;flex:1 1 0;justify-content:flex-end;margin:0;font-size:12px}
   .gpanel{top:0;height:auto;border-radius:0;box-shadow:none}
   .toast{bottom:calc(120px + env(safe-area-inset-bottom))}
 }
 @media (max-height:520px){
   .foot-actions .savestate.fs{flex-basis:auto}
+  .foot-actions .fa-br{display:none}
   .dialog{padding:20px 22px 18px}
   .dialog .acts{margin-top:14px}
   .dialog .acts .btn{min-height:44px}

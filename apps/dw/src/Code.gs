@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.8.13',
+  VERSION: '1.8.14',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
