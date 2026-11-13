@@ -17,19 +17,25 @@
   --green:#1F7A4D; --green-bg:#EAF5EF; --orange:#B4410F; --orange-bg:#FDF0E8; --red:#C0261A; --red-bg:#FBE9E7;
 }
 *{box-sizing:border-box}
+/* WS-25 화면 다듬기: 단어 중간 줄바꿈 막기, 제목·강조 600 (인쇄·라벨·PDF 양식은 700 그대로) */
+body{word-break:keep-all;overflow-wrap:anywhere}
+h1,h2,h3,b,strong{font-weight:600}
+.tbp b,.tbp strong,.tbp h1,.cspdf b,.cspdf strong,.label b,.ehlt b{font-weight:700}
+.tbp,.cspdf,.label,.ehlt,.ehg{word-break:normal;overflow-wrap:normal}
+.ui-ico{display:inline-block;flex:none;vertical-align:-3px}
 html,body{margin:0;background:var(--ground);color:var(--ink);font-family:'Noto Sans KR',system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--blue)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:15px;font-weight:500;color:var(--ink);cursor:pointer;text-decoration:none;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 @media (prefers-reduced-motion:no-preference){.btn{transition:scale .15s ease-out}.btn:not(:disabled):active{scale:.96}}
 .btn:disabled{opacity:.5;cursor:default}
-.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:500}
 .btn.warn{border-color:#E8B4AE;color:var(--red)}
 .btn.sm{min-height:36px;padding:0 12px;font-size:13px}
 .btn.big{min-height:52px;font-size:16px}
 .inp{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;background:#fff}
 .card{background:var(--card);border:1px solid var(--line2);border-radius:12px}
-.chip{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
 .c-ok{background:var(--green-bg);color:var(--green)}
 .c-bad{background:var(--orange-bg);color:var(--orange)}
 .c-wait{background:var(--line3);color:var(--muted)}
@@ -45,7 +51,7 @@ a{color:var(--blue)}
 <style>
 /* 어두운 화면 (결정 98): 화면만 색을 뒤집고 사진·서명·QR은 되돌림. 인쇄·저장 이미지는 그대로 흰 바탕 */
 @media screen{
-html[data-theme=dark]{filter:invert(1) hue-rotate(180deg)}
+html[data-theme=dark]{filter:invert(1) hue-rotate(180deg) contrast(.78)}   /* 검정 대신 진한 회색 (사용자 11-11) */
 html[data-theme=dark] :is(img,video,canvas,.keep-color):not(.keep-color *){filter:invert(1) hue-rotate(180deg)}
 html[data-theme=dark] :is(.dialog-back,.overlay,.pinpop,.gprev.modal){background:rgba(255,255,255,.5)}
 }
@@ -55,38 +61,39 @@ html[data-theme=dark] :is(.dialog-back,.overlay,.pinpop,.gprev.modal){background
 (function () { var t = null; try { t = localStorage.getItem('fm_theme'); } catch (e) {} if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark'; if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); })();
 function themeDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function toggleTheme() { var t = themeDark() ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('fm_theme', t); } catch (e) {} document.querySelectorAll('.theme-btn').forEach(function (b) { b.textContent = themeLabel(); }); }
-function themeLabel() { return themeDark() ? '밝은 화면' : '어두운 화면'; }
+function themeLabel() { return themeDark() ? '밝게' : '어둡게'; }
 </script>
 
 <style>
-body{min-height:100vh}
+body{min-height:100vh;word-break:keep-all;overflow-wrap:anywhere}
+b,strong,h1,h2,h3{font-weight:600}
 .page{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--ground)}
 .hd{background:#fff;border-bottom:1px solid var(--line2);padding:18px 16px 14px;display:flex;flex-direction:column;gap:4px}
 .hd small{font-size:12px;color:var(--muted)}
 .hd h1{margin:0;font-size:20px}
 .main{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:16px}
-.lbl{font-size:14px;font-weight:700}
-.shot{width:100%;aspect-ratio:4/3;border-radius:10px;border:2px dashed var(--blue);background:var(--blue-bg);color:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:700;cursor:pointer;padding:0}
+.lbl{font-size:14px;font-weight:600}
+.shot{width:100%;aspect-ratio:4/3;border-radius:10px;border:2px dashed var(--blue);background:var(--blue-bg);color:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:500;cursor:pointer;padding:0}
 .shot-done{position:relative;width:100%;aspect-ratio:4/3;border-radius:10px;background:var(--line3);overflow:hidden}
 .shot-done img{width:100%;height:100%;object-fit:contain;display:block}
 .shot-done .btn{position:absolute;right:8px;bottom:8px}
 .shot-done svg{position:absolute;left:50%;top:50%;width:62%;height:auto;transform:translate(-50%,-50%);opacity:.35;pointer-events:none}
 .seg{display:flex;gap:8px}
 .seg button{flex:1;min-height:48px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:15px;color:var(--sub);cursor:pointer}
-.seg button.on{border-color:var(--blue);background:var(--blue-bg);color:var(--blue-d);font-weight:700}
+.seg button.on{border-color:var(--blue);background:var(--blue-bg);color:var(--blue-d);font-weight:500}
 .seg button.on.bad{border-color:var(--orange);background:var(--orange-bg);color:var(--orange)}
 .pad{position:relative;width:100%;height:120px;border-radius:10px;border:2px dashed #B8C0CB;background:#fff;touch-action:none;overflow:hidden}
 .pad.inked{border-style:solid;border-color:var(--line)}
 .pad canvas{position:absolute;left:0;top:0;width:100%;height:100%}
 .pad .clr{position:absolute;right:6px;top:6px;z-index:2;min-height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:#fff;font-size:13px;color:var(--sub);cursor:pointer}
 .foot{background:#fff;border-top:1px solid var(--line2);padding:10px 16px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;position:sticky;bottom:0}
-.miss{font-size:14px;font-weight:700;color:var(--red);text-align:center;min-height:20px}
-.send{width:100%;min-height:56px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:18px;font-weight:700;cursor:pointer}
+.miss{font-size:14px;font-weight:500;color:var(--red);text-align:center;min-height:20px}
+.send{width:100%;min-height:56px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:18px;font-weight:500;cursor:pointer}
 .send:disabled{background:var(--line2);color:var(--muted);cursor:default}
 .cam{position:fixed;inset:0;z-index:60;background:#0E131A;color:#fff;display:flex;flex-direction:column}
 .cam-top{display:flex;align-items:center;padding:12px;gap:8px}
 .cam-top button{width:44px;height:44px;border:none;background:none;color:#fff;font-size:22px;cursor:pointer}
-.cam-msg{margin:0 auto;background:rgba(14,19,26,.75);border-radius:999px;padding:10px 18px;font-size:16px;font-weight:700}
+.cam-msg{margin:0 auto;background:rgba(14,19,26,.75);border-radius:999px;padding:10px 18px;font-size:16px;font-weight:500}
 .view{position:relative;width:100%;aspect-ratio:4/3;background:#2B333E;overflow:hidden}
 .view video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .view svg{position:absolute;left:50%;top:50%;width:62%;height:auto;transform:translate(-50%,-50%);pointer-events:none}
@@ -97,7 +104,7 @@ body{min-height:100vh}
 .view img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .view.check svg{opacity:.45}
 .cam-btns{display:flex;gap:10px;padding:20px 16px calc(32px + env(safe-area-inset-bottom))}
-.cam-btns button{flex:1;min-height:56px;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer}
+.cam-btns button{flex:1;min-height:56px;border-radius:12px;font-size:17px;font-weight:500;cursor:pointer}
 </style>
 </head>
 <body>
@@ -248,7 +255,7 @@ function makePad(box, ghostText) {
 let stream = null, torchOn = false;
 async function openCamera() {
   $('layer').innerHTML = '<div class="cam keep-color" role="dialog" aria-modal="true" aria-label="압력계 촬영">' +
-    '<div class="cam-top"><button onclick="closeCamera()" aria-label="닫기">✕</button><b style="flex:1;text-align:center">' + h(S.init.fe.name) + ' · 압력계</b><button class="torch hide" id="torch" onclick="toggleTorch()" aria-label="손전등 켜기" aria-pressed="false">🔦</button><span id="torchGap" style="width:44px"></span></div>' +
+    '<div class="cam-top"><button onclick="closeCamera()" aria-label="닫기">✕</button><b style="flex:1;text-align:center">' + h(S.init.fe.name) + ' · 압력계</b><button class="torch hide" id="torch" onclick="toggleTorch()" aria-label="손전등 켜기" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle"><path d="M8 2h8v4l-2 4v12h-4V10L8 6z"/><path d="M8 6h8M12 14v2"/></svg></button><span id="torchGap" style="width:44px"></span></div>' +
     '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px">' +
     '<div class="cam-msg" id="camMsg">동그라미에 압력계를 맞춰 주세요</div>' +
     '<div class="view" id="view"><video id="vid" playsinline muted autoplay></video>' + GUIDE + '</div>' +

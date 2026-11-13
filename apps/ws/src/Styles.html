@@ -9,19 +9,25 @@
   --green:#1F7A4D; --green-bg:#EAF5EF; --orange:#B4410F; --orange-bg:#FDF0E8; --red:#C0261A; --red-bg:#FBE9E7;
 }
 *{box-sizing:border-box}
+/* WS-25 화면 다듬기: 단어 중간 줄바꿈 막기, 제목·강조 600 (인쇄·라벨·PDF 양식은 700 그대로) */
+body{word-break:keep-all;overflow-wrap:anywhere}
+h1,h2,h3,b,strong{font-weight:600}
+.tbp b,.tbp strong,.tbp h1,.cspdf b,.cspdf strong,.label b,.ehlt b{font-weight:700}
+.tbp,.cspdf,.label,.ehlt,.ehg{word-break:normal;overflow-wrap:normal}
+.ui-ico{display:inline-block;flex:none;vertical-align:-3px}
 html,body{margin:0;background:var(--ground);color:var(--ink);font-family:'Noto Sans KR',system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--blue)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:15px;font-weight:500;color:var(--ink);cursor:pointer;text-decoration:none;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 @media (prefers-reduced-motion:no-preference){.btn{transition:scale .15s ease-out}.btn:not(:disabled):active{scale:.96}}
 .btn:disabled{opacity:.5;cursor:default}
-.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:500}
 .btn.warn{border-color:#E8B4AE;color:var(--red)}
 .btn.sm{min-height:36px;padding:0 12px;font-size:13px}
 .btn.big{min-height:52px;font-size:16px}
 .inp{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;background:#fff}
 .card{background:var(--card);border:1px solid var(--line2);border-radius:12px}
-.chip{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
 .c-ok{background:var(--green-bg);color:var(--green)}
 .c-bad{background:var(--orange-bg);color:var(--orange)}
 .c-wait{background:var(--line3);color:var(--muted)}

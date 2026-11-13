@@ -8,19 +8,27 @@
 .wrap{max-width:1100px;margin:0 auto;padding:12px 16px 40px}
 .top{background:#fff;border-bottom:1px solid var(--line2);position:sticky;top:0;z-index:20}
 .top-in{max-width:1100px;margin:0 auto;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.backbar{padding-top:4px;padding-bottom:calc(32px + env(safe-area-inset-bottom))}.backbar .btn{width:100%}body:has(.csbar) .backbar{padding-bottom:120px}
+.backbar{padding-top:4px;padding-bottom:calc(32px + env(safe-area-inset-bottom))}.backbar .btn{width:100%}
+.btn.back-in{flex:none!important;min-width:0!important;margin-right:auto;padding:0 14px 0 8px;gap:2px}
+body:has(.csbar) #app{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+@media (max-width:599px){.nwbar{gap:6px}.nwbar .btn{min-width:0;padding:0 10px;font-size:15px}.nwbar .btn.green svg{display:none}.nwbar>span{flex:0 1 auto;min-width:0;font-size:12px}.btn.back-in{padding:0 10px 0 4px}}
 .seg.setseg button{padding:0;white-space:nowrap;font-size:13px;text-align:center}.mainfoot{display:flex;justify-content:space-between;gap:8px}.sth{margin:6px 0 0;font-size:15px}.strow{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line3)}.strow:last-child{border-bottom:0}.strow .fname{flex:1;min-width:0}
 .back{width:44px;height:44px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px}
 .ttl{display:flex;flex-direction:column;flex:1 1 150px;min-width:0}
-.ttl small{font-size:12px;color:var(--muted)}
+.ttl small{font-size:12px;color:var(--muted);white-space:nowrap}
 .ttl b{font-size:18px}
-.me{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:700;white-space:nowrap}
+.me{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:500;white-space:nowrap}
 .grid6{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media(min-width:700px){.grid6{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .tile{background:#fff;border:1px solid var(--line2);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;min-height:104px;cursor:pointer;text-align:left}
 .tile b{font-size:17px}
 .tile small{font-size:12px;color:var(--muted)}
 .tile.on{border:2px solid var(--blue);padding:13px}
+/* WS-25: 메뉴 칸 선 아이콘, 「준비 중」 칸은 점선·회색 */
+.tile .ico{background:var(--blue-bg);color:var(--blue-d)}
+.tile.soon{background:transparent;border-style:dashed;cursor:default}
+.tile.soon .ico{background:var(--line3);color:var(--muted)}
+.tile.soon b{color:var(--sub)}
 .ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center}
 .row{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid var(--line2);border-radius:12px;cursor:pointer;width:100%;text-align:left}
 .list{display:flex;flex-direction:column;gap:10px}
@@ -41,7 +49,7 @@
 .fname{flex:1;display:flex;flex-direction:column;min-width:0}
 .fname b{font-size:14px}
 .fname small{font-size:12px;color:var(--muted)}
-.floorh{font-size:13px;font-weight:700;color:var(--muted);margin:6px 2px 0}
+.floorh{font-size:13px;font-weight:600;color:var(--muted);margin:6px 2px 0}
 .mnav{display:flex;align-items:center;gap:8px}
 .mnav .btn{width:44px;padding:0;font-size:20px}
 .mnav div{flex:1;text-align:center;display:flex;flex-direction:column}
@@ -49,12 +57,12 @@
 @media(min-width:700px){.legend{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:4px}
 .tree{padding:4px 0 4px 14px}
-.tree-root{display:flex;align-items:center;gap:8px;height:44px;font-weight:700;font-size:14px}
+.tree-root{display:flex;align-items:center;gap:8px;height:44px;font-weight:600;font-size:14px}
 .floor{display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 12px 6px 0;border-top:1px solid var(--line3);width:100%;background:none;border-left:none;border-right:none;border-bottom:none;cursor:pointer;text-align:left}
 .elbow{width:16px;height:28px;border-left:2px solid var(--line2);border-bottom:2px solid var(--line2);margin:-20px 0 0 6px;flex:none}
 .bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--line3)}
 .fl{min-height:36px;min-width:44px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:14px}
-.fl.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
+.fl.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:500}
 .feb{width:100%;background:#fff;border:none;border-top:1px solid var(--line3);display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 14px;text-align:left;cursor:pointer}
 .feb:disabled{cursor:default}
 .ph43{aspect-ratio:4/3;background:var(--line3);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -69,15 +77,15 @@
 .spad canvas{position:absolute;left:0;top:0;width:100%;height:100%}
 .sgrow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line3)}
 .sgrow:first-child{border-top:none}
-.sgno{width:28px;height:28px;border-radius:14px;background:var(--line3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none}
+.sgno{width:28px;height:28px;border-radius:14px;background:var(--line3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex:none}
 .sgimg{width:120px;height:56px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--line3);border-radius:6px;background:#fff}
 .sgimg img{max-width:100%;max-height:42px}
 .sgimg small{font-size:10px;color:var(--muted);line-height:1}
 /* 명일 작업 예정 (WS_서류작업 9장) — 휴대폰은 줄마다 카드, 768px 이상은 표 */
 .nwhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .nwhead b{flex:1 1 auto;font-size:17px}
-.nwdate{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 6px 0 14px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-weight:700}
-.nwdate input{border:0;background:transparent;color:inherit;font-weight:700;font-size:16px;min-height:44px;cursor:pointer}
+.nwdate{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 6px 0 14px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-weight:500}
+.nwdate input{border:0;background:transparent;color:inherit;font-weight:500;font-size:16px;min-height:44px;cursor:pointer}
 .nwmeta{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5}
 .nwnote{margin-top:10px;font-size:13px;color:var(--red);background:var(--red-bg);border-radius:8px;padding:8px 12px;line-height:1.5}
 .nwrows{display:flex;flex-direction:column;gap:12px}
@@ -86,30 +94,30 @@
 .nwrow .f-work{grid-area:work}.nwrow .f-place{grid-area:place}.nwrow .f-note{grid-area:note}
 .nwrow label{display:flex;flex-direction:column;gap:4px;min-width:0}
 .nwrow label span{font-size:13px;font-weight:500;color:var(--sub)}
-.nwno{width:30px;height:30px;border-radius:15px;background:var(--blue-bg);color:var(--blue-d);font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.nwno{width:30px;height:30px;border-radius:15px;background:var(--blue-bg);color:var(--blue-d);font-weight:500;display:inline-flex;align-items:center;justify-content:center}
 .nwdel{width:44px;padding:0;color:var(--muted)}
 .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:44px;background:#fff}
 .seg button{flex:1;border:0;background:#fff;font-size:14px;color:var(--sub);padding:0 8px;cursor:pointer;min-width:0}
 .seg button+button{border-left:1px solid var(--line)}
-.seg button.on{background:var(--blue);color:#fff;font-weight:700}
+.seg button.on{background:var(--blue);color:#fff;font-weight:500}
 .nwrow.danger{border-left-color:var(--red);background:#FFFBFA}
 .nwrow.danger .nwno{background:var(--red-bg);color:var(--red)}
 .nwrow.danger .inp{color:var(--red);border-color:#EBC2BD}
 .nwhd{display:none}
 .nwadd{width:100%;border-style:dashed;color:var(--blue)}
 .nwbar{position:sticky;bottom:0;z-index:15;background:#fff;border-top:1px solid var(--line2);margin:0 -16px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;align-items:center}
-.nwbar .btn{flex:1;min-height:52px;font-size:16px;font-weight:700}
+.nwbar .btn{flex:1;min-height:52px;font-size:16px;font-weight:500}
 .nwbar .btn.green{background:var(--green);border-color:var(--green);color:#fff}
 .nwstate{font-size:12.5px;color:var(--green);white-space:nowrap}
 .nwstate.dirty{color:var(--orange)}
-.sec{font-size:13px;font-weight:700;color:var(--muted);margin:8px 2px -2px}
+.sec{font-size:13px;font-weight:600;color:var(--muted);margin:8px 2px -2px}
 /* TBM (WS_서류작업 4~5장) */
 .tbsum{display:flex;align-items:center;gap:8px;padding:12px 14px}
 .tbw{padding:14px;display:flex;flex-direction:column;gap:12px}
 .tbh{display:flex;align-items:flex-start;gap:10px}.tbh .fname b{font-size:15px;line-height:1.35}
 .tbedit{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:10px;background:var(--ground)}
 .tbf{display:flex;flex-direction:column;gap:5px;min-width:0}
-.tbf>span{font-size:12.5px;font-weight:700;color:var(--sub)}.tbf em{font-style:normal;font-weight:500;color:var(--green);margin-left:4px}
+.tbf>span{font-size:12.5px;font-weight:500;color:var(--sub)}.tbf em{font-style:normal;font-weight:500;color:var(--green);margin-left:4px}
 .tbrisk{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px}.tbrisk small{font-size:12px;color:var(--muted)}
 .tbseg{min-height:40px}.tbseg button{width:40px;flex:none}
 .tblv{margin-left:auto;padding:6px 12px;border-radius:8px;font-size:15px;background:var(--line3)}
@@ -121,7 +129,7 @@
 .tbown{display:flex;gap:6px}.tbown .inp{flex:1}
 .tbck{display:flex;flex-wrap:wrap;gap:6px;padding:12px}
 .tbck button{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px;cursor:pointer}
-.tbck button.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+.tbck button.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:500}
 .tbphs{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px}
 .tbph{display:flex;flex-direction:column;gap:6px;min-width:0}.tbph>b{font-size:13px}
 .tbpb{display:flex;gap:6px}.tbpb .btn{flex:1;padding:0 6px}
@@ -129,7 +137,7 @@
 @media(min-width:768px){
   .nwrows{gap:0;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:#fff}
   .nwrow,.nwhd{grid-template-columns:44px 200px 170px minmax(0,1fr) 150px 44px;grid-template-areas:"no dept place work note del";align-items:center;border:0;border-top:1px solid var(--line3);border-radius:0;padding:6px 8px}
-  .nwhd{display:grid;gap:8px 10px;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:700;text-align:center;padding:10px 8px;border-top:0}
+  .nwhd{display:grid;gap:8px 10px;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:500;text-align:center;padding:10px 8px;border-top:0}
   .nwrow.danger{background:#FFF6F5;box-shadow:inset 4px 0 0 var(--red)}
   .nwrow .nwno{justify-self:center}
   .nwrow label span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
@@ -172,7 +180,7 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .atopts .attag::after{content:none}
 .atopts .attag.sel{outline:3px solid var(--blue);outline-offset:1px}
 .atwk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
-.atwk button{height:48px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.atwk button{height:48px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:16px;font-weight:500;cursor:pointer}
 .atwk button.sel{background:#FFF4C7;border-color:#E2C14A;color:#7A5A00}
 .atwk button:disabled{cursor:default;opacity:1}
 .atcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -182,7 +190,7 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .atcal .sun b{color:var(--red)}.atcal .sat b{color:var(--blue)}
 .atcal button.on{background:var(--blue);border-color:var(--blue)}.atcal button.on b,.atcal button.on small{color:#fff}
 .atcal button.today{border:2px solid var(--blue)}
-.atchk{font-size:13px;line-height:1.7}.atchk svg{vertical-align:-3px;margin-right:4px;color:var(--muted)}.atchk .w svg{color:inherit}.atchk .w{color:var(--orange);font-weight:700}
+.atchk{font-size:13px;line-height:1.7}.atchk svg{vertical-align:-3px;margin-right:4px;color:var(--muted)}.atchk .w svg{color:inherit}.atchk .w{color:var(--orange);font-weight:500}
 .atimg{width:1200px;background:#fff;padding:28px 32px 22px;font-family:'Noto Sans KR',sans-serif;color:var(--ink)}
 .atimg .attl{display:flex;align-items:baseline;gap:14px;margin-bottom:16px}.atimg .attl b{font-size:24px;font-weight:600}.atimg .attl span{font-size:14px;color:var(--muted)}
 .atimg .atorg,.atimg .atduo{grid-template-columns:1fr 1fr}
@@ -199,7 +207,7 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .ehfl.on{background:var(--blue);border-color:var(--blue);color:#fff}.ehfl.on small{color:#DCE8F6}
 .ehsum{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0;font-size:13px;color:var(--muted)}
 .ehsum span{flex:1 1 auto}.ehsum b{color:var(--ink);font-size:15px}
-.ehcnt{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-size:12px;font-weight:700;white-space:nowrap;flex:none}
+.ehcnt{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue-d);font-size:12px;font-weight:500;white-space:nowrap;flex:none}
 .ehst{margin-bottom:8px}
 .ehsh{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;min-height:56px}
 .ehsh input,.ehit input,.ehtbl input{width:22px;height:22px;accent-color:var(--blue);flex:none;margin:0}
@@ -211,16 +219,16 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .ehit{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border-top:1px solid var(--line3)}
 .ehit.sel{background:#F5F9FE}
 .ehl1{display:flex;align-items:baseline;gap:8px;min-width:0}.ehl1 b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ehno{font-size:12.5px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
-.ehnp{font-style:normal;color:var(--orange);font-weight:700;white-space:nowrap}
-.ehw{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.ehw small{font-size:11px;color:var(--muted);font-weight:500}
+.ehno{font-size:12.5px;font-weight:500;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ehnp{font-style:normal;color:var(--orange);font-weight:500;white-space:nowrap}
+.ehw{font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}.ehw small{font-size:11px;color:var(--muted);font-weight:500}
 .ehed{width:40px;padding:0;color:var(--muted)}
 .ehadd{padding:10px;border-top:1px solid var(--line3)}.ehadd .btn{width:100%;border-style:dashed;color:var(--blue-d);background:var(--blue-bg);border-color:#A9C3E3}
 .ehpc{display:grid;grid-template-columns:clamp(180px,20vw,260px) minmax(0,1fr);gap:14px;align-items:start}
 .ehside{padding:8px;max-height:calc(100vh - 230px);overflow:auto;position:sticky;top:76px}
 .ehsrow{display:flex;align-items:center;gap:8px;width:100%;min-height:42px;padding:0 10px;border:0;background:none;border-radius:8px;font-size:14px;cursor:pointer;text-align:left}
 .ehsrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ehsrow small{color:var(--muted)}
-.ehsrow.on{background:var(--blue-bg);color:var(--blue-d);font-weight:700}
+.ehsrow.on{background:var(--blue-bg);color:var(--blue-d);font-weight:500}
 .ehpanel{padding:16px;min-width:0}
 .ehph{display:flex;align-items:flex-end;flex-wrap:wrap;gap:8px 12px;margin-bottom:12px}
 .ehph .fname{flex:1 1 220px;min-width:0}.ehph .fname b{font-size:20px;line-height:1.3;overflow-wrap:anywhere}
@@ -228,7 +236,7 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 
 .ehtw{overflow-x:auto}
 .ehtbl{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
-.ehtbl th{background:var(--blue-bg);color:var(--blue-d);font-weight:700;padding:9px 8px;font-size:13px;text-align:left;white-space:nowrap}
+.ehtbl th{background:var(--blue-bg);color:var(--blue-d);font-weight:500;padding:9px 8px;font-size:13px;text-align:left;white-space:nowrap}
 .ehtbl td{padding:7px 8px;border-bottom:1px solid var(--line3);white-space:nowrap;vertical-align:middle}
 .ehtbl td.wr{white-space:normal;word-break:keep-all;overflow-wrap:anywhere;min-width:7em}.ehtbl td.wr small{display:block;font-size:12px;color:var(--muted)}
 .ehtbl .r{text-align:right;font-variant-numeric:tabular-nums}
@@ -236,7 +244,7 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .ehdh{margin:0 0 4px;font-size:18px}
 .ehdp{margin:0 0 12px;font-size:14px;line-height:1.6;color:var(--sub)}
 .ehf{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--sub);margin-bottom:10px;min-width:0}
-.ehro{min-height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:8px;background:var(--ground);border:1px solid var(--line2);font-size:16px;font-weight:700;color:var(--sub)}
+.ehro{min-height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:8px;background:var(--ground);border:1px solid var(--line2);font-size:16px;font-weight:500;color:var(--sub)}
 .ehro small{font-size:12px;font-weight:500;color:var(--muted);margin-left:auto}.ehro i{font-style:normal;color:var(--muted);font-weight:500}
 .ehtwo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ehmsg{color:var(--red);font-size:13px;min-height:18px}
@@ -256,18 +264,18 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .ehg .q img{display:block;image-rendering:pixelated}
 .ehpv .ehl{box-shadow:0 1px 3px rgba(24,32,43,.18)}
 /* 공사장 점검 (WS_공사장점검, 결정 100) */
-.cschip{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;flex:none}
+.cschip{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;flex:none}
 .cschip.ok{color:var(--green);background:var(--green-bg)}.cschip.bad{color:var(--red);background:var(--red-bg)}.cschip.wait{color:var(--muted);background:var(--line3)}
 .cshd{padding:14px}.cshd b{font-size:19px}.cshd small{display:block;font-size:13px;color:var(--muted);margin-top:2px}
 .csrsum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:12px}.csrsum div{background:var(--ground);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}.csrsum b{display:block;font-size:15px;color:var(--ink)}
-.cssec{display:flex;align-items:center;gap:8px;margin:8px 2px 0;font-size:13px;font-weight:700;color:var(--sub)}.cssec .btn{margin-left:auto}
+.cssec{display:flex;align-items:center;gap:8px;margin:8px 2px 0;font-size:13px;font-weight:600;color:var(--sub)}.cssec .btn{margin-left:auto}
 .cssrch{flex:1;min-width:0;position:relative}.cssrch input{width:100%;min-height:42px;border:1px solid var(--line);border-radius:999px;padding:0 12px 0 34px;font-size:15px;background:#fff;color:var(--ink);font-family:inherit}
 .cssrch::before{content:'';position:absolute;left:13px;top:13px;width:11px;height:11px;border:2px solid var(--muted);border-radius:50%}.cssrch::after{content:'';position:absolute;left:24px;top:25px;width:6px;height:2px;background:var(--muted);transform:rotate(45deg)}
-.csrd{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}.csrd span{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.csrd{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}.csrd span{font-size:11.5px;font-weight:500;border-radius:999px;padding:2px 8px;white-space:nowrap}
 .csrd .ok{color:var(--green);background:var(--green-bg)}.csrd .bad{color:var(--red);background:var(--red-bg)}.csrd .wait{color:var(--muted);background:var(--line3)}
 .csbtns{display:flex;gap:8px}.csbtns .csadd{flex:2;width:auto}.csbtns>.btn:not(.csadd){flex:1;min-height:48px;padding:0 8px}
 .csrtabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
-.csrtabs button{flex:1;min-width:0;min-height:50px;border:0;background:#fff;font-size:15px;font-weight:700;color:var(--sub);line-height:1.2;cursor:pointer;font-family:inherit;padding:4px}
+.csrtabs button{flex:1;min-width:0;min-height:50px;border:0;background:#fff;font-size:15px;font-weight:500;color:var(--sub);line-height:1.2;cursor:pointer;font-family:inherit;padding:4px}
 .csrtabs button+button{border-left:1px solid var(--line)}.csrtabs button small{display:block;font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .csrtabs .on{background:var(--blue);color:#fff;cursor:default}.csrtabs .on small{color:#DCE8F6}.csrtabs button:disabled{color:var(--line);cursor:default}
 .cslist{overflow:hidden}
@@ -275,16 +283,16 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .csrow+.csrow{border-top:1px solid var(--line3)}
 .csrow .fname b{font-size:16px}
 .csgo{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:44px;border:0;background:none;padding:0;cursor:pointer;text-align:left;color:inherit}
-.csno{width:28px;height:28px;border-radius:50%;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
-.csadd{width:100%;border-style:dashed;color:var(--blue-d);background:var(--blue-bg);border-color:#A9C3E3;font-weight:700}
-.csday{padding:8px 14px;background:var(--ground);font-size:13px;font-weight:700;color:var(--sub);border-top:1px solid var(--line3)}
+.csno{width:28px;height:28px;border-radius:50%;background:var(--blue-bg);color:var(--blue-d);font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;flex:none}
+.csadd{width:100%;border-style:dashed;color:var(--blue-d);background:var(--blue-bg);border-color:#A9C3E3;font-weight:500}
+.csday{padding:8px 14px;background:var(--ground);font-size:13px;font-weight:600;color:var(--sub);border-top:1px solid var(--line3)}
 .csday:first-child{border-top:0}
 .csmeta{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
 .csmeta small{display:block;font-size:12px;color:var(--muted)}.csmeta b{font-size:15px;overflow-wrap:anywhere}.csmeta em{font-style:normal;font-size:11px;color:var(--blue-d)}
 .csit{padding:14px}.csit.bad{border-color:#EDB5AF;box-shadow:inset 4px 0 0 var(--red)}
 .csit h3{display:flex;align-items:flex-start;gap:8px;margin:0;font-size:15px}.csit h3 span{flex:1;min-width:0;overflow-wrap:anywhere}
 .csit p{margin:3px 0 10px;font-size:12.5px;color:var(--muted);line-height:1.45}
-.csseg button{font-size:15px;font-weight:700}
+.csseg button{font-size:15px;font-weight:500}
 .csseg button.on.bad{background:var(--red)}.csseg button.on.na{background:var(--muted)}
 .csph{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
 .csph .ph43{position:relative;border-radius:8px}
@@ -326,7 +334,7 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .pvmore{font-size:13px;color:var(--muted)}
 .pvpre{display:flex;gap:6px;flex-wrap:wrap}
 .pvhelp{margin-top:10px;font-size:12px;color:var(--sub);background:var(--ground);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
-.pvhelp summary{cursor:pointer;font-weight:700;color:var(--ink)}
+.pvhelp summary{cursor:pointer;font-weight:600;color:var(--ink)}
 .pvhelp ol{margin:6px 0 0;padding-left:18px;line-height:1.6}
 @media print{
   body > *:not(#print){display:none!important}
@@ -402,6 +410,11 @@ function toastNext() {
 function dialog(html) { $('layer').innerHTML = '<div class="dialog-back" onclick="if(event.target===this)closeDialog()"><div class="dialog" role="dialog" aria-modal="true">' + html + '</div></div>'; }
 function closeDialog() { $('layer').innerHTML = ''; }
 const ICON = {
+  docs: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+  inspect: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
+  soon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  cam: '<svg class="ui-ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>',
+  folder: '<svg class="ui-ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   cal: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
   dl: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
   clip: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l8-8"/></svg>',
@@ -449,7 +462,7 @@ function renderLogin() {
     '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:auto">' + keys +
     '<button class="key" onclick="pinBack()" aria-label="지우기" style="border:none;background:none">⌫</button>' +
     '<button class="key" onclick="pinKey(\'0\')">0</button>' +
-    '<button class="key" onclick="doLogin()" style="background:var(--blue);border-color:var(--blue);color:#fff;font-size:17px;font-weight:700">' + (S.busy ? '<span class="spin"></span>' : '로그인') + '</button></div>' +
+    '<button class="key" onclick="doLogin()" style="background:var(--blue);border-color:var(--blue);color:#fff;font-size:17px;font-weight:600">' + (S.busy ? '<span class="spin"></span>' : '로그인') + '</button></div>' +
     '<small style="text-align:center;color:var(--muted);line-height:1.6">하루 첫 로그인 때 본인 서명을 받습니다<br>로그인은 다음 날 오전 6시까지 유지됩니다</small></div>';
 }
 function pinKey(n) { if (S.pin.length < 4) { S.pin += n; render(); if (S.pin.length === 4) doLogin(); } }
@@ -583,18 +596,19 @@ function renderRetry() {
 function renderMain() {
   const u = S.user;
   const approver = ['소장', '부소장', '파트장'].indexOf(u.role) !== -1;
-  const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
+  const today = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
   const c = S.fire ? S.fire.counts : null;
-  const t = (key, label, sub, bg, fg, on) => '<button class="tile' + (on ? ' on' : '') + '" onclick="tile(\'' + key + '\')"><span class="ico" style="background:' + bg + ';color:' + fg + ';font-weight:700">' + label.slice(0, 1) + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
+  const t = (key, label, sub, ico) => '<button class="tile" onclick="tile(\'' + key + '\')"><span class="ico">' + ico + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
+  const soon = (key) => '<button class="tile soon" onclick="tile(\'' + key + '\')"><span class="ico">' + ICON.soon + '</span><b>작업중</b><small>준비 중</small></button>';
   return topbar('잠실점 에비뉴엘 · ' + today, '업무지원') + '<div class="wrap" style="display:flex;flex-direction:column;gap:14px">' +
     '<div class="banner b-gray">이 버전은 테스트판 입니다.' + (S.ver ? ' <b>v' + h(S.ver) + '</b>' : '') + '</div>' +
     '<div class="grid6">' +
-    t('docs', '서류작업', 'TBM' + (S.docs ? ' · 오늘 서명 ' + S.docs.signs + '명' : ' · 명일 작업 예정'), '#EAF5EF', '#1F7A4D') +
-    t('work', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') +
-    t('inspect', '점검', c ? '소화기 ' + (c.ok + c.bad) + ' / ' + c.total + '대' : '소화기 점검', '#1F5FA8', '#fff') +
-    t('plan', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') +
-    t('defect', '작업중', '준비 중', '#FDF0E8', '#B4410F') +
-    (approver ? t('approve', '작업중', '준비 중', '#E8F0FA', '#1F5FA8') : t('mydocs', '작업중', '준비 중', '#E8F0FA', '#1F5FA8')) +
+    t('docs', '서류작업', 'TBM' + (S.docs ? ' · 오늘 서명 ' + S.docs.signs + '명' : ' · 명일 작업 예정'), ICON.docs) +
+    soon('work') +
+    t('inspect', '점검', c ? '소화기 ' + (c.ok + c.bad) + ' / ' + c.total + '대' : '소화기 점검', ICON.inspect) +
+    soon('plan') +
+    soon('defect') +
+    soon(approver ? 'approve' : 'mydocs') +
     '</div>' +
     '<div class="mainfoot"><button class="btn theme-btn" onclick="toggleTheme()">' + themeLabel() + '</button>' +
     (isBoss() ? '<button class="btn" onclick="openSet()">환경설정</button>' : '') + '</div>' +
@@ -675,9 +689,9 @@ async function staffDel(id) {
 function renderDocs() {
   const n = S.docs ? S.docs.signs : null;
   return topbar('업무지원 ›', '서류작업') + '<div class="wrap list">' +
-    '<button class="row" onclick="openTbm()"><span class="ico" style="background:var(--green-bg);color:var(--green);font-weight:700">T</span><span class="fname"><b style="font-size:16px">TBM</b><small>오늘 서명 ' + (n == null ? '…' : n + '명') + ' · 작업 표 · 사진 · PDF</small></span>' + ICON.chev + '</button>' +
-    '<button class="row" onclick="openNw()"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:700">명</span><span class="fname"><b style="font-size:16px">명일 작업 예정</b><small>내일 작업 입력 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
-    '<button class="row" onclick="openAtt()"><span class="ico" style="background:#FFF4C7;color:#7A5A00;font-weight:700">출</span><span class="fname"><b style="font-size:16px">출근현황</b><small>근무 스케줄 엑셀 → 날짜별 조직도 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openTbm()"><span class="ico" style="background:var(--green-bg);color:var(--green);font-weight:600">T</span><span class="fname"><b style="font-size:16px">TBM</b><small>오늘 서명 ' + (n == null ? '…' : n + '명') + ' · 작업 표 · 사진 · PDF</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openNw()"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:600">명</span><span class="fname"><b style="font-size:16px">명일 작업 예정</b><small>내일 작업 입력 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openAtt()"><span class="ico" style="background:#FFF4C7;color:#7A5A00;font-weight:600">출</span><span class="fname"><b style="font-size:16px">출근현황</b><small>근무 스케줄 엑셀 → 날짜별 조직도 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
     '</div>';
 }
 /* 미리 받기 (결정 78): 메인이 뜬 뒤 자주 여는 화면 내용을 뒤에서 받아 두고, 열 때 바로 보여 준 뒤 새로 받음 */
@@ -748,7 +762,7 @@ function tbmCard(w, i) {
 }
 function tbmPhotoCell(k, label) {
   const src = S.tbm.up[k] || S.tbm.photos[k];
-  const pick = (cam) => '<label class="btn sm">' + (cam ? '📷 카메라' : '📂 파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : '') + ' hidden onchange="tbmPhoto(\'' + k + '\',this)"></label>';
+  const pick = (cam) => '<label class="btn sm">' + (cam ? ICON.cam + ' 카메라' : ICON.folder + ' 파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : '') + ' hidden onchange="tbmPhoto(\'' + k + '\',this)"></label>';
   return '<div class="tbph"><b>' + label + '</b><div class="ph43">' + (src ? '<img src="' + src + '" alt="' + label + '">' : '<small>사진 없음</small>') + '</div><div class="tbpb">' + pick(true) + pick(false) + '</div></div>';
 }
 function renderTbm() {
@@ -971,7 +985,7 @@ function renderNw() {
     '<button type="button" class="btn nwadd" onclick="nwAdd()"' + (n.rows.length >= 30 ? ' disabled' : '') + '>+ 줄 더하기</button></div>' +
     '<div class="nwbar"><span id="nwState">' + nwState() + '</span>' +
     '<button class="btn pri" id="nwSave" onclick="nwSave()"' + (n.busy ? ' disabled' : '') + '>' + (n.busy ? '<span class="spin"></span>' : '저장') + '</button>' +
-    '<button class="btn green" onclick="nwImage()">⬇ 그림으로 저장</button></div></div>';
+    '<button class="btn green" onclick="nwImage()">' + ICON.dl + '그림으로 저장</button></div></div>';
 }
 function nwDirty() { S.nw.dirty = true; const e = $('nwState'); if (e) e.innerHTML = nwState(); }
 // 입력 중에는 다시 그리지 않음 (글자 칸 초점 유지) — 빨간색만 바로 바꿈
@@ -1298,9 +1312,9 @@ async function atUpSave() {
 /* ── 점검 ── */
 function renderInspect() {
   return topbar('업무지원 ›', '점검') + '<div class="wrap list">' +
-    '<button class="row" onclick="go(\'fire\')"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:700">소</span><span class="fname"><b style="font-size:16px">소화기 점검</b><small>QR 관리·인쇄 · 월별 점검 현황</small></span>' + ICON.chev + '</button>' +
-    '<button class="row" onclick="openEh()"><span class="ico" style="background:var(--orange-bg);color:var(--orange);font-weight:700">전</span><span class="fname"><b style="font-size:16px">전열필증</b><small>층·매장별 전열기기 관리 · 신고필증' + (CAN_PRINT ? ' 출력' : ' (출력은 PC에서)') + '</small></span>' + ICON.chev + '</button>' +
-    '<button class="row" onclick="openCs()"><span class="ico" style="background:var(--green-bg);color:var(--green);font-weight:700">공</span><span class="fname"><b style="font-size:16px">공사장 점검</b><small>공사 현장 안전 순찰 · 사진 · 날짜별 현장별 PDF</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="go(\'fire\')"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:600">소</span><span class="fname"><b style="font-size:16px">소화기 점검</b><small>QR 관리·인쇄 · 월별 점검 현황</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openEh()"><span class="ico" style="background:var(--orange-bg);color:var(--orange);font-weight:600">전</span><span class="fname"><b style="font-size:16px">전열필증</b><small>층·매장별 전열기기 관리 · 신고필증' + (CAN_PRINT ? ' 출력' : ' (출력은 PC에서)') + '</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openCs()"><span class="ico" style="background:var(--green-bg);color:var(--green);font-weight:600">공</span><span class="fname"><b style="font-size:16px">공사장 점검</b><small>공사 현장 안전 순찰 · 사진 · 날짜별 현장별 PDF</small></span>' + ICON.chev + '</button>' +
     '</div>';
 }
 
@@ -1604,7 +1618,9 @@ function ehTog(id) { S.ehOpen[id] = !S.ehOpen[id]; S.ehCur = id; render(); }
 function ehPick(id, on) { S.ehSel[id] = on; render(); }
 function ehPickStore(id) { const s = ehStore(id), all = s.items.length && s.items.every(i => S.ehSel[i.id]); s.items.forEach(i => { S.ehSel[i.id] = !all; }); render(); }
 // 검색창은 두고 아래만 다시 그림 — 화면 전체를 다시 그리면 한글 조합(ㄱ+ㅏ→가)이 끊겨 자음·모음이 따로 들어감
-function ehSearch(el) { S.ehQ = el.value; const b = $('ehBody'); if (b) b.innerHTML = ehBody(); }
+function ehSearch(el) { S.ehQ = el.value; const b = $('ehBody'); if (b) b.innerHTML = withBack(ehBody()); }
+/** 아래 저장 줄(.nwbar · 공사장 점검 .csbar-in) 맨 왼쪽에 「뒤로」를 넣음 — 없으면 그대로 돌려줌 (WS-25) */
+function withBack(html) { return html.replace(/<div class="(nwbar|csbar-in)">/, m => m + '<button class="btn back-in" onclick="back()">' + ICON.back + '뒤로</button>'); }
 
 function renderEh() {
   ehWas = ehWide();
@@ -1772,7 +1788,7 @@ function ehDoPrint(one) {
 function ehImportDlg() {
   S.ehX = null;
   dialog('<h2 class="ehdh">엑셀 가져오기 (처음 한 번)</h2><p class="ehdp">「2026년 전열기 관리대장.xlsx」를 고르면 층 시트(B3F~6F·팝업)의 매장·기기를 읽습니다. 파일은 올리지 않고 읽은 내용만 저장합니다.</p>' +
-    '<label class="btn" style="width:100%;min-height:64px;border-style:dashed;color:var(--blue);position:relative">📎 엑셀 파일(.xlsx) 고르기<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="ehXFile(this)" style="position:absolute;width:1px;height:1px;opacity:0"></label>' +
+    '<label class="btn" style="width:100%;min-height:64px;border-style:dashed;color:var(--blue);position:relative">' + ICON.clip + ' 엑셀 파일(.xlsx) 고르기<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="ehXFile(this)" style="position:absolute;width:1px;height:1px;opacity:0"></label>' +
     '<div id="ehXo" style="margin-top:12px"></div>');
 }
 async function ehXFile(el) {
@@ -2110,7 +2126,10 @@ function render() {
   else if (S.view === 'floor') html = S.st ? renderFloor() : renderStatus();
   else if (S.view === 'set' && isBoss()) html = renderSet();
   else html = renderMain();
-  if (PARENT[S.view] && S.token && S.user) html += '<div class="wrap backbar"><button class="btn big" onclick="back()">' + ICON.back + '뒤로</button></div>';   // 아래 뒤로 버튼 (위 < 는 뺌, 결정 102)
+  if (PARENT[S.view] && S.token && S.user) {   // 아래 뒤로 버튼 (위 < 는 뺌, 결정 102). 저장 줄이 있으면 그 줄 맨 왼쪽에 (WS-25)
+    const h2 = withBack(html);
+    html = h2 !== html ? h2 : html + '<div class="wrap backbar"><button class="btn big" onclick="back()">' + ICON.back + '뒤로</button></div>';
+  }
   $('app').innerHTML = html;
   if (S.view === 'qr') drawQrs();
   if (S.view === 'sign') mountSign();

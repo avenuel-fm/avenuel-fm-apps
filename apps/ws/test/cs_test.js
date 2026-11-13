@@ -98,7 +98,8 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await pp.screenshot({ path: __dirname + '/shot_cs_pdf.png', fullPage: true });
 
   // 다시 열기 → 저장한 것 그대로
-  await p.click('.backbar button'); await p.waitForSelector('.cshd');
+  ok(await p.locator('.backbar').count() === 0 && await p.locator('.csbar-in > .back-in:first-child').count() === 1, '뒤로 버튼은 아래 줄 맨 왼쪽 (WS-25)');
+  await p.click('.csbar .back-in'); await p.waitForSelector('.cshd');
   ok(await p.locator('.csrow:has-text("5F 리모와") .csrd .bad').innerText() === '오전 미흡 2' && await p.locator('.csrow:has-text("5F 리모와") a:has-text("PDF")').count() === 1, '목록: 오전 미흡 2 · PDF 단추');
 
   // 두 번째 = 오후 (빈 칸에서 시작) → 오전 칸 눌러 오전 그대로 → PDF 한 파일에 오전·오후
@@ -118,7 +119,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.waitForSelector('.csbar button:has-text("PDF 다시")', { timeout: 15000 });
   const pdf2 = await p.evaluate(() => window.__pdfEl || '');
   ok((pdf2.match(/class="cspdf"/g) || []).length === 2 && /오전 점검[\s\S]*오후 점검/.test(pdf2) && /page-break-before/.test(pdf2) && (pdf2.match(/class="pc"/g) || []).length === 19, 'PDF 한 파일: 오전(10칸) → 새 쪽 오후(9칸)');
-  await p.click('.backbar button'); await p.waitForSelector('.csrow:has-text("5F 리모와") .csrd .ok:text-is("오후 양호")');
+  await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와") .csrd .ok:text-is("오후 양호")');
   ok(await p.locator('.csrow:has-text("5F 리모와") .csrd .ok:text-is("오후 양호")').count() === 1 && await p.locator('.csrow:has-text("5F 리모와") .csrd .wait:text-is("작업종료 전")').count() === 1, '목록: 오전 미흡 2 · 오후 양호 · 작업종료 전');
   ok(/오전\s*1 \/ 2곳/.test(await p.locator('.csrsum').innerText()) && /오후\s*1 \/ 2곳/.test(await p.locator('.csrsum').innerText()), '위 칸: 오전 1/2곳 · 오후 1/2곳');
   await p.screenshot({ path: __dirname + '/shot_cs_list.png' });

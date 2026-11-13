@@ -71,9 +71,10 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   ok((await p.locator('.banner.b-info').first().innerText()).indexOf('PDF 저장됨') !== -1, 'PDF 저장 → 「PDF 저장됨」 표시');
   const openBtn = p.locator('.nwbar a.btn.pri');
   ok(await openBtn.innerText() === 'PDF 열기' && /drive\.google\.com\/file\/d\/.+\/view/.test(await openBtn.getAttribute('href')) && await openBtn.getAttribute('target') === '_blank', 'PDF 저장 뒤 버튼 = [PDF 열기] (새 창)');
-  ok((await p.locator('.tbpb').first().innerText()).replace(/\s+/g, ' ') === '📷 카메라 📂 파일', '사진 버튼 아이콘');
+  ok((await p.locator('.tbpb').first().innerText()).replace(/\s+/g, ' ').trim() === '카메라 파일' && await p.locator('.tbpb').first().locator('svg.ui-ico').count() === 2, '사진 버튼 선 아이콘 (WS-25)');
   await p.locator('.tbck button').nth(1).click();
   ok(await p.locator('.nwbar button.pri').innerText() === 'PDF로 저장', '고치면 다시 [PDF로 저장]');
+  ok(await p.locator('.nwbar > .back-in:first-child').count() === 1 && await p.locator('.backbar').count() === 0, '뒤로 버튼은 저장 줄 맨 왼쪽 (WS-25)');
   let saveCalls = 0; p.on('request', q => { if (q.url().endsWith('/run') && /"fn":"tbmSave"/.test(q.postData() || '')) saveCalls++; });
   await p.click('.nwbar button.pri'); await p.waitForFunction(() => S.tbm && !S.tbm.pdfBusy && !S.tbm.dirty && !S.tbm.pdfStale);
   const g3 = await run('tbmGet', hong.token);

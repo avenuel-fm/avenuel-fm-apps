@@ -48,7 +48,7 @@ const overflow = p => p.evaluate(() => document.documentElement.scrollWidth > in
   const g = await run('nextWorkGet', await p.evaluate(() => S.token), date);
   ok(g.rows.length === 7 && g.rows[5].note === '사다리' && g.by === '홍길동', '저장 → 시트 7줄');
   const dl = p.waitForEvent('download');
-  await p.click('text=⬇ 그림으로 저장');
+  await p.click('.nwbar button.green');
   const file = await dl; const path = 'shot_nw_image.png'; await file.saveAs(path);
   const buf = fs.readFileSync(path); const w = buf.readUInt32BE(16), hh = buf.readUInt32BE(20);
   ok(file.suggestedFilename() === date + '_명일작업예정.png' && w === 2000, '그림 내려받기 ' + file.suggestedFilename() + ' ' + w + '×' + hh);
