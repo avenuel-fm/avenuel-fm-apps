@@ -694,5 +694,31 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   p = logSavePdf(lt, '2026-11-12', pdf, Object.assign({}, base, { '시수': '103' }), p.ver);
   assert(p.ok && p.cur['시수'] === '103' && files[old].trashed && p.pdf.id !== old, '일지 PDF: 고친 내용 저장 + 새 PDF, 옛 PDF 휴지통');
   assert(!logSavePdf(lt, '2026-11-12', pdf, null, 'old').ok, '일지 PDF: 다른 사람이 고친 뒤면 PDF 안 만듦');
+  // 5단계: 자주 쓰는 문구 · TBM 가져오기 · 야간 그림
+  g = logGet(lt, '2026-11-09');
+  assert(g.phrases['전기방재'].length === 4 && g.phrases['기계건축'].join('|') === '공사장 안전 점검|미세먼지 측정|일일계량기 검침', '일지 문구: 탭 만들고 첫 목록 (전기방재 4 · 기계건축 3)');
+  appendRow_('일지문구', { '부서': '기계건축', '문구': '옥상 배수구 점검', '순서': '0', '사용여부': 'Y' });
+  appendRow_('일지문구', { '부서': '기계건축', '문구': '안 쓰는 문구', '순서': '9', '사용여부': 'N' });
+  appendRow_('일지문구', { '부서': '승강기', '문구': '없는 부서', '순서': '1', '사용여부': 'Y' });
+  g = logGet(lt, '2026-11-09');
+  assert(g.phrases['기계건축'][0] === '옥상 배수구 점검' && g.phrases['기계건축'].length === 4 && !g.phrases['승강기'], '일지 문구: 시트에서 더한 문구 순서대로 · 안 씀(N)·없는 부서는 뺌');
+  assert(!g.tbm['전기방재'].length && !g.tbm['기계건축'].length, '일지 TBM: 그날 TBM·명일 작업 없으면 빈 목록');
+  appendRow_('TBM', { 'tbm_id': 'T9', '근무일': '2026-11-09', '작업표': JSON.stringify([
+    { place: '2층', work: '사파이어 라운지 자동문 재결선', dept: '전방파트', risk: '감전', kind: '감전', p: 2, s: 2, fixes: ['전원 차단'] },
+    { place: '', work: '옥상 배수구 청소', dept: '기건파트', risk: '추락' }, { place: 'B1', work: '바닥 보수', dept: '' }]), '삭제여부': 'N' });
+  g = logGet(lt, '2026-11-09');
+  assert(g.tbm['전기방재'].join('|') === '2층 사파이어 라운지 자동문 재결선' && g.tbm['기계건축'].join('|') === '옥상 배수구 청소', '일지 TBM: 작업위치 + 작업내용만, 전방 → 전기방재 · 기건 → 기계건축, 부서 없는 줄 뺌');
+  assert(JSON.stringify(g.tbm).indexOf('감전') === -1 && JSON.stringify(g.tbm).indexOf('전원 차단') === -1, '일지 TBM: 위험요인·재해형태·개선조치는 안 가져옴');
+  const jpgN = 'data:image/jpeg;base64,' + 'Q'.repeat(3000);
+  assert(!logSave(lt, '2026-11-09', Object.assign({}, base, { night: 'data:image/png;base64,' + 'Q'.repeat(3000) }), '').ok, '일지 야간 그림: JPEG 아니면 거부');
+  let n = logSave(lt, '2026-11-09', Object.assign({}, base, { night: jpgN }), '');
+  const nid = books[setting_('일지시트ID')].sheets['일지'].rows.find(r => r[0] === '2026-11-09')[LOG_COLS.indexOf('야간그림_id')];
+  assert(n.ok && nid && files[nid].name === '2026-11-09_야간작업_001.jpg' && n.night.indexOf('data:image/jpeg;base64,') === 0, '일지 야간 그림: 저장 · 이름 규칙 · 다시 열면 그림');
+  n = logSave(lt, '2026-11-09', base, n.ver);
+  assert(n.ok && n.night && !files[nid].trashed, '일지 야간 그림: 그림 안 보내고 저장하면 그대로');
+  n = logSave(lt, '2026-11-09', Object.assign({}, base, { night: 'data:image/jpeg;base64,' + 'R'.repeat(3000) }), n.ver);
+  assert(n.ok && files[nid].trashed, '일지 야간 그림: 바꾸면 옛 그림 휴지통');
+  n = logSave(lt, '2026-11-09', Object.assign({}, base, { night: '-' }), n.ver);
+  assert(n.ok && n.night === '', '일지 야간 그림: 빼기');
   void s2;
 }

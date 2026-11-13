@@ -17,6 +17,8 @@ async function open(b, opt) {
 }
 (async () => {
   await fetch('http://localhost:8123/seed');
+  const today0 = new Date(Date.now() + 9 * 3600e3 - 6 * 3600e3).toISOString().slice(0, 10);
+  await run('appendRow_', 'TBM', { 'tbm_id': 'T1', '근무일': today0, '삭제여부': 'N', '작업표': JSON.stringify([{ place: '2층', work: '자동문 재결선', dept: '전방파트', risk: '감전' }, { place: '옥상', work: '배수구 청소', dept: '기건파트' }]) });
   const b = await chromium.launch();
   const p = await open(b, { viewport: { width: 1600, height: 1000 } });
   await p.waitForSelector('.lgs');
@@ -26,6 +28,22 @@ async function open(b, opt) {
   ok(await p.locator('.lgs h1').innerText() === '에비뉴엘 종합업무일지' && await p.locator('.lgsign th').count() === 4, '제목 · 서명란 4칸');
   ok(await p.locator('.lgmc').count() === 12 && await p.locator('.lgmh .lgin').count() === 11, '에너지 막대 칸 12개 (입력 11 + 실온수 자동)');
   ok(await p.locator('.lgwork li').count() === 30, '금일작업 전기방재·기계건축 15줄씩');
+  // 5단계: TBM 가져오기 · 자주 쓰는 문구 · 야간 그림
+  const wv = (d, i) => p.inputValue('.lgin[data-d="' + d + '"][data-i="' + i + '"]');
+  ok(await wv('전기방재', 0) === '2층 자동문 재결선' && await wv('기계건축', 0) === '옥상 배수구 청소' && (await p.locator('#lgState').innerText()).indexOf('저장 안 함') !== -1, '새 날: TBM 작업 표로 금일작업 채워 둠 (작업위치 + 작업내용, 저장 전)');
+  ok(await p.locator('.lgchip').count() === 7 && /\(2줄\)/.test(await p.locator('.lgtools button.btn').innerText()), '문구 버튼 7개 · [TBM에서 가져오기 (2줄)]');
+  await p.click('.lgtg:has(b:text-is("기계건축")) .lgchip:text-is("미세먼지 측정")');
+  ok(await wv('기계건축', 1) === '미세먼지 측정' && await wv('전기방재', 1) === '', '문구 누르면 그 부서 빈 줄에');
+  await p.click('.lgtg:has(b:text-is("기계건축")) .lgchip:text-is("미세먼지 측정")');
+  ok(/이미 있는/.test(await p.locator('.toast').innerText()) && await wv('기계건축', 2) === '', '같은 문구 두 번은 안 들어감');
+  await p.locator('.lgin[data-d="기계건축"][data-i="0"]').fill('');
+  await p.click('.lgtools button.btn');   // 쓴 내용이 있으면 물어봄 (dialog 자동 확인)
+  ok(await wv('기계건축', 0) === '옥상 배수구 청소' && await wv('기계건축', 1) === '', 'TBM에서 다시 가져오기 = 물어보고 바꿈');
+  const png = await p.screenshot({ clip: { x: 0, y: 0, width: 800, height: 500 } });
+  await p.setInputFiles('#lgNight input[type=file]', { name: 'night.png', mimeType: 'image/png', buffer: png });
+  await p.waitForSelector('#lgNight img');
+  const nb = await p.evaluate(() => { const i = $('lgNight').querySelector('img'), r = i.getBoundingClientRect(), b = $('lgNight').getBoundingClientRect(); return [S.lg.nightNew.slice(0, 23), r.width <= b.width + 1 && r.height <= b.height + 1]; });
+  ok(nb[0] === 'data:image/jpeg;base64,' && nb[1], '야간 그림: JPEG로 줄여 칸 안에 맞춤');
   const set = (k, v) => p.locator('.lgin[data-k="' + k + '"]').fill(v);
   await set('영업시간', '9.5'); await set('날씨', '흐림'); await set('최저', '8'); await set('최고', '16'); await set('미세먼지', '38');
   await p.selectOption('select.lgin', '보통');
@@ -41,6 +59,7 @@ async function open(b, opt) {
   const tk = await p.evaluate(() => S.token);
   let g = await run('logGet', tk, day);
   ok(g.cur && g.cur['시수'] === '102' && g.cur.works['전기방재'][0] === '공사장 안전 점검' && g.vals.c['실온수'] === 14, '저장 → 일지 시트');
+  ok(g.cur['야간그림_id'] && g.night.indexOf('data:image/jpeg') === 0 && await p.locator('#lgNight img').count() === 1, '야간 그림 저장 → 다시 열어도 보임');
   ok(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), '옆으로 넘침 없음 (1600px)');
   await p.screenshot({ path: 'shot_log_pc.png', fullPage: true });
   // 다른 PC에서 먼저 고치면 덮어쓰지 않음
@@ -56,8 +75,8 @@ async function open(b, opt) {
   // B4 인쇄
   await p.evaluate(() => { window.print = () => { window.__printed = true; }; });
   await p.click('#lgBar button:has-text("인쇄")'); await p.waitForFunction(() => window.__printed);
-  const pr = await p.evaluate(() => ({ css: $('print').innerHTML.indexOf('size:364mm 257mm') !== -1, inputs: $('print').querySelectorAll('input').length, v: $('print').innerText.indexOf('102') !== -1 }));
-  ok(pr.css && pr.inputs === 0 && pr.v, '인쇄: B4 가로(364×257mm) · 입력칸 없이 값만');
+  const pr = await p.evaluate(() => ({ css: $('print').innerHTML.indexOf('size:364mm 257mm') !== -1, inputs: $('print').querySelectorAll('input,button,.lgchip').length, v: $('print').innerText.indexOf('102') !== -1, img: $('print').querySelectorAll('.lgnight img').length }));
+  ok(pr.css && pr.inputs === 0 && pr.v && pr.img === 1, '인쇄: B4 가로(364×257mm) · 입력칸·버튼 없이 값과 야간 그림만');
   await p.emulateMedia({ media: 'print' });
   const sz = await p.evaluate(() => { const r = $('print').querySelector('.lgs').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
   ok(Math.abs(sz[0] - 1376) <= 2 && sz[1] <= 972, '인쇄 크기 ' + sz.join('×') + 'px = 364×257mm 안');

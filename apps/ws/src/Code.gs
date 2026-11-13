@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.11', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.12', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -36,6 +36,7 @@ const SHEETS = {
   '공사현장': ['cs_id', '현장명', '공사내용', '업체', '사용여부', '등록일시', '등록자', '끝낸일시'],
   '공사점검항목': ['순서', '항목', '설명', '사용여부', '바꾼사람', '바꾼시각', '점검사용'],
   '공사점검': ['ck_id', '점검일', 'cs_id', '현장명', '공사내용', '업체', '점검자_id', '점검자', '점검시각', '항목', '양호', '미흡', '해당없음', '사진번호', 'pdf_id', 'PDF만든시각', '수정시각', '고친사람', '삭제여부', '회차'],
+  '일지문구': ['부서', '문구', '순서', '사용여부'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
 
@@ -949,6 +950,10 @@ const LOG_NUMS = ['영업시간', '최저', '최고', '최고풍속', '미세먼
 const LOG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
 const LOG_DEPTS = ['전기방재', '기계건축'];
 const LOG_MAX_LINES = 15;
+/* 자주 쓰는 문구 첫 목록 (11월 엑셀에서 거의 매일 쓴 줄) — 시트 `일지문구` 탭에서 더하고 고침 */
+const LOG_PHRASE_SEED = [['전기방재', '공사장 안전 점검'], ['전기방재', '전층 EPS실 순찰 및 점검'], ['전기방재', '직무고시'], ['전기방재', '전층 알람밸브실 점검'],
+  ['기계건축', '공사장 안전 점검'], ['기계건축', '미세먼지 측정'], ['기계건축', '일일계량기 검침']];
+const LOG_TBM_DEPT = { '전방파트': '전기방재', '기건파트': '기계건축' };
 const LOG_COLS = ['일자', '영업시간', '날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급', '날씨출처'].concat(LOG_METERS,
   ['전기', '작업_전기방재', '작업_기계건축', '야간그림_id', 'pdf_id', 'PDF만든시각', '작성자', '수정자', '수정시각', '삭제여부']);
 
@@ -1027,6 +1032,41 @@ function logSum_(map, from, to) {
   keys.forEach(function (k) { s[k] = Math.round(s[k] * 1000) / 1000; });
   return s;
 }
+/** 자주 쓰는 문구: 탭이 없거나 비었으면 만들고 첫 목록을 넣음 (위험성목록과 같은 방식) */
+function logPhrases_() {
+  const ss = db_();
+  let sh = ss.getSheetByName('일지문구');
+  if (!sh || sh.getLastRow() < 2) {
+    ensureTabs_(['일지문구']);
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      sh = ss.getSheetByName('일지문구');
+      if (sh.getLastRow() < 2) LOG_PHRASE_SEED.forEach(function (p, i) { appendRow_('일지문구', { '부서': p[0], '문구': p[1], '순서': String(i + 1), '사용여부': 'Y' }); });
+    } finally {
+      lock.releaseLock();
+    }
+  }
+  const out = {};
+  LOG_DEPTS.forEach(function (d) { out[d] = []; });
+  readTable_('일지문구').rows.filter(function (r) { return r['사용여부'] !== 'N' && out[r['부서']] && String(r['문구']).trim(); })
+    .sort(function (a, b) { return Number(a['순서']) - Number(b['순서']); })
+    .forEach(function (r) { out[r['부서']].push(cleanText_(r['문구'], 100)); });
+  return out;
+}
+/** 그 근무일 TBM 작업 표의 작업위치 + 작업내용 (위험요인·재해형태·위험성·개선조치는 뺌). TBM을 아직 저장 안 했으면 TBM 화면처럼 명일 작업 예정에서 */
+function logTbm_(day) {
+  const out = {};
+  LOG_DEPTS.forEach(function (d) { out[d] = []; });
+  if (!db_().getSheetByName('TBM')) return out;
+  const row = tbmRow_(day);
+  const works = row ? jsonOr_(row['작업표'], []) : (db_().getSheetByName('명일작업') ? nwSheet_(day).rows : []);
+  works.forEach(function (w) {
+    const d = LOG_TBM_DEPT[w.dept], t = cleanText_([w.place, w.work].map(function (x) { return String(x || '').trim(); }).filter(String).join(' '), 100);
+    if (d && t && out[d].length < LOG_MAX_LINES) out[d].push(t);
+  });
+  return out;
+}
 function logOut_(r) {
   if (!r) return null;
   const o = { works: {} };
@@ -1043,14 +1083,15 @@ function logData_(day) {
     month: { c: logSum_(map, day.slice(0, 8) + '01', day), p: logSum_(map, prev.slice(0, 8) + '01', prev) },
     year: { c: logSum_(map, day.slice(0, 5) + '01-01', day), p: logSum_(map, prev.slice(0, 5) + '01-01', prev) },
     ver: cur && cur._new ? cur['수정시각'] : '', by: cur && cur._new ? cur['수정자'] : '',
-    pdf: cur && cur._new && cur['pdf_id'] ? { id: cur['pdf_id'], at: cur['PDF만든시각'], url: driveUrl_(cur['pdf_id']) } : null
+    pdf: cur && cur._new && cur['pdf_id'] ? { id: cur['pdf_id'], at: cur['PDF만든시각'], url: driveUrl_(cur['pdf_id']) } : null,
+    night: cur ? fileB64_(cur['야간그림_id']) : '', tbm: logTbm_(day)
   };
 }
 
 /** 불러오기 — 로그인한 직원 모두 (사용자 11-13) */
 function logGet(token, day) {
   auth_(token);
-  return logData_(logDay_(day));
+  return Object.assign(logData_(logDay_(day)), { phrases: logPhrases_() });   // 문구는 처음 열 때만 (저장 잠금 안에서 탭을 만들지 않게)
 }
 
 /** 저장 — 그날 줄을 새로 쓰거나 고침. ver(불러올 때 수정시각)가 다르면 덮어쓰지 않고 새 내용을 돌려줌 (명일 작업과 같음) */
@@ -1075,6 +1116,11 @@ function logSave(token, day, d, ver) {
     if (list.length > LOG_MAX_LINES) return { ok: false, error: LOG_DEPTS[i] + ' 작업은 ' + LOG_MAX_LINES + '줄까지 넣을 수 있습니다' };
     patch['작업_' + LOG_DEPTS[i]] = JSON.stringify(list);
   }
+  let night = null;   // 야간 일일 작업 현황 그림: 바꾼 때만 보냄 (2400px JPEG), '-' = 빼기
+  if (d.night && d.night !== '-') {
+    night = parseDataUrl_(d.night, 'image/jpeg', 1000, 6000000);
+    if (!night) return { ok: false, error: '야간 작업 그림을 읽지 못했습니다. 다시 골라 주세요.' };
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -1085,11 +1131,15 @@ function logSave(token, day, d, ver) {
     let at = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss');
     if (at <= curVer) at = curVer + '+';   // 같은 초에 두 번 저장해도 ver가 바뀌게
     Object.assign(patch, { '수정자': me['이름'], '수정시각': at });
+    const oldNight = row ? row['야간그림_id'] : '';
+    if (night) patch['야간그림_id'] = saveBlob_(logFolder_(day), night, day + '_야간작업_001.jpg', '종합업무일지 야간 작업 ' + day + ' · ' + me['이름']);
+    else if (d.night === '-') patch['야간그림_id'] = '';
     withBook_(ss, function () {
       if (row) updateRow_('일지', row._row, patch);
       else appendRow_('일지', Object.assign({ '일자': day, '작성자': me['이름'] }, patch));
     });
-    log_(me['이름'], '종합업무일지 저장', day, '');
+    if (oldNight && (night || d.night === '-')) trashFile_(oldNight);   // 새 그림·시트를 다 쓴 뒤에 옛 그림을 버림
+    log_(me['이름'], '종합업무일지 저장', day, night ? '야간 그림 바꿈' : '');
     return logData_(day);
   } finally {
     lock.releaseLock();
