@@ -59,6 +59,7 @@ const AOA = () => { const a = aoa(); return { a, hid: a.hid }; };
   ok(await tagOf('홍길동') === '출', '출근 딱지는 「출」 한 글자');
   ok((await p.locator('.atp', { hasText: '비번가짜' }).locator('.atnm small').innerText()) === '교대', '교대반장 → 교대로 보임');
   ok(await p.locator('.k3 .atppl > *').last().evaluate(e => e.classList.contains('vac')), '화면에서도 공석은 맨 끝');
+  ok(await p.evaluate(() => !/\p{Extended_Pictographic}/u.test(document.querySelector('.wrap').innerText) && new Set([...document.querySelectorAll('.atsec h2')].map(e => getComputedStyle(e).backgroundColor)).size === 1), '이모지 없음 · 구역 머리 색 하나 (색은 상태 칸에만, 결정 108)');
   const sums = await p.locator('.atst').nth(1).innerText();
   ok(/합계\s+4명\s+1명/.test(sums) && /공사장 안전관리\s+1명\s+0명/.test(sums), '금일 근무인원 합계 주 4 · 야 1, 공사장 줄 — ' + sums.replace(/\s+/g, ' ').slice(-20));
   ok(/합계\s+8명\s+7명\s+1명/.test(await p.locator('.atst').first().innerText()), '파트별 인원 전체 8 · 현재 7 · 공석 1');
