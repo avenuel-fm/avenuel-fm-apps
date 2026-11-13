@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.10', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.11', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -935,6 +935,190 @@ function nextWorkSave(token, date, rows, ver) {
     old.sort(function (a, b) { return b - a; }).forEach(function (n) { t.sheet.deleteRow(n); });   // 아래부터 지워 위쪽 줄 번호가 안 바뀜
     log_(me['이름'], '명일 작업 저장', date, clean.length + '줄');
     return Object.assign({ ok: true }, nwSheet_(date));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ───────────────────────── 종합업무일지 (WS_종합업무일지 15.3.22, 결정 116) ─────────────────────────
+   하루 한 줄. 새로 쓰는 날 = 구글 시트 「종합업무일지」, 25·26년 엑셀에서 옮긴 날 = 「종합업무일지_과거자료」(4단계).
+   전년·누계·증감은 저장하지 않고 읽을 때 계산 → 옛 날을 고쳐도 뒤 누계가 저절로 맞음 */
+
+const LOG_METERS = ['시수', '중수', '식당시수', '식당온수', '식당가스', '식당분전반', '식기세척분전반', '매점분전반', '급탕', '환탕', '급탕탱크'];   // 실온수 = 급탕 − 환탕 (계산)
+const LOG_NUMS = ['영업시간', '최저', '최고', '최고풍속', '미세먼지', '전기'].concat(LOG_METERS);
+const LOG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
+const LOG_DEPTS = ['전기방재', '기계건축'];
+const LOG_MAX_LINES = 15;
+const LOG_COLS = ['일자', '영업시간', '날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급', '날씨출처'].concat(LOG_METERS,
+  ['전기', '작업_전기방재', '작업_기계건축', '야간그림_id', 'pdf_id', 'PDF만든시각', '작성자', '수정자', '수정시각', '삭제여부']);
+
+/** 일지 시트 열기 — 없으면 만들어 드라이브 「서류작업/종합업무일지」에 두고 번호를 설정 탭에 적음 (사용자 요청: WS DB와 따로) */
+function logBook_(key, title) {
+  const id = setting_(key);
+  if (id) { try { return SpreadsheetApp.openById(id); } catch (e) { /* 지워졌으면 새로 */ } }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    CacheService.getScriptCache().remove('set_' + key);
+    const again = setting_(key);
+    if (again && again !== id) return SpreadsheetApp.openById(again);
+    const ss = SpreadsheetApp.create(title);
+    const sh = ss.getSheets()[0];
+    sh.setName('일지');
+    sh.getRange(1, 1, 1, LOG_COLS.length).setValues([LOG_COLS]);
+    sh.setFrozenRows(1);
+    try { DriveApp.getFileById(ss.getId()).moveTo(logFolder_()); } catch (e) { /* 폴더 옮기기 실패해도 시트는 씀 */ }
+    setSetting_(key, ss.getId());
+    log_('시스템', '종합업무일지 시트 만듦', ss.getId(), title);
+    return ss;
+  } finally {
+    lock.releaseLock();
+  }
+}
+function logFolder_(day) {
+  return folderPath_(['시설팀 통합업무', '20_업무지원', '서류작업', '종합업무일지'].concat(day ? [day.slice(0, 4), day.slice(0, 7)] : []));
+}
+/** 다른 시트에서 표 도우미(readTable_·appendRow_·updateRow_)를 쓰게 잠깐 db_를 바꿈 */
+let DB_SWAP = null;
+function withBook_(ss, fn) {
+  const keep = DB_SWAP;
+  DB_SWAP = ss;
+  try { return fn(); } finally { DB_SWAP = keep; }
+}
+function logRows_(ss) {
+  return withBook_(ss, function () { return readTable_('일지').rows; }).filter(function (r) { return r['일자'] && r['삭제여부'] !== 'Y'; });
+}
+/** 날짜 → 줄. 새 시트가 과거자료보다 먼저 */
+function logMap_() {
+  const m = {};
+  logRows_(logBook_('일지과거시트ID', '종합업무일지_과거자료')).forEach(function (r) { m[r['일자']] = r; });
+  logRows_(logBook_('일지시트ID', '종합업무일지')).forEach(function (r) { m[r['일자']] = Object.assign({ _new: true }, r); });
+  return m;
+}
+/** 일지 날짜: 고른 날(앞날은 안 됨), 없거나 틀리면 오늘 근무일 */
+function logDay_(v) {
+  const today = workDay_(Date.now());
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) && v <= today ? String(v) : today;
+}
+/** 전년 같은 달 같은 날. 2월 29일 → 전년 2월 28일 */
+function logPrevYear_(day) {
+  const y = Number(day.slice(0, 4)) - 1, md = day.slice(5);
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  return y + '-' + (md === '02-29' && !leap ? '02-28' : md);
+}
+function logAddDay_(day, n) { return new Date(Date.parse(day + 'T00:00:00Z') + n * DAY_MS).toISOString().slice(0, 10); }
+function logNum_(v) { const n = Number(String(v == null ? '' : v).replace(/,/g, '')); return String(v == null ? '' : v).trim() !== '' && isFinite(n) ? n : null; }
+/** 한 줄의 숫자들 — 실온수 = 급탕 − 환탕 (둘 다 있을 때) */
+function logVals_(r) {
+  const o = {};
+  if (!r) return o;
+  LOG_NUMS.forEach(function (k) { o[k] = logNum_(r[k]); });
+  o['실온수'] = o['급탕'] != null && o['환탕'] != null ? Math.round((o['급탕'] - o['환탕']) * 1000) / 1000 : null;
+  return o;
+}
+/** from ~ to (둘 다 포함) 합. 빈 날은 0 */
+function logSum_(map, from, to) {
+  const keys = ['영업시간', '전기', '실온수'].concat(LOG_METERS), s = {};
+  keys.forEach(function (k) { s[k] = 0; });
+  for (let d = from; d <= to; d = logAddDay_(d, 1)) {
+    const v = logVals_(map[d]);
+    keys.forEach(function (k) { if (v[k] != null) s[k] += v[k]; });
+  }
+  keys.forEach(function (k) { s[k] = Math.round(s[k] * 1000) / 1000; });
+  return s;
+}
+function logOut_(r) {
+  if (!r) return null;
+  const o = { works: {} };
+  LOG_COLS.forEach(function (k) { if (k.indexOf('작업_') !== 0) o[k] = r[k]; });
+  LOG_DEPTS.forEach(function (d) { o.works[d] = jsonOr_(r['작업_' + d], []); });
+  return o;
+}
+function logData_(day) {
+  const map = logMap_(), prev = logPrevYear_(day), cur = map[day] || null;
+  return {
+    ok: true, day: day, prevDay: prev, workDay: workDay_(Date.now()),
+    cur: logOut_(cur), prev: logOut_(map[prev] || null),
+    vals: { c: logVals_(cur), p: logVals_(map[prev]), y: logVals_(map[logAddDay_(day, -1)]) },
+    month: { c: logSum_(map, day.slice(0, 8) + '01', day), p: logSum_(map, prev.slice(0, 8) + '01', prev) },
+    year: { c: logSum_(map, day.slice(0, 5) + '01-01', day), p: logSum_(map, prev.slice(0, 5) + '01-01', prev) },
+    ver: cur && cur._new ? cur['수정시각'] : '', by: cur && cur._new ? cur['수정자'] : '',
+    pdf: cur && cur._new && cur['pdf_id'] ? { id: cur['pdf_id'], at: cur['PDF만든시각'], url: driveUrl_(cur['pdf_id']) } : null
+  };
+}
+
+/** 불러오기 — 로그인한 직원 모두 (사용자 11-13) */
+function logGet(token, day) {
+  auth_(token);
+  return logData_(logDay_(day));
+}
+
+/** 저장 — 그날 줄을 새로 쓰거나 고침. ver(불러올 때 수정시각)가 다르면 덮어쓰지 않고 새 내용을 돌려줌 (명일 작업과 같음) */
+function logSave(token, day, d, ver) {
+  const me = auth_(token);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || '')) || day > workDay_(Date.now())) return { ok: false, error: '일자가 맞지 않습니다' };
+  d = d || {};
+  const patch = {};
+  for (let i = 0; i < LOG_NUMS.length; i++) {
+    const k = LOG_NUMS[i], raw = String(d[k] == null ? '' : d[k]).replace(/,/g, '').trim();
+    if (raw !== '' && !/^-?\d+(\.\d+)?$/.test(raw)) return { ok: false, error: k + ' 칸에는 숫자만 넣어 주세요' };
+    patch[k] = raw;
+  }
+  const grade = String(d['미세먼지등급'] || '');
+  if (LOG_GRADES.indexOf(grade) === -1) return { ok: false, error: '미세먼지 등급을 골라 주세요' };
+  patch['미세먼지등급'] = grade;
+  patch['날씨'] = cleanText_(d['날씨'], 10);
+  if (d['날씨출처'] !== undefined) patch['날씨출처'] = cleanText_(d['날씨출처'], 10);
+  const works = d.works || {};
+  for (let i = 0; i < LOG_DEPTS.length; i++) {
+    const list = (Array.isArray(works[LOG_DEPTS[i]]) ? works[LOG_DEPTS[i]] : []).map(function (t) { return cleanText_(t, 100); }).filter(String);
+    if (list.length > LOG_MAX_LINES) return { ok: false, error: LOG_DEPTS[i] + ' 작업은 ' + LOG_MAX_LINES + '줄까지 넣을 수 있습니다' };
+    patch['작업_' + LOG_DEPTS[i]] = JSON.stringify(list);
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ss = logBook_('일지시트ID', '종합업무일지');
+    const row = logRows_(ss).filter(function (r) { return r['일자'] === day; })[0] || null;
+    const curVer = row ? row['수정시각'] : '';
+    if (String(ver || '') !== curVer) return Object.assign(logData_(day), { ok: false, conflict: true, error: (row && row['수정자'] || '다른 사람') + '님이 먼저 고쳤어요. 새 내용을 불러왔습니다.' });
+    let at = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss');
+    if (at <= curVer) at = curVer + '+';   // 같은 초에 두 번 저장해도 ver가 바뀌게
+    Object.assign(patch, { '수정자': me['이름'], '수정시각': at });
+    withBook_(ss, function () {
+      if (row) updateRow_('일지', row._row, patch);
+      else appendRow_('일지', Object.assign({ '일자': day, '작성자': me['이름'] }, patch));
+    });
+    log_(me['이름'], '종합업무일지 저장', day, '');
+    return logData_(day);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** PDF 저장 (B4 가로, 화면에서 만듦) — d가 있으면 먼저 저장 */
+function logSavePdf(token, day, dataUri, d, ver) {
+  const me = auth_(token);
+  let v = ver;
+  if (d) { const s = logSave(token, day, d, ver); if (!s.ok) return s; v = s.ver; }
+  const m = /^data:application\/pdf[^,]*;base64,(.+)$/.exec(String(dataUri || ''));
+  if (!m || m[1].length < 100) return { ok: false, error: 'PDF 내용이 올바르지 않습니다' };
+  const bytes = Utilities.base64Decode(m[1]);
+  if (bytes.length > 30 * 1024 * 1024) return { ok: false, error: 'PDF가 너무 큽니다' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const ss = logBook_('일지시트ID', '종합업무일지');
+    const row = logRows_(ss).filter(function (r) { return r['일자'] === day; })[0];
+    if (!row) return { ok: false, error: '먼저 [저장]을 눌러 주세요' };
+    if (String(v || '') !== row['수정시각']) return Object.assign(logData_(day), { ok: false, conflict: true, error: (row['수정자'] || '다른 사람') + '님이 먼저 고쳤어요. 새 내용을 불러왔습니다. 다시 PDF로 저장해 주세요.' });
+    const id = saveBlob_(logFolder_(day), Utilities.newBlob(bytes, 'application/pdf'), day + '_종합업무일지.pdf', '종합업무일지 ' + day + ' · ' + me['이름']);
+    const shared = shareLink_(id);
+    const at = now_();
+    withBook_(ss, function () { updateRow_('일지', row._row, { 'pdf_id': id, 'PDF만든시각': at }); });
+    trashFile_(row['pdf_id']);   // 새 PDF를 저장한 뒤에 옛 PDF를 버림
+    log_(me['이름'], '종합업무일지 PDF 저장', day, '');
+    return Object.assign(logData_(day), { warn: shared ? '' : 'PDF는 저장했지만 공유를 못 했습니다. 구글 로그인 안 한 기기에서는 열리지 않을 수 있습니다.' });
   } finally {
     lock.releaseLock();
   }
@@ -2111,6 +2295,7 @@ function folderPath_(path) {
 /* ───────────────────────── 시트 도우미 ───────────────────────── */
 
 function db_() {
+  if (DB_SWAP) return DB_SWAP;   // 종합업무일지 시트 (withBook_)
   const id = PropertiesService.getScriptProperties().getProperty('APP_DB_ID');
   return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
 }

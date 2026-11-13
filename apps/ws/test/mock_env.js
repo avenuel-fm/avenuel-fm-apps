@@ -32,9 +32,10 @@ function cellIn(v) {
   if (/^-?\d+(\.\d+)?$/.test(v) && !/^0\d/.test(v)) return Number(v);
   return v;
 }
-function mkSheet(name) {
+function mkSheet(name, store) {
   const rows = [];
-  return sheets[name] = {
+  store = store || sheets;
+  return store[name] = {
     rows,
     getDataRange: () => ({ getValues: () => rows.map(r => r.slice()) }),
     getLastColumn: () => rows[0] ? rows[0].length : 0, getLastRow: () => rows.length, getMaxRows: () => 1000,
@@ -43,11 +44,15 @@ function mkSheet(name) {
       setValue: v => { rows[r - 1] = rows[r - 1] || []; rows[r - 1][c - 1] = cellIn(v); },
       setValues: vs => { vs.forEach((v, i) => { rows[r - 1 + i] = rows[r - 1 + i] || []; v.forEach((x, j) => rows[r - 1 + i][c - 1 + j] = cellIn(x)); }); },
       setFontWeight() { return this; }, setBackground() { return this; }, setNumberFormat() { return this; } }; },
-    appendRow: v => rows.push(v.map(cellIn)), deleteRow: n => rows.splice(n - 1, 1), setFrozenRows() {}
+    appendRow: v => rows.push(v.map(cellIn)), deleteRow: n => rows.splice(n - 1, 1), setFrozenRows() {},
+    setName(n) { delete store[name]; name = n; store[n] = this; }
   };
 }
 const ss = { getId: () => 'SS', getSheetByName: n => sheets[n] || null, insertSheet: n => mkSheet(n), getSheets: () => Object.values(sheets), deleteSheet() {} };
-global.SpreadsheetApp = { getActiveSpreadsheet: () => ss, openById: () => ss };
+// 앱이 새로 만드는 시트 (종합업무일지) — 번호마다 따로
+const books = {}; let bid = 0;
+function mkBook(id) { const st = {}; const b = { getId: () => id, sheets: st, getSheetByName: n => st[n] || null, insertSheet: n => mkSheet(n, st), getSheets: () => Object.values(st), deleteSheet() {} }; mkSheet('Sheet1', st); return books[id] = b; }
+global.SpreadsheetApp = { getActiveSpreadsheet: () => ss, openById: id => { if (books[id]) return books[id]; if (/^BOOK/.test(id)) throw new Error('없는 파일'); return ss; }, create: () => mkBook('BOOK' + (++bid)) };
 const props = {};
 global.PropertiesService = { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => props[k] = v }) };
 const cache = {};
@@ -57,11 +62,11 @@ const files = {}; let fid = 0;
 function mkFolder(name) { return { name, getName: () => name, isTrashed: () => false, getId: () => 'F_' + name, getFoldersByName: n => { const f = mkFolder(n); return { hasNext: () => false, next: () => f }; }, createFolder: n => mkFolder(n),
   createFile: b => { const id = 'file' + (++fid); files[id] = { name: b.name, blob: b, trashed: false, desc: '' }; return { getId: () => id, setDescription: d => files[id].desc = d }; } }; }
 global.DriveApp = { getRootFolder: () => mkFolder('root'), getFolderById: id => mkFolder(id.replace('F_', '')),
-  getFileById: id => ({ setTrashed: t => files[id].trashed = t, getBlob: () => files[id].blob, setSharing: (a, p) => { if (!global.NO_SHARE) files[id].sharing = a + ':' + p; }, getSharingAccess: () => String(files[id].sharing || 'PRIVATE').split(':')[0] }),
+  getFileById: id => ({ moveTo() {}, setTrashed: t => files[id].trashed = t, getBlob: () => files[id].blob, setSharing: (a, p) => { if (!global.NO_SHARE) files[id].sharing = a + ':' + p; }, getSharingAccess: () => String(files[id].sharing || 'PRIVATE').split(':')[0] }),
   Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK' }, Permission: { VIEW: 'VIEW' } };
 global.ScriptApp = { getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/TEST/exec' }), getProjectTriggers: () => [] };
 global.HtmlService = {}; global.ContentService = {};
 (0,eval)(fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').replace(/^const /gm, 'var '));
 
 
-module.exports = { NOW, files, sheets };
+module.exports = { NOW, files, sheets, books };

@@ -3,7 +3,7 @@
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const T = __dirname;
-const UI = ['sign_test.js', 'login_test.js', 'status_test.js', 'label_test.js', 'cam_test.js', 'torch_test.js', 'nw_test.js', 'tbm_test.js', 'att_test.js', 'eh_test.js', 'theme_test.js', 'cs_test.js', 'set_test.js'];
+const UI = ['sign_test.js', 'login_test.js', 'status_test.js', 'label_test.js', 'cam_test.js', 'torch_test.js', 'nw_test.js', 'tbm_test.js', 'att_test.js', 'eh_test.js', 'theme_test.js', 'cs_test.js', 'set_test.js', 'log_test.js'];
 let fail = 0;
 // 바로가기 페이지(저장소 fm/ 그대로, fm_serve.js) — http://localhost:8124 (카메라·손전등 시험용)
 const http = require('http');

@@ -1,0 +1,138 @@
+<!doctype html>
+<!-- 시안 전용 (앱 코드 아님). ?v=screen (PC 입력 화면) | print (B4 가로 출력). 예시 숫자 = 11월 엑셀 12일 시트 -->
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>종합업무일지 시안</title>
+<style>
+:root{--ink:#18202B;--sub:#3F4855;--muted:#5B6573;--faint:#7A8494;--line:#CBD2DB;--line2:#DCE1E7;--line3:#EDF0F3;--ground:#F4F6F8;--card:#fff;
+--blue:#1F5FA8;--blue-d:#174A84;--blue-bg:#E8F0FA;--green:#1F7A4D;--green-bg:#EAF5EF;--red:#C0261A;--red-bg:#FBE9E7}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);font-family:'Noto Sans KR','Malgun Gothic',system-ui,sans-serif;word-break:keep-all}
+button,input{font:inherit;color:inherit}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:15px;font-weight:500;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+/* 위 막대 */
+.topbar{background:#fff;border-bottom:1px solid var(--line2)}
+.topbar-in{max-width:1640px;margin:0 auto;padding:10px 24px;display:flex;align-items:center;gap:14px}
+.t1{font-size:12px;color:var(--muted)}.t2{font-size:18px;font-weight:600}
+.datebtn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:16px;font-weight:500;cursor:pointer}
+.whoami{margin-left:auto;font-size:13px;font-weight:500;color:var(--blue-d);background:var(--blue-bg);border-radius:999px;padding:6px 12px}
+main{max-width:1640px;margin:0 auto;padding:20px 24px 100px}
+/* 종이 (A3 가로 420×297mm = 1587×1123px) */
+.sheet{width:1587px;height:1123px;background:#fff;margin:0 auto;padding:36px 44px;display:flex;flex-direction:column;gap:14px}
+.screen .sheet{border:1px solid var(--line2);border-radius:12px;height:auto;min-height:1123px}
+.head{display:flex;align-items:flex-start;gap:24px}
+.ttl h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.01em}
+.ttl .d{margin-top:6px;font-size:17px;color:var(--sub)}
+.sign{margin-left:auto;border-collapse:collapse}
+.sign th,.sign td{border:1px solid var(--ink);width:104px;text-align:center;font-size:13px}
+.sign th{height:28px;font-weight:500;background:var(--line3)}
+.sign td{height:64px}
+table.g{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+table.g th,table.g td{border:1px solid var(--line);padding:0 6px;height:26px;text-align:right}
+table.g thead th{background:var(--line3);font-weight:500;text-align:center;color:var(--sub);line-height:1.25;padding:4px 4px}
+table.g th.rh{background:#fff;text-align:center;font-weight:500;color:var(--sub)}
+table.g td.cur{color:var(--ink);font-weight:500}
+table.g td.prev{color:var(--muted)}
+table.g tr.diff td{color:var(--sub)}
+table.g tr.rate td.up{color:var(--red)} table.g tr.rate td.dn{color:var(--blue)}
+table.g tr.grp td,table.g tr.grp th{border-top:2px solid var(--ink)}
+.sec{font-size:15px;font-weight:700;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.sec small{font-size:12px;font-weight:400;color:var(--muted)}
+.row2{display:grid;grid-template-columns:1fr 1fr 520px;gap:16px;flex:1;min-height:0}
+.work ol{margin:0;padding:0;list-style:none;border-top:2px solid var(--ink)}
+.work li{display:flex;gap:8px;align-items:center;min-height:28px;border-bottom:1px solid var(--line);font-size:13.5px;padding:0 4px}
+.work li .n{width:20px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.night{border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden}
+.night img{max-width:100%;max-height:100%;display:block}
+.shot{width:84%;aspect-ratio:4/3;background:#fff;border:1px solid var(--line2);box-shadow:0 1px 3px rgba(24,32,43,.08);padding:16px;font-size:12px;color:var(--sub)}
+.shot b{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px}.shot div{display:flex;gap:12px;border-top:1px solid var(--line3);padding:6px 0}.shot span:first-child{width:56px;color:var(--muted);font-variant-numeric:tabular-nums}
+.top{display:grid;grid-template-columns:1fr 420px;gap:16px;align-items:end}
+table.fx{table-layout:fixed}
+.elec{margin-top:12px}
+.foot{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
+/* 화면 전용 */
+.inp{border:1px solid var(--line2);background:#fff;border-radius:4px;height:22px;width:100%;text-align:right;padding:0 4px;font-size:13px;font-weight:500}
+.inp:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:var(--blue)}
+.inp.t{border-color:transparent}.inp.t.e{border-color:var(--line2)}
+.inp.t{text-align:left}
+.src{display:block;font-size:11px;font-weight:400;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}
+.chip{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px;border-radius:999px;font-size:12.5px;border:1px solid var(--line);background:#fff;color:var(--sub);cursor:pointer}
+.chip svg.i{width:14px;height:14px}
+.tag{font-size:11px;color:var(--muted);margin-left:auto}
+.work li .x{color:var(--faint);margin-left:auto}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line2)}
+.bar-in{max-width:1640px;margin:0 auto;padding:10px 24px;display:flex;align-items:center;gap:10px}
+.bar .st{font-size:13px;color:var(--muted)}
+.ebox{display:block}
+.egrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.mc{border:1px solid var(--line2);border-radius:8px;padding:6px 10px 4px}
+.mh{display:flex;align-items:center;gap:8px;height:24px;margin-bottom:2px}
+.mh b{font-size:13px;font-weight:600}
+.mh .inp{width:72px;margin-left:auto;height:22px}
+.mh .auto{margin-left:auto;font-size:11px;color:var(--muted)}
+.br{display:grid;grid-template-columns:34px 1fr 64px 46px;align-items:center;gap:6px;height:27px;font-variant-numeric:tabular-nums}
+.br+.br{border-top:1px solid var(--line3)}
+.bl{font-size:11px;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:3px}
+.bars i{display:block;height:7px;border-radius:2px;min-width:1px}
+.bars .b0{background:var(--line)} .bars .b1{background:var(--blue)}
+.bv{font-size:11px;line-height:13px;text-align:right}.bv span{display:block}.bv .p{color:var(--muted)}.bv .c{color:var(--ink);font-weight:500}
+.rt{font-size:11.5px;text-align:right;color:var(--sub)}.rt.up{color:var(--red)}.rt.dn{color:var(--blue)}
+.lg{display:inline-flex;align-items:center;gap:4px;margin-left:8px}.lg i{width:10px;height:7px;border-radius:2px;display:inline-block}
+.wrow{display:grid;grid-template-columns:1fr 1fr 500px;gap:16px}
+/* B4 가로(JIS 364×257mm = 1376×971px): A3 틀을 0.867배로 */
+.print .sheet{zoom:.867}
+.print .scr{display:none}
+.screen .prn{display:none}
+</style></head><body>
+<script>
+const P=new URLSearchParams(location.search), V=P.get('v')||'screen'; document.body.className=V;
+const I={cal:'<path d="M4 6h16v14H4z"/><path d="M4 10h16M8 3v4M16 3v4"/>',back:'<path d="M15 5l-7 7 7 7"/>',print:'<path d="M7 9V3h10v6"/><path d="M7 17H4v-7h16v7h-3"/><path d="M7 14h10v7H7z"/>',file:'<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/>',save:'<path d="M5 12l5 5 9-10"/>',plus:'<path d="M12 5v14M5 12h14"/>',img:'<path d="M4 5h16v14H4z"/><path d="M4 16l5-5 4 4 3-3 4 4"/>',dl:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',x:'<path d="M7 7l10 10M17 7L7 17"/>'};
+const ic=k=>'<svg class="i" viewBox="0 0 24 24">'+I[k]+'</svg>';
+const scr=V==='screen';
+// 예시 값 (11월 엑셀 12일 시트, 급탕·환탕은 예시)
+const M=['에비뉴엘<br>시수','에비뉴엘<br>중수','직원식당<br>시수','직원식당<br>온수','직원식당<br>가스','직원식당<br>분전반','식기세척실<br>분전반','직원식당<br>매점 분전반','에비뉴엘<br>급탕','에비뉴엘<br>환탕','급탕탱크<br>(주1회)','실온수<br>사용량'];
+const D={p:[119,80,13,20,98,5.2,131,158.2,40,27,0,13],c:[102,63,17,33,96,6,105,143,42,28,0,14],
+ mp:[1494,916,101,260,1165,65.5,1702,1285.1,488,331,0,157],mc:[1303,718,122,253,1123,66.2,1167,1765.7,470,322,0,148],
+ yp:[15026,11386,1487,3377,16663,885.7,23689,17081.2,14484,8566,0,5918],yc:[17633,11052,2160,2768,15813.9,1129.6,21525.1,20655.9,6379,3797,2469,2582]};
+const f=v=>v==null?'':(Math.round(v*10)/10).toLocaleString('ko-KR');
+const df=(c,p)=>{const d=c-p;return '<td class="'+(d>0?'up':d<0?'dn':'')+'">'+(d>0?'+':'')+f(d)+'</td>'};
+const pc=(c,p)=>'<td class="'+(p&&c>p?'up':p&&c<p?'dn':'')+'">'+(p?((c-p)/p*100>0?'+':'')+((c-p)/p*100).toFixed(1)+'%':'—')+'</td>';
+const cells=(a,cls,inp)=>a.map((v,i)=>'<td class="'+cls+'">'+(inp&&i<11?'<input class="inp" value="'+f(v)+'">':f(v))+'</td>').join('');
+const grp=(name,p,c,rate,inp)=>'<tr class="grp"><th class="rh" rowspan="'+(rate?4:3)+'">'+name+'</th><th class="rh">2025</th>'+cells(p,'prev')+'</tr>'+
+ '<tr><th class="rh">2026</th>'+cells(c,'cur',inp)+'</tr><tr class="diff"><th class="rh">증감</th>'+c.map((v,i)=>df(v,p[i])).join('')+'</tr>'+
+ (rate?'<tr class="diff rate"><th class="rh">증감율</th>'+c.map((v,i)=>pc(v,p[i])).join('')+'</tr>':'');
+const ROW=[['일일','p','c'],['월누계','mp','mc'],['년누계','yp','yc']];
+const card=i=>{const nm=M[i].replace('<br>',' ');return '<div class="mc"><div class="mh"><b>'+nm+'</b>'+(scr?(i<11?'<input class="inp" value="'+f(D.c[i])+'">':'<span class="auto">급탕 − 환탕</span>'):'')+'</div>'+
+ ROW.map(([l,a,b])=>{const pv=D[a][i],cv=D[b][i],mx=Math.max(pv,cv)||1,r=pv?(cv-pv)/pv*100:null;
+ return '<div class="br"><span class="bl">'+l+'</span><div class="bars"><i class="b0" style="width:'+(pv/mx*100)+'%"></i><i class="b1" style="width:'+(cv/mx*100)+'%"></i></div><span class="bv"><span class="p">'+f(pv)+'</span><span class="c">'+f(cv)+'</span></span><span class="rt '+(r>0?'up':r<0?'dn':'')+'">'+(r==null?'—':(r>0?'+':'')+r.toFixed(1)+'%')+'</span></div>'}).join('')+'</div>'};
+const W={e:['공사장 안전 점검','전층 EPS실 순찰 및 점검','직무고시','2층 비상대응훈련 진행','2층 사파이어 라운지 탕비실 자동문 전원전선 재결선','1층 방화스크린 셔터 천 정리','2층 2번 EPS실 옆 매장 후방창고 동선 램프교체'],
+ m:['공사장 안전 점검','미세먼지 측정','일일계량기 검침','3층 3구역 여고객 화장실 세면대 팝업교체','지하1층 바샤매장 앞 바닥 테낙스 작업','1층 3구역 여고객 화장실 좌측 첫 번째 변기 메지 작업']};
+const PH={e:['공사장 안전 점검','전층 EPS실 순찰 및 점검','직무고시','전층 알람밸브실 점검'],m:['공사장 안전 점검','미세먼지 측정','일일계량기 검침']};
+const work=(k,name)=>'<div class="work"><div class="sec">'+name+(scr?'<button class="btn sm" style="margin-left:auto">'+ic('dl')+'TBM에서 가져오기</button>':'')+'</div>'+
+ (scr?'<div class="chips">'+PH[k].map(t=>'<span class="chip">'+ic('plus')+t+'</span>').join('')+'</div>':'')+
+ '<ol>'+Array.from({length:15},(_,i)=>{const t=W[k][i]||'';return '<li><span class="n">'+(i+1)+'</span>'+(scr?'<input class="inp t'+(t?'':' e')+'" value="'+t+'">':'<span>'+t+'</span>')+'</li>'}).join('')+'</ol></div>';
+const ELEC='<div><div class="sec">전기 일일사용량 <small>kWh · 처리 방법 나중에 정함</small></div><table class="g fx"><thead><tr><th>2025</th><th>2026</th><th>전년대비</th><th>전일대비</th></tr></thead><tr class="rate"><td class="prev">18,442.4</td><td class="cur">'+(scr?'<input class="inp" value="17,906.0">':'17,906.0')+'</td><td class="dn">−2.9%</td><td class="up">+1.2%</td></tr></table></div>';
+const wx=v=>scr?'<input class="inp" value="'+v+'">':v;
+document.write(
+(scr?'<div class="topbar"><div class="topbar-in"><div><div class="t1">서류작업 ›</div><div class="t2">종합업무일지</div></div><button class="datebtn">'+ic('cal')+'11월 12일 (목)</button><span class="whoami">김시설 · 전방파트</span></div></div><main>':'')+
+'<div class="sheet">'+
+ '<div class="head"><div class="ttl"><h1>에비뉴엘 종합업무일지</h1><div class="d">2026년 11월 12일 (목) · 잠실점 에비뉴엘 시설관리</div></div>'+
+ '<table class="sign"><tr><th>전방책임자</th><th>기건책임자</th><th>시설부소장</th><th>시설소장</th></tr><tr><td></td><td></td><td></td><td></td></tr></table></div>'+
+ '<div class="top"><div><div class="sec">영업 · 날씨 <small>전년 = 2025년 11월 12일 (수)</small></div><table class="g fx"><thead><tr><th style="width:120px">구분</th><th>영업시간</th><th>월누계</th><th>월영업일수</th><th>날씨</th><th>최저 (℃)</th><th>최고 (℃)</th><th>최고풍속 (m/s)</th><th>미세먼지 (㎍/㎥)</th><th>미세먼지 등급</th></tr></thead>'+
+ '<tr><th class="rh">2025</th><td class="prev">9.5</td><td class="prev">106.5</td><td class="prev">12</td><td class="prev" style="text-align:center">맑음</td><td class="prev">11</td><td class="prev">24</td><td class="prev">—</td><td class="prev">47</td><td class="prev" style="text-align:center">보통</td></tr>'+
+ '<tr><th class="rh">2026<span class="src">날씨 네이버 13:00</span></th><td class="cur">'+wx('9.5')+'</td><td class="cur">106.5</td><td class="cur">12</td><td class="cur" style="text-align:center">'+wx('흐림',1)+'</td><td class="cur">'+wx('8',1)+'</td><td class="cur">'+wx('16',1)+'</td><td class="cur">'+wx('3.2',1)+'</td><td class="cur">'+wx('38',1)+'</td><td class="cur" style="text-align:center">'+wx('보통',1)+'</td></tr></table></div>'+ELEC+'</div>'+
+ '<div class="ebox"><div><div class="sec">에너지 사용량 <small>막대 = 같은 칸 안에서 전년과 비교<span class="lg"><i style="background:var(--line)"></i>2025</span><span class="lg"><i style="background:var(--blue)"></i>2026</span> · 증감율 빨강 = 늘어남</small></div>'+
+ '<div class="egrid">'+M.map((_,i)=>card(i)).join('')+'</div></div></div>'+
+ '<div class="wrow">'+work('e','금일작업 · 전기방재')+work('m','금일작업 · 기계건축')+
+ '<div><div class="sec">야간 일일 작업 현황'+(scr?'<button class="btn sm" style="margin-left:auto">'+ic('img')+'그림 바꾸기</button>':'')+'</div>'+
+ '<div class="night" style="height:'+(scr?480:422)+'px"><div class="shot"><b>야간 작업 현황 · 11월 12일</b>'+[['22:10','3층 3구역 매장 인테리어 철거 입회'],['23:30','2층 EPS실 분전반 증설 작업 입회'],['01:00','1층 1게이트 방풍실 천장 도장'],['03:20','지하1층 주차 램프 조명 교체'],['05:00','작업 종료 · 현장 정리 확인']].map(r=>'<div><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join('')+'</div></div>'+
+ '</div></div>'+
+ '<div class="foot"><span></span><span>- 1 / 1 -</span></div>'+
+'</div>'+
+(scr?'</main><div class="bar"><div class="bar-in"><button class="btn">'+ic('back')+'뒤로</button><span class="st">마지막 저장 14:05 · 김시설</span><span style="flex:1"></span><button class="btn">'+ic('print')+'인쇄 (B4)</button><button class="btn">'+ic('file')+'PDF로 저장</button><button class="btn pri" style="min-width:120px">'+ic('save')+'저장</button></div></div>':''));
+</script>
+</body></html>

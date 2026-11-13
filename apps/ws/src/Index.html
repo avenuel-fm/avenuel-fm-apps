@@ -346,6 +346,55 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .pvhelp{margin-top:10px;font-size:12px;color:var(--sub);background:var(--ground);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
 .pvhelp summary{cursor:pointer;font-weight:600;color:var(--ink)}
 .pvhelp ol{margin:6px 0 0;padding-left:18px;line-height:1.6}
+/* 종합업무일지 (WS_종합업무일지, 결정 116) — 종이 1587×1120px = B4 가로(364×257mm)를 0.867배로 찍음. 화면·인쇄·PDF 같은 틀 */
+.lgwrap{max-width:1680px;margin:0 auto;padding:16px 16px 0}
+.lgwrap .nwbar{margin:12px 0 0}
+.lgs{width:1587px;height:1120px;background:#fff;padding:36px 44px;display:flex;flex-direction:column;gap:14px;color:#18202B;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-variant-numeric:tabular-nums;word-break:keep-all;overflow:hidden}
+.lgwrap .lgs{height:auto;min-height:1120px;border:1px solid var(--line2);border-radius:12px;margin:0 auto}
+.lgs *{box-sizing:border-box}
+.lghead{display:flex;align-items:flex-start;gap:24px}
+.lghead h1{margin:0;font-size:30px;font-weight:700}
+.lghead .d{margin-top:6px;font-size:17px;color:#3F4855}
+.lgsign{margin-left:auto;border-collapse:collapse}
+.lgsign th,.lgsign td{border:1px solid #18202B;width:104px;text-align:center;font-size:13px}
+.lgsign th{height:28px;font-weight:500;background:#EDF0F3}
+.lgsign td{height:64px}
+.lgsec{font-size:15px;font-weight:700;margin:0 0 6px;display:flex;align-items:center;gap:8px;min-height:22px}
+.lgsec small{font-size:12px;font-weight:400;color:#5B6573}
+.lgtop{display:grid;grid-template-columns:1fr 420px;gap:16px;align-items:end}
+.lgt{border-collapse:collapse;width:100%;font-size:13px;table-layout:fixed}
+.lgt th,.lgt td{border:1px solid #CBD2DB;padding:0 6px;height:26px;text-align:right}
+.lgt thead th{background:#EDF0F3;font-weight:500;text-align:center;color:#3F4855}
+.lgt th.rh{background:#fff;text-align:center;font-weight:500;color:#3F4855}
+.lgt td.p{color:#5B6573}.lgt td.c{font-weight:500}.lgt td.ctr{text-align:center}
+.up{color:#C0261A!important}.dn{color:#1F5FA8!important}
+.lgin{border:1px solid #DCE1E7;background:#fff;border-radius:4px;height:22px;width:100%;text-align:right;padding:0 4px;font:inherit;font-size:13px;font-weight:500;color:#18202B}
+.lgin:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:var(--blue)}
+select.lgin{text-align:center;padding:0}
+.lgegrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.lgmc{border:1px solid #DCE1E7;border-radius:8px;padding:6px 10px 4px}
+.lgmh{display:flex;align-items:center;gap:8px;height:24px;margin-bottom:2px}
+.lgmh b{font-size:13px;font-weight:600;white-space:nowrap}
+.lgmh .lgin{width:72px;margin-left:auto}
+.lgmh .auto{margin-left:auto;font-size:11px;color:#5B6573}
+.lgbr{display:grid;grid-template-columns:34px 1fr 64px 46px;align-items:center;gap:6px;height:27px}
+.lgbr+.lgbr{border-top:1px solid #EDF0F3}
+.lgbl{font-size:11px;color:#5B6573}
+.lgbars{display:flex;flex-direction:column;gap:3px}
+.lgbars i{display:block;height:7px;border-radius:2px;min-width:1px}
+.lgbars .b0{background:#CBD2DB}.lgbars .b1{background:#1F5FA8}
+.lgbv{font-size:11px;line-height:13px;text-align:right}.lgbv span{display:block}.lgbv .p{color:#5B6573}.lgbv .c{font-weight:500}
+.lgrt{font-size:11.5px;text-align:right;color:#3F4855}
+.lglg{display:inline-flex;align-items:center;gap:4px;margin-left:8px}.lglg i{width:10px;height:7px;border-radius:2px;display:inline-block}
+.lgrow{display:grid;grid-template-columns:1fr 1fr 500px;gap:16px}
+.lgwork ol{margin:0;padding:0;list-style:none;border-top:2px solid #18202B}
+.lgwork li{display:flex;gap:8px;align-items:center;min-height:28px;border-bottom:1px solid #CBD2DB;font-size:13.5px;padding:0 4px}
+.lgwork li .n{width:20px;flex:none;color:#5B6573;text-align:right}
+.lgwork li .lgin{text-align:left;border-color:transparent;font-size:13.5px;height:24px}
+.lgwork li .lgin:placeholder-shown{border-color:#DCE1E7}
+.lgnight{border:1px solid #CBD2DB;height:422px;display:flex;align-items:center;justify-content:center;color:#5B6573;font-size:13px}
+.lgfoot{display:flex;justify-content:flex-end;font-size:11px;color:#7A8494;margin-top:auto}
+.lgpc{max-width:520px;margin:40px auto;text-align:center}
 @media print{
   body > *:not(#print){display:none!important}
   #print{display:block}
@@ -450,8 +499,8 @@ function go(view, push) {
 }
 async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; S.fireAt = Date.now(); if (S.view === 'fire') render(); } catch (e) {} }
 try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
-const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', set: 'main', tbm: 'docs', nw: 'docs', att: 'docs', attup: 'att' };
-function back() { if (S.view === 'csck') return csLeave(); if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
+const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', set: 'main', tbm: 'docs', nw: 'docs', log: 'docs', att: 'docs', attup: 'att' };
+function back() { if (S.view === 'csck') return csLeave(); if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'log' && !lgLeaveOk()) return; if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
 
 function topbar(sub, title) {
   const u = S.user || {};
@@ -704,6 +753,7 @@ function renderDocs() {
     '<button class="row" onclick="openTbm()"><span class="ico" style="background:var(--green-bg);color:var(--green);font-weight:600">T</span><span class="fname"><b style="font-size:16px">TBM</b><small>오늘 서명 ' + (n == null ? '…' : n + '명') + ' · 작업 표 · 사진 · PDF</small></span>' + ICON.chev + '</button>' +
     '<button class="row" onclick="openNw()"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:600">명</span><span class="fname"><b style="font-size:16px">명일 작업 예정</b><small>내일 작업 입력 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
     '<button class="row" onclick="openAtt()"><span class="ico" style="background:#FFF4C7;color:#7A5A00;font-weight:600">출</span><span class="fname"><b style="font-size:16px">출근현황</b><small>근무 스케줄 엑셀 → 날짜별 조직도 · 그림으로 저장</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openLog()"><span class="ico" style="background:var(--line3);color:var(--sub);font-weight:600">일</span><span class="fname"><b style="font-size:16px">종합업무일지</b><small>에너지 사용량 · 날씨 · 금일작업 · B4 인쇄 (PC)</small></span>' + ICON.chev + '</button>' +
     '</div>';
 }
 /* 미리 받기 (결정 78): 메인이 뜬 뒤 자주 여는 화면 내용을 뒤에서 받아 두고, 열 때 바로 보여 준 뒤 새로 받음 */
@@ -1197,6 +1247,152 @@ function atCal() {
     (r.months.length ? '<div class="nwmeta">스케줄이 있는 달: ' + r.months.map(h).join(', ') + ' · 「주 n」 = 그날 주간 근무 인원</div>' : '') +
     '<button class="btn" style="width:100%;margin-top:10px" onclick="closeDialog();S.at=null;render();loadAtt(\'\')">오늘 근무일로</button>');
 }
+/* ── 종합업무일지 (WS_종합업무일지 15.3.22, 결정 116) — PC 전용, B4 가로 한 장 ── */
+const LG_METERS = [['시수', '에비뉴엘 시수'], ['중수', '에비뉴엘 중수'], ['식당시수', '직원식당 시수'], ['식당온수', '직원식당 온수'], ['식당가스', '직원식당 가스'], ['식당분전반', '직원식당 분전반'],
+  ['식기세척분전반', '식기세척실 분전반'], ['매점분전반', '직원식당 매점 분전반'], ['급탕', '에비뉴엘 급탕'], ['환탕', '에비뉴엘 환탕'], ['급탕탱크', '급탕탱크 (주1회)'], ['실온수', '실온수 사용량']];
+const LG_FIELDS = ['영업시간', '날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급', '전기'].concat(LG_METERS.slice(0, 11).map(m => m[0]));
+const LG_DEPTS = ['전기방재', '기계건축'], LG_LINES = 15, LG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
+const lgPc = () => window.innerWidth >= 1024;
+async function openLog() { S.lg = null; go('log'); await loadLog(''); }
+async function loadLog(day) {
+  const r = await call('logGet', day);
+  if (!r.ok) { toast(r.error); return; }
+  lgSet(r);
+}
+function lgSet(r) {
+  const f = {}, cur = r.cur || {};
+  LG_FIELDS.forEach(k => { f[k] = cur[k] || ''; });
+  const works = {};
+  LG_DEPTS.forEach(d => { const w = (cur.works && cur.works[d]) || []; works[d] = Array.from({ length: LG_LINES }, (_, i) => w[i] || ''); });
+  S.lg = { srv: r, day: r.day, f, works, ver: r.ver, by: r.by, pdf: r.pdf, dirty: false, busy: false };
+  if (S.view === 'log') render();
+}
+function lgLeaveOk() { return !(S.lg && S.lg.dirty) || confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?'); }
+function lgCal() {
+  const g = S.lg, t = g.srv.workDay;
+  pickDate({ cur: g.day, home: t, max: t, homeLbl: '오늘 일지로 (' + Number(t.slice(5, 7)) + '월 ' + Number(t.slice(8, 10)) + '일)',
+    fn: ds => { if (ds !== S.lg.day && lgLeaveOk()) loadLog(ds); } });
+}
+function lgN(v) { const n = Number(String(v == null ? '' : v).replace(/,/g, '')); return String(v == null ? '' : v).trim() !== '' && isFinite(n) ? n : null; }
+function lgF(v) { return v == null ? '' : (Math.round(v * 10) / 10).toLocaleString('ko-KR'); }
+function lgRate(c, p) { if (c == null || !p) return ['—', '']; const r = (c - p) / p * 100; return [(r > 0 ? '+' : '') + r.toFixed(1) + '%', r > 0 ? 'up' : r < 0 ? 'dn' : '']; }
+/** 화면에서 고친 오늘 값 (실온수 = 급탕 − 환탕) */
+function lgCur(k) {
+  const f = S.lg.f;
+  if (k === '실온수') { const a = lgN(f['급탕']), b = lgN(f['환탕']); return a != null && b != null ? Math.round((a - b) * 1000) / 1000 : null; }
+  return lgN(f[k]);
+}
+/** 누계 = 서버 누계 − 저장된 오늘 값 + 화면의 오늘 값 → 입력하는 동안 바로 맞음 */
+function lgSum(kind, k) { const s = S.lg.srv, saved = s.vals.c[k]; return s[kind].c[k] - (saved || 0) + (lgCur(k) || 0); }
+function lgBars(k) {
+  const s = S.lg.srv;
+  return [['일일', s.vals.p[k], lgCur(k)], ['월누계', s.month.p[k], lgSum('month', k)], ['년누계', s.year.p[k], lgSum('year', k)]].map(([l, p, c]) => {
+    const mx = Math.max(p || 0, c || 0) || 1, rt = lgRate(c, p);
+    return '<div class="lgbr"><span class="lgbl">' + l + '</span><div class="lgbars"><i class="b0" style="width:' + ((p || 0) / mx * 100) + '%"></i><i class="b1" style="width:' + ((c || 0) / mx * 100) + '%"></i></div>' +
+      '<span class="lgbv"><span class="p">' + lgF(p) + '</span><span class="c">' + lgF(c) + '</span></span><span class="lgrt ' + rt[1] + '">' + rt[0] + '</span></div>';
+  }).join('');
+}
+function lgSheet(edit) {
+  const g = S.lg, s = g.srv, f = g.f, pv = s.prev || {};
+  const inp = (k, w) => edit ? '<input class="lgin" data-k="' + k + '" value="' + h(f[k]) + '" oninput="lgIn(this)" inputmode="' + (k === '날씨' ? 'text' : 'decimal') + '"' + (w ? ' style="text-align:center"' : '') + ' aria-label="' + k + '">' : h(f[k]);
+  const grade = edit ? '<select class="lgin" data-k="미세먼지등급" onchange="lgIn(this)" aria-label="미세먼지 등급">' + LG_GRADES.map(x => '<option' + (x === f['미세먼지등급'] ? ' selected' : '') + '>' + x + '</option>').join('') + '</select>' : h(f['미세먼지등급']);
+  const dd = s.day, wd = '일월화수목금토'[new Date(dd + 'T12:00:00+09:00').getDay()], pwd = '일월화수목금토'[new Date(s.prevDay + 'T12:00:00+09:00').getDay()];
+  const ko = d => Number(d.slice(0, 4)) + '년 ' + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일';
+  const pE = s.vals.p['전기'], cE = lgCur('전기'), yE = s.vals.y['전기'], r1 = lgRate(cE, pE), r2 = lgRate(cE, yE);
+  const work = d => '<div class="lgwork"><div class="lgsec">금일작업 · ' + d + '</div><ol>' + g.works[d].map((t, i) => '<li><span class="n">' + (i + 1) + '</span>' +
+    (edit ? '<input class="lgin" maxlength="100" data-d="' + d + '" data-i="' + i + '" value="' + h(t) + '" placeholder=" " oninput="lgWork(this)" aria-label="' + d + ' ' + (i + 1) + '번">' : '<span>' + h(t) + '</span>') + '</li>').join('') + '</ol></div>';
+  return '<div class="lgs">' +
+    '<div class="lghead"><div><h1>에비뉴엘 종합업무일지</h1><div class="d">' + ko(dd) + ' (' + wd + ') · 잠실점 에비뉴엘 시설관리</div></div>' +
+    '<table class="lgsign"><tr><th>전방책임자</th><th>기건책임자</th><th>시설부소장</th><th>시설소장</th></tr><tr><td></td><td></td><td></td><td></td></tr></table></div>' +
+    '<div class="lgtop"><div><div class="lgsec">영업 · 날씨 <small>전년 = ' + ko(s.prevDay) + ' (' + pwd + ')</small></div>' +
+    '<table class="lgt"><thead><tr><th style="width:96px">구분</th><th>영업시간</th><th>월누계</th><th>월영업일수</th><th>날씨</th><th>최저 (℃)</th><th>최고 (℃)</th><th>최고풍속 (m/s)</th><th>미세먼지 (㎍/㎥)</th><th>미세먼지 등급</th></tr></thead>' +
+    '<tr><th class="rh">' + s.prevDay.slice(0, 4) + '</th><td class="p">' + h(pv['영업시간'] || '') + '</td><td class="p">' + lgF(s.month.p['영업시간']) + '</td><td class="p">' + Number(s.prevDay.slice(8)) + '</td><td class="p ctr">' + h(pv['날씨'] || '') + '</td><td class="p">' + h(pv['최저'] || '') + '</td><td class="p">' + h(pv['최고'] || '') + '</td><td class="p">' + (pv['최고풍속'] ? h(pv['최고풍속']) : '—') + '</td><td class="p">' + h(pv['미세먼지'] || '') + '</td><td class="p ctr">' + h(pv['미세먼지등급'] || '') + '</td></tr>' +
+    '<tr><th class="rh">' + dd.slice(0, 4) + '</th><td class="c">' + inp('영업시간') + '</td><td class="c" id="lgHours">' + lgF(lgSum('month', '영업시간')) + '</td><td class="c">' + Number(dd.slice(8)) + '</td><td class="c ctr">' + inp('날씨', 1) + '</td><td class="c">' + inp('최저') + '</td><td class="c">' + inp('최고') + '</td><td class="c">' + inp('최고풍속') + '</td><td class="c">' + inp('미세먼지') + '</td><td class="c ctr">' + grade + '</td></tr></table></div>' +
+    '<div><div class="lgsec">전기 일일사용량 <small>kWh</small></div><table class="lgt"><thead><tr><th>' + s.prevDay.slice(0, 4) + '</th><th>' + dd.slice(0, 4) + '</th><th>전년대비</th><th>전일대비</th></tr></thead>' +
+    '<tr><td class="p">' + lgF(pE) + '</td><td class="c">' + inp('전기') + '</td><td id="lgE1" class="' + r1[1] + '">' + r1[0] + '</td><td id="lgE2" class="' + r2[1] + '">' + r2[0] + '</td></tr></table></div></div>' +
+    '<div><div class="lgsec">에너지 사용량 <small>막대 = 같은 줄 안에서 전년과 비교<span class="lglg"><i style="background:#CBD2DB"></i>' + s.prevDay.slice(0, 4) + '</span><span class="lglg"><i style="background:#1F5FA8"></i>' + dd.slice(0, 4) + '</span> · 증감율 빨강 = 늘어남</small></div>' +
+    '<div class="lgegrid">' + LG_METERS.map(([k, nm]) => '<div class="lgmc"><div class="lgmh"><b>' + nm + '</b>' + (edit ? (k === '실온수' ? '<span class="auto">급탕 − 환탕</span>' : inp(k)) : '') + '</div><div data-bars="' + k + '">' + lgBars(k) + '</div></div>').join('') + '</div></div>' +
+    '<div class="lgrow">' + work('전기방재') + work('기계건축') +
+    '<div><div class="lgsec">야간 일일 작업 현황</div><div class="lgnight">' + (edit ? '그림 올리기는 다음 판에서 됩니다' : '') + '</div></div></div>' +
+    '<div class="lgfoot">- 1 / 1 -</div></div>';
+}
+function lgState() {
+  const g = S.lg;
+  return g.dirty ? '<span class="nwstate dirty"><i class="dot"></i>저장 안 함</span>' : g.ver ? '<span class="nwstate">' + ICON.ok + '저장됨 · ' + h(String(g.ver).slice(5, 16).replace('-', '/')) + ' ' + h(g.by) + '</span>' : '<span class="nwstate" style="color:var(--muted)">아직 저장 안 함</span>';
+}
+function lgZoom() { return Math.min(1, (Math.min(window.innerWidth, 1680) - 34) / 1589); }
+function renderLog() {
+  const g = S.lg;
+  if (!lgPc()) return topbar('서류작업 ›', '종합업무일지') + '<div class="wrap"><div class="card lgpc" style="padding:24px"><b>PC에서 열어 주세요</b><p style="color:var(--sub);margin:8px 0 0">종합업무일지는 B4 한 장 크기라 PC 화면(가로 1024px 이상)에서만 씁니다.</p></div></div>';
+  if (!g) return topbar('서류작업 ›', '종합업무일지') + '<div class="wrap list"><div class="banner b-gray">불러오는 중…</div></div>';
+  const md = d => Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + '일월화수목금토'[new Date(d + 'T12:00:00+09:00').getDay()] + ')';
+  return topbar('서류작업 ›', '종합업무일지') + '<div class="lgwrap">' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><button class="nwdate" data-date="' + h(g.day) + '" onclick="lgCal()" aria-label="일자 바꾸기">' + ICON.cal + md(g.day) + '</button>' +
+    (g.day < g.srv.workDay ? '<span style="font-size:13px;color:var(--muted)">지난 날짜입니다 · 고치면 저장할 수 있습니다</span>' : '') + '</div>' +
+    '<div id="lgSheet" style="zoom:' + lgZoom() + '">' + lgSheet(true) + '</div>' +
+    '<div class="nwbar" id="lgBar"><span id="lgState">' + lgState() + '</span>' +
+    '<button class="btn" onclick="lgPrint()">' + ICON.print + '인쇄 (B4)</button>' +
+    (g.pdf && !g.dirty ? '<a class="btn" href="' + h(g.pdf.url) + '" target="_blank" rel="noopener">' + ICON.file + 'PDF 열기</a>' : '') +
+    '<button class="btn" id="lgPdf" onclick="lgPdf()"' + (g.busy ? ' disabled' : '') + '>' + ICON.file + (g.pdfBusy ? 'PDF 만드는 중…' : 'PDF로 저장') + '</button>' +
+    '<button class="btn pri" id="lgSave" onclick="lgSave()"' + (g.busy ? ' disabled' : '') + '>' + (g.busy && !g.pdfBusy ? '<span class="spin"></span>' : ICON.ok + '저장') + '</button></div></div>';
+}
+function lgDirty() { S.lg.dirty = true; const e = $('lgState'); if (e) e.innerHTML = lgState(); }
+// 입력 중에는 다시 그리지 않음 (초점 유지) — 계산 칸만 바꿈
+function lgIn(el) {
+  const k = el.dataset.k; S.lg.f[k] = el.value; lgDirty();
+  const s = S.lg.srv;
+  document.querySelectorAll('[data-bars]').forEach(b => { const m = b.dataset.bars; if (m === k || (m === '실온수' && (k === '급탕' || k === '환탕'))) b.innerHTML = lgBars(m); });
+  if (k === '영업시간') $('lgHours').textContent = lgF(lgSum('month', '영업시간'));
+  if (k === '전기') { const c = lgCur('전기'); [['lgE1', s.vals.p['전기']], ['lgE2', s.vals.y['전기']]].forEach(([id, p]) => { const r = lgRate(c, p), e = $(id); e.textContent = r[0]; e.className = r[1]; }); }
+}
+function lgWork(el) { S.lg.works[el.dataset.d][Number(el.dataset.i)] = el.value; lgDirty(); }
+function lgPayload() {
+  const g = S.lg, d = Object.assign({}, g.f, { works: {} });
+  LG_DEPTS.forEach(x => { d.works[x] = g.works[x].map(t => t.trim()).filter(Boolean); });
+  return d;
+}
+async function lgSave() {
+  const g = S.lg; if (g.busy) return;
+  g.busy = true; render();
+  try {
+    const r = await call('logSave', g.day, lgPayload(), g.ver || '');
+    if (r.conflict) { lgSet(r); toast(r.error); return; }
+    if (!r.ok) { g.busy = false; render(); toast(r.error); return; }
+    lgSet(r); toast('저장했습니다');
+  } catch (e) { g.busy = false; render(); }
+}
+/* 인쇄 = B4 가로 한 장. 종이 틀(1587×1120)을 0.867배 → 364×257mm */
+function lgPrint() {
+  $('print').innerHTML = '<style>@page{size:364mm 257mm;margin:0}</style><div style="zoom:.8668">' + lgSheet(false) + '</div>';
+  setTimeout(() => window.print(), 300);
+}
+async function lgPdf() {
+  const g = S.lg; if (g.busy) return;
+  g.busy = true; g.pdfBusy = true; render();
+  try {
+    await loadH2p();
+    const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;z-index:-1';
+    const box = document.createElement('div'); box.style.cssText = 'width:1587px;background:#fff'; box.innerHTML = lgSheet(false);
+    wrap.appendChild(box); document.body.appendChild(wrap);
+    let uri;
+    try {
+      try { if (document.fonts) await document.fonts.ready; } catch (e) {}
+      const keepY = window.scrollY; window.scrollTo(0, 0);
+      try {
+        uri = await html2pdf().set({
+          margin: 0, filename: g.day + '_종합업무일지.pdf', image: { type: 'jpeg', quality: 0.92 },
+          html2canvas: { scale: 2, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, x: 0, y: 0, windowWidth: 1587 },
+          jsPDF: { unit: 'mm', format: [364, 257], orientation: 'landscape' }, pagebreak: { mode: ['legacy'] }
+        }).from(box.firstChild).outputPdf('datauristring');
+      } finally { window.scrollTo(0, keepY); }
+    } finally { wrap.remove(); }
+    const r = await call('logSavePdf', g.day, uri, g.dirty || !g.ver ? lgPayload() : null, g.ver || '');
+    if (r.conflict) { lgSet(r); toast(r.error); return; }
+    if (!r.ok) { g.busy = false; g.pdfBusy = false; render(); toast(r.error); return; }
+    lgSet(r); toast(r.warn || 'PDF로 저장했습니다');
+  } catch (e) { g.busy = false; g.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
+}
+
 /* 날짜 고르기 달력 (명일 작업 · TBM, 11-13) — 바로가기 페이지 안에서는 휴대폰 기본 날짜 칸이 안 열리는 기기가 있어 출근현황 달력 모양으로 */
 let PICK = null;
 function pickDate(o) { PICK = o; pickDraw(o.cur.slice(0, 7)); }
@@ -2158,6 +2354,7 @@ function render() {
   else if (S.view === 'docs') html = renderDocs();
   else if (S.view === 'tbm') html = renderTbm();
   else if (S.view === 'nw') html = renderNw();
+  else if (S.view === 'log') html = renderLog();
   else if (S.view === 'att') html = renderAtt();
   else if (S.view === 'attup') html = renderAttUp();
   else if (S.view === 'inspect') html = renderInspect();

@@ -362,7 +362,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true }).ok && Object.values(F).filter(f => f.trashed).length === trashed0 + 3, '결정80: 성공하면 그때 옛 파일 3개 휴지통');
   // 밖에서 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴·예약 함수는 모두 _
   const pub = [...fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(x => !/_$/.test(x));
-  const ALLOWED = ['adminStaff', 'adminSetToast', 'adminStaffSave', 'adminStaffPin', 'adminStaffRemove', 'onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport', 'csHome', 'csSiteSave', 'csSiteEnd', 'csItemsSave', 'csGet', 'csSave', 'csSavePdf'];
+  const ALLOWED = ['adminStaff', 'adminSetToast', 'adminStaffSave', 'adminStaffPin', 'adminStaffRemove', 'onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport', 'csHome', 'csSiteSave', 'csSiteEnd', 'csItemsSave', 'csGet', 'csSave', 'csSavePdf', 'logGet', 'logSave', 'logSavePdf'];
   const extra = pub.filter(x => ALLOWED.indexOf(x) === -1);
   assert(!extra.length, '결정80: 밖에서 부를 수 있는 함수는 화면용으로 정한 것만 ' + extra.join(', '));
 }
@@ -649,4 +649,50 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(!adminStaffRemove(bs, bid).ok, '결정102: 내 계정은 못 지움');
   assert(adminStaffRemove(bs, nid).ok && !login('7444', 'set4', SIG).ok, '결정102: 삭제 → 로그인 안 됨');
   assert(sheets['변경기록'].rows.some(x => x[1] === '설정소장' && x[2] === '직원 삭제'), '결정102: 누가 했는지 기록');
+}
+
+// 종합업무일지 (WS_종합업무일지 15.3.22, 결정 116) — 전년 같은 날 · 월·년 누계 · 겹침 · PDF
+{
+  const { books } = require('./mock_env.js');
+  NOW.d = new Date('2026-11-12T15:00:00+09:00');
+  addStaff_('일지직원', '8642', '기건파트', '직원');
+  const lt = login('8642', 'log1', SIG).token;
+  let g = logGet(lt, '');
+  assert(g.ok && g.day === '2026-11-12' && g.prevDay === '2025-11-12' && !g.cur && g.ver === '', '일지: 오늘 근무일 · 전년 같은 날 · 빈 장');
+  assert(Object.keys(books).length === 2 && setting_('일지시트ID') && setting_('일지과거시트ID') && setting_('일지시트ID') !== setting_('일지과거시트ID'), '일지: 새 시트·과거자료 시트 따로 만듦 (WS DB와 따로)');
+  logGet(lt, ''); assert(Object.keys(books).length === 2, '일지: 두 번째부터는 만든 시트를 씀');
+  assert(logPrevYear_('2028-02-29') === '2027-02-28' && logPrevYear_('2025-03-01') === '2024-03-01', '일지: 2월 29일 → 전년 2월 28일');
+  // 과거자료(엑셀에서 옮긴 날 — 4단계) 흉내: 2025-11-01·11-12, 2025-01-05
+  const arch = books[setting_('일지과거시트ID')];
+  withBook_(arch, () => {
+    appendRow_('일지', { '일자': '2025-01-05', '시수': '1000' });
+    appendRow_('일지', { '일자': '2025-11-01', '시수': '139', '급탕': '50', '환탕': '30', '영업시간': '10' });
+    appendRow_('일지', { '일자': '2025-11-12', '시수': '119', '날씨': '맑음', '최저': '11', '영업시간': '9.5' });
+    appendRow_('일지', { '일자': '2026-11-01', '시수': '106', '영업시간': '10' });   // 26년 엑셀 → 앱이 새로 쓰면 앱 쪽이 이김
+  });
+  const base = { '영업시간': '9.5', '날씨': '흐림', '최저': '8', '최고': '16', '최고풍속': '3.2', '미세먼지': '38', '미세먼지등급': '보통', '시수': '102', '급탕': '42', '환탕': '28', works: { '전기방재': ['공사장 안전 점검', ' ', '직무고시'], '기계건축': ['미세먼지 측정'] } };
+  let s = logSave(lt, '2026-11-12', base, '');
+  assert(s.ok && s.cur['시수'] === '102' && s.cur.works['전기방재'].join('|') === '공사장 안전 점검|직무고시' && s.by === '일지직원', '일지: 저장 (빈 작업 줄은 뺌)');
+  assert(s.prev['날씨'] === '맑음' && s.vals.p['시수'] === 119 && s.vals.c['실온수'] === 14, '일지: 전년 값 · 실온수 = 급탕 − 환탕');
+  assert(s.month.c['시수'] === 208 && s.month.p['시수'] === 258 && s.month.c['영업시간'] === 19.5, '일지: 월누계 (올해 1+12일, 전년 1+12일) ' + s.month.c['시수'] + '/' + s.month.p['시수']);
+  assert(s.year.p['시수'] === 1258 && s.year.p['실온수'] === 20, '일지: 년누계 1월부터 (전년 1258)');
+  const raw = books[setting_('일지시트ID')].sheets['일지'].rows[1];
+  assert(raw[0] === '2026-11-12' && raw[LOG_COLS.indexOf('시수')] === '102', '일지: 시트에 글자로 저장 (결정 54)');
+  assert(logSave(lt, '2026-11-12', base, '').conflict, '일지: 예전 ver로 저장하면 겹침 알림 (덮어쓰지 않음)');
+  assert(!logSave(lt, '2026-11-13', base, '').ok, '일지: 앞날은 저장 안 됨');
+  assert(!logSave(lt, '2026-11-12', Object.assign({}, base, { '시수': '12a' }), s.ver).ok, '일지: 숫자 칸에 글자 거부');
+  assert(!logSave(lt, '2026-11-12', Object.assign({}, base, { works: { '전기방재': Array(16).fill('x') } }), s.ver).ok, '일지: 작업 16줄 거부');
+  const s2 = logSave(lt, '2026-11-01', { '시수': '200' }, '');
+  g = logGet(lt, '2026-11-12'); assert(g.month.c['시수'] === 302, '일지: 과거자료와 같은 날을 앱에서 쓰면 앱 값 (106 → 200)');
+  g = logGet(lt, '2026-11-11'); assert(g.day === '2026-11-11' && g.vals.y['시수'] == null && g.month.c['시수'] === 200, '일지: 지난 날 열기 · 빈 날은 0으로 셈');
+  assert(logGet(lt, '2027-01-01').day === '2026-11-12', '일지: 앞날을 열면 오늘');
+  const pdf = 'data:application/pdf;base64,' + 'P'.repeat(400);
+  assert(!logSavePdf(lt, '2026-11-10', pdf).ok, '일지 PDF: 저장 안 한 날은 먼저 저장하라고 함');
+  let p = logSavePdf(lt, '2026-11-12', pdf, null, g.ver === undefined ? '' : logGet(lt, '2026-11-12').ver);
+  assert(p.ok && p.pdf && files[p.pdf.id].name === '2026-11-12_종합업무일지.pdf', '일지 PDF: 저장 ' + (p.pdf && files[p.pdf.id].name));
+  const old = p.pdf.id;
+  p = logSavePdf(lt, '2026-11-12', pdf, Object.assign({}, base, { '시수': '103' }), p.ver);
+  assert(p.ok && p.cur['시수'] === '103' && files[old].trashed && p.pdf.id !== old, '일지 PDF: 고친 내용 저장 + 새 PDF, 옛 PDF 휴지통');
+  assert(!logSavePdf(lt, '2026-11-12', pdf, null, 'old').ok, '일지 PDF: 다른 사람이 고친 뒤면 PDF 안 만듦');
+  void s2;
 }
