@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.12', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.9.13', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -36,7 +36,6 @@ const SHEETS = {
   '공사현장': ['cs_id', '현장명', '공사내용', '업체', '사용여부', '등록일시', '등록자', '끝낸일시'],
   '공사점검항목': ['순서', '항목', '설명', '사용여부', '바꾼사람', '바꾼시각', '점검사용'],
   '공사점검': ['ck_id', '점검일', 'cs_id', '현장명', '공사내용', '업체', '점검자_id', '점검자', '점검시각', '항목', '양호', '미흡', '해당없음', '사진번호', 'pdf_id', 'PDF만든시각', '수정시각', '고친사람', '삭제여부', '회차'],
-  '일지문구': ['부서', '문구', '순서', '사용여부'],
   '변경기록': ['일시', '누가', '무엇을', '대상ID', '내용']
 };
 
@@ -64,6 +63,7 @@ function onOpen() {
     .addItem('⑥ 서명 정리 예약 켜기 (90일 지난 안 쓴 서명 → 휴지통, 매일 새벽 3시)', 'cleanSignsTriggerMenu_')
     .addItem('⑦ 직원 삭제', 'removeStaffMenu_')
     .addItem('⑧ 직원 PIN 바꾸기', 'changePinMenu_')
+    .addItem('⑨ 종합업무일지 날씨 자동 켜기 (네이버, 매일 오후 1시)', 'logWeatherMenu_')
     .addToUi();
 }
 
@@ -949,18 +949,25 @@ const LOG_METERS = ['시수', '중수', '식당시수', '식당온수', '식당�
 const LOG_NUMS = ['영업시간', '최저', '최고', '최고풍속', '미세먼지', '전기'].concat(LOG_METERS);
 const LOG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
 const LOG_DEPTS = ['전기방재', '기계건축'];
-const LOG_MAX_LINES = 15;
-/* 자주 쓰는 문구 첫 목록 (11월 엑셀에서 거의 매일 쓴 줄) — 시트 `일지문구` 탭에서 더하고 고침 */
-const LOG_PHRASE_SEED = [['전기방재', '공사장 안전 점검'], ['전기방재', '전층 EPS실 순찰 및 점검'], ['전기방재', '직무고시'], ['전기방재', '전층 알람밸브실 점검'],
-  ['기계건축', '공사장 안전 점검'], ['기계건축', '미세먼지 측정'], ['기계건축', '일일계량기 검침']];
+const LOG_MAX_LINES = 10;   // 부서마다 10줄, 남는 곳은 비고 (사용자 11-13)
+const LOG_WX = ['날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급'];   // 네이버 오후 1시 값이 들어가는 칸
+const LOG_WX_REGION = '09710101';   // 네이버 날씨 지역 번호: 서울 송파구 잠실동
 const LOG_TBM_DEPT = { '전방파트': '전기방재', '기건파트': '기계건축' };
 const LOG_COLS = ['일자', '영업시간', '날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급', '날씨출처'].concat(LOG_METERS,
-  ['전기', '작업_전기방재', '작업_기계건축', '야간그림_id', 'pdf_id', 'PDF만든시각', '작성자', '수정자', '수정시각', '삭제여부']);
+  ['전기', '작업_전기방재', '작업_기계건축', '야간그림_id', 'pdf_id', 'PDF만든시각', '작성자', '수정자', '수정시각', '삭제여부', '비고']);   // 새 열은 맨 끝에만
 
 /** 일지 시트 열기 — 없으면 만들어 드라이브 「서류작업/종합업무일지」에 두고 번호를 설정 탭에 적음 (사용자 요청: WS DB와 따로) */
 function logBook_(key, title) {
   const id = setting_(key);
-  if (id) { try { return SpreadsheetApp.openById(id); } catch (e) { /* 지워졌으면 새로 */ } }
+  if (id) {
+    let ss = null;
+    try { ss = SpreadsheetApp.openById(id); } catch (e) { /* 지워졌으면 새로 */ }
+    if (ss) {
+      const sh = ss.getSheetByName('일지'), n = sh.getLastColumn();
+      if (n < LOG_COLS.length) sh.getRange(1, n + 1, 1, LOG_COLS.length - n).setValues([LOG_COLS.slice(n)]);   // 판이 올라 생긴 새 열(비고 …)을 맨 끝에
+      return ss;
+    }
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(25000);
   try {
@@ -1032,28 +1039,6 @@ function logSum_(map, from, to) {
   keys.forEach(function (k) { s[k] = Math.round(s[k] * 1000) / 1000; });
   return s;
 }
-/** 자주 쓰는 문구: 탭이 없거나 비었으면 만들고 첫 목록을 넣음 (위험성목록과 같은 방식) */
-function logPhrases_() {
-  const ss = db_();
-  let sh = ss.getSheetByName('일지문구');
-  if (!sh || sh.getLastRow() < 2) {
-    ensureTabs_(['일지문구']);
-    const lock = LockService.getScriptLock();
-    lock.waitLock(20000);
-    try {
-      sh = ss.getSheetByName('일지문구');
-      if (sh.getLastRow() < 2) LOG_PHRASE_SEED.forEach(function (p, i) { appendRow_('일지문구', { '부서': p[0], '문구': p[1], '순서': String(i + 1), '사용여부': 'Y' }); });
-    } finally {
-      lock.releaseLock();
-    }
-  }
-  const out = {};
-  LOG_DEPTS.forEach(function (d) { out[d] = []; });
-  readTable_('일지문구').rows.filter(function (r) { return r['사용여부'] !== 'N' && out[r['부서']] && String(r['문구']).trim(); })
-    .sort(function (a, b) { return Number(a['순서']) - Number(b['순서']); })
-    .forEach(function (r) { out[r['부서']].push(cleanText_(r['문구'], 100)); });
-  return out;
-}
 /** 그 근무일 TBM 작업 표의 작업위치 + 작업내용 (위험요인·재해형태·위험성·개선조치는 뺌). TBM을 아직 저장 안 했으면 TBM 화면처럼 명일 작업 예정에서 */
 function logTbm_(day) {
   const out = {};
@@ -1091,7 +1076,9 @@ function logData_(day) {
 /** 불러오기 — 로그인한 직원 모두 (사용자 11-13) */
 function logGet(token, day) {
   auth_(token);
-  return Object.assign(logData_(logDay_(day)), { phrases: logPhrases_() });   // 문구는 처음 열 때만 (저장 잠금 안에서 탭을 만들지 않게)
+  day = logDay_(day);
+  logWeatherMaybe_(day);
+  return logData_(day);
 }
 
 /** 저장 — 그날 줄을 새로 쓰거나 고침. ver(불러올 때 수정시각)가 다르면 덮어쓰지 않고 새 내용을 돌려줌 (명일 작업과 같음) */
@@ -1109,6 +1096,7 @@ function logSave(token, day, d, ver) {
   if (LOG_GRADES.indexOf(grade) === -1) return { ok: false, error: '미세먼지 등급을 골라 주세요' };
   patch['미세먼지등급'] = grade;
   patch['날씨'] = cleanText_(d['날씨'], 10);
+  patch['비고'] = String(d['비고'] || '').replace(/\r/g, '').replace(/[\u0000-\u0009\u000b-\u001f<>]/g, '').trim().slice(0, 500);   // 줄바꿈은 둠
   if (d['날씨출처'] !== undefined) patch['날씨출처'] = cleanText_(d['날씨출처'], 10);
   const works = d.works || {};
   for (let i = 0; i < LOG_DEPTS.length; i++) {
@@ -1131,6 +1119,7 @@ function logSave(token, day, d, ver) {
     let at = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss');
     if (at <= curVer) at = curVer + '+';   // 같은 초에 두 번 저장해도 ver가 바뀌게
     Object.assign(patch, { '수정자': me['이름'], '수정시각': at });
+    if (row) LOG_WX.forEach(function (k) { if (patch[k] === '' && row[k]) delete patch[k]; });   // 빈칸으로 보내도 자동으로 들어온 날씨는 지우지 않음 (오후 1시 전에 연 화면)
     const oldNight = row ? row['야간그림_id'] : '';
     if (night) patch['야간그림_id'] = saveBlob_(logFolder_(day), night, day + '_야간작업_001.jpg', '종합업무일지 야간 작업 ' + day + ' · ' + me['이름']);
     else if (d.night === '-') patch['야간그림_id'] = '';
@@ -1172,6 +1161,69 @@ function logSavePdf(token, day, dataUri, d, ver) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* 네이버 날씨 (6단계): 오후 1시 예약 작업이 그날 줄의 빈 날씨 칸만 채움. 화면 글을 읽는 방식이라 네이버가 바꾸면 끊길 수 있음 → 실패하면 빈칸, 직원이 직접 입력
+   shortcut: 네이버 화면 안 JSON(nowFcastInfo·weeklyFcastList·stationPm10)을 글자로 찾음 — 끊기면 이 세 곳 이름을 다시 확인 */
+function logWeatherFetch_(day) {
+  const get = function (path) {
+    const r = UrlFetchApp.fetch('https://weather.naver.com/' + path + '/' + LOG_WX_REGION, { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0' } });
+    return r.getResponseCode() === 200 ? r.getContentText() : '';
+  };
+  const n1 = function (v) { const x = Number(v); return v != null && isFinite(x) ? String(Math.round(x * 10) / 10) : ''; };
+  const today = get('today'), air = get('air'), ymd = day.replace(/-/g, '');
+  const now = /"nowFcastInfo":\{([^}]*)\}/.exec(today), pick = function (o, k) { const m = o && new RegExp('"' + k + '":"?([^",]*)').exec(o[1]); return m ? m[1] : null; };
+  const wk = new RegExp('"aplYmd":"' + ymd + '","aplYmdt":"[^"]*",[^}]*?"minTmpr":(-?[\\d.]+),"maxTmpr":(-?[\\d.]+)').exec(today);
+  const pm = /"stationPm10":(\d+(?:\.\d+)?),"stationPm10Legend":"([^"]*)"/.exec(air);
+  const o = { '날씨': cleanText_(pick(now, 'wetrTxt') || '', 10), '최저': wk ? n1(wk[1]) : '', '최고': wk ? n1(wk[2]) : '', '최고풍속': n1(pick(now, 'windSpd')),
+    '미세먼지': pm ? n1(pm[1]) : '', '미세먼지등급': pm && LOG_GRADES.indexOf(pm[2]) !== -1 ? pm[2] : '' };
+  return LOG_WX.some(function (k) { return o[k]; }) ? o : null;
+}
+/** 그날 줄의 빈 날씨 칸만 채움 (직원이 쓴 값은 그대로). 줄이 없으면 날씨만 든 줄을 만듦 */
+function logWeatherFill_(day) {
+  const w = logWeatherFetch_(day);
+  if (!w) { log_('예약 작업', '종합업무일지 날씨 실패', day, '네이버 날씨를 읽지 못함'); return null; }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ss = logBook_('일지시트ID', '종합업무일지');
+    const row = logRows_(ss).filter(function (r) { return r['일자'] === day; })[0] || null;
+    const patch = {};
+    LOG_WX.forEach(function (k) { if (w[k] && !(row && row[k])) patch[k] = w[k]; });
+    if (!Object.keys(patch).length) return w;
+    patch['날씨출처'] = '네이버';
+    withBook_(ss, function () {
+      if (row) updateRow_('일지', row._row, patch);   // 수정시각은 그대로 → 보고 있던 화면이 저장해도 겹침 안 남
+      else appendRow_('일지', Object.assign({ '일자': day, '작성자': '네이버 날씨' }, patch));
+    });
+    log_('예약 작업', '종합업무일지 날씨', day, JSON.stringify(patch));
+    return w;
+  } finally {
+    lock.releaseLock();
+  }
+}
+/** 예약 작업 (매일 오후 1시) */
+function logWeatherJob_() { logWeatherFill_(workDay_(Date.now())); }
+/** 예약이 빠졌을 때: 오늘 일지를 오후 1시 뒤에 열었는데 날씨가 비었으면 한 번 읽음 (실패하면 30분 동안 다시 안 함) */
+function logWeatherMaybe_(day) {
+  const now = new Date();
+  if (day !== workDay_(now.getTime()) || Number(Utilities.formatDate(now, TZ, 'HH')) < 13) return;
+  const cache = CacheService.getScriptCache(), key = 'lgwx_' + day;
+  if (cache.get(key)) return;
+  try {
+    const row = logRows_(logBook_('일지시트ID', '종합업무일지')).filter(function (r) { return r['일자'] === day; })[0];
+    if (row && row['날씨']) { cache.put(key, '1', 21600); return; }
+    cache.put(key, logWeatherFill_(day) ? '1' : '0', 1800);
+  } catch (e) { cache.put(key, '0', 1800); }
+}
+/** 시트 메뉴 ⑨: 예약 켜기 + 지금 한 번 읽어 보기 (처음 한 번은 구글이 「외부 서비스 연결」 권한을 물음) */
+function logWeatherMenu_() {
+  ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === 'logWeatherJob_') ScriptApp.deleteTrigger(tr); });
+  ScriptApp.newTrigger('logWeatherJob_').timeBased().everyDays(1).atHour(13).nearMinute(0).inTimezone(TZ).create();
+  let w = null;
+  try { w = logWeatherFetch_(workDay_(Date.now())); } catch (e) { w = null; }
+  SpreadsheetApp.getUi().alert('날씨 자동을 켰습니다. 매일 오후 1시쯤 네이버 날씨(잠실동)를 그날 일지에 넣습니다.\n\n' +
+    (w ? '지금 읽어 본 값: ' + LOG_WX.map(function (k) { return k + ' ' + (w[k] || '-'); }).join(' · ') : '지금은 네이버 날씨를 읽지 못했습니다. 화면에서 직접 입력해 주세요.'));
 }
 
 /* ───────────────────────── 출근현황 (WS_출근현황 15.3.19, 결정 88) ───────────────────────── */

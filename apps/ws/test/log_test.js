@@ -18,7 +18,8 @@ async function open(b, opt) {
 (async () => {
   await fetch('http://localhost:8123/seed');
   const today0 = new Date(Date.now() + 9 * 3600e3 - 6 * 3600e3).toISOString().slice(0, 10);
-  await run('appendRow_', 'TBM', { 'tbm_id': 'T1', '근무일': today0, '삭제여부': 'N', '작업표': JSON.stringify([{ place: '2층', work: '자동문 재결선', dept: '전방파트', risk: '감전' }, { place: '옥상', work: '배수구 청소', dept: '기건파트' }]) });
+  await run('appendRow_', 'TBM', { 'tbm_id': 'T1', '근무일': today0, '삭제여부': 'N', '작업표': JSON.stringify([{ place: '2층', work: '자동문 재결선', dept: '전방파트', risk: '감전' }, { place: '옥상', work: '배수구 청소', dept: '기건파트' }]
+    .concat(Array.from({ length: 11 }, (_, i) => ({ place: 'B' + (i + 1), work: '순찰', dept: '전방파트' })))) });   // 전기방재 12줄 → 10줄만
   const b = await chromium.launch();
   const p = await open(b, { viewport: { width: 1600, height: 1000 } });
   await p.waitForSelector('.lgs');
@@ -26,19 +27,11 @@ async function open(b, opt) {
   const today = new Date(Date.now() + 9 * 3600e3 - 6 * 3600e3).toISOString().slice(0, 10);
   ok(day === today, '오늘 근무일로 열림 ' + day);
   ok(await p.locator('.lgs h1').innerText() === '에비뉴엘 종합업무일지' && await p.locator('.lgsign th').count() === 4, '제목 · 서명란 4칸');
-  ok(await p.locator('.lgmc').count() === 12 && await p.locator('.lgmh .lgin').count() === 11, '에너지 막대 칸 12개 (입력 11 + 실온수 자동)');
-  ok(await p.locator('.lgwork li').count() === 30, '금일작업 전기방재·기계건축 15줄씩');
-  // 5단계: TBM 가져오기 · 자주 쓰는 문구 · 야간 그림
+  ok(await p.locator('.lgmc').count() === 8 && await p.locator('.lgmh .lgin').count() === 8 && !(await p.locator('[data-bars="급탕"],[data-bars="실온수"]').count()), '에너지 막대 칸 8개 (급탕·환탕·급탕탱크·실온수 뺌)');
+  ok(await p.locator('.lgwork li').count() === 20 && await p.locator('textarea[data-k="비고"]').count() === 1, '금일작업 10줄씩 + 아래 비고');
+  ok(!(await p.locator('.lgtools,.lgchip').count()), '종이 위 문구·TBM 줄 없음');
   const wv = (d, i) => p.inputValue('.lgin[data-d="' + d + '"][data-i="' + i + '"]');
-  ok(await wv('전기방재', 0) === '2층 자동문 재결선' && await wv('기계건축', 0) === '옥상 배수구 청소' && (await p.locator('#lgState').innerText()).indexOf('저장 안 함') !== -1, '새 날: TBM 작업 표로 금일작업 채워 둠 (작업위치 + 작업내용, 저장 전)');
-  ok(await p.locator('.lgchip').count() === 7 && /\(2줄\)/.test(await p.locator('.lgtools button.btn').innerText()), '문구 버튼 7개 · [TBM에서 가져오기 (2줄)]');
-  await p.click('.lgtg:has(b:text-is("기계건축")) .lgchip:text-is("미세먼지 측정")');
-  ok(await wv('기계건축', 1) === '미세먼지 측정' && await wv('전기방재', 1) === '', '문구 누르면 그 부서 빈 줄에');
-  await p.click('.lgtg:has(b:text-is("기계건축")) .lgchip:text-is("미세먼지 측정")');
-  ok(/이미 있는/.test(await p.locator('.toast').innerText()) && await wv('기계건축', 2) === '', '같은 문구 두 번은 안 들어감');
-  await p.locator('.lgin[data-d="기계건축"][data-i="0"]').fill('');
-  await p.click('.lgtools button.btn');   // 쓴 내용이 있으면 물어봄 (dialog 자동 확인)
-  ok(await wv('기계건축', 0) === '옥상 배수구 청소' && await wv('기계건축', 1) === '', 'TBM에서 다시 가져오기 = 물어보고 바꿈');
+  ok(await wv('전기방재', 0) === '2층 자동문 재결선' && await wv('전기방재', 9) === 'B9 순찰' && await wv('기계건축', 0) === '옥상 배수구 청소' && (await p.locator('#lgState').innerText()).indexOf('저장 안 함') !== -1, '새 날: TBM 작업 표로 금일작업 채워 둠 (10줄까지, 11번부터 뺌)');
   const png = await p.screenshot({ clip: { x: 0, y: 0, width: 800, height: 500 } });
   await p.setInputFiles('#lgNight input[type=file]', { name: 'night.png', mimeType: 'image/png', buffer: png });
   await p.waitForSelector('#lgNight img');
@@ -47,10 +40,9 @@ async function open(b, opt) {
   const set = (k, v) => p.locator('.lgin[data-k="' + k + '"]').fill(v);
   await set('영업시간', '9.5'); await set('날씨', '흐림'); await set('최저', '8'); await set('최고', '16'); await set('미세먼지', '38');
   await p.selectOption('select.lgin', '보통');
-  await set('시수', '102'); await set('급탕', '42'); await set('환탕', '28'); await set('전기', '17906');
+  await set('시수', '102'); await set('전기', '17906'); await set('비고', '1층 누수 확인\n내일 업체 방문');
   const bars = k => p.locator('[data-bars="' + k + '"] .lgbv .c').allInnerTexts();
   ok((await bars('시수')).join('|') === '102|102|102', '입력하면 일일·월누계·년누계 바로 바뀜 ' + (await bars('시수')).join('|'));
-  ok((await bars('실온수'))[0] === '14', '실온수 = 급탕 − 환탕 자동 (14)');
   ok(await p.locator('#lgHours').innerText() === '9.5', '영업시간 월누계 바로 바뀜');
   ok((await p.locator('#lgState').innerText()).indexOf('저장 안 함') !== -1, '고치면 「저장 안 함」');
   await p.locator('.lgin[data-d="전기방재"][data-i="0"]').fill('공사장 안전 점검');
@@ -58,7 +50,7 @@ async function open(b, opt) {
   await p.click('#lgSave'); await p.waitForFunction(() => S.lg && !S.lg.busy && !S.lg.dirty);
   const tk = await p.evaluate(() => S.token);
   let g = await run('logGet', tk, day);
-  ok(g.cur && g.cur['시수'] === '102' && g.cur.works['전기방재'][0] === '공사장 안전 점검' && g.vals.c['실온수'] === 14, '저장 → 일지 시트');
+  ok(g.cur && g.cur['시수'] === '102' && g.cur.works['전기방재'][0] === '공사장 안전 점검' && g.cur.works['전기방재'].length === 10 && g.cur['비고'] === '1층 누수 확인\n내일 업체 방문', '저장 → 일지 시트 (10줄 · 비고 줄바꿈)');
   ok(g.cur['야간그림_id'] && g.night.indexOf('data:image/jpeg') === 0 && await p.locator('#lgNight img').count() === 1, '야간 그림 저장 → 다시 열어도 보임');
   ok(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), '옆으로 넘침 없음 (1600px)');
   await p.screenshot({ path: 'shot_log_pc.png', fullPage: true });

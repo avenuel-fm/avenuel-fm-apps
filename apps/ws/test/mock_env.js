@@ -56,6 +56,9 @@ global.SpreadsheetApp = { getActiveSpreadsheet: () => ss, openById: id => { if (
 const props = {};
 global.PropertiesService = { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => props[k] = v }) };
 const cache = {};
+// 네이버 날씨 흉내: 시험이 global.NAVER.today·air에 화면 글을 넣음 (기본은 빈 화면 = 못 읽음)
+global.NAVER = { today: '', air: '', calls: 0 };
+global.UrlFetchApp = { fetch: u => { NAVER.calls++; const t = /\/air\//.test(u) ? NAVER.air : NAVER.today; return { getResponseCode: () => 200, getContentText: () => t }; } };
 global.CacheService = { getScriptCache: () => ({ get: k => k in cache ? cache[k] : null, put: (k, v) => cache[k] = v, remove: k => delete cache[k] }) };
 global.LockService = { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) };
 const files = {}; let fid = 0;

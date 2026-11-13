@@ -681,7 +681,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(logSave(lt, '2026-11-12', base, '').conflict, '일지: 예전 ver로 저장하면 겹침 알림 (덮어쓰지 않음)');
   assert(!logSave(lt, '2026-11-13', base, '').ok, '일지: 앞날은 저장 안 됨');
   assert(!logSave(lt, '2026-11-12', Object.assign({}, base, { '시수': '12a' }), s.ver).ok, '일지: 숫자 칸에 글자 거부');
-  assert(!logSave(lt, '2026-11-12', Object.assign({}, base, { works: { '전기방재': Array(16).fill('x') } }), s.ver).ok, '일지: 작업 16줄 거부');
+  assert(!logSave(lt, '2026-11-12', Object.assign({}, base, { works: { '전기방재': Array(11).fill('x') } }), s.ver).ok, '일지: 작업 11줄 거부 (10줄까지)');
   const s2 = logSave(lt, '2026-11-01', { '시수': '200' }, '');
   g = logGet(lt, '2026-11-12'); assert(g.month.c['시수'] === 302, '일지: 과거자료와 같은 날을 앱에서 쓰면 앱 값 (106 → 200)');
   g = logGet(lt, '2026-11-11'); assert(g.day === '2026-11-11' && g.vals.y['시수'] == null && g.month.c['시수'] === 200, '일지: 지난 날 열기 · 빈 날은 0으로 셈');
@@ -694,14 +694,8 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   p = logSavePdf(lt, '2026-11-12', pdf, Object.assign({}, base, { '시수': '103' }), p.ver);
   assert(p.ok && p.cur['시수'] === '103' && files[old].trashed && p.pdf.id !== old, '일지 PDF: 고친 내용 저장 + 새 PDF, 옛 PDF 휴지통');
   assert(!logSavePdf(lt, '2026-11-12', pdf, null, 'old').ok, '일지 PDF: 다른 사람이 고친 뒤면 PDF 안 만듦');
-  // 5단계: 자주 쓰는 문구 · TBM 가져오기 · 야간 그림
+  // 5단계: TBM 가져오기 · 야간 그림
   g = logGet(lt, '2026-11-09');
-  assert(g.phrases['전기방재'].length === 4 && g.phrases['기계건축'].join('|') === '공사장 안전 점검|미세먼지 측정|일일계량기 검침', '일지 문구: 탭 만들고 첫 목록 (전기방재 4 · 기계건축 3)');
-  appendRow_('일지문구', { '부서': '기계건축', '문구': '옥상 배수구 점검', '순서': '0', '사용여부': 'Y' });
-  appendRow_('일지문구', { '부서': '기계건축', '문구': '안 쓰는 문구', '순서': '9', '사용여부': 'N' });
-  appendRow_('일지문구', { '부서': '승강기', '문구': '없는 부서', '순서': '1', '사용여부': 'Y' });
-  g = logGet(lt, '2026-11-09');
-  assert(g.phrases['기계건축'][0] === '옥상 배수구 점검' && g.phrases['기계건축'].length === 4 && !g.phrases['승강기'], '일지 문구: 시트에서 더한 문구 순서대로 · 안 씀(N)·없는 부서는 뺌');
   assert(!g.tbm['전기방재'].length && !g.tbm['기계건축'].length, '일지 TBM: 그날 TBM·명일 작업 없으면 빈 목록');
   appendRow_('TBM', { 'tbm_id': 'T9', '근무일': '2026-11-09', '작업표': JSON.stringify([
     { place: '2층', work: '사파이어 라운지 자동문 재결선', dept: '전방파트', risk: '감전', kind: '감전', p: 2, s: 2, fixes: ['전원 차단'] },
@@ -720,5 +714,44 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(n.ok && files[nid].trashed, '일지 야간 그림: 바꾸면 옛 그림 휴지통');
   n = logSave(lt, '2026-11-09', Object.assign({}, base, { night: '-' }), n.ver);
   assert(n.ok && n.night === '', '일지 야간 그림: 빼기');
+  // 비고 (금일작업 10줄 아래, 줄바꿈 둠)
+  n = logSave(lt, '2026-11-09', Object.assign({}, base, { '비고': '1층 누수 확인\n내일 업체 방문<script>' }), n.ver);
+  assert(n.ok && n.cur['비고'] === '1층 누수 확인\n내일 업체 방문script', '일지 비고: 저장 (줄바꿈 둠, < > 뺌)');
+  // 6단계: 네이버 날씨 (오후 1시)
+  const wxToday = d => '..."nowFcastInfo":{"wetrCd":"7","wetrTxt":"흐림","regionName":"잠실동","tmpr":15.6,"windSpd":0.9,"oneHourRainAmt":"0.0"},"airNowInfo":{}...' +
+    '"pastWetr":{"aplYmd":"' + d + '","lareaNm":"서울","minTmpr":1.0,"maxTmpr":2.0}' +
+    '"weeklyFcastList":[{"naverRgnCd":"09710101","aplYmd":"' + d + '","aplYmdt":"' + d + '","amWetrCd":"5","amWetrTxt":"구름많음","pmRainProb":30,"minTmpr":8.0,"maxTmpr":17.4,"fcastYmdt":"x"}]';
+  NAVER.air = '"airNow":{"stationId":"송파구","stationPm10":42,"stationPm10Legend":"보통","stationPm25":27}';
+  NAVER.today = wxToday('20261114');
+  let w = logWeatherFetch_('2026-11-14');
+  assert(w && w['날씨'] === '흐림' && w['최저'] === '8' && w['최고'] === '17.4' && w['최고풍속'] === '0.9' && w['미세먼지'] === '42' && w['미세먼지등급'] === '보통', '날씨: 네이버 화면에서 날씨·오늘 최저·최고(예보)·풍속·송파구 미세먼지 값·등급 ' + JSON.stringify(w));
+  assert(logWeatherFetch_('2026-11-15')['최저'] === '', '날씨: 다른 날 예보는 안 씀 (최저·최고 빈칸)');
+  NOW.d = new Date('2026-11-14T10:00:00+09:00');
+  const lt2 = login('8642', 'log2', SIG).token;
+  const c0 = NAVER.calls; g = logGet(lt2, '');
+  assert(NAVER.calls === c0 && !g.cur, '날씨: 오후 1시 전에 열면 안 읽음');
+  g = logSave(lt2, '2026-11-14', { '영업시간': '10', works: { '전기방재': ['공사장 안전 점검'] } }, '');
+  const v14 = g.ver;
+  NOW.d = new Date('2026-11-14T13:02:00+09:00');
+  logWeatherJob_();
+  g = logGet(lt2, '');
+  assert(g.cur['날씨'] === '흐림' && g.cur['최저'] === '8' && g.cur['미세먼지'] === '42' && g.cur['날씨출처'] === '네이버' && g.cur['영업시간'] === '10' && g.ver === v14, '날씨: 오후 1시 예약 → 그날 줄의 빈 칸만 채움 (수정시각 그대로)');
+  g = logSave(lt2, '2026-11-14', { '영업시간': '10', '최저': '7', works: { '전기방재': ['공사장 안전 점검'] } }, v14);
+  assert(g.ok && g.cur['날씨'] === '흐림' && g.cur['미세먼지'] === '42' && g.cur['최저'] === '7', '날씨: 1시 전에 연 화면이 빈칸으로 저장해도 자동 값은 남고, 직원이 쓴 값은 그대로');
+  logWeatherJob_(); g = logGet(lt2, '');
+  assert(g.cur['최저'] === '7', '날씨: 직원이 고친 칸은 예약이 덮지 않음');
+  // 예약이 빠진 날: 오후 1시 뒤 처음 열 때 한 번 읽음, 못 읽으면 30분 동안 다시 안 함
+  NOW.d = new Date('2026-11-15T14:00:00+09:00');
+  const lt3 = login('8642', 'log3', SIG).token;
+  NAVER.today = ''; NAVER.air = '';
+  let c1 = NAVER.calls; g = logGet(lt3, '');
+  assert(NAVER.calls > c1 && !g.cur, '날씨: 못 읽으면 빈칸 (직접 입력)');
+  c1 = NAVER.calls; logGet(lt3, ''); assert(NAVER.calls === c1, '날씨: 실패 뒤 바로 또 읽지 않음');
+  NAVER.today = wxToday('20261116'); NAVER.air = '"stationPm10":12,"stationPm10Legend":"좋음"';
+  NOW.d = new Date('2026-11-16T15:00:00+09:00');
+  const lt4 = login('8642', 'log4', SIG).token;
+  g = logGet(lt4, '');
+  assert(g.cur && g.cur['날씨'] === '흐림' && g.cur['미세먼지등급'] === '좋음' && g.cur['작성자'] === '네이버 날씨', '날씨: 예약이 빠졌어도 1시 뒤 처음 열 때 채움');
+  assert(books[setting_('일지시트ID')].sheets['일지'].rows[0].slice(-1)[0] === '비고', '일지: 비고 열은 맨 끝');
   void s2;
 }
