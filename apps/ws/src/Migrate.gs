@@ -208,6 +208,41 @@ function migrateBuild_() {
     ['eh_stores', ehStores], ['eh_devices', ehDevices], ['cs_sites', csSites], ['cs_items', csItems], ['cs_checks', csChecks]];
 }
 
+/* ── 시트 메뉴 ⑬ 연결 확인: 아무것도 바꾸지 않고 읽기만 (열쇠·주소 → DB 표 → SQL 02~11 → 파일 저장소 → 옮긴 자료 수). 바꿔 타는 날 전에 몇 번이든 ── */
+const SB_CHECK_SQL = { ws_login: '02', ws_log_save: '03', ws_att_get: '04', ws_fe_list: '05', ws_eh_list: '06', ws_cs_get: '07', ws_risk_save: '08',
+  ws_migrate_clear: '09', ws_backup: '10', ws_log_weather: '11' };
+function supabaseCheckMenu_() {
+  const r = supabaseCheck_();
+  SpreadsheetApp.getUi().alert('Supabase 연결 확인 (읽기만)', r.lines.join('\n') + '\n\n' + (r.ok ? '모두 정상입니다.' : '✗ 줄을 먼저 고쳐 주세요.'), SpreadsheetApp.getUi().ButtonSet.OK);
+}
+function supabaseCheck_() {
+  const lines = [];
+  const why = function (e) {
+    const m = String(e.message || e), code = (/실패 \((\d+)\)/.exec(m) || [])[1];
+    return code === '401' || code === '403' ? '열쇠가 맞지 않음 (' + code + ') — SUPABASE_SERVICE_KEY 를 다시 넣거나, 대시보드 「Legacy API Keys」의 service_role 열쇠로 바꿔 보세요'
+      : /Address unavailable|DNS|resolve|연결/i.test(m) ? '주소에 연결 못 함 — SUPABASE_URL 확인' : m.slice(0, 200);
+  };
+  let c;
+  try { c = migrateConf_(); lines.push('✓ 열쇠·주소: ' + c.url); } catch (e) { return { ok: false, lines: ['✗ 열쇠·주소: ' + e.message] }; }
+  try { sbReq_('get', '/rest/v1/settings?select=key&limit=1'); lines.push('✓ DB 표 (01 실행됨, 열쇠 맞음)'); }
+  catch (e) { lines.push('✗ DB 표: ' + why(e)); return { ok: false, lines: lines }; }   // 열쇠가 틀리면 아래도 다 틀림
+  let ok = true;
+  try {
+    const miss = JSON.parse(sbReq_('post', '/rest/v1/rpc/ws_check_setup', {}).getContentText()).missing;
+    if (miss.length) { ok = false; lines.push('✗ SQL 실행 안 됨: ' + miss.map(function (f) { return SB_CHECK_SQL[f]; }).join(', ') + '번'); }
+    else lines.push('✓ SQL 02~11 모두 실행됨');
+  } catch (e) { ok = false; lines.push(/\(404\)/.test(e.message) ? '✗ SQL 11번이 아직 (02~11 차례로 실행)' : '✗ SQL 확인: ' + why(e)); }
+  try { sbReq_('post', '/storage/v1/object/list/ws-files', { prefix: '', limit: 1, offset: 0 }); lines.push('✓ 파일 저장소 ws-files'); }
+  catch (e) { ok = false; lines.push('✗ 파일 저장소 ws-files: ' + why(e)); }
+  try {
+    const h = sbReq_('get', '/rest/v1/staff?select=staff_id', undefined, { Prefer: 'count=exact', Range: '0-0' }).getHeaders();
+    const n = Number(String(h['Content-Range'] || h['content-range'] || '').split('/')[1]) || 0;
+    lines.push(n ? '· 옮긴 자료 있음 (직원 ' + n + '명) — ⑩을 이미 돌렸음. 다시 돌리면 DB를 비우고 새로 옮김' : '· DB 자료 아직 없음 (⑩ 전)');
+  } catch (e) { ok = false; lines.push('✗ 자료 수 읽기: ' + why(e)); }
+  lines.push('· 바꿔 탐 표시(SUPABASE_LIVE): ' + (sbLive_() ? '켜짐 — 날씨·서명 정리가 Supabase에 씀' : '꺼짐 — 지금은 시트에 씀'));
+  return { ok: ok, lines: lines };
+}
+
 /* ── 옛 파일 링크 공유: 앱(로그인 없는 휴대폰)에서 사진이 보이게. 5분씩 끊어 하고 어디까지 했는지 기억 → 「끝」까지 여러 번 ── */
 function migrateShareMenu_() {
   const r = migrateShareFiles_();

@@ -31,7 +31,7 @@ global.LockService = { getScriptLock: () => ({ tryLock: () => !lockBusy, waitLoc
 
 /* ── 가짜 Supabase ── */
 const S = { rows: [], obj: {}, calls: [], patchMiss: {}, tick: 0 };
-const res = (code, body, blob) => ({ getResponseCode: () => code, getContentText: () => typeof body === 'string' ? body : JSON.stringify(body), getBlob: () => blob });
+const res = (code, body, blob, hdr) => ({ getHeaders: () => hdr || {}, getResponseCode: () => code, getContentText: () => typeof body === 'string' ? body : JSON.stringify(body), getBlob: () => blob });
 global.UrlFetchApp = { fetch: (u, o) => {
   S.calls.push({ u, o });
   if (o.headers.Authorization !== 'Bearer svc' || o.headers.apikey !== 'svc') return res(401, 'no key');
@@ -56,6 +56,7 @@ global.UrlFetchApp = { fetch: (u, o) => {
   }
   if (pth === '/storage/v1/object/ws-files' && m === 'delete') { body.prefixes.forEach(k => delete S.obj[k]); return res(200, []); }
   if (pth === '/storage/v1/object/list/ws-files') {
+    if (S.noBucket) return res(400, '{"statusCode":"404","error":"Bucket not found"}');
     const kids = {};
     Object.keys(S.obj).filter(k => k.startsWith(body.prefix)).forEach(k => {
       const rest = k.slice(body.prefix.length), i = rest.indexOf('/');
@@ -63,6 +64,9 @@ global.UrlFetchApp = { fetch: (u, o) => {
     });
     return res(200, Object.values(kids).sort((a, b) => a.name < b.name ? -1 : 1).slice(body.offset, body.offset + body.limit));
   }
+  if (pth === '/rest/v1/rpc/ws_check_setup') return S.noSql11 ? res(404, '{"code":"PGRST202"}') : res(200, { missing: S.missing || [] });
+  if (pth === '/rest/v1/settings' && m === 'get') return res(200, [{ key: 'x' }]);
+  if (pth === '/rest/v1/staff' && m === 'get') return o.headers.Prefer === 'count=exact' && o.headers.Range === '0-0' ? res(206, [{ staff_id: 'S001' }], null, { 'Content-Range': '0-0/' + (S.staffN || 0) }) : res(400, 'no count');
   if (pth === '/rest/v1/rpc/ws_backup') return res(200, body.p_table === 'files' ? S.rows : body.p_table === 'staff' ? [{ staff_id: 'S001', name: '홍,"길동"', meta: { a: 1 } }] : []);
   return res(404, 'unknown ' + m + ' ' + pth);
 } };
@@ -144,6 +148,29 @@ const put = (i, kind, days, folder, name, objDays) => {
   err = ''; try { sbReq_('post', '/rest/v1/nothing?x=1', {}); } catch (e2) { err = e2.message; }
   ok(err === '/rest/v1/nothing 실패 (404): unknown post /rest/v1/nothing', '실패 안내에 주소 뒤쪽(조건)은 안 보임');
 
+  // 메뉴 ⑬ 연결 확인 (읽기만)
+  S.calls.length = 0;
+  let ck = supabaseCheck_();
+  ok(ck.ok && ck.lines.join('|') === '✓ 열쇠·주소: https://kjh.supabase.co|✓ DB 표 (01 실행됨, 열쇠 맞음)|✓ SQL 02~11 모두 실행됨|✓ 파일 저장소 ws-files|· DB 자료 아직 없음 (⑩ 전)|· 바꿔 탐 표시(SUPABASE_LIVE): 꺼짐 — 지금은 시트에 씀', '⑬ 모두 정상: ' + ck.lines.join(' / '));
+  ok(S.calls.every(x => x.o.method === 'get' || /ws_check_setup|object\/list/.test(x.u)), '⑬ 읽기만 함 (쓰기·지우기 없음)');
+  S.staffN = 19; props.setProperty('SUPABASE_LIVE', 'Y');
+  ck = supabaseCheck_();
+  ok(ck.ok && /직원 19명\) — ⑩을 이미 돌렸음/.test(ck.lines[4]) && /켜짐/.test(ck.lines[5]), '⑬ 옮긴 뒤: 자료 수·바꿔 탐 표시');
+  props.setProperty('SUPABASE_LIVE', '');
+  S.missing = ['ws_risk_save', 'ws_backup', 'ws_log_weather']; S.noBucket = true;
+  ck = supabaseCheck_();
+  ok(!ck.ok && ck.lines[2] === '✗ SQL 실행 안 됨: 08, 10, 11번' && /^✗ 파일 저장소 ws-files: .*Bucket not found/.test(ck.lines[3]), '⑬ 빠진 SQL 번호·저장소 없음 안내');
+  S.missing = []; S.noBucket = false; S.noSql11 = true;
+  ok(supabaseCheck_().lines[2] === '✗ SQL 11번이 아직 (02~11 차례로 실행)', '⑬ SQL 11 전');
+  S.noSql11 = false;
+  props.setProperty('SUPABASE_SERVICE_KEY', 'wrong');
+  ck = supabaseCheck_();
+  ok(!ck.ok && ck.lines.length === 2 && /열쇠가 맞지 않음 \(401\).*Legacy API Keys/.test(ck.lines[1]), '⑬ 열쇠가 틀리면 Legacy service_role 안내 후 멈춤');
+  props.setProperty('SUPABASE_URL', 'https://kjh.supabase.co/rest/v1');
+  ck = supabaseCheck_();
+  ok(!ck.ok && ck.lines.length === 1 && /SUPABASE_URL/.test(ck.lines[0]), '⑬ 주소 모양이 틀리면 첫 줄에서 안내');
+  props.setProperty('SUPABASE_URL', 'https://kjh.supabase.co'); props.setProperty('SUPABASE_SERVICE_KEY', 'svc');
+
   // DB: ws_backup (10_archive.sql)
   const { PGlite } = require('@electric-sql/pglite');
   const { pgcrypto } = require('@electric-sql/pglite/contrib/pgcrypto');
@@ -156,7 +183,7 @@ create table storage.objects (id uuid primary key default gen_random_uuid(), buc
 alter table storage.objects enable row level security;
 grant usage on schema public, storage to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;`);
-  for (const f of ['01_schema_rls.sql', '02_login.sql', '03_docs.sql', '04_attendance.sql', '05_fire.sql', '06_eh.sql', '07_cs.sql', '08_settings.sql', '09_migrate.sql', '10_archive.sql'])
+  for (const f of ['01_schema_rls.sql', '02_login.sql', '03_docs.sql', '04_attendance.sql', '05_fire.sql', '06_eh.sql', '07_cs.sql', '08_settings.sql', '09_migrate.sql', '10_archive.sql', '11_cutover.sql'])
     await db.exec(fs.readFileSync(path.join(__dirname, '..', 'supabase', f), 'utf8'));
   const as = async (role, s) => { await db.exec('set role ' + role); try { return (await db.query(s)).rows; } catch (x) { return x; } finally { await db.exec('reset role'); } };
   const rk = await as('service_role', "select ws_backup('risk_list') r");
@@ -164,6 +191,10 @@ alter default privileges in schema public grant all on tables to anon, authentic
   ok(Array.isArray((await as('service_role', "select ws_backup('cs_checks') r"))[0].r), 'ws_backup: 빈 표는 []');
   ok(/백업할 수 없는 표/.test((await as('service_role', "select ws_backup('ws_sessions')")).message) && /백업할 수 없는 표/.test((await as('service_role', "select ws_backup('staff; drop table files')")).message), 'ws_backup: 정해 둔 표만 (기기 표·이상한 이름 막음)');
   ok(/permission denied/.test((await as('authenticated', "select ws_backup('staff')")).message) && /permission denied/.test((await as('anon', "select ws_backup('staff')")).message), 'ws_backup: 앱 화면은 못 부름');
+  ok(JSON.stringify((await as('service_role', 'select ws_check_setup() r'))[0].r) === '{"missing":[]}', 'ws_check_setup: 02~11 다 실행하면 빠진 것 없음');
+  await db.exec('drop function public.ws_backup(text)');
+  ok(JSON.stringify((await as('service_role', 'select ws_check_setup() r'))[0].r.missing) === '["ws_backup"]', 'ws_check_setup: 빠진 SQL의 함수 이름을 알려 줌');
+  ok(/permission denied/.test((await as('authenticated', 'select ws_check_setup()')).message), 'ws_check_setup: 앱 화면은 못 부름');
   await db.close();
 
   console.log(fail ? '\n드라이브 옮기기 시험 실패 ' + fail + '개' : '\n드라이브 옮기기 시험 통과');

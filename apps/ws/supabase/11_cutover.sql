@@ -6,7 +6,8 @@
 --  · ws_log_weather(일자, 날씨): 매일 오후 1시 네이버 날씨 → 그날 일지의 **빈 날씨 칸만** 채움 (Code.gs logWeatherFill_ 와 같음)
 --      줄이 없으면 날씨만 든 줄을 만듦. 수정시각(updated_at)은 그대로 → 일지를 보고 있던 화면이 저장해도 겹침 안 남
 --  · ws_clean_signs(일수): 매일 새벽 3시 — TBM PDF에 안 쓰인 서명을 90일 뒤 지운 표시, 드라이브로 옮긴 서명 그림 번호를 돌려줌(Apps Script가 휴지통으로)
---  · 둘 다 service_role(관리자 열쇠)만 — 앱 화면은 못 부름
+--  · ws_check_setup(): 시트 메뉴 ⑬ 연결 확인 — 02~11 을 실행했는지 (읽기만)
+--  · 모두 service_role(관리자 열쇠)만 — 앱 화면은 못 부름
 -- ============================================================================
 create or replace function public.ws_log_weather(p_day date, p_w jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
@@ -62,3 +63,14 @@ begin
 end $$;
 revoke all on function public.ws_clean_signs(int) from public, anon, authenticated;
 grant execute on function public.ws_clean_signs(int) to service_role;
+
+-- 연결 확인 (시트 메뉴 ⑬, 읽기만): 02~11 SQL 을 실행했는지 — 파일마다 대표 함수가 있는지 봄
+create or replace function public.ws_check_setup()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('missing', coalesce(jsonb_agg(f order by i) filter (where not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = f)), '[]'::jsonb))
+  from unnest(array['ws_login', 'ws_log_save', 'ws_att_get', 'ws_fe_list', 'ws_eh_list', 'ws_cs_get', 'ws_risk_save', 'ws_migrate_clear', 'ws_backup', 'ws_log_weather'])
+    with ordinality u(f, i);
+$$;
+revoke all on function public.ws_check_setup() from public, anon, authenticated;
+grant execute on function public.ws_check_setup() to service_role;

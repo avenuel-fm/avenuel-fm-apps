@@ -68,6 +68,7 @@ function onOpen() {
     .addItem('⑩ Supabase로 옮기기 (바꿔 타는 날 한 번)', 'migrateMenu_')   // Migrate.gs (이관 4단계)
     .addItem('⑪ Supabase: 옛 파일 링크 공유 (「끝」까지 여러 번)', 'migrateShareMenu_')
     .addItem('⑫ Supabase: 주 1회 드라이브로 옮기기 켜기 (바꿔 탄 뒤)', 'archiveMenu_')   // Archive.gs (이관 5단계)
+    .addItem('⑬ Supabase: 연결 확인 (읽기만, 언제든)', 'supabaseCheckMenu_')   // Migrate.gs
     .addToUi();
 }
 

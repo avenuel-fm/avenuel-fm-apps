@@ -209,14 +209,15 @@
   - 매일 새벽 3시 서명 정리(`cleanSigns_`) → DB `ws_clean_signs`: TBM PDF에 안 쓴 서명 90일 뒤 지운 표시, 드라이브로 옮긴 그림만 휴지통.
   - 되돌릴 때는 스크립트 속성에서 `SUPABASE_LIVE` 를 지움 → 다시 시트에 씀.
   - DB 함수 `apps/ws/supabase/11_cutover.sql` (10 다음, 관리자 열쇠만).
+- **시트 메뉴 ⑬ 연결 확인 (읽기만, 언제든)** (11-14 사용자 「만들어 줘」): 아무것도 바꾸지 않고 ✓/✗ 로 보여 줌 — 열쇠·주소 모양 → DB 표 읽기(열쇠가 틀리면 401 → 「Legacy API Keys」의 service_role 로 바꿔 보라고 안내하고 멈춤) → SQL 02~11 실행 여부(파일마다 대표 함수, DB `ws_check_setup`, 빠진 번호를 알려 줌) → 파일 저장소 `ws-files` → 옮긴 자료 수(직원 n명 = ⑩을 이미 돌렸음) → 바꿔 탐 표시. 시험: 드라이브 옮기기 시험에 10개 더함(35개).
 - 공조기·에어커튼 가동시간은 이미 Supabase 화면이 구글 `?api=logac` 으로 받음(3-2). HUB용 `?api=summary` 는 HUB가 아직 없어 시트에서 그대로 읽음 → HUB 만들 때 Supabase로.
 - 시험: `npm run test:migrate` 옮기기 **39개**(바꿔 탄 뒤 11개 더함: 표시 켜짐, 날씨 빈 칸만·수정시각 그대로·겹침 안 남·두 번 불러도 같음·날씨만 든 줄, 서명 정리, 앱 화면 막힘, 예약이 Supabase 부름, 되돌리기) + 드라이브 옮기기 25, 화면 `npm run test:sb` 로그인 시험에 스위치 3개 더함(LIVE false·true·되돌리기). SQL · 기존 전체 시험 「모두 통과」.
 
-**바꿔 타는 날 순서표** (아침 출근 전, 운영판 수정은 그날 멈춤)
+**바꿔 타는 날 순서표** (아침 출근 전, 운영판 수정은 그날 멈춤. 1~3번과 ⑬ 확인은 그 전에 미리 해도 됨 — 직원 화면은 그대로)
 1. Supabase SQL Editor: `02` ~ `11` 차례로 Run (01은 실행 완료).
-2. Apps Script 스크립트 속성: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (관리자 열쇠 — **사용자가 직접**, 채팅·코드에 안 씀).
+2. Apps Script 스크립트 속성: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (관리자 열쇠 — **사용자가 직접**, 채팅·코드에 안 씀). **11-14 넣음.**
 3. Apps Script에 `Code.gs` · `Index.html` · `Migrate.gs` · `Archive.gs` 올리기 → 배포 관리 ✏ 새 버전 (새 배포 금지).
-4. 시트 메뉴 **⑩ Supabase로 옮기기** → 줄 수 확인 (이때부터 날씨·서명 정리는 Supabase).
+4. 시트 메뉴 **⑬ 연결 확인** → 모두 ✓ 인지 보고, 시트 메뉴 **⑩ Supabase로 옮기기** → 줄 수 확인 (이때부터 날씨·서명 정리는 Supabase).
 5. 시트 메뉴 **⑪ 옛 파일 링크 공유** 를 「끝」까지.
 6. 바로가기 저장소에 `fm/` 올리기 — `fm/ws/config.js` 의 `LIVE: true` 로 바꿔서 (`app.html`·`check-sb.html`·`eh-sb.html`·`ws-api.js`·`index.html` 포함).
 7. 휴대폰 1대로 확인: 기기 등록(공용 계정) → PIN → 서명 → 소화기 QR 하나 찍기 → 전열필증 QR → TBM 열기.
