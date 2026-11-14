@@ -1,5 +1,5 @@
 // Supabase 이관 SQL 시험 — PGlite(작은 PostgreSQL)에 Supabase 비슷한 틀(역할·auth·storage)을 만들고
-// supabase/01_schema_rls.sql · 02_login.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
+// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
 // 쓰는 법: node test/sql_test.js   (끝에 「SQL 시험 통과」)
 const { PGlite } = require('@electric-sql/pglite');
 const { pgcrypto } = require('@electric-sql/pglite/contrib/pgcrypto');
@@ -143,6 +143,102 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const ids = (await q("select sign_id from signs order by sign_id")).map(x => x.sign_id.slice(-3)).join(',');
   ok(ids === '001,002,003', '서명 번호 이어 붙임 ' + ids);
 
+  // ══ 3-2 서류작업: 명일 작업 · TBM · 종합업무일지 (03_docs.sql) ══
+  await db.exec(SQL('03_docs.sql')); await db.exec(SQL('03_docs.sql'));
+  ok(true, '03_docs.sql 실행됨 (두 번)');
+  const call = async (fn, args) => (await as('authenticated', 'select ' + fn + '(' + args.map((_, i) => '$' + (i + 1)).join(',') + ') r', args))[0].r;
+  const callErr = async (fn, args) => { try { await call(fn, args); return ''; } catch (e) { await db.exec('reset role'); return e.message; } };
+  const tk = (await login('1234', 'docs')).token;   // 앞에서 쓴 표는 로그아웃 시험으로 끝남
+  const J = o => JSON.stringify(o);
+  const PUB = 'https://kjhsduhufwaihhlfdipf.supabase.co/storage/v1/object/public/ws-files/';
+  const F = (kind, n, ext) => { const p = kind + '/' + ym + '/' + n + '.' + (ext || 'jpg'); return { url: PUB + p, path: p }; };
+  const tomorrow = iso(Date.parse(D) + 864e5), yest = iso(Date.parse(D) - 864e5);
+  ok(/permission denied/.test(await asErr('anon', "select ws_next_work_get('x','')")), '비로그인: 명일 작업 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', 'select ws_nw_data(current_date)')), '로그인 기기: 도우미(ws_nw_data) 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', "select ws_add_file('x','{}','','','','')")), '로그인 기기: 도우미(ws_add_file) 못 부름');
+  ok(/LOGIN/.test(await callErr('ws_tbm_get', ['bad.token', ''])), '틀린 기기 표 → LOGIN');
+
+  // 명일 작업
+  let n = await call('ws_next_work_get', [tk, '']);
+  ok(n.ok && n.defaultDate === tomorrow && n.date === tomorrow && n.workDay === D && n.ver === '' && n.rows.length === 0, '명일 작업: 기본 일자 = 내일, 빈 표');
+  ok((await call('ws_next_work_get', [tk, '2026-13-40'])).ok === false, '명일 작업: 틀린 날짜 → 안내');
+  const rows1 = [{ dept: '전방파트', place: '  1층  복도 ', work: '<b>등 교체</b> 사다리', note: '' }, { dept: '기건파트', place: '', work: ' ', note: '' }];
+  n = await call('ws_next_work_save', [tk, D, J(rows1), '']);
+  ok(n.ok && n.rows.length === 1 && n.rows[0].place === '1층 복도' && n.rows[0].work === 'b등 교체/b 사다리' && n.by === '홍길동' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/.test(n.ver), '명일 작업 저장: 빈 줄 빼고 글자 정리, ver ' + n.ver);
+  const v1 = n.ver;
+  n = await call('ws_next_work_save', [tk, D, J(rows1), '']);
+  ok(n.ok === false && n.conflict && /홍길동님이 먼저/.test(n.error) && n.rows.length === 1, '명일 작업: 옛 ver로 저장 → 겹침 안내 + 새 내용');
+  n = await call('ws_next_work_save', [tk, D, J([{ dept: '없는부서', work: 'x' }]), v1]);
+  ok(n.ok === false && /부서/.test(n.error), '명일 작업: 부서 없으면 안내');
+  n = await call('ws_next_work_save', [tk, D, J(Array.from({ length: 31 }, () => ({ dept: '전방파트', work: 'x' }))), v1]);
+  ok(n.ok === false && /30줄/.test(n.error), '명일 작업: 31줄 → 안내');
+  n = await call('ws_next_work_save', [tk, D, J([rows1[0], { dept: '기건파트', place: 'B1', work: '펌프 점검', note: '오전' }]), v1]);
+  ok(n.ok && n.rows.length === 2 && n.ver > v1, '명일 작업: 새 ver로 다시 저장 (2줄)');
+
+  // TBM
+  let t = await call('ws_tbm_get', [tk, '']);
+  ok(t.ok && t.day === D && !t.saved && t.works.length === 2 && t.works[0].n === '' && t.checks === null, 'TBM: 저장 전 → 그날 명일 작업 2줄을 가져옴');
+  ok(t.risks.length === 18 && t.risks[0].words[0] === '사다리' && t.risks[0].fixes[0].on === true && !/✓/.test(t.risks[0].fixes[0].t) && t.risks[0].fixes[2].on === false, 'TBM: 위험성 목록 18줄, ✓ = 미리 체크');
+  ok(t.signs.length >= 1 && t.signs[0].no === 1 && /^https:\/\/x\/sign\//.test(t.signs[0].img) && /^\d{2}:\d{2}$/.test(t.signs[0].at) && t.manager && t.manager.name === '홍길동', 'TBM: 서명 목록(그림 주소) · 관리감독자 소장');
+  ok(/파일 정보/.test(await callErr('ws_tbm_save', [tk, J({ works: [] }), J({ meet: { url: 'https://evil/x.jpg', path: 'tbm_meet/2026-11/a.jpg' } })])), 'TBM: 버킷 밖 사진 주소 → 거부');
+  ok(/파일 정보/.test(await callErr('ws_tbm_save', [tk, J({ works: [] }), J({ meet: F('sign', 'a') })])), 'TBM: 다른 종류 경로 → 거부');
+  const w0 = { place: '1층', work: '등 교체', dept: '전방파트', n: 'x', risk: 'r', kind: 'k', p: 5, s: '2', fixes: ['a', 'b', '', 'c', 'd', 'e', 'f', 'g'] };
+  let sv = await call('ws_tbm_save', [tk, J({ day: '', works: [w0], checks: { 사다리: true, 비계: false, 없는칸: true } }), J({ meet: F('tbm_meet', 'm1') })]);
+  ok(sv.ok && /^\d{4}-/.test(sv.at), 'TBM 저장');
+  t = await call('ws_tbm_get', [tk, '']);
+  const tw = t.works[0];
+  ok(t.saved && tw.n === '' && tw.p === '' && tw.s === 2 && tw.fixes.join('') === 'abcde' && J(t.checks) === '{"사다리":true}' && /tbm_meet\/.+m1\.jpg$/.test(t.photos.meet) && t.photos.chant === '', 'TBM: 숫자·개선조치(앞 6개 중 빈칸 빼고)·체크칸 정리, 회의 사진 주소');
+  ok((await one('select tbm_id from tbm')).tbm_id === 'WS-TB-' + D.replace(/-/g, '') + '-001', 'TBM 번호 WS-TB-날짜-001');
+  sv = await call('ws_tbm_save', [tk, J({ works: Array(31).fill(w0) }), '{}']);
+  ok(sv.ok === false && /30줄/.test(sv.error), 'TBM: 31줄 → 안내');
+  await call('ws_tbm_save', [tk, J({ works: [w0] }), J({ chant: F('tbm_chant', 'c1') })]);
+  t = await call('ws_tbm_get', [tk, '']);
+  ok(/m1\.jpg$/.test(t.photos.meet) && /c1\.jpg$/.test(t.photos.chant), 'TBM: 구호 사진만 바꿔도 회의 사진은 그대로');
+  const sid = t.signs.map(x => x.id);
+  let pd = await call('ws_tbm_save_pdf', [tk, J({ pdf: F('tbm_pdf', 'p1', 'pdf') }), J(sid), null, '']);
+  ok(pd.ok && pd.pdf.signs === sid.length && /p1\.pdf$/.test(pd.pdf.url) && pd.pdf.shared === true, 'TBM PDF 저장 (서명 ' + sid.length + '명)');
+  ok((await one('select count(*)::int n from signs where tbm_used')).n === sid.length, 'TBM PDF: 쓰인 서명 표시');
+  ok((await one("select file_name from files where kind = 'tbm_pdf'")).file_name === D + '_TBM.pdf', 'TBM PDF 파일 이름 ' + D + '_TBM.pdf');
+  t = await call('ws_tbm_get', [tk, '']);
+  ok(t.pdf && t.pdf.at >= t.at, 'TBM: PDF 뒤 고친 것 없음 (pdf.at ≥ at)');
+  pd = await call('ws_tbm_save_pdf', [tk, J({ pdf: F('tbm_pdf', 'p2', 'pdf') }), '[]', null, yest]);
+  ok(pd.ok === false && /먼저/.test(pd.error), 'TBM: 저장 안 한 지난 날 PDF → 「먼저 저장」');
+  pd = await call('ws_tbm_save_pdf', [tk, J({ pdf: F('tbm_pdf', 'p3', 'pdf') }), '[]', J({ day: yest, works: [] }), yest]);
+  ok(pd.ok && (await call('ws_tbm_get', [tk, yest])).saved === true, 'TBM: 지난 날짜 저장 + PDF 한 번에');
+  ok((await call('ws_tbm_get', [tk, tomorrow])).day === D, 'TBM: 앞날을 고르면 오늘');
+
+  // 종합업무일지
+  const prevY = (Number(D.slice(0, 4)) - 1) + D.slice(4);
+  await q('insert into daily_log (log_date, electricity, business_hours) values ($1, 100, 10), ($2, 50, 12)', [prevY, yest]);   // 과거자료 (updated_at 없음)
+  let lg = await call('ws_log_get', [tk, '']);
+  ok(lg.ok && lg.day === D && lg.prevDay === prevY && lg.cur === null && lg.ver === '' && lg.vals.y['전기'] === 50 && lg.vals.p['전기'] === 100, '일지: 빈 날, 어제·전년 같은 날 값');
+  ok(lg.tbm['전기방재'][0] === '1층 등 교체' && lg.tbm['기계건축'].length === 0, '일지: TBM 작업 표에서 금일작업 (부서 이름 바꿈)');
+  ok((await call('ws_log_get', [tk, '2099-01-01'])).day === D, '일지: 앞날 → 오늘');
+  const base = { 영업시간: '11', 전기: '1,234.5', 날씨: '맑음', 미세먼지등급: '보통', 비고: '줄1\n줄2<x>', works: { 전기방재: ['a', ' ', 'b'], 기계건축: [] } };
+  lg = await call('ws_log_save', [tk, D, J(Object.assign({}, base, { 전기: '12a' })), '', '{}']);
+  ok(lg.ok === false && /전기 칸에는 숫자만/.test(lg.error), '일지: 숫자 칸에 글자 → 안내');
+  lg = await call('ws_log_save', [tk, D, J(Object.assign({}, base, { 미세먼지등급: '최악' })), '', '{}']);
+  ok(lg.ok === false && /등급/.test(lg.error), '일지: 등급 틀림 → 안내');
+  lg = await call('ws_log_save', [tk, tomorrow, J(base), '', '{}']);
+  ok(lg.ok === false && /일자/.test(lg.error), '일지: 앞날 저장 → 안내');
+  lg = await call('ws_log_save', [tk, D, J(base), '', J({ night: F('log_night', 'n1') })]);
+  ok(lg.ok && lg.cur['전기'] === '1234.5' && lg.cur['영업시간'] === '11' && lg.cur.works['전기방재'].join() === 'a,b' && lg.cur['비고'] === '줄1\n줄2x' && lg.cur['작성자'] === '홍길동' && /n1\.jpg$/.test(lg.night) && lg.ver && lg.by === '홍길동', '일지 저장: 숫자·금일작업·비고(줄바꿈 둠)·야간 그림');
+  const sameM = D.slice(0, 7) === yest.slice(0, 7), sameY = D.slice(0, 4) === yest.slice(0, 4);
+  ok(lg.month.c['전기'] === (sameM ? 1284.5 : 1234.5) && lg.year.c['전기'] === (sameY ? 1284.5 : 1234.5) && lg.year.p['전기'] === 100, '일지: 월·년 누계 ' + lg.month.c['전기'] + ' · 전년 ' + lg.year.p['전기']);
+  const lv = lg.ver;
+  lg = await call('ws_log_save', [tk, D, J(base), '', '{}']);
+  ok(lg.ok === false && lg.conflict && /홍길동님이 먼저/.test(lg.error) && lg.cur, '일지: 옛 ver → 겹침 안내 + 새 내용');
+  await q("update daily_log set t_min = -3, weather_source = '네이버' where log_date = $1", [D]);   // 오후 1시 날씨 자동 (구글이 넣음, 수정시각 그대로)
+  lg = await call('ws_log_save', [tk, D, J(Object.assign({}, base, { 날씨: '', 최저: '', night: '-' })), lv, '{}']);
+  ok(lg.ok && lg.cur['최저'] === '-3' && lg.cur['날씨'] === '맑음' && lg.cur['날씨출처'] === '네이버' && lg.night === '', '일지: 빈칸으로 보내도 자동 날씨는 그대로, 야간 그림 빼기');
+  lg = await call('ws_log_save_pdf', [tk, D, J({ pdf: F('log_pdf', 'l1', 'pdf') }), null, lv]);
+  ok(lg.ok === false && lg.conflict, '일지 PDF: 옛 ver → 겹침');
+  const lv2 = (await call('ws_log_get', [tk, D])).ver;
+  lg = await call('ws_log_save_pdf', [tk, D, J({ pdf: F('log_pdf', 'l1', 'pdf') }), null, lv2]);
+  ok(lg.ok && lg.pdf && /l1\.pdf$/.test(lg.pdf.url) && lg.warn === '', '일지 PDF 저장');
+  lg = await call('ws_log_save_pdf', [tk, yest, J({ pdf: F('log_pdf', 'l2', 'pdf'), night: F('log_night', 'n2') }), J(base), '']);
+  ok(lg.ok && lg.day === yest && /l2\.pdf$/.test(lg.pdf.url) && /n2\.jpg$/.test(lg.night) && lg.cur['작성자'] === '홍길동', '일지: 과거자료 날(ver 빈칸)을 고쳐 저장 + PDF 한 번에');
+  ok((await one("select count(*)::int n from files where kind like 'log_%' and not is_archived")).n === 4, '일지 파일 4개가 files 표에 (드라이브 이관 대상)');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

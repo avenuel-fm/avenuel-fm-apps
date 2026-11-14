@@ -455,6 +455,10 @@ function api_(p) {
     } else if (p.api === 'summary') {
       if (!p.key || p.key !== PropertiesService.getScriptProperties().getProperty('LINK_KEY')) throw new Error('키가 맞지 않습니다');
       out = summary_();
+    } else if (p.api === 'logac') {
+      // Supabase 판 종합업무일지용 공조기·에어커튼 가동시간 (온습도 앱 기록, 결정 120) — 장비 가동시간만이라 키 없이
+      const day = logDay_(p.day);
+      out = { ok: true, day: day, ac: logAc_(day) };
     } else {
       throw new Error('알 수 없는 요청');
     }

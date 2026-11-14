@@ -4,5 +4,7 @@
 window.WS_CONFIG = Object.freeze({
   SUPABASE_URL: 'https://kjhsduhufwaihhlfdipf.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_fOT-Mnciwl0HDrPKbfOh4g_VrcOObR6',   // publishable(anon) 키
-  SUPABASE_BUCKET_NAME: 'ws-files'   // 01_schema_rls.sql 8장의 공개 버킷
+  SUPABASE_BUCKET_NAME: 'ws-files',   // 01_schema_rls.sql 8장의 공개 버킷
+  // 구글에 남는 일(공조기 가동시간 ?api=logac)을 부르는 업무지원 웹앱 주소 — fm/apps.js 의 ws.exec 와 같음
+  WS_GAS_URL: 'https://script.google.com/macros/s/AKfycbxzD0-R4Cg5_eeECMfgLok3lCSOZuac5cwVSVLvVuQTp_d3rfm_HWH1ju-EmyVC5qut6Q/exec'
 });

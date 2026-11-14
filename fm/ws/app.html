@@ -1530,7 +1530,7 @@ async function lgPdf() {
       try {
         uri = await html2pdf().set({
           margin: 0, filename: g.day + '_종합업무일지.pdf', image: { type: 'jpeg', quality: 0.92 },
-          html2canvas: { scale: 2, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, x: 0, y: 0, windowWidth: 1587 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, x: 0, y: 0, windowWidth: 1587 },   // 야간 그림이 Supabase 주소여도 PDF에 들어가게
           jsPDF: { unit: 'mm', format: [364, 257], orientation: 'landscape' }, pagebreak: { mode: ['legacy'] }
         }).from(box.firstChild).outputPdf('datauristring');
       } finally { window.scrollTo(0, keepY); }

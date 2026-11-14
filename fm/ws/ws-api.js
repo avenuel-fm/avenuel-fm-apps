@@ -24,9 +24,9 @@
     } finally { if (typeof input !== 'string') URL.revokeObjectURL(url); }
   }
   function dataUrlToBlob(d) {
-    const m = /^data:([^;,]+)(;base64)?,(.*)$/.exec(String(d || ''));
+    const m = /^data:([^;,]+)([^,]*),(.*)$/.exec(String(d || ''));   // PDF 도구는 ';filename=…;base64' 처럼 덧붙임
     if (!m) throw new Error('파일 내용이 올바르지 않습니다');
-    const bin = m[2] ? atob(m[3]) : decodeURIComponent(m[3]), a = new Uint8Array(bin.length);
+    const bin = /;base64$/.test(m[2]) ? atob(m[3]) : decodeURIComponent(m[3]), a = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
     return new Blob([a], { type: m[1] });
   }
@@ -65,8 +65,67 @@
       const r = await rpc('ws_bootstrap', { p_token: token });
       r.app = { id: 'WS', title: '업무지원', version: window.WS_VERSION || '' };
       return r;
+    },
+
+    /* ── 3-2 서류작업 (supabase/03_docs.sql). 사진·PDF는 버킷에 먼저 올리고 주소·경로만 DB 함수에 ── */
+    nextWorkGet: (token, date) => rpc('ws_next_work_get', { p_token: token, p_date: date || '' }),
+    nextWorkSave: (token, date, rows, ver) => rpc('ws_next_work_save', { p_token: token, p_date: date, p_rows: rows || [], p_ver: ver || '' }),
+    tbmGet: (token, want) => rpc('ws_tbm_get', { p_token: token, p_want: want || '' }),
+    async tbmSave(token, d) {
+      const s = await tbmSplit(d);
+      return rpc('ws_tbm_save', { p_token: token, p_d: s.d, p_files: s.files });
+    },
+    async tbmSavePdf(token, dataUri, signIds, d, want) {
+      const pdf = pdfBlob(dataUri); if (pdf.error) return pdf;
+      const s = d ? await tbmSplit(d) : { d: null, files: {} };
+      s.files.pdf = await upload('tbm_pdf', pdf);
+      return rpc('ws_tbm_save_pdf', { p_token: token, p_files: s.files, p_sign_ids: signIds || [], p_d: s.d, p_want: want || '' });
+    },
+    async logGet(token, day) { return withAc(await rpc('ws_log_get', { p_token: token, p_day: day || '' })); },
+    async logSave(token, day, d, ver) {
+      const s = await logSplit(d);
+      return withAc(await rpc('ws_log_save', { p_token: token, p_day: day, p_d: s.d, p_ver: ver || '', p_files: s.files }));
+    },
+    async logSavePdf(token, day, dataUri, d, ver) {
+      const pdf = pdfBlob(dataUri); if (pdf.error) return pdf;
+      const s = d ? await logSplit(d) : { d: null, files: {} };
+      s.files.pdf = await upload('log_pdf', pdf);
+      return withAc(await rpc('ws_log_save_pdf', { p_token: token, p_day: day, p_files: s.files, p_d: s.d, p_ver: ver || '' }));
     }
   };
+
+  /** 화면이 만든 PDF(data:) → Blob. 틀리면 { ok:false, error } (Code.gs와 같은 안내) */
+  function pdfBlob(uri) {
+    if (!/^data:application\/pdf[^,]*;base64,.{100}/.test(String(uri || ''))) return { ok: false, error: 'PDF 내용이 올바르지 않습니다' };
+    const b = dataUrlToBlob(uri);
+    return b.size > 30 * 1024 * 1024 ? { ok: false, error: 'PDF가 너무 큽니다' } : b;
+  }
+  /** TBM: 새로 고른 사진(data:)만 올리고 d에서는 뺌 */
+  async function tbmSplit(d) {
+    const files = {}, rest = Object.assign({}, d);
+    for (const k of ['meet', 'chant']) { if (d[k]) files[k] = await upload('tbm_' + k, dataUrlToBlob(d[k])); delete rest[k]; }
+    return { d: rest, files };
+  }
+  /** 일지: 새 야간 그림만 올림. '-' (빼기)는 그대로 넘김 */
+  async function logSplit(d) {
+    const files = {}, rest = Object.assign({}, d);
+    if (d.night && d.night !== '-') { files.night = await upload('log_night', dataUrlToBlob(d.night)); delete rest.night; }
+    return { d: rest, files };
+  }
+  /* 공조기·에어커튼 가동시간은 구글(온습도 앱 읽기)에 남음 → 업무지원 구글 웹앱 ?api=logac 로 받음. 같은 날은 10분 기억 */
+  const AC = {};
+  async function withAc(r) {
+    if (!r || !r.day) return r;
+    const c = AC[r.day];
+    if (c && Date.now() - c.at < 600e3) { r.ac = c.ac; return r; }
+    try {
+      const j = await (await fetch(C.WS_GAS_URL + '?api=logac&day=' + r.day)).json();
+      if (!j.ok) throw new Error(j.error || '');
+      r.ac = j.ac;
+      if (!j.ac.err) AC[r.day] = { at: Date.now(), ac: j.ac };
+    } catch (e) { r.ac = { err: '온습도 앱 기록을 불러오지 못했습니다' }; }
+    return r;
+  }
 
   window.WS_API = {
     sb, upload, compressImage, dataUrlToBlob,

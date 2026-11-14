@@ -7,7 +7,7 @@
     "test:all": "node test/run_all.js",
     "build:fm": "python tools/build_fm.py",
     "test:sql": "node test/sql_test.js",
-    "test:sb": "python tools/build_fm.py && node test/sb_login_test.js"
+    "test:sb": "python tools/build_fm.py && node test/sb_login_test.js && node test/sb_docs_test.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.13",
