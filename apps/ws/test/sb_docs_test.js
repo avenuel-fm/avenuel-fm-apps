@@ -126,7 +126,9 @@ const FAKE = `window.supabase = { createClient() {
   };
 } };`;
 const H2P = "window.html2pdf=function(){const o={set(){return o},from(){return o},outputPdf(){return Promise.resolve('data:application/pdf;filename=generated.pdf;base64,'+btoa('%PDF-1.4 '+'x'.repeat(300)))}};return o};";
-let AC_ASKED = '', AC_N = 0;
+// 앱 안 PDF 보기 시험용 pdf.js 흉내: %PDF 로 시작하는 자료면 2쪽, 아니면 읽기 실패
+const PDFJS_FAKE = "window.pdfjsLib={GlobalWorkerOptions:{},getDocument(src){window.PV_SRC=src;const ok=src.data&&src.data[0]===37&&src.data[1]===80;return{promise:ok?Promise.resolve({numPages:2,getPage:async i=>({getViewport:({scale})=>({width:842*scale,height:595*scale}),render:({canvasContext})=>{canvasContext.fillRect(0,0,20,20);window.PV_DRAWN=(window.PV_DRAWN||0)+1;return{promise:Promise.resolve()}}})}):Promise.reject(new Error('Invalid PDF structure'))}}};";
+let AC_ASKED = '', AC_N = 0, GAS_PDF = [];
 const srv = http.createServer((req, res) => {
   let body = ''; req.on('data', d => body += d); req.on('end', () => {
     const u = new URL(req.url, 'http://x');
@@ -138,6 +140,10 @@ const srv = http.createServer((req, res) => {
       try { return j({ data: RPC[fn](a) }); } catch (e) { return j({ err: e.message }); }
     }
     if (u.pathname === '/upload') { UPLOADS.push(JSON.parse(body)); return j({}); }
+    if (/^\/storage\/v1\/object\/public\/ws-files\/.+\.pdf$/.test(u.pathname)) {   // 버킷 공개 PDF (없는 것은 404)
+      if (/missing/.test(u.pathname)) { res.statusCode = 404; return res.end(); }
+      res.setHeader('content-type', 'application/pdf'); return res.end(Buffer.from('%PDF-1.4 bucket ' + 'x'.repeat(100)));
+    }
     const f = path.join(FM, decodeURIComponent(u.pathname));
     if (!f.startsWith(FM) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.statusCode = 404; return res.end(); }
     res.setHeader('content-type', /\.html$/.test(f) ? 'text/html; charset=utf-8' : /\.js$/.test(f) ? 'application/javascript' : 'application/octet-stream');
@@ -154,9 +160,15 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const c = await b.newContext({ viewport: { width: 1280, height: 900 } });
   await c.route('https://cdn.jsdelivr.net/npm/@supabase/**', r => r.fulfill({ contentType: 'application/javascript', body: FAKE }));
   await c.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
-  await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().indexOf('html2pdf') !== -1 ? H2P : '' }));
+  await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().indexOf('html2pdf') !== -1 ? H2P : /pdf\.js\/[\d.]+\/pdf\.min\.js$/.test(r.request().url()) ? PDFJS_FAKE : '' }));
   await c.route('https://script.google.com/**', r => {   // 구글 웹앱 ?api=logac (공조기 가동시간)
-    const u = new URL(r.request().url()); AC_N++; AC_ASKED = u.searchParams.get('api') + ' ' + u.searchParams.get('day');
+    const u = new URL(r.request().url());
+    if (u.searchParams.get('api') === 'pdf') {   // 드라이브로 옮긴 PDF 대신 받기
+      GAS_PDF.push(u.searchParams.get('id'));
+      const good = /^DRIVE/.test(u.searchParams.get('id'));
+      return r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(good ? { ok: true, name: 'a.pdf', b64: Buffer.from('%PDF-1.4 drive').toString('base64') } : { ok: false, error: '볼 수 없는 파일입니다' }) });
+    }
+    AC_N++; AC_ASKED = u.searchParams.get('api') + ' ' + u.searchParams.get('day');
     const k = n => ({ name: n, total: 2, entered: 1, off: 0, groups: [['1층', [3.5, null]]], c: { d: 3.5, m: 10, y: 100 }, p: { d: 2, m: 9, y: 90 } });
     r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, day: u.searchParams.get('day'), ac: { hvac: k('공조기'), curtain: k('에어커튼') } }) });
   });
@@ -195,6 +207,45 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const pu = UPLOADS.find(x => /^tbm_pdf\//.test(x.p)), tp = last('ws_tbm_save_pdf').a;
   ok(pu && pu.type === 'application/pdf' && /\.pdf$/.test(pu.p) && tp.p_files.pdf.path === pu.p && tp.p_sign_ids.join() === 'SG1', '11) PDF를 버킷 tbm_pdf/ 에 올리고 서명 번호 넘김');
   ok(await p.locator('a.btn.pri', { hasText: 'PDF 열기' }).getAttribute('href') === tp.p_files.pdf.url, '12) [PDF 열기] = 버킷 공개 주소');
+  // ── 앱 안 PDF 보기 (계정 선택 창 없이) ──
+  const pages0 = c.pages().length;
+  await p.click('a.btn.pri:has-text("PDF 열기")');
+  await p.locator('#pvPages canvas').nth(1).waitFor();
+  await p.waitForFunction(() => window.PV_DRAWN >= 2);
+  ok(c.pages().length === pages0 && await p.evaluate(() => S.view) === 'pdf' && /PDF 보기/.test(await p.locator('.top').innerText()), 'PV1) [PDF 열기] → 새 창 없이 앱 안 「PDF 보기」');
+  ok(await p.evaluate(() => PV_SRC.data && String.fromCharCode(...PV_SRC.data.slice(0, 8)) === '%PDF-1.4') && /2026-11-14_TBM\.pdf/.test(await p.locator('.pv-tool').innerText()) && /2쪽 · 서명 1명/.test(await p.locator('.pv-tool').innerText()),
+    'PV2) 버킷 PDF를 받아 2쪽 그림, 이름·쪽 수·서명 수');
+  const w1 = await p.evaluate(() => parseFloat($('pvC1').style.width));
+  await p.click('.pv-zoom button[aria-label="크게"]'); await p.waitForFunction(() => window.PV_DRAWN >= 4);
+  const w2 = await p.evaluate(() => parseFloat($('pvC1').style.width));
+  ok(w1 > 600 && w1 <= 960 && Math.abs(w2 - w1 * 1.5) < 2 && (await p.locator('#pvZ').innerText()) === '150%', 'PV3) 크게 → 150% (' + Math.round(w1) + ' → ' + Math.round(w2) + 'px)');
+  await p.click('.pv-zoom button[aria-label="작게"]');
+  ok((await p.locator('#pvZ').innerText()) === '100%' && await p.locator('.pv-zoom button[aria-label="작게"]').isDisabled(), 'PV4) 작게 → 100%, 더 작게는 막힘');
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('.pv-bar button:has-text("내려받기")')]);
+  ok(dl.suggestedFilename() === D + '_TBM.pdf', 'PV5) 내려받기: ' + dl.suggestedFilename());
+  await p.evaluate(() => { navigator.share = async o => { window.SHARED = o; }; });
+  await p.click('.pv-bar button:has-text("공유")');
+  ok(await p.evaluate(() => window.SHARED && window.SHARED.url) === tp.p_files.pdf.url, 'PV6) 공유 = PDF 링크 (받는 사람은 로그인 없이 봄)');
+  await p.click('.pv-bar button:has-text("뒤로")');
+  ok(await p.evaluate(() => S.view) === 'tbm' && await p.locator('a.btn.pri:has-text("PDF 열기")').count() === 1, 'PV7) 뒤로 → TBM 화면 그대로');
+  const openPv = async (url, name) => { await p.evaluate(([u, n]) => { const a = document.createElement('a'); a.href = u; a.dataset.pv = JSON.stringify({ name: n, sub: '시험 ›' }); pdfOpen(a); }, [url, name]); };
+  await openPv('https://drive.google.com/file/d/DRIVE_abcdefghijklmnop123/view', 'old.pdf');
+  await p.locator('#pvPages canvas').nth(1).waitFor();
+  ok(GAS_PDF.pop() === 'DRIVE_abcdefghijklmnop123' && await p.evaluate(() => String.fromCharCode(...PV_SRC.data.slice(0, 14))) === '%PDF-1.4 drive', 'PV8) 드라이브로 옮긴 PDF는 구글 웹앱 ?api=pdf 가 대신 받아 보여 줌');
+  await openPv('https://drive.google.com/file/d/PRIVATE_abcdefghijklmnop12/view', 'p.pdf');
+  await p.locator('.pv-state[role=alert]').waitFor();
+  ok(/볼 수 없는 파일입니다/.test(await p.locator('.pv-state').innerText()) && await p.locator('.pv-state a[target=_blank]').getAttribute('href') === 'https://drive.google.com/file/d/PRIVATE_abcdefghijklmnop12/view', 'PV9) 공유 안 된 드라이브 파일: 안내 + [새 창에서 열기]');
+  await openPv('http://localhost:' + PORT + '/storage/v1/object/public/ws-files/tbm_pdf/2026-11/missing.pdf', 'm.pdf');
+  await p.locator('.pv-state[role=alert]').waitFor();
+  ok(/404/.test(await p.locator('.pv-state').innerText()) && await p.locator('.pv-state button:has-text("다시 시도")').count() === 1 && await p.locator('.pv-bar button:has-text("내려받기")').isDisabled(), 'PV10) 못 받으면 [다시 시도], 내려받기 막힘');
+  await p.click('.pv-bar button:has-text("뒤로")');
+  ok(await p.evaluate(() => S.view) === 'tbm', 'PV11) 실패 화면에서도 뒤로 → TBM');
+  // 「PDF 저장됨 …」 안내 줄 링크 — PDF 뒤 서명이 늘면 아래 버튼이 [PDF로 저장]이 되어 이 링크만 남음 (11-14 휴대폰에서 계정 창)
+  const pages1 = c.pages().length;
+  await p.click('.banner a:has-text("PDF 열기")');
+  await p.locator('#pvPages canvas').nth(1).waitFor();
+  ok(c.pages().length === pages1 && await p.evaluate(() => S.view) === 'pdf' && /2026-11-14_TBM\.pdf/.test(await p.locator('.pv-tool').innerText()), 'PV12) 안내 줄 [PDF 열기]도 새 창 없이 앱 안에서');
+  await p.click('.pv-bar button:has-text("뒤로")');
   await p.evaluate(() => loadTbm(true));
   ok(/\/ws-files\/tbm_meet\//.test(await p.locator('.tbph img').first().getAttribute('src')), '13) 다시 불러오면 회의 사진은 버킷 주소로 보임');
 

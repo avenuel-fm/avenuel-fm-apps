@@ -12,6 +12,8 @@ module.exports = function fmFile(p, exec, anyExec) {
   const f = path.join(FM, path.normalize(p).replace(/^([\\/]*\.\.)+/, ''));
   let body = fs.readFileSync(f);
   if (p === 'apps.js') body = swap(String(body), /(ws:\s*\{[^}]*exec:\s*)'[^']*'/, "$1" + JSON.stringify(exec), 'apps.js 업무지원 주소');
+  // 이 시험들은 옛 구글 앱(껍데기 → /exec, ?fe= → check.html)을 봄 → 바꿔 탄 뒤(LIVE true)에도 LIVE false 로 (새 앱은 sb_*_test.js)
+  if (p === 'ws/config.js') body = swap(String(body), /LIVE: (true|false),/, 'LIVE: false,', 'ws/config.js LIVE');
   if (anyExec && p === 'ws/index.html') body = swap(String(body), /if \(!\/\^https:.*\.test\(app\.exec \|\| ''\)\) \{/, 'if (false) {', 'ws/index.html 주소 검사');
   return { body, type: TYPES[path.extname(f)] || 'application/octet-stream' };
 };
