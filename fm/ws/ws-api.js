@@ -91,7 +91,16 @@
       const s = d ? await logSplit(d) : { d: null, files: {} };
       s.files.pdf = await upload('log_pdf', pdf);
       return withAc(await rpc('ws_log_save_pdf', { p_token: token, p_day: day, p_files: s.files, p_d: s.d, p_ver: ver || '' }));
-    }
+    },
+
+    /* ── 3-3 출근현황 (supabase/04_attendance.sql). 엑셀 원본은 버킷 roster_xlsx/ 에 ── */
+    attGet: (token, date) => rpc('ws_att_get', { p_token: token, p_date: date || '' }),
+    async attPut(token, ym, rows, fileB64) {
+      const f = fileB64 ? await upload('roster_xlsx', dataUrlToBlob(fileB64)) : null;
+      return rpc('ws_att_put', { p_token: token, p_ym: ym, p_rows: rows || [], p_file: f });
+    },
+    attFix: (token, date, name, value) => rpc('ws_att_fix', { p_token: token, p_date: date, p_name: name, p_value: value }),
+    attHoliday: (token, name, days, date) => rpc('ws_att_holiday', { p_token: token, p_name: name, p_days: days || [], p_date: date || '' })
   };
 
   /** 화면이 만든 PDF(data:) → Blob. 틀리면 { ok:false, error } (Code.gs와 같은 안내) */

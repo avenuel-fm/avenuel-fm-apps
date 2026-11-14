@@ -1,5 +1,5 @@
 // Supabase 이관 SQL 시험 — PGlite(작은 PostgreSQL)에 Supabase 비슷한 틀(역할·auth·storage)을 만들고
-// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
+// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql · 04_attendance.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
 // 쓰는 법: node test/sql_test.js   (끝에 「SQL 시험 통과」)
 const { PGlite } = require('@electric-sql/pglite');
 const { pgcrypto } = require('@electric-sql/pglite/contrib/pgcrypto');
@@ -239,6 +239,55 @@ alter default privileges in schema public grant all on sequences to anon, authen
   lg = await call('ws_log_save_pdf', [tk, yest, J({ pdf: F('log_pdf', 'l2', 'pdf'), night: F('log_night', 'n2') }), J(base), '']);
   ok(lg.ok && lg.day === yest && /l2\.pdf$/.test(lg.pdf.url) && /n2\.jpg$/.test(lg.night) && lg.cur['작성자'] === '홍길동', '일지: 과거자료 날(ver 빈칸)을 고쳐 저장 + PDF 한 번에');
   ok((await one("select count(*)::int n from files where kind like 'log_%' and not is_archived")).n === 4, '일지 파일 4개가 files 표에 (드라이브 이관 대상)');
+  // ══ 3-3 출근현황 (04_attendance.sql) ══
+  await db.exec(SQL('04_attendance.sql')); await db.exec(SQL('04_attendance.sql'));
+  ok(true, '04_attendance.sql 실행됨 (두 번)');
+  await db.exec('delete from roster; delete from roster_changes; delete from default_holidays');
+  ok(/permission denied/.test(await asErr('anon', "select ws_att_get('x','')")), '비로그인: 출근현황 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', "select ws_at_is_day('')")), '로그인 기기: 도우미(ws_at_is_day) 못 부름');
+  const kk = (await login('5678', 'at1', 'https://x/sign/k.png', 'sign/2026-11/k.png')).token;   // 김철수 (직원)
+  const yy = (await login('2468', 'at2')).token;   // 이영희 (직원, 근무표에 없음)
+  ok(!!kk && !!yy, '김철수·이영희 로그인');
+  let at = await call('ws_att_get', [tk, '']);
+  ok(at.ok && at.date === D && at.people.length === 0 && at.ju.length === 0 && at.canFix === false && at.canBoss === true && at.months.length === 0, '출근현황: 근무표 없음 → 빈 표, 소장은 canBoss');
+  ok((await call('ws_att_get', [tk, '2026-02-30'])).ok === false, '출근현황: 틀린 날짜 → 안내');
+  const lastDay = new Date(Date.UTC(Number(D.slice(0, 4)), Number(D.slice(5, 7)), 0)).getUTCDate();
+  const dd = v => { const a = Array(lastDay + 3).fill(''); a[di] = v; return a; };   // 그날만 v (말일보다 길게 → 잘림)
+  const roster = [{ sec: '전기', role: '소장', name: '홍길동', days: dd('') }, { sec: '기계', role: '기사', name: '김철수', days: dd('야') },
+    { sec: '기계', role: '기사', name: '', days: [] }, { sec: 'x', role: '', name: '' }];
+  let pt = await call('ws_att_put', [kk, ym, J(roster), null]);
+  ok(pt.ok === false && /소장·부소장·총무만/.test(pt.error), '엑셀 올리기: 직원(대표 아님) → 막음');
+  ok((await call('ws_att_put', [tk, '2026-13', J(roster), null])).ok === false, '엑셀 올리기: 틀린 달 → 안내');
+  ok((await call('ws_att_put', [tk, ym, '[]', null])).ok === false, '엑셀 올리기: 줄 없음 → 안내');
+  pt = await call('ws_att_put', [tk, ym, J(roster), J(F('roster_xlsx', 'r1', 'xlsx'))]);
+  ok(pt.ok && pt.count === 3, '엑셀 올리기: 이름·직책 없는 줄 빼고 3줄 (공석 줄은 남김)');
+  const fx = await one("select f.file_name, f.drive_folder, count(r.*)::int n from files f join roster r on r.xlsx_file_id = f.id where f.kind = 'roster_xlsx' group by 1, 2");
+  ok(fx && fx.file_name === ym + '_근무스케줄.xlsx' && fx.n === 3, '엑셀 원본 파일 줄 ' + (fx && fx.file_name));
+  ok((await one('select max(jsonb_array_length(days))::int n from roster')).n === lastDay, '일별 값은 말일까지만');
+  at = await call('ws_att_get', [tk, '']);
+  ok(at.people.length === 3 && at.people[1].v === '야' && at.people[1].raw === '야' && at.people[2].name === '' && at.people[2].v === '' && at.upBy === '홍길동' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(at.upAt), '출근현황: 사람 3줄 · 그날 값 · 올린 사람·시각');
+  ok(at.ju.length === lastDay && at.ju[di] === 1 && at.months.join() === ym, '달력 주간 인원: 그날 1명 (야간·공석 뺌), 날 수 ' + at.ju.length);
+  const kat = await call('ws_att_get', [kk, '']);
+  ok(kat.canFix === true && kat.canBoss === false, '김철수(그날 야간): 고칠 수 있음, 대표 아님');
+  ok((await call('ws_att_get', [yy, ''])).canFix === false, '이영희(근무표에 없음): 못 고침');
+  pt = await call('ws_att_put', [kk, ym, J([{ sec: '기계', role: '총무', name: '김철수', days: [] }]), null]);
+  ok(pt.ok === false, '이미 있는 달: 새 엑셀에 총무로 적어도 지금 달 대표가 아니면 막음');
+  pt = await call('ws_att_put', [tk, ym, J(roster), null]);
+  const rc = await one('select count(*) filter (where not deleted)::int live, count(*)::int total, min(seq) filter (where not deleted)::int s from roster');
+  ok(pt.ok && rc.live === 3 && rc.total === 6 && rc.s === 4, '같은 달 다시 올림: 예전 줄은 지움 표시, 순서 번호 이어서');
+  let fxr = await call('ws_att_fix', [kk, D, '홍길동', '연']);
+  ok(fxr.ok && fxr.people[0].v === '연' && fxr.people[0].fix.by === '김철수' && fxr.ju[di] === 0, '그날 고치기: 야간 근무자가 홍길동 → 연 (주간 인원 0)');
+  ok((await one("select old_value from roster_changes order by id desc limit 1")).old_value === '', '근무변경에 원래 값(출근) 남김');
+  ok((await call('ws_att_fix', [kk, D, '홍길동', '외출'])).ok === false, '그날 고치기: 없는 상태 → 안내');
+  ok(/근무표에 없는/.test((await call('ws_att_fix', [kk, D, '이영희', '연'])).error), '그날 고치기: 근무표에 없는 이름 → 안내');
+  ok(/고칠 수 있습니다/.test((await call('ws_att_fix', [yy, D, '홍길동', '휴'])).error), '그날 고치기: 권한 없는 직원 → 막음');
+  fxr = await call('ws_att_fix', [kk, D, '홍길동', '(되돌림)']);
+  ok(fxr.ok && fxr.people[0].v === '' && fxr.people[0].fix === null, '되돌림 → 엑셀 값(출근)');
+  ok(/소장·부소장·총무만/.test((await call('ws_att_holiday', [kk, '김철수', J(['월']), D])).error), '기본 휴일: 직원 → 막음');
+  ok(/근무표에 없는/.test((await call('ws_att_holiday', [tk, '이영희', J(['월']), D])).error), '기본 휴일: 근무표에 없는 이름 → 안내');
+  const hd = await call('ws_att_holiday', [tk, '홍길동', J(['토', '월', '월', '없음']), '']);
+  ok(hd.ok && hd.people[0].hol === '월,토', '기본 휴일: 요일 정리 (겹침·없는 요일 빼고 순서대로) → ' + hd.people[0].hol);
+  ok((await call('ws_att_holiday', [tk, '홍길동', '[]', D])).people[0].hol === '', '기본 휴일 비우기');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

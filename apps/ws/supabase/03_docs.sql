@@ -34,7 +34,7 @@ begin
 exception when others then return null;
 end $$;
 
--- 화면이 올린 파일을 files 표에 적음. 경로는 '{kind}/YYYY-MM/{영문·숫자}.{jpg|png|pdf}', 주소는 그 경로의 공개 주소여야 함
+-- 화면이 올린 파일을 files 표에 적음. 경로는 '{kind}/YYYY-MM/{영문·숫자}.{jpg|png|pdf|xlsx}', 주소는 그 경로의 공개 주소여야 함
 create or replace function public.ws_add_file(p_kind text, p_file jsonb, p_mime text, p_name text, p_folder text, p_who text)
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
@@ -42,7 +42,7 @@ declare
   pth text := p_file->>'path';
   fid uuid;
 begin
-  if coalesce(pth, '') !~ ('^' || p_kind || '/\d{4}-\d{2}/[a-z0-9]+\.(jpg|png|pdf)$')
+  if coalesce(pth, '') !~ ('^' || p_kind || '/\d{4}-\d{2}/[a-z0-9]+\.(jpg|png|pdf|xlsx)$')
      or coalesce(u, '') not like '%/object/public/ws-files/' || pth then
     raise exception '파일 정보가 올바르지 않습니다. 다시 해 주세요.';
   end if;

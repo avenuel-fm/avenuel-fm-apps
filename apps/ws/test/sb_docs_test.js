@@ -1,4 +1,4 @@
-// Supabase 이관 3-2 화면 시험: 명일 작업 · TBM · 종합업무일지가 Supabase 통로(ws-api.js)로 저장되는지 (fm/ws/app.html)
+// Supabase 이관 3-2·3-3 화면 시험: 명일 작업 · TBM · 종합업무일지 · 출근현황이 Supabase 통로(ws-api.js)로 저장되는지 (fm/ws/app.html)
 // 진짜 Supabase 대신 가짜(FAKE)를 씀 — 화면 → 통로 → DB 함수에 넘기는 값만 봄. DB 함수 자체 시험은 sql_test.js
 // 먼저: python tools/build_fm.py   그다음: node test/sb_docs_test.js
 const { chromium } = require('playwright');
@@ -24,6 +24,10 @@ const logData = d => {
     vals: { c: {}, p: {}, y: {} }, month: { c: zero(), p: zero() }, year: { c: zero(), p: zero() },
     ver: c ? c.ver : '', by: c ? ME.name : '', pdf: c && c.pdf || null, night: c && c.night || '', tbm: { 전기방재: ['1층 등 교체'], 기계건축: [] } };
 };
+const AT = {};
+const attData = d => ({ ok: true, date: d, today: D, months: [D.slice(0, 7)], ju: Array(30).fill(1), upBy: ME.name, upAt: D + ' 08:00:00', canFix: true, canBoss: true,
+  people: [{ sec: '전기', role: '소장', name: ME.name, v: '', raw: '', fix: null, hol: '' },
+    { sec: '기계', role: '기사', name: '김철수', v: AT.fix ? AT.fix.v : '', raw: '', fix: AT.fix ? { by: ME.name, at: D + ' 09:00:00' } : null, hol: AT.hol || '' }] });
 const RPC = {
   ws_bootstrap: () => ({ ok: true, user: ME, toastSec: 1, needSign: false, docs: { day: D, signs: 1 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 }, window: { start: 1, end: 5 }, day: 14, ym: D.slice(0, 7) } }),
   ws_next_work_get: a => Object.assign({ ok: true, defaultDate: T, workDay: D }, nwData(a.p_date || T)),
@@ -58,6 +62,10 @@ const RPC = {
     LOG[d] = { ver: ver(), cur: Object.assign({}, a.p_d), night: a.p_files.night ? a.p_files.night.url : a.p_d.night === '-' ? '' : c && c.night, pdf: c && c.pdf };
     return logData(d);
   },
+  ws_att_get: a => attData(a.p_date || D),
+  ws_att_fix: a => { AT.fix = { name: a.p_name, v: a.p_value }; return attData(a.p_date); },
+  ws_att_holiday: a => { AT.hol = a.p_days.join(','); return attData(a.p_date || D); },
+  ws_att_put: a => ({ ok: true, count: a.p_rows.length }),
   ws_log_save_pdf: a => {
     if (a.p_d) { const s = RPC.ws_log_save(a); if (!s.ok) return s; }
     LOG[a.p_day].pdf = { id: 'f2', at: ver(), url: a.p_files.pdf.url };
@@ -94,6 +102,9 @@ const srv = http.createServer((req, res) => {
   });
 }).listen(PORT);
 const last = fn => CALLS.filter(c => c.fn === fn).pop();
+// 알림 글자는 앞 화면 것이 투명하게 남아 있을 수 있어, 서버(가짜)에 그 함수가 새로 왔는지로 기다림
+const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (CALLS.filter(c => c.fn === fn).length > n0) return true; await new Promise(r => setTimeout(r, 100)); } return false; };
+const count = fn => CALLS.filter(c => c.fn === fn).length;
 
 (async () => {
   const b = await chromium.launch();
@@ -153,14 +164,30 @@ const last = fn => CALLS.filter(c => c.fn === fn).pop();
   const ls = last('ws_log_save').a;
   ok(ls.p_day === D && ls.p_ver === '' && ls.p_d['전기'] === '1234' && ls.p_d.works['전기방재'][0] === '1층 등 교체' && JSON.stringify(ls.p_files) === '{}', '16) DB 함수에 숫자·금일작업(TBM에서) 넘김');
   ok(AC_N === 1, '17) 저장 뒤 공조기는 10분 기억 (구글 다시 안 부름)');
-  await p.click('#lgPdf');
-  ok(await toast('PDF로 저장했습니다'), '18) 일지 PDF로 저장');
+  const n18 = count('ws_log_save_pdf'); await p.click('#lgPdf');
+  ok(await called('ws_log_save_pdf', n18) && await toast('PDF로 저장했습니다'), '18) 일지 PDF로 저장');
   const lp = last('ws_log_save_pdf').a, lu = UPLOADS.find(x => /^log_pdf\//.test(x.p));
   ok(lu && lp.p_files.pdf.path === lu.p && lp.p_d === null && lp.p_ver === LOG[D].ver, '19) 고친 것 없으면 PDF만 (저장 안 함, ver 넘김)');
   ok(await p.locator('#lgBar a', { hasText: 'PDF 열기' }).getAttribute('href') === lp.p_files.pdf.url, '20) 일지 [PDF 열기] = 버킷 주소');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_log.png') });
+
+  // ── 출근현황 (3-3) ──
+  await p.setViewportSize({ width: 390, height: 800 });
+  await p.evaluate(() => openAtt()); await p.locator('.atorg').waitFor();
+  ok(/김철수/.test(await p.locator('.atorg').innerText()) && last('ws_att_get').a.p_date === '', '21) 출근현황: Supabase에서 그날 표');
+  await p.evaluate(() => atFixSave(S.at.r.people.findIndex(x => x.name === '김철수'), '연'));
+  ok(await toast('김철수 → 연'), '22) 그날 고치기 → 안내');
+  const af = last('ws_att_fix').a;
+  ok(af.p_date === D && af.p_name === '김철수' && af.p_value === '연', '23) DB 함수에 날짜·이름·상태 넘김');
+  await p.evaluate(() => { S.at.hol = ['토', '월']; return atHolSave(S.at.r.people.findIndex(x => x.name === '김철수')); });
+  ok(last('ws_att_holiday').a.p_days.join() === '토,월' && await toast('기본 휴일 저장'), '24) 기본 휴일 저장');
+  const xr = await p.evaluate(() => run('attPut', S.token, S.at.r.date.slice(0, 7), [{ sec: '전기', role: '소장', name: '홍길동', days: [''] }],
+    'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + btoa('PK' + 'x'.repeat(200))));
+  const xu = UPLOADS.find(x => /^roster_xlsx\//.test(x.p)), xp = last('ws_att_put').a;
+  ok(xr.ok && xu && /^roster_xlsx\/\d{4}-\d{2}\/[a-z0-9]+\.xlsx$/.test(xu.p) && /spreadsheetml/.test(xu.type) && xp.p_file.path === xu.p, '25) 엑셀 원본을 버킷 roster_xlsx/ 에 올리고 주소만 넘김 ' + (xu && xu.p));
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_att.png') });
   ok(!errs.length, '화면 오류 없음' + (errs.length ? ': ' + errs.join(' / ') : ''));
   await b.close(); srv.close();
-  console.log(fail ? '\n화면 시험 실패 ' + fail + '개' : '\n3-2 화면 시험 통과');
+  console.log(fail ? '\n화면 시험 실패 ' + fail + '개' : '\n3-2·3-3 화면 시험 통과');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.log('ERR ' + e.message); srv.close(); process.exit(1); });
