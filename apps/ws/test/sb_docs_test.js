@@ -1,4 +1,4 @@
-// Supabase 이관 3-2·3-3 화면 시험: 명일 작업 · TBM · 종합업무일지 · 출근현황이 Supabase 통로(ws-api.js)로 저장되는지 (fm/ws/app.html)
+// Supabase 이관 3-2~3-4 화면 시험: 명일 작업 · TBM · 종합업무일지 · 출근현황 · 소화기(QR 점검 check-sb.html 포함)가 Supabase 통로(ws-api.js)로 저장되는지 (fm/ws/app.html)
 // 진짜 Supabase 대신 가짜(FAKE)를 씀 — 화면 → 통로 → DB 함수에 넘기는 값만 봄. DB 함수 자체 시험은 sql_test.js
 // 먼저: python tools/build_fm.py   그다음: node test/sb_docs_test.js
 const { chromium } = require('playwright');
@@ -28,6 +28,8 @@ const AT = {};
 const attData = d => ({ ok: true, date: d, today: D, months: [D.slice(0, 7)], ju: Array(30).fill(1), upBy: ME.name, upAt: D + ' 08:00:00', canFix: true, canBoss: true,
   people: [{ sec: '전기', role: '소장', name: ME.name, v: '', raw: '', fix: null, hol: '' },
     { sec: '기계', role: '기사', name: '김철수', v: AT.fix ? AT.fix.v : '', raw: '', fix: AT.fix ? { by: ME.name, at: D + ' 09:00:00' } : null, hol: AT.hol || '' }] });
+const FE = [], CHK = { exists: false };
+const feData = () => ({ ok: true, items: FE, execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const RPC = {
   ws_bootstrap: () => ({ ok: true, user: ME, toastSec: 1, needSign: false, docs: { day: D, signs: 1 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 }, window: { start: 1, end: 5 }, day: 14, ym: D.slice(0, 7) } }),
   ws_next_work_get: a => Object.assign({ ok: true, defaultDate: T, workDay: D }, nwData(a.p_date || T)),
@@ -66,6 +68,15 @@ const RPC = {
   ws_att_fix: a => { AT.fix = { name: a.p_name, v: a.p_value }; return attData(a.p_date); },
   ws_att_holiday: a => { AT.hol = a.p_days.join(','); return attData(a.p_date || D); },
   ws_att_put: a => ({ ok: true, count: a.p_rows.length }),
+  ws_fe_list: () => feData(),
+  ws_fe_add: a => { FE.push({ id: 'WS-FE-1', floor: a.p_d.floor, store: a.p_d.store, no: 1, name: a.p_d.store + '-소화기1', token: 'abcdefghjkmn', created: '' }); return Object.assign(feData(), { added: [a.p_d.store + '-소화기1'] }); },
+  ws_label_save: a => ({ ok: true, label: { w: a.p_w, h: a.p_h, dpi: 203 } }),
+  ws_fe_status: a => ({ ok: true, ym: D.slice(0, 7), curYm: D.slice(0, 7), day: 14, window: { start: 1, end: 5 }, isCurrent: true, months: [D.slice(0, 7)],
+    items: [{ id: 'WS-FE-1', floor: '1F', store: '카페', name: '카페-소화기1', no: 1, state: 'ok', checkId: 'WS-FC-1', at: D + ' 10:00:00', late: true }], counts: { ok: 1, bad: 0, wait: 0, miss: 0, total: 1 } }),
+  ws_fe_detail: () => ({ ok: true, name: '카페-소화기1', floor: '1F', ym: D.slice(0, 7), state: '이상없음', at: D + ' 10:00:00', late: true,
+    photo: '/storage/v1/object/public/ws-files/fire/abcdefghjkmn/p.jpg', signA: '/storage/v1/object/public/ws-files/fire/abcdefghjkmn/m.png', signB: '' }),
+  ws_check_init: () => ({ ok: true, fe: { name: '카페-소화기1', floor: '1F', store: '카페' }, ym: D.slice(0, 7), monthLabel: '이번 달', window: { start: 1, end: 5 }, day: 14, late: true, early: false, exists: CHK.exists, photo: { w: 640, q: 0.6 } }),
+  ws_check_submit: a => { CHK.exists = true; return { ok: true, state: a.p_d.state, late: true, checkId: 'WS-FC-1', name: '카페-소화기1', at: D + ' 10:00:00' }; },
   ws_log_save_pdf: a => {
     if (a.p_d) { const s = RPC.ws_log_save(a); if (!s.ok) return s; }
     LOG[a.p_day].pdf = { id: 'f2', at: ver(), url: a.p_files.pdf.url };
@@ -91,7 +102,7 @@ const srv = http.createServer((req, res) => {
     if (u.pathname.startsWith('/rpc/')) {
       const fn = u.pathname.slice(5), a = JSON.parse(body || '{}');
       CALLS.push({ fn, a });
-      if (a.p_token !== TK) return j({ err: 'LOGIN' });
+      if (a.p_token !== TK && !/^ws_check_/.test(fn)) return j({ err: 'LOGIN' });   // QR 점검은 표 없이
       try { return j({ data: RPC[fn](a) }); } catch (e) { return j({ err: e.message }); }
     }
     if (u.pathname === '/upload') { UPLOADS.push(JSON.parse(body)); return j({}); }
@@ -186,8 +197,35 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const xu = UPLOADS.find(x => /^roster_xlsx\//.test(x.p)), xp = last('ws_att_put').a;
   ok(xr.ok && xu && /^roster_xlsx\/\d{4}-\d{2}\/[a-z0-9]+\.xlsx$/.test(xu.p) && /spreadsheetml/.test(xu.type) && xp.p_file.path === xu.p, '25) 엑셀 원본을 버킷 roster_xlsx/ 에 올리고 주소만 넘김 ' + (xu && xu.p));
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_att.png') });
+
+  // ── 소화기 (3-4) ──
+  await p.evaluate(() => openQr()); await p.waitForFunction(() => S.qr);
+  ok(await p.evaluate(() => qrUrl('abcdefghjkmn')) === 'http://localhost:' + PORT + '/ws/?fe=abcdefghjkmn', '26) QR 주소 = 바로가기 주소(설정 없으면 앱 폴더) + ?fe=');
+  await p.evaluate(() => addDialog()); await p.fill('#aStore', '카페'); await p.fill('#aCount', '2'); await p.click('#aBtn');
+  ok(await toast('카페-소화기1 등록') && last('ws_fe_add').a.p_d.store === '카페' && last('ws_fe_add').a.p_d.count === '2', '27) 소화기 등록 → DB 함수에 층·매장·개수');
+  const lb = await p.evaluate(() => run('labelSave', S.token, '60', 40));
+  ok(lb.ok && last('ws_label_save').a.p_w === 60 && last('ws_label_save').a.p_h === 40, '28) 라벨 크기 저장 (숫자로)');
+  await p.evaluate(() => openStatus('')); await p.waitForFunction(() => S.st);
+  await p.evaluate(() => detail('WS-FC-1')); await p.locator('.ph43 img').waitFor();
+  ok(/\/ws-files\/fire\//.test(await p.locator('.ph43 img').getAttribute('src')) && last('ws_fe_detail').a.p_check_id === 'WS-FC-1', '29) 점검 내용 보기: 사진은 버킷 주소');
+
+  // ── QR 점검 입력 check-sb.html (매장 직원, 기기 등록 없이) ──
+  const q = await c.newPage(); q.on('pageerror', e => errs.push('check-sb: ' + e.message)); q.on('dialog', d => d.accept());
+  await q.goto('http://localhost:' + PORT + '/ws/check-sb.html?fe=abcdefghjkmn');
+  await q.waitForFunction(() => /카페-소화기1/.test(document.body.innerText));
+  ok(last('ws_check_init').a.p_qr === 'abcdefghjkmn', '30) QR 점검 화면: Supabase에서 소화기 이름을 받아 보여 줌');
+  const n0 = UPLOADS.length;
+  const png = 'data:image/png;base64,' + Buffer.from('x'.repeat(300)).toString('base64'), jpg = 'data:image/jpeg;base64,' + Buffer.from('y'.repeat(900)).toString('base64');
+  const r1 = await q.evaluate(([png, jpg]) => FM_CHECK.submit('abcdefghjkmn', { photo: jpg, signA: png, signB: png, state: '이상없음', overwrite: false }), [png, jpg]);
+  const ups = UPLOADS.slice(n0), cs = last('ws_check_submit').a;
+  ok(r1.ok && ups.length === 3 && ups.every(u => /^fire\/abcdefghjkmn\/\d{4}-\d{2}\/[a-z0-9]+\.(jpg|png)$/.test(u.p)) && cs.p_files.photo.path === ups[0].p && cs.p_d.state === '이상없음' && !('photo' in cs.p_d), '31) 사진·손글씨 3개를 fire/{QR}/ 아래에 올리고 주소만 넘김');
+  ok(ups[0].type === 'image/jpeg' && ups[0].size === 900, '32) 사진은 화면이 줄인 그대로 (다시 줄이지 않음)');
+  const n1 = UPLOADS.length;
+  const r2 = await q.evaluate(([png, jpg]) => FM_CHECK.submit('abcdefghjkmn', { photo: jpg, signA: png, signB: png, state: '이상없음', overwrite: false }), [png, jpg]);
+  ok(r2.ok === false && r2.exists === true && UPLOADS.length === n1, '33) 이번 달 이미 있으면 올리기 전에 물음 (버킷에 안 남김)');
+  await q.screenshot({ path: path.join(__dirname, 'shot_sb_check.png') });
   ok(!errs.length, '화면 오류 없음' + (errs.length ? ': ' + errs.join(' / ') : ''));
   await b.close(); srv.close();
-  console.log(fail ? '\n화면 시험 실패 ' + fail + '개' : '\n3-2·3-3 화면 시험 통과');
+  console.log(fail ? '\n화면 시험 실패 ' + fail + '개' : '\n3-2~3-4 화면 시험 통과');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.log('ERR ' + e.message); srv.close(); process.exit(1); });

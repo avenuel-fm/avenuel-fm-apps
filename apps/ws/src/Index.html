@@ -1827,7 +1827,7 @@ function doPrint(one) {
   box.innerHTML = '<style>@page{size:' + L.w + 'mm ' + L.h + 'mm;margin:0}</style>' + list.map(i => labelHtml(i, L)).join('');
   if (L.w !== S.qr.label.w || L.h !== S.qr.label.h) {
     S.qr.label = Object.assign({}, S.qr.label, { w: L.w, h: L.h });
-    google.script.run.withSuccessHandler(r => { if (r && !r.ok) toast(r.error); }).withFailureHandler(() => toast('라벨 크기를 저장하지 못했습니다. 인쇄는 그대로 됩니다.')).labelSave(S.token, L.w, L.h);
+    run('labelSave', S.token, L.w, L.h).then(r => { if (r && !r.ok) toast(r.error); }, () => toast('라벨 크기를 저장하지 못했습니다. 인쇄는 그대로 됩니다.'));   // run = 구글·Supabase 둘 다
   }
   closeDialog();
   setTimeout(() => window.print(), 300);

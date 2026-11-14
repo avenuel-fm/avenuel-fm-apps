@@ -100,8 +100,18 @@
       return rpc('ws_att_put', { p_token: token, p_ym: ym, p_rows: rows || [], p_file: f });
     },
     attFix: (token, date, name, value) => rpc('ws_att_fix', { p_token: token, p_date: date, p_name: name, p_value: value }),
-    attHoliday: (token, name, days, date) => rpc('ws_att_holiday', { p_token: token, p_name: name, p_days: days || [], p_date: date || '' })
+    attHoliday: (token, name, days, date) => rpc('ws_att_holiday', { p_token: token, p_name: name, p_days: days || [], p_date: date || '' }),
+
+    /* ── 3-4 소화기 (supabase/05_fire.sql). QR 점검 입력은 check-sb.html 이 따로 부름 ── */
+    feList: async token => fePage(await rpc('ws_fe_list', { p_token: token })),
+    feAdd: async (token, d) => fePage(await rpc('ws_fe_add', { p_token: token, p_d: d || {} })),
+    feDelete: async (token, ids) => fePage(await rpc('ws_fe_delete', { p_token: token, p_ids: ids || [] })),
+    labelSave: (token, w, h) => rpc('ws_label_save', { p_token: token, p_w: Number(w), p_h: Number(h) }),
+    feStatus: (token, ym) => rpc('ws_fe_status', { p_token: token, p_ym: ym || '' }),
+    feDetail: (token, id) => rpc('ws_fe_detail', { p_token: token, p_check_id: String(id || '') })
   };
+  /** QR 주소 앞부분: 설정 「바로가기주소」, 없으면 지금 앱이 있는 폴더 (…/fm/ws/) — QR은 거기에 ?fe= 를 붙임 */
+  function fePage(r) { if (r && r.ok && !r.execUrl) r.execUrl = new URL('./', location.href).href; return r; }
 
   /** 화면이 만든 PDF(data:) → Blob. 틀리면 { ok:false, error } (Code.gs와 같은 안내) */
   function pdfBlob(uri) {

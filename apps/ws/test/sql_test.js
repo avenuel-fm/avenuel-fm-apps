@@ -1,5 +1,5 @@
 // Supabase 이관 SQL 시험 — PGlite(작은 PostgreSQL)에 Supabase 비슷한 틀(역할·auth·storage)을 만들고
-// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql · 04_attendance.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
+// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql · 04_attendance.sql · 05_fire.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
 // 쓰는 법: node test/sql_test.js   (끝에 「SQL 시험 통과」)
 const { PGlite } = require('@electric-sql/pglite');
 const { pgcrypto } = require('@electric-sql/pglite/contrib/pgcrypto');
@@ -17,6 +17,7 @@ create table auth.users (id uuid primary key default gen_random_uuid(), email te
 create table storage.buckets (id text primary key, name text, public boolean);
 create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
 alter table storage.objects enable row level security;
+grant all on storage.objects to anon, authenticated;   -- Supabase처럼 표 권한은 있고 RLS 정책으로 막음
 grant usage on schema public, storage to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
@@ -288,6 +289,66 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const hd = await call('ws_att_holiday', [tk, '홍길동', J(['토', '월', '월', '없음']), '']);
   ok(hd.ok && hd.people[0].hol === '월,토', '기본 휴일: 요일 정리 (겹침·없는 요일 빼고 순서대로) → ' + hd.people[0].hol);
   ok((await call('ws_att_holiday', [tk, '홍길동', '[]', D])).people[0].hol === '', '기본 휴일 비우기');
+  // ══ 3-4 소화기 (05_fire.sql) ══
+  await db.exec(SQL('05_fire.sql')); await db.exec(SQL('05_fire.sql'));
+  ok(true, '05_fire.sql 실행됨 (두 번)');
+  ok(/permission denied/.test(await asErr('anon', "select ws_fe_list('x')")), '비로그인: 소화기 목록 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', "select ws_fe_status_('2026-11')")), '로그인 기기: 도우미(ws_fe_status_) 못 부름');
+  ok(/permission denied/.test(await asErr('anon', 'select * from fire_ext')), '비로그인: 소화기 표는 여전히 못 읽음');
+  ok((await call('ws_fe_add', [tk, J({ floor: '7F', store: 'x' })])).error === '층을 골라 주세요.', '소화기 등록: 없는 층 → 안내');
+  ok((await call('ws_fe_add', [tk, J({ floor: '1F', store: '  ' })])).error === '매장명을 넣어 주세요.', '소화기 등록: 매장명 없음 → 안내');
+  let fl = await call('ws_fe_add', [tk, J({ floor: '1F', store: '1층 카페(A)', count: '3' })]);
+  const mine = fl.items.filter(x => x.store === '1층 카페(A)');
+  ok(fl.ok && fl.added.join() === '1층 카페(A)-소화기1,1층 카페(A)-소화기2,1층 카페(A)-소화기3' && mine.length === 3 && mine.every(x => /^[2-9a-km-np-z]{12}$/.test(x.token)), '소화기 3대 등록: 이름·12자리 QR');
+  ok(/^WS-FE-\d{8}-001$/.test(mine[0].id), '소화기 번호 WS-FE-날짜-001 ' + mine[0].id);
+  fl = await call('ws_fe_add', [tk, J({ floor: '1F', store: '1층 카페(A)', count: 0 })]);
+  ok(fl.added.join() === '1층 카페(A)-소화기4' && /-004$/.test(fl.items.find(x => x.no === 4 && x.store === '1층 카페(A)').id), '개수 0 → 1대, 번호 이어서 (4)');
+  const FL = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
+  ok(fl.items.every((x, i, a) => !i || FL.indexOf(a[i - 1].floor) <= FL.indexOf(x.floor)), '목록은 층 순서');
+  ok((await call('ws_fe_delete', [tk, '[]'])).ok === false, '지울 것 없음 → 안내');
+  const del = fl.items.find(x => x.no === 4 && x.store === '1층 카페(A)');
+  fl = await call('ws_fe_delete', [tk, J([del.id, 'nothing'])]);
+  ok(fl.count === 1 && !fl.items.some(x => x.id === del.id), '소화기 지우기 (목록에서 빠짐)');
+  ok(fl.execUrl === '' && fl.label.w === 50 && fl.label.dpi === 203, 'QR 주소 설정 없음 → 빈칸(화면이 채움), 라벨 기본 50mm');
+  await q("insert into settings (key, value) values ('바로가기주소', 'https://a.github.io/fm/ws/?x=1') on conflict (key) do update set value = excluded.value");
+  ok((await call('ws_fe_list', [tk])).execUrl === 'https://a.github.io/fm/ws/', 'QR 주소 = 설정 바로가기주소 (? 뒤는 뺌)');
+  ok(/15~100/.test((await call('ws_label_save', [tk, 10, 50])).error), '라벨 크기 범위 밖 → 안내');
+  const lb = await call('ws_label_save', [tk, 60.04, 40]);
+  ok(lb.ok && lb.label.w === 60 && lb.label.h === 40 && (await one("select value from settings where key = '라벨가로mm'")).value === '60', '라벨 크기 저장 60×40');
+
+  // QR 점검 입력 (비로그인)
+  const qr = mine[0].token, anonCall = async (fn, args) => (await as('anon', 'select ' + fn + '(' + args.map((_, i) => '$' + (i + 1)).join(',') + ') r', args))[0].r;
+  ok((await anonCall('ws_check_init', ['zzzzzzzzzzzz'])).ok === false, 'QR 점검: 없는 QR → 안내');
+  let ci = await anonCall('ws_check_init', [qr]);
+  ok(ci.ok && ci.fe.name === '1층 카페(A)-소화기1' && ci.exists === false && ci.photo.w === 640 && ci.ym === ym && ci.window.end === 5, 'QR 점검: 비로그인도 열림 (소화기 이름·이번 달)');
+  ok((await asErr('anon', "insert into storage.objects (bucket_id, name) values ('ws-files', $1)", ['fire/' + qr + '/' + ym + '/a1.jpg'])) === '', 'QR 점검: 비로그인이 진짜 QR 경로에 사진 올림');
+  ok(/row-level security/.test(await asErr('anon', "insert into storage.objects (bucket_id, name) values ('ws-files', $1)", ['fire/zzzzzzzzzzzz/' + ym + '/a2.jpg'])), 'QR 점검: 없는 QR 경로 → 올리기 막음');
+  ok(/row-level security/.test(await asErr('anon', "insert into storage.objects (bucket_id, name) values ('ws-files', $1)", ['tbm_meet/' + ym + '/a3.jpg'])), 'QR 점검: 다른 경로 → 올리기 막음');
+  const FQ = (n, ext) => { const p = 'fire/' + qr + '/' + ym + '/' + n + '.' + ext; return { url: PUB + p, path: p }; };
+  let cs = await anonCall('ws_check_submit', [qr, J({ state: '이상없음' }), '{}']);
+  ok(cs.ok === false && cs.error === '압력계 사진, 외관·압력 이상무 칸, 이름 칸이(가) 비어 있습니다.', 'QR 점검: 파일 없음 → 빈 칸 안내');
+  ok((await anonCall('ws_check_submit', [qr, J({}), J({ photo: FQ('p', 'png'), memo: FQ('m', 'png'), name: FQ('n', 'png') })])).ok === false, 'QR 점검: 사진이 jpg 아니면 거부');
+  const files3 = J({ photo: FQ('p1', 'jpg'), memo: FQ('m1', 'png'), name: FQ('n1', 'png') });
+  cs = await anonCall('ws_check_submit', [qr, J({ state: '이상있음' }), files3]);
+  ok(cs.ok && cs.state === '이상있음' && /^WS-FC-\d{8}-001$/.test(cs.checkId) && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(cs.at), 'QR 점검 입력 ' + cs.checkId);
+  const ff = await q("select kind, file_name, drive_folder, created_by from files where kind like 'fire_%' order by kind");
+  ok(ff.length === 3 && ff.find(x => x.kind === 'fire_photo').file_name === iso(Date.now() + 9 * 3600e3) + '_소화기점검-1층-카페-A-소화기1_001.jpg' && ff[0].drive_folder === '소화기점검/' + iso(Date.now() + 9 * 3600e3).slice(0, 7) && ff[0].created_by === '매장 직원(QR)', '점검 파일 3개 이름·폴더 ' + ff.find(x => x.kind === 'fire_photo').file_name);
+  cs = await anonCall('ws_check_submit', [qr, J({ state: '이상없음' }), files3]);
+  ok(cs.ok === false && cs.exists === true, 'QR 점검: 이번 달 이미 있음 → 덮어쓸지 물음');
+  cs = await anonCall('ws_check_submit', [qr, J({ state: '이상없음', overwrite: true }), J({ photo: FQ('p2', 'jpg'), memo: FQ('m2', 'png'), name: FQ('n2', 'png') })]);
+  const oc = await one('select overwrite_count n, state from fire_checks where check_id = $1', [cs.checkId]);
+  ok(cs.ok && /-001$/.test(cs.checkId) && oc.n === 1 && oc.state === '이상없음', 'QR 점검 덮어쓰기: 같은 번호, 덮어쓴 횟수 1');
+  ok((await anonCall('ws_check_init', [qr])).exists === true, 'QR 점검: 다시 열면 「이미 있음」');
+  ok((await anonCall('ws_check_init', [del.token])).ok === false, 'QR 점검: 지운 소화기 QR → 안내');
+
+  // 점검 현황
+  let fs = await call('ws_fe_status', [tk, 'bad']);
+  const it = fs.items.find(x => x.id === mine[0].id);
+  ok(fs.ok && fs.ym === fs.curYm && it.state === 'ok' && it.checkId === cs.checkId && fs.counts.total === fs.items.length && fs.counts.ok >= 1, '점검 현황: 이번 달, 입력한 소화기 점검완료');
+  ok(!fs.items.some(x => x.id === del.id) && fs.months[fs.months.length - 1] === fs.curYm, '점검 현황: 이번 달 지운 소화기(기록 없음)는 안 보임, 달 목록 끝 = 이번 달');
+  const dt = await call('ws_fe_detail', [tk, cs.checkId]);
+  ok(dt.ok && /p2\.jpg$/.test(dt.photo) && /m2\.png$/.test(dt.signA) && /n2\.png$/.test(dt.signB) && dt.state === '이상없음', '점검 내용 보기: 새 사진·손글씨 주소');
+  ok((await call('ws_fe_detail', [tk, 'nope'])).ok === false, '점검 내용: 없는 번호 → 안내');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
