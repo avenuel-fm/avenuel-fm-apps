@@ -40,13 +40,19 @@ function migrateConf_() {
   if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(url) || !key) throw new Error('스크립트 속성 SUPABASE_URL · SUPABASE_SERVICE_KEY 를 먼저 넣어 주세요.');
   return { url: url, key: key };
 }
-function migrateFetch_(path, body, prefer) {
+/* Supabase 부르기 (관리자 열쇠). 2xx 가 아니면 멈춤 — 5단계(Archive.gs)도 씀 */
+function sbReq_(method, path, body, headers) {
   const c = migrateConf_();
-  const res = UrlFetchApp.fetch(c.url + path, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
-    headers: { apikey: c.key, Authorization: 'Bearer ' + c.key, Prefer: prefer || 'return=minimal' } });
+  const o = { method: method, muteHttpExceptions: true, headers: Object.assign({ apikey: c.key, Authorization: 'Bearer ' + c.key }, headers || {}) };
+  if (body !== undefined) { o.contentType = 'application/json'; o.payload = JSON.stringify(body); }
+  const res = UrlFetchApp.fetch(c.url + path, o);
   const code = res.getResponseCode();
-  if (code < 200 || code >= 300) throw new Error(path + ' 실패 (' + code + '): ' + String(res.getContentText()).slice(0, 300));
+  if (code < 200 || code >= 300) throw new Error(path.split('?')[0] + ' 실패 (' + code + '): ' + String(res.getContentText()).slice(0, 300));
+  return res;
 }
+function migrateFetch_(path, body, prefer) { sbReq_('post', path, body, { Prefer: prefer || 'return=minimal' }); }
+/* 드라이브 파일 → 앱이 쓰는 주소 (사진·서명은 그림 주소, PDF·엑셀은 보기 주소) */
+function driveFileUrl_(kind, id) { return /_pdf$|_xlsx$/.test(kind) ? driveUrl_(id) : 'https://lh3.googleusercontent.com/d/' + id; }
 function migrateRpc_(fn, args) { migrateFetch_('/rest/v1/rpc/' + fn, args); }
 function migratePost_(table, rows) { if (rows.length) migrateFetch_('/rest/v1/' + table, rows); }
 
@@ -74,8 +80,7 @@ function migrateBuild_() {
     id = String(id || '').trim();
     if (!/^[\w-]{4,}$/.test(id)) return null;
     if (!files[id]) {
-      const doc = /_pdf$|_xlsx$/.test(kind);
-      files[id] = { id: migUuid_(id), kind: kind, file_url: doc ? driveUrl_(id) : 'https://lh3.googleusercontent.com/d/' + id, storage_path: null,
+      files[id] = { id: migUuid_(id), kind: kind, file_url: driveFileUrl_(kind, id), storage_path: null,
         mime: /_pdf$/.test(kind) ? 'application/pdf' : /_xlsx$/.test(kind) ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : (kind === 'sign' || /_(memo|name)$/.test(kind)) ? 'image/png' : 'image/jpeg',
         drive_id: id, is_archived: true, created_by: '시트에서 옮김' };
     }
