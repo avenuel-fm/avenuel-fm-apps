@@ -64,6 +64,9 @@ function onOpen() {
     .addItem('⑦ 직원 삭제', 'removeStaffMenu_')
     .addItem('⑧ 직원 PIN 바꾸기', 'changePinMenu_')
     .addItem('⑨ 종합업무일지 날씨 자동 켜기 (네이버, 매일 오후 1시)', 'logWeatherMenu_')
+    .addSeparator()
+    .addItem('⑩ Supabase로 옮기기 (바꿔 타는 날 한 번)', 'migrateMenu_')   // Migrate.gs (이관 4단계)
+    .addItem('⑪ Supabase: 옛 파일 링크 공유 (「끝」까지 여러 번)', 'migrateShareMenu_')
     .addToUi();
 }
 
