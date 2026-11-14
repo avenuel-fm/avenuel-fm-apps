@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.10.0', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.10.1', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -465,6 +465,9 @@ function api_(p) {
       const day = logDay_(p.day);
       if (sbLive_()) logWeatherMaybe_(day);   // 예약이 빠진 날: Supabase 화면이 일지를 열 때 날씨 채움 (구글 판 logGet 과 같음)
       out = { ok: true, day: day, ac: logAc_(day) };
+    } else if (p.api === 'pdf') {
+      // Supabase 판 앱 안 PDF 보기: 드라이브로 옮긴 PDF를 대신 받아 줌 (브라우저는 드라이브에서 직접 못 받음). 키 없이 — 이미 「링크가 있는 사람 보기」인 PDF만
+      out = pdfApi_(p.id);
     } else {
       throw new Error('알 수 없는 요청');
     }
@@ -1502,6 +1505,17 @@ function attHoliday(token, name, days, date) {
 }
 
 /** 개선 C: TBM PDF에 쓰이지 않은 서명은 90일 뒤 휴지통 (매일 예약 작업) */
+/** ?api=pdf&id=드라이브번호 → { ok, name, b64 }. 공유(링크가 있는 사람·누구나) PDF만 — 주소만 알면 원래도 볼 수 있는 파일이라 더 열리는 것 없음 */
+function pdfApi_(id) {
+  if (!/^[\w-]{20,80}$/.test(String(id || ''))) throw new Error('파일 번호가 맞지 않습니다');
+  let f;
+  try { f = DriveApp.getFileById(id); } catch (e) { throw new Error('파일을 찾지 못했습니다'); }
+  const a = String(f.getSharingAccess());
+  if (f.isTrashed() || f.getMimeType() !== 'application/pdf' || (a !== String(DriveApp.Access.ANYONE_WITH_LINK) && a !== String(DriveApp.Access.ANYONE))) throw new Error('볼 수 없는 파일입니다');
+  if (f.getSize() > 25 * 1024 * 1024) throw new Error('파일이 너무 큽니다');
+  return { ok: true, name: f.getName(), b64: Utilities.base64Encode(f.getBlob().getBytes()) };
+}
+
 /** 바꿔 탄 뒤인가 (메뉴 ⑩ 옮기기가 끝나면 스크립트 속성 SUPABASE_LIVE = Y). 되돌릴 때는 그 속성을 지움 */
 function sbLive_() { return PropertiesService.getScriptProperties().getProperty('SUPABASE_LIVE') === 'Y'; }
 

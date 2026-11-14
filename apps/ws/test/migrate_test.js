@@ -159,6 +159,19 @@ alter default privileges in schema public grant all on sequences to anon, authen
   calls.length = 0; logWeatherJob_();
   ok(calls.length === 0, '「바꿔 탐」 표시를 지우면(되돌리기) 다시 시트에 씀');
 
+  // ?api=pdf: 앱 안 PDF 보기가 드라이브로 옮긴 PDF를 받는 통로 — 공유된 PDF만
+  const pdfB = Utilities.newBlob([37, 80, 68, 70, 45, 49], 'application/pdf');
+  files.SHAREDpdf_abcdefghijklmn = { name: '2026-10-01_TBM.pdf', blob: pdfB, sharing: 'ANYONE_WITH_LINK:VIEW' };
+  files.PRIVATEpdf_abcdefghijkl = { name: 'p.pdf', blob: pdfB };
+  files.SHAREDjpg_abcdefghijklmn = { name: 'a.jpg', blob: Utilities.newBlob([1, 2], 'image/jpeg'), sharing: 'ANYONE_WITH_LINK:VIEW' };
+  files.TRASHEDpdf_abcdefghijkl = { name: 't.pdf', blob: pdfB, sharing: 'ANYONE_WITH_LINK:VIEW', trashed: true };
+  const pa = pdfApi_('SHAREDpdf_abcdefghijklmn');
+  ok(pa.ok && pa.name === '2026-10-01_TBM.pdf' && Buffer.from(pa.b64, 'base64').toString() === '%PDF-1', '?api=pdf: 「링크가 있는 사람 보기」 PDF는 내용을 돌려줌');
+  const pErr = id => { try { pdfApi_(id); return ''; } catch (e) { return e.message; } };
+  ok(pErr('PRIVATEpdf_abcdefghijkl') === '볼 수 없는 파일입니다' && pErr('SHAREDjpg_abcdefghijklmn') === '볼 수 없는 파일입니다' && pErr('TRASHEDpdf_abcdefghijkl') === '볼 수 없는 파일입니다',
+    '?api=pdf: 공유 안 된 파일·PDF 아닌 파일·휴지통 파일은 거절 (드라이브의 다른 파일이 새지 않음)');
+  ok(pErr('x') === '파일 번호가 맞지 않습니다' && pErr('../../etc') === '파일 번호가 맞지 않습니다', '?api=pdf: 이상한 번호 거절');
+
   await db.close();
   console.log(fail ? '\n옮기기 시험 실패 ' + fail + '개' : '\n옮기기 시험 통과');
   process.exit(fail ? 1 : 0);
