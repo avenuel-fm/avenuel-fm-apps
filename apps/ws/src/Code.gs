@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.9.14', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.10.0', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -462,6 +462,7 @@ function api_(p) {
     } else if (p.api === 'logac') {
       // Supabase 판 종합업무일지용 공조기·에어커튼 가동시간 (온습도 앱 기록, 결정 120) — 장비 가동시간만이라 키 없이
       const day = logDay_(p.day);
+      if (sbLive_()) logWeatherMaybe_(day);   // 예약이 빠진 날: Supabase 화면이 일지를 열 때 날씨 채움 (구글 판 logGet 과 같음)
       out = { ok: true, day: day, ac: logAc_(day) };
     } else {
       throw new Error('알 수 없는 요청');
@@ -1191,6 +1192,7 @@ function logWeatherFetch_(day) {
 function logWeatherFill_(day) {
   const w = logWeatherFetch_(day);
   if (!w) { log_('예약 작업', '종합업무일지 날씨 실패', day, '네이버 날씨를 읽지 못함'); return null; }
+  if (sbLive_()) { sbReq_('post', '/rest/v1/rpc/ws_log_weather', { p_day: day, p_w: w }); return w; }   // 바꿔 탄 뒤: Supabase 일지의 빈 칸만 (11_cutover.sql)
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -1219,7 +1221,7 @@ function logWeatherMaybe_(day) {
   const cache = CacheService.getScriptCache(), key = 'lgwx_' + day;
   if (cache.get(key)) return;
   try {
-    const row = logRows_(logBook_('일지시트ID', '종합업무일지')).filter(function (r) { return r['일자'] === day; })[0];
+    const row = sbLive_() ? null : logRows_(logBook_('일지시트ID', '종합업무일지')).filter(function (r) { return r['일자'] === day; })[0];   // Supabase는 빈 칸만 채우니 그냥 부름
     if (row && row['날씨']) { cache.put(key, '1', 21600); return; }
     cache.put(key, logWeatherFill_(day) ? '1' : '0', 1800);
   } catch (e) { cache.put(key, '0', 1800); }
@@ -1499,7 +1501,15 @@ function attHoliday(token, name, days, date) {
 }
 
 /** 개선 C: TBM PDF에 쓰이지 않은 서명은 90일 뒤 휴지통 (매일 예약 작업) */
+/** 바꿔 탄 뒤인가 (메뉴 ⑩ 옮기기가 끝나면 스크립트 속성 SUPABASE_LIVE = Y). 되돌릴 때는 그 속성을 지움 */
+function sbLive_() { return PropertiesService.getScriptProperties().getProperty('SUPABASE_LIVE') === 'Y'; }
+
 function cleanSigns_() {
+  if (sbLive_()) {   // 바꿔 탄 뒤: Supabase 서명 표에서 지운 표시 → 드라이브로 옮긴 그림만 휴지통 (11_cutover.sql)
+    const r = JSON.parse(sbReq_('post', '/rest/v1/rpc/ws_clean_signs', { p_days: 90 }).getContentText());
+    r.drive.forEach(trashFile_);
+    return r.n;
+  }
   const limit = workDay_(Date.now() - 90 * DAY_MS);
   const t = readTable_('서명');
   let n = 0;

@@ -12,7 +12,7 @@ function migrateMenu_() {
   const yes = ui.alert('Supabase로 옮기기', '시트의 모든 자료를 Supabase DB로 옮깁니다.\n\nDB에 있던 자료는 지우고 다시 씁니다 — 바꿔 타는 날 한 번만 돌리세요.\n(시트는 그대로 남습니다)\n\n계속할까요?', ui.ButtonSet.YES_NO);
   if (yes !== ui.Button.YES) return;
   const r = migrateSheetToSupabase();
-  ui.alert('Supabase로 옮기기', '끝났습니다.\n\n' + r.lines.join('\n') + '\n\n다음: 메뉴 「⑪ 옛 파일 링크 공유」를 「끝」이 나올 때까지 돌리세요.', ui.ButtonSet.OK);
+  ui.alert('Supabase로 옮기기', '끝났습니다.\n\n' + r.lines.join('\n') + '\n\n이제부터 날씨(오후 1시)·서명 정리(새벽 3시) 예약은 Supabase에 씁니다.\n\n다음: ① 메뉴 「⑪ 옛 파일 링크 공유」를 「끝」이 나올 때까지 ② 바로가기 페이지 config.js 의 LIVE 를 true 로 올리기', ui.ButtonSet.OK);
 }
 
 function migrateSheetToSupabase() {
@@ -26,6 +26,7 @@ function migrateSheetToSupabase() {
       for (let i = 0; i < t[1].length; i += MIG_BATCH) migratePost_(t[0], t[1].slice(i, i + MIG_BATCH));
       lines.push(t[0] + ' ' + t[1].length);
     });
+    PropertiesService.getScriptProperties().setProperty('SUPABASE_LIVE', 'Y');   // 이제부터 날씨·서명 정리 예약은 Supabase에 씀 (sbLive_)
     log_('관리자(시트)', 'Supabase로 옮기기', '', lines.join(', '));
     return { ok: true, lines: lines };
   } finally {

@@ -201,3 +201,23 @@
   - **실패가 있으면 스크립트 주인(시트 주인) 메일**로 실패 건수·파일 이름·이유. 처음 한 번 구글이 「메일 보내기」 권한을 물음.
 - 시험 `npm run test:migrate` = 옮기기 28 + **드라이브 옮기기 25개 통과** (`test/archive_test.js`, 가짜 Supabase·가짜 드라이브 + PGlite로 `ws_backup`): 옮김·주소·폴더·공유, 7일 안 된 것 그대로, 원본 없는 파일·DB가 막은 파일은 그대로, DB 고친 다음에만 원본 지움, 버킷 정리, 백업 CSV, 메일, 두 번 저장 안 함, 시간 모자라면 이어서, 겹쳐 돌지 않음, 메뉴 예약. SQL·화면(3-2~3-6) 시험, 기존 전체 시험 「모두 통과」.
 - 바꿔 타는 날에 더할 것: SQL 10 실행, `Archive.gs` 올리기, 하루 써 본 뒤 메뉴 ⑫. **남은 일 = 바꿔 타는 날** (바로가기 `?fe=`·`?eh=` 를 Supabase 화면으로, 날씨·온습도·서명 정리 예약이 Supabase에 쓰게 — 4.5).
+### 4.17 바꿔 타는 날 준비 (11-14, 사용자 「진행시켜」) — 스위치 2개 · 예약 작업 · 순서표
+- **바로가기 스위치** `fm/ws/config.js` 의 `LIVE` (지금 `false`): `true` 면 바로가기 페이지(`fm/ws/index.html`)가 앱 → `app.html`, 소화기 QR `?fe=` → `check-sb.html`, 전열필증 QR `?eh=` → `eh-sb.html` 로 보냄(받은 값 그대로). **되돌리기 = `false` 로 다시 올리기** (옛 구글 앱 그대로 열림). 붙인 QR·TinyURL은 바꾸지 않음(QR은 바로가기 주소 `…/fm/ws/?fe=` 라서).
+- **구글 쪽 표시** 스크립트 속성 `SUPABASE_LIVE = Y`: 메뉴 ⑩ 옮기기가 **끝나면 저절로** 켜짐(`sbLive_`). 켜지면
+  - 매일 오후 1시 네이버 날씨(`logWeatherJob_`) → DB `ws_log_weather`: 그날 일지의 **빈 날씨 칸만**, 줄이 없으면 날씨만 든 줄(작성자 비움), 수정시각 그대로 → 보고 있던 화면이 저장해도 겹침 안 남.
+  - 예약이 빠진 날: Supabase 화면이 일지를 열 때 부르는 `?api=logac` 이 오후 1시 뒤면 날씨도 한 번 채움(구글 판 logGet 과 같음, 30분에 한 번).
+  - 매일 새벽 3시 서명 정리(`cleanSigns_`) → DB `ws_clean_signs`: TBM PDF에 안 쓴 서명 90일 뒤 지운 표시, 드라이브로 옮긴 그림만 휴지통.
+  - 되돌릴 때는 스크립트 속성에서 `SUPABASE_LIVE` 를 지움 → 다시 시트에 씀.
+  - DB 함수 `apps/ws/supabase/11_cutover.sql` (10 다음, 관리자 열쇠만).
+- 공조기·에어커튼 가동시간은 이미 Supabase 화면이 구글 `?api=logac` 으로 받음(3-2). HUB용 `?api=summary` 는 HUB가 아직 없어 시트에서 그대로 읽음 → HUB 만들 때 Supabase로.
+- 시험: `npm run test:migrate` 옮기기 **39개**(바꿔 탄 뒤 11개 더함: 표시 켜짐, 날씨 빈 칸만·수정시각 그대로·겹침 안 남·두 번 불러도 같음·날씨만 든 줄, 서명 정리, 앱 화면 막힘, 예약이 Supabase 부름, 되돌리기) + 드라이브 옮기기 25, 화면 `npm run test:sb` 로그인 시험에 스위치 3개 더함(LIVE false·true·되돌리기). SQL · 기존 전체 시험 「모두 통과」.
+
+**바꿔 타는 날 순서표** (아침 출근 전, 운영판 수정은 그날 멈춤)
+1. Supabase SQL Editor: `02` ~ `11` 차례로 Run (01은 실행 완료).
+2. Apps Script 스크립트 속성: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (관리자 열쇠 — **사용자가 직접**, 채팅·코드에 안 씀).
+3. Apps Script에 `Code.gs` · `Index.html` · `Migrate.gs` · `Archive.gs` 올리기 → 배포 관리 ✏ 새 버전 (새 배포 금지).
+4. 시트 메뉴 **⑩ Supabase로 옮기기** → 줄 수 확인 (이때부터 날씨·서명 정리는 Supabase).
+5. 시트 메뉴 **⑪ 옛 파일 링크 공유** 를 「끝」까지.
+6. 바로가기 저장소에 `fm/` 올리기 — `fm/ws/config.js` 의 `LIVE: true` 로 바꿔서 (`app.html`·`check-sb.html`·`eh-sb.html`·`ws-api.js`·`index.html` 포함).
+7. 휴대폰 1대로 확인: 기기 등록(공용 계정) → PIN → 서명 → 소화기 QR 하나 찍기 → 전열필증 QR → TBM 열기.
+8. 하루 써 보고 괜찮으면 시트 메뉴 **⑫ 주 1회 드라이브로 옮기기 켜기**. 문제면 `LIVE: false` 로 되돌리고 스크립트 속성 `SUPABASE_LIVE` 지움 (그날 앱에 쓴 것은 시트에 없음 → 다시 옮길 때 알려 주기).

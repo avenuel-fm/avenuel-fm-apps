@@ -43,7 +43,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const q = (s, p) => db.query(s, p).then(r => r.rows);
   const as = async (role, s, p) => { await db.exec('set role ' + role); try { return await q(s, p); } finally { await db.exec('reset role'); } };
   await db.exec(BASE);
-  for (const f of ['01_schema_rls.sql', '02_login.sql', '03_docs.sql', '04_attendance.sql', '05_fire.sql', '06_eh.sql', '07_cs.sql', '08_settings.sql', '09_migrate.sql']) await db.exec(SQL(f));
+  for (const f of ['01_schema_rls.sql', '02_login.sql', '03_docs.sql', '04_attendance.sql', '05_fire.sql', '06_eh.sql', '07_cs.sql', '08_settings.sql', '09_migrate.sql', '10_archive.sql', '11_cutover.sql']) await db.exec(SQL(f));
   const denied = async role => { try { await as(role, 'select ws_migrate_clear()'); return false; } catch (e) { await db.exec('reset role'); return /permission denied/.test(e.message); } };
   ok(await denied('anon') && await denied('authenticated'), '비우기(ws_migrate_clear)는 앱 화면이 못 부름');
   await as('service_role', 'select ws_migrate_clear()');
@@ -96,11 +96,12 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const sent = [];
   global.UrlFetchApp = { fetch: (u, o) => { sent.push({ u, o }); return { getResponseCode: () => 201, getContentText: () => '' }; } };
   let err = ''; try { migrateSheetToSupabase(); } catch (e) { err = e.message; }
-  ok(/SUPABASE_URL/.test(err) && sent.length === 0, '열쇠가 없으면 아무것도 안 보내고 안내');
+  ok(/SUPABASE_URL/.test(err) && sent.length === 0 && !sbLive_(), '열쇠가 없으면 아무것도 안 보내고 안내 (바꿔 탄 표시도 안 함)');
   PropertiesService.getScriptProperties().setProperty('SUPABASE_URL', 'https://abc.supabase.co/');
   PropertiesService.getScriptProperties().setProperty('SUPABASE_SERVICE_KEY', 'svc-key');
   const r = migrateSheetToSupabase();
   ok(r.ok && sent[0].u === 'https://abc.supabase.co/rest/v1/rpc/ws_migrate_clear' && sent.every(s => s.o.headers.Authorization === 'Bearer svc-key' && s.o.headers.apikey === 'svc-key'), '먼저 DB를 비우고, 관리자 열쇠로 보냄');
+  ok(sbLive_(), '옮기기가 끝나면 「바꿔 탐」 표시 (SUPABASE_LIVE = Y) → 예약 작업이 Supabase에 씀');
   const posted = {}; sent.slice(1).forEach(s => { const t = s.u.split('/rest/v1/')[1]; posted[t] = (posted[t] || 0) + JSON.parse(s.o.payload).length; });
   ok(T.every(([t, rows]) => (posted[t] || 0) === rows.length) && sent.slice(1).every(s => JSON.parse(s.o.payload).length <= 500), '표마다 모든 줄을 500줄씩 나눠 보냄');
   ok(Object.keys(posted)[0] === 'files', 'files 표를 먼저 보냄');
@@ -114,6 +115,49 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const s1 = migrateShareFiles_();
   const { files } = require('./mock_env.js');
   ok(s1.done && s1.total === n('files') && by.files.every(f => !files[f.drive_id] || files[f.drive_id].sharing === 'ANYONE_WITH_LINK:VIEW'), '공유: 끝까지 하면 옮긴 파일 모두 「링크가 있는 사람 보기」 (' + s1.total + '개)');
+
+  // 바꿔 탄 뒤 예약 작업 (11_cutover.sql + Code.gs sbLive_)
+  const svc = async (s, p) => (await as('service_role', s, p))[0].r;
+  const wday = '2026-11-10';
+  await q("insert into daily_log (log_date, t_min, m_city_water, author, editor, updated_at) values ($1, -3, 12.5, '홍길동', '홍길동', '2026-11-10 09:00+09')", [wday]);
+  const before = await call('ws_log_get', [tk, wday]);
+  const W = { '날씨': '맑음', '최저': '1.5', '최고': '9', '최고풍속': '3.2', '미세먼지': '41', '미세먼지등급': '보통' };
+  const f1 = await svc('select ws_log_weather($1::date, $2::jsonb) r', [wday, JSON.stringify(W)]);
+  const after = await call('ws_log_get', [tk, wday]);
+  ok(f1.filled.join() === '날씨,최고,최고풍속,미세먼지,미세먼지등급' && after.cur['최저'] === '-3' && after.cur['날씨'] === '맑음' && after.cur['날씨출처'] === '네이버' && after.cur['시수'] === '12.5',
+    '날씨 예약: 빈 칸만 채움 (직원이 쓴 최저 -3·검침 그대로)');
+  ok(after.cur['수정시각'] === before.cur['수정시각'], '날씨 예약: 수정시각 그대로 → 보고 있던 화면이 저장해도 겹침 안 남');
+  const sv = await call('ws_log_save', [tk, wday, JSON.stringify(Object.assign({}, after.cur, { '날씨': '' })), before.cur['수정시각'], null]);
+  ok(sv.ok !== false && sv.cur['날씨'] === '맑음', '날씨가 들어오기 전에 연 화면이 저장해도 됨 (빈칸으로 보내도 날씨 남음)');
+  ok((await svc('select ws_log_weather($1::date, $2::jsonb) r', [wday, JSON.stringify(W)])).filled.length === 0, '날씨 예약: 두 번 불러도 바뀌는 것 없음');
+  const nd = '2026-11-11';
+  await svc('select ws_log_weather($1::date, $2::jsonb) r', [nd, JSON.stringify({ '날씨': '<b>흐림</b>', '최저': 'x', '미세먼지등급': '최악' })]);
+  const nlg = await call('ws_log_get', [tk, nd]);
+  ok(nlg.cur && nlg.cur['날씨'] === 'b흐림/b' && nlg.cur['최저'] === '' && nlg.cur['미세먼지등급'] === '' && nlg.cur['작성자'] === '' && nlg.cur['수정시각'] === '', '날씨 예약: 줄이 없으면 날씨만 든 줄 (이상한 값은 버림, 작성자 비움 → 처음 저장한 사람이 작성자)');
+  const old = '2026-07-01';
+  await q("insert into files (id, kind, drive_id, is_archived, file_url) values ('11111111-1111-4111-8111-111111111111', 'sign', 'drvOldSign', true, 'x'), ('22222222-2222-4222-8222-222222222222', 'sign', null, false, 'y'), ('33333333-3333-4333-8333-333333333333', 'sign', 'drvTbm', true, 'z')");
+  await q("insert into signs (sign_id, work_day, staff_id, name, sign_file_id, signed_at, tbm_used) values ('SG-old1', $1::date, $2, '홍길동', '11111111-1111-4111-8111-111111111111', now(), false), ('SG-old2', $1::date - 1, $2, '홍길동', '22222222-2222-4222-8222-222222222222', now(), false), ('SG-tbm', $1::date - 2, $2, '홍길동', '33333333-3333-4333-8333-333333333333', now(), true)", [old, hong.staff_id]);
+  const liveSigns = (await q('select count(*)::int n from signs where not deleted'))[0].n;
+  const cs = await svc('select ws_clean_signs(90) r');
+  const left = await q("select sign_id, deleted from signs where sign_id like 'SG-%' order by sign_id");
+  ok(cs.n === 2 && JSON.stringify(cs.drive) === '["drvOldSign"]' && left.map(x => x.sign_id + ':' + x.deleted).join() === 'SG-old1:true,SG-old2:true,SG-tbm:false' &&
+    (await q('select count(*)::int n from signs where not deleted'))[0].n === liveSigns - 2, '서명 정리: 90일 지난 안 쓴 서명만 지운 표시, 드라이브로 옮긴 그림 번호만 돌려줌 (TBM에 쓴 서명·최근 서명 그대로)');
+  const deny = async (role, s) => { try { await as(role, s); return false; } catch (e) { await db.exec('reset role'); return /permission denied/.test(e.message); } };
+  ok(await deny('authenticated', "select ws_log_weather('2026-11-10', '{}')") && await deny('anon', 'select ws_clean_signs(90)') && await deny('authenticated', 'select ws_clean_signs(1)'), '날씨·서명 정리 함수는 앱 화면이 못 부름');
+
+  // 구글 쪽: 바꿔 탄 뒤 예약이 Supabase 를 부름
+  const calls = [];
+  global.UrlFetchApp = { fetch: (u, o) => { calls.push({ u, body: o.payload && JSON.parse(o.payload) }); return { getResponseCode: () => 200, getContentText: () => /ws_clean_signs/.test(u) ? JSON.stringify(cs) : '{"ok":true,"filled":[]}' }; } };
+  global.logWeatherFetch_ = () => W;
+  files.drvOldSign = { name: 's.png', trashed: false };
+  logWeatherJob_();
+  ok(calls.length === 1 && /\/rest\/v1\/rpc\/ws_log_weather$/.test(calls[0].u) && calls[0].body.p_day === workDay_(Date.now()) && calls[0].body.p_w['날씨'] === '맑음', '날씨 예약(오후 1시) → Supabase ws_log_weather (시트 안 건드림)');
+  calls.length = 0;
+  const n2 = cleanSigns_();
+  ok(n2 === 2 && calls.length === 1 && /ws_clean_signs$/.test(calls[0].u) && files.drvOldSign.trashed === true, '서명 정리 예약(새벽 3시) → Supabase ws_clean_signs, 드라이브 그림 휴지통');
+  PropertiesService.getScriptProperties().setProperty('SUPABASE_LIVE', '');
+  calls.length = 0; logWeatherJob_();
+  ok(calls.length === 0, '「바꿔 탐」 표시를 지우면(되돌리기) 다시 시트에 씀');
 
   await db.close();
   console.log(fail ? '\n옮기기 시험 실패 ' + fail + '개' : '\n옮기기 시험 통과');

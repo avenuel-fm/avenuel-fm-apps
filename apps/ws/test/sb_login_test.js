@@ -112,5 +112,20 @@ const srv = http.createServer((req, res) => {
   });
   ok(z.type === 'image/jpeg' && z.w === 1200 && z.h === 800 && z.after < z.before, '12) 사진 줄이기 3000×2000 → ' + z.w + '×' + z.h + ' JPEG (' + Math.round(z.before / 1024) + 'KB → ' + Math.round(z.after / 1024) + 'KB)');
   ok(!errs.length, '화면 오류 없음' + (errs.length ? ': ' + errs.join(' / ') : ''));
+  // 바꿔 타는 날 스위치: 바로가기 페이지(index.html)가 config.js LIVE 를 보고 감
+  const cfg = fs.readFileSync(path.join(FM, 'ws', 'config.js'), 'utf8');
+  ok(/LIVE: false,/.test(cfg), '13) 지금 config.js 는 LIVE: false (옛 구글 앱 그대로)');
+  await c.route('https://script.google.com/**', r => r.fulfill({ contentType: 'text/html', body: '<p>google</p>' }));
+  const go = async (live, q) => {
+    await c.unroute('**/ws/config.js');
+    await c.route('**/ws/config.js', r => r.fulfill({ contentType: 'application/javascript', body: cfg.replace('LIVE: false,', 'LIVE: ' + live + ',') }));
+    const g = await c.newPage(); await g.goto('http://localhost:' + PORT + '/ws/index.html' + q); await g.waitForTimeout(400);   // GitHub Pages 는 /ws/ 에 index.html 을 보여 줌
+    const u = new URL(g.url()), fr = await g.locator('iframe').getAttribute('src').catch(() => null); await g.close();
+    return u.pathname.replace('/ws/', '') + u.search + (fr ? ' → ' + fr : '');
+  };
+  const r1 = await go(true, ''), r2 = await go(true, '?fe=abc123def456'), r3 = await go(true, '?eh=xyz789xyz789');
+  ok(r1 === 'app.html' && r2 === 'check-sb.html?fe=abc123def456' && r3 === 'eh-sb.html?eh=xyz789xyz789', '14) LIVE: true → 앱·소화기 QR·전열필증 QR 이 Supabase 화면으로 (' + [r1, r2, r3].join(' / ') + ')');
+  const r4 = await go(false, '?fe=abc123def456'), r5 = await go(false, '?eh=xyz789xyz789');
+  ok(r4 === 'check.html?fe=abc123def456' && /^index\.html\?eh=xyz789xyz789 → https:\/\/script\.google\.com\/.+\/exec\?eh=xyz789xyz789$/.test(r5), '15) LIVE: false 로 되돌리면 옛 구글 앱 (' + r4 + ' / ' + r5 + ')');
   await b.close(); srv.close();
 })().catch(e => { console.log('ERR ' + e.message); srv.close(); process.exit(1); });
