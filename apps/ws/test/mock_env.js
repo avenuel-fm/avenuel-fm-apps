@@ -69,7 +69,8 @@ function mkFolder(name) { return { name, getName: () => name, isTrashed: () => f
   createFile: b => { const id = 'file' + (++fid); files[id] = { name: b.name, blob: b, trashed: false, desc: '' }; return { getId: () => id, setDescription: d => files[id].desc = d }; } }; }
 global.DriveApp = { getRootFolder: () => mkFolder('root'), getFolderById: id => mkFolder(id.replace('F_', '')),
   getFileById: id => ({ moveTo() {}, setTrashed: t => files[id].trashed = t, getBlob: () => files[id].blob, getName: () => files[id].name, isTrashed: () => !!files[id].trashed,
-    getMimeType: () => files[id].blob && files[id].blob.type, getSize: () => files[id].blob ? files[id].blob.bytes.length : 0, setSharing: (a, p) => { if (!global.NO_SHARE) files[id].sharing = a + ':' + p; }, getSharingAccess: () => String(files[id].sharing || 'PRIVATE').split(':')[0] }),
+    getMimeType: () => files[id].blob && files[id].blob.type, getSize: () => files[id].blob ? files[id].blob.bytes.length : 0, setSharing: (a, p) => { if (!global.NO_SHARE) files[id].sharing = a + ':' + p; }, getSharingAccess: () => String(files[id].sharing || 'PRIVATE').split(':')[0],
+    getParents: () => { const ps = (files[id].parents || []).map(p => ({ getId: () => p, getParents: () => ({ hasNext: () => false }) })); return { hasNext: () => ps.length > 0, next: () => ps.shift() }; } }),
   Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK' }, Permission: { VIEW: 'VIEW' } };
 global.ScriptApp = { getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/TEST/exec' }), getProjectTriggers: () => [] };
 global.HtmlService = {}; global.ContentService = {};

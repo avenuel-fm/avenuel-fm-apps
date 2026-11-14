@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.10.2', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.10.3', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -1519,10 +1519,29 @@ function pdfApi_(id) {
   if (!/^[\w-]{20,80}$/.test(String(id || ''))) throw new Error('파일 번호가 맞지 않습니다');
   let f;
   try { f = DriveApp.getFileById(id); } catch (e) { throw new Error('파일을 찾지 못했습니다'); }
+  if (f.isTrashed()) throw new Error('지워진 파일입니다 (드라이브 휴지통)');
+  if (f.getMimeType() !== 'application/pdf') throw new Error('PDF 파일이 아닙니다');
   const a = String(f.getSharingAccess());
-  if (f.isTrashed() || f.getMimeType() !== 'application/pdf' || (a !== String(DriveApp.Access.ANYONE_WITH_LINK) && a !== String(DriveApp.Access.ANYONE))) throw new Error('볼 수 없는 파일입니다');
+  if (a !== String(DriveApp.Access.ANYONE_WITH_LINK) && a !== String(DriveApp.Access.ANYONE)) {
+    // 앱이 만든 PDF(업무지원 폴더 안)는 「링크가 있는 사람 보기」여야 함 → 빠진 것은 여기서 공유 (11-14 TBM 11-12 PDF). 폴더 밖 파일은 거절
+    if (!inAppFolder_(f)) throw new Error('볼 수 없는 파일입니다');
+    f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    log_('시스템', 'PDF 공유 다시 걸기', id,f.getName() + ' (공유 안 되어 있던 것: ' + a + ')');
+  }
   if (f.getSize() > 25 * 1024 * 1024) throw new Error('파일이 너무 큽니다');
   return { ok: true, name: f.getName(), b64: Utilities.base64Encode(f.getBlob().getBytes()) };
+}
+
+/** 파일이 「시설팀 통합업무/20_업무지원」 폴더 아래(몇 층이든)에 있는가 */
+function inAppFolder_(f) {
+  const root = folderPath_(['시설팀 통합업무', '20_업무지원']).getId();
+  let ps = f.getParents();
+  for (let n = 0; n < 12 && ps.hasNext(); n++) {
+    const p = ps.next();
+    if (p.getId() === root) return true;
+    ps = p.getParents();
+  }
+  return false;
 }
 
 /** 바꿔 탄 뒤인가 (메뉴 ⑩ 옮기기가 끝나면 스크립트 속성 SUPABASE_LIVE = Y). 되돌릴 때는 그 속성을 지움 */
