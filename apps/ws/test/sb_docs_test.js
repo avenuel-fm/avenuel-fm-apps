@@ -1,4 +1,4 @@
-// Supabase 이관 3-2~3-4 화면 시험: 명일 작업 · TBM · 종합업무일지 · 출근현황 · 소화기(QR 점검 check-sb.html 포함)가 Supabase 통로(ws-api.js)로 저장되는지 (fm/ws/app.html)
+// Supabase 이관 3-2~3-5 화면 시험: 명일 작업 · TBM · 종합업무일지 · 출근현황 · 소화기(QR 점검 check-sb.html 포함) · 전열필증(eh-sb.html 포함) · 공사장 점검가 Supabase 통로(ws-api.js)로 저장되는지 (fm/ws/app.html)
 // 진짜 Supabase 대신 가짜(FAKE)를 씀 — 화면 → 통로 → DB 함수에 넘기는 값만 봄. DB 함수 자체 시험은 sql_test.js
 // 먼저: python tools/build_fm.py   그다음: node test/sb_docs_test.js
 const { chromium } = require('playwright');
@@ -29,6 +29,11 @@ const attData = d => ({ ok: true, date: d, today: D, months: [D.slice(0, 7)], ju
   people: [{ sec: '전기', role: '소장', name: ME.name, v: '', raw: '', fix: null, hol: '' },
     { sec: '기계', role: '기사', name: '김철수', v: AT.fix ? AT.fix.v : '', raw: '', fix: AT.fix ? { by: ME.name, at: D + ' 09:00:00' } : null, hol: AT.hol || '' }] });
 const FE = [], CHK = { exists: false };
+const EH_F = ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '팝업'];
+const ehData = () => ({ ok: true, floor: '1F', floors: EH_F.map(f => ({ code: f, stores: f === '1F' ? 1 : 0, items: f === '1F' ? 1 : 0 })),
+  stores: [{ id: 'WS-ES-1', no: 1, name: '카페', items: [{ id: 'WS-EH-1', no: '1F-1-1', name: '오븐', w: '3000', maker: 'S', m1: '갑', m2: '을', date: '2026-01-02', printed: '', token: 'abcdefghjkmp' }] }],
+  names: [['1F', '카페', 'WS-ES-1']], empty: false, execUrl: '', dpi: 203 });
+const CSITE = { id: 'WS-CS-1', name: '5F 리모와', work: '인테리어', co: 'A사' }, CS = {};
 const feData = () => ({ ok: true, items: FE, execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const RPC = {
   ws_bootstrap: () => ({ ok: true, user: ME, toastSec: 1, needSign: false, docs: { day: D, signs: 1 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 }, window: { start: 1, end: 5 }, day: 14, ym: D.slice(0, 7) } }),
@@ -77,6 +82,22 @@ const RPC = {
     photo: '/storage/v1/object/public/ws-files/fire/abcdefghjkmn/p.jpg', signA: '/storage/v1/object/public/ws-files/fire/abcdefghjkmn/m.png', signB: '' }),
   ws_check_init: () => ({ ok: true, fe: { name: '카페-소화기1', floor: '1F', store: '카페' }, ym: D.slice(0, 7), monthLabel: '이번 달', window: { start: 1, end: 5 }, day: 14, late: true, early: false, exists: CHK.exists, photo: { w: 640, q: 0.6 } }),
   ws_check_submit: a => { CHK.exists = true; return { ok: true, state: a.p_d.state, late: true, checkId: 'WS-FC-1', name: '카페-소화기1', at: D + ' 10:00:00' }; },
+  /* 3-5 전열필증 · 공사장 점검 */
+  ws_eh_list: () => ehData(),
+  ws_eh_save: a => Object.assign(ehData(), { saved: '1F-1-2' }),
+  ws_eh_import: () => ehData(),
+  ws_eh_view: a => a.p_qr === 'abcdefghjkmp' ? { ok: true, item: { id: 'WS-EH-1', no: '1F-1-1', name: '오븐', w: '3000', maker: 'S', m1: '갑', m2: '을', date: '2026-01-02', floor: '1F', store: '카페' } }
+    : { ok: false, error: '삭제된 필증입니다. 시설팀에 알려 주세요.', no: '1F-1-9' },
+  ws_cs_home: () => ({ ok: true, day: D, admin: true, items: [{ t: '정리정돈·통로', d: '통로 확보', use: true }], sites: [CSITE], today: CS.check ? [CS.check] : [], past: [] }),
+  ws_cs_get: a => ({ ok: true, date: D, round: a.p_round || 1, site: CSITE, items: CS.items || [{ t: '정리정돈·통로', d: '통로 확보', st: '', memo: '', photos: [] }],
+    check: CS.check || null, rounds: CS.check ? [CS.check] : [] }),
+  ws_cs_save: a => {
+    let n = 0;
+    CS.items = a.p_list.map(x => Object.assign({}, x, { photos: x.photos.map(ph => ({ id: ph.id || 'P' + (++n), at: ph.at, src: ph.file ? ph.file.url : '' })) }));
+    CS.check = Object.assign(CS.check || { id: 'WS-CK-1', date: D, site: CSITE.id, round: 1, name: CSITE.name, work: '', co: '', by: ME.name, at: D + ' 14:00:00', pdf: null }, { ok: 1, bad: 0, na: 0, saved: ver(), stale: false });
+    return { ok: true, items: CS.items.map(x => x.photos.map(ph => ph.id)), check: CS.check, rounds: [CS.check] };
+  },
+  ws_cs_save_pdf: a => { CS.check.pdf = { url: a.p_file.url, at: ver() }; return { ok: true, check: CS.check, rounds: [CS.check], warn: '' }; },
   ws_log_save_pdf: a => {
     if (a.p_d) { const s = RPC.ws_log_save(a); if (!s.ok) return s; }
     LOG[a.p_day].pdf = { id: 'f2', at: ver(), url: a.p_files.pdf.url };
@@ -102,7 +123,7 @@ const srv = http.createServer((req, res) => {
     if (u.pathname.startsWith('/rpc/')) {
       const fn = u.pathname.slice(5), a = JSON.parse(body || '{}');
       CALLS.push({ fn, a });
-      if (a.p_token !== TK && !/^ws_check_/.test(fn)) return j({ err: 'LOGIN' });   // QR 점검은 표 없이
+      if (a.p_token !== TK && !/^ws_(check_|eh_view)/.test(fn)) return j({ err: 'LOGIN' });   // QR 점검·필증 보기는 표 없이
       try { return j({ data: RPC[fn](a) }); } catch (e) { return j({ err: e.message }); }
     }
     if (u.pathname === '/upload') { UPLOADS.push(JSON.parse(body)); return j({}); }
@@ -224,8 +245,55 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const r2 = await q.evaluate(([png, jpg]) => FM_CHECK.submit('abcdefghjkmn', { photo: jpg, signA: png, signB: png, state: '이상없음', overwrite: false }), [png, jpg]);
   ok(r2.ok === false && r2.exists === true && UPLOADS.length === n1, '33) 이번 달 이미 있으면 올리기 전에 물음 (버킷에 안 남김)');
   await q.screenshot({ path: path.join(__dirname, 'shot_sb_check.png') });
+
+  // ── 전열필증 (3-5) ──
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.evaluate(() => openEh()); await p.waitForFunction(() => S.eh);
+  ok(last('ws_eh_list').a.p_floor === '1F' && await p.evaluate(() => ehUrl('abcdefghjkmp')) === 'http://localhost:' + PORT + '/ws/?eh=abcdefghjkmp', '34) 전열필증: Supabase 목록, 필증 QR = 앱 폴더 + ?eh=');
+  const es = await p.evaluate(() => run('ehSave', S.token, { esId: 'WS-ES-1', name: '포트', w: '800', m1: '갑', date: '2026-01-03' }));
+  ok(es.saved === '1F-1-2' && last('ws_eh_save').a.p_d.name === '포트', '35) 기기 추가 → DB 함수에 그대로');
+  const SH = { '1F': [['층 : 1'], ['카페'], ['No', '관리번호', '기기명', '용량(W)', '제조사', '관리책임자', '', '승인일자'],
+      ['1', '1F-4-1', '오븐', '3,000', 'S', '갑', '을', '24.08,29'], ['2', '', '히터', '', '(폐기)', '갑', '', '']],
+    'B1F': [['층 : B1'], ['매장명 : 빵집'], ['No', '관리번호', '기기명'], ['1', 'B1F-2-1', '토스터']] };
+  const n36 = count('ws_eh_import');
+  const ec = await p.evaluate(sh => run('ehImport', S.token, sh, false), SH);
+  ok(ec.ok && ec.check.stores === 2 && ec.check.items === 3 && ec.check.renumbered === 1 && ec.check.bfix === 1 && ec.check.gone === 1 && count('ws_eh_import') === n36, '36) 엑셀 미리 셈은 화면에서 (매장 2·기기 3·새 번호 1·B1F→B1 1·폐기 1)');
+  const ei = await p.evaluate(sh => run('ehImport', S.token, sh, true), SH), ea = last('ws_eh_import').a.p_data;
+  const it3 = ea.items.find(x => x.name === '히터'), ov = ea.items.find(x => x.name === '오븐');
+  ok(ei.ok && ei.check.items === 3 && ea.stores.length === 2 && ea.stores[0].no === 4 && ea.stores[1].no === 2 && it3.no === '1F-4-2' && it3.gone === true && ov.date === '2024-08-29' && ov.w === '3000' && ov.m2 === '을' && ea.items.find(x => x.name === '토스터').no === 'B1-2-1',
+    '37) 엑셀 가져오기: 나눠 읽은 매장·기기만 넘김 (관리번호·날짜·폐기)');
+  const e = await c.newPage(); e.on('pageerror', x => errs.push('eh-sb: ' + x.message));
+  await e.goto('http://localhost:' + PORT + '/ws/eh-sb.html?eh=abcdefghjkmp');
+  await e.locator('.eht').waitFor();
+  const et = await e.locator('.eht').innerText();
+  ok(/1F-1-1/.test(et) && /1F · 카페/.test(et) && /3,000 W/.test(et) && /갑 \/ 을/.test(et) && /2026\.01\.02/.test(et), '38) 필증 QR 보기(eh-sb.html): 로그인 없이 필증 내용');
+  await e.goto('http://localhost:' + PORT + '/ws/eh-sb.html?eh=zzzzzzzzzzzz');
+  await e.locator('.banner').waitFor();
+  ok(/삭제된 필증/.test(await e.locator('.banner').innerText()), '39) 삭제된 필증 → 안내');
+
+  // ── 공사장 점검 (3-5) ──
+  await p.setViewportSize({ width: 390, height: 800 });
+  await p.evaluate(() => openCs()); await p.waitForFunction(() => S.cs && S.cs.ok);
+  ok(await p.locator('text=5F 리모와').count() > 0, '40) 공사장 점검: Supabase에서 현장 목록');
+  await p.evaluate(d => csOpen(d, 'WS-CS-1', 1), D); await p.waitForFunction(() => S.ck && S.ck.items);
+  const jpgB64 = 'data:image/jpeg;base64,' + fs.readFileSync(path.join(__dirname, 'gauge.jpg')).toString('base64');
+  const n41 = UPLOADS.length;
+  await p.evaluate(src => { S.ck.items[0].st = '양호'; S.ck.items[0].photos.push({ id: '', src, at: '14:05' }); csDirty(true); return csFlush(); }, jpgB64);
+  const cu = UPLOADS.slice(n41), csv = last('ws_cs_save').a;
+  ok(cu.length === 1 && /^cs_photo\/\d{4}-\d{2}\/[a-z0-9]+\.jpg$/.test(cu[0].p) && csv.p_list[0].photos[0].file.path === cu[0].p && !('data' in csv.p_list[0].photos[0]) && csv.p_round === 1 && csv.p_site === 'WS-CS-1',
+    '41) 새 사진은 버킷 cs_photo/ 에 올리고 주소만 넘김 ' + (cu[0] && cu[0].p));
+  ok(await p.evaluate(() => S.ck.items[0].photos[0].id) === 'P1', '42) 저장 뒤 사진에 DB 번호가 붙음 (다시 안 올림)');
+  const n43 = UPLOADS.length;
+  await p.evaluate(() => { S.ck.items[0].memo = '통로 확보됨'; csDirty(true); return csFlush(); });
+  ok(UPLOADS.length === n43 && last('ws_cs_save').a.p_list[0].photos[0].id === 'P1' && !last('ws_cs_save').a.p_list[0].photos[0].file, '43) 다시 저장: 예전 사진은 번호만 (다시 안 올림)');
+  const n44 = count('ws_cs_save_pdf');
+  await p.evaluate(() => csPdf());
+  ok(await called('ws_cs_save_pdf', n44), '44) 공사장 PDF 저장');
+  const cpu = UPLOADS.find(x => /^cs_pdf\//.test(x.p));
+  ok(cpu && cpu.type === 'application/pdf' && last('ws_cs_save_pdf').a.p_file.path === cpu.p && last('ws_cs_save_pdf').a.p_ck_id === 'WS-CK-1', '45) PDF를 버킷 cs_pdf/ 에 올리고 점검 번호와 함께');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_cs.png') });
   ok(!errs.length, '화면 오류 없음' + (errs.length ? ': ' + errs.join(' / ') : ''));
   await b.close(); srv.close();
-  console.log(fail ? '\n화면 시험 실패 ' + fail + '개' : '\n3-2~3-4 화면 시험 통과');
+  console.log(fail ? '\n화면 시험 실패 ' + fail + '개' : '\n3-2~3-5 화면 시험 통과');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.log('ERR ' + e.message); srv.close(); process.exit(1); });

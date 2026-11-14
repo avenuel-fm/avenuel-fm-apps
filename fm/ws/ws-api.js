@@ -108,8 +108,122 @@
     feDelete: async (token, ids) => fePage(await rpc('ws_fe_delete', { p_token: token, p_ids: ids || [] })),
     labelSave: (token, w, h) => rpc('ws_label_save', { p_token: token, p_w: Number(w), p_h: Number(h) }),
     feStatus: (token, ym) => rpc('ws_fe_status', { p_token: token, p_ym: ym || '' }),
-    feDetail: (token, id) => rpc('ws_fe_detail', { p_token: token, p_check_id: String(id || '') })
+    feDetail: (token, id) => rpc('ws_fe_detail', { p_token: token, p_check_id: String(id || '') }),
+
+    /* ── 3-5 전열필증 (supabase/06_eh.sql). 필증 QR 보기는 eh-sb.html 이 따로 부름 ── */
+    ehList: async (token, floor) => fePage(await rpc('ws_eh_list', { p_token: token, p_floor: floor || '' })),
+    ehStoreSave: async (token, d) => fePage(await rpc('ws_eh_store_save', { p_token: token, p_d: d || {} })),
+    ehStoreDelete: async (token, id) => fePage(await rpc('ws_eh_store_delete', { p_token: token, p_id: String(id || '') })),
+    ehSave: async (token, d) => fePage(await rpc('ws_eh_save', { p_token: token, p_d: d || {} })),
+    ehDelete: async (token, ids, floor) => fePage(await rpc('ws_eh_delete', { p_token: token, p_ids: ids || [], p_floor: floor || '' })),
+    ehPrinted: async (token, ids, floor) => fePage(await rpc('ws_eh_printed', { p_token: token, p_ids: ids || [], p_floor: floor || '' })),
+    /** 엑셀은 여기서 나눠 읽고(Code.gs ehParse_ 와 같음) 저장할 때 매장·기기 목록만 DB에 */
+    async ehImport(token, sheets, save) {
+      const P = ehParse(sheets || {});
+      if (!P.items.length) return { ok: false, error: '전열기기를 찾지 못했습니다. 「2026년 전열기 관리대장」 엑셀이 맞는지 확인해 주세요.' };
+      if (!save) return { ok: true, check: P.check };
+      const r = await rpc('ws_eh_import', { p_token: token, p_data: {
+        stores: P.stores.map(s => ({ floor: s.floor, no: s.no, name: s.name })),
+        items: P.items.map(x => ({ floor: x.floor, store: x.store, no: x.no, name: x.name, w: x.w, maker: x.maker, m1: x.m1, m2: x.m2, date: x.date, gone: x.gone })) } });
+      return r && r.ok ? fePage(Object.assign(r, { check: P.check })) : r;
+    },
+
+    /* ── 3-5 공사장 점검 (supabase/07_cs.sql). 새 사진·PDF는 버킷 cs_photo/·cs_pdf/ 에 먼저 ── */
+    csHome: token => rpc('ws_cs_home', { p_token: token }),
+    csSiteSave: (token, d) => rpc('ws_cs_site_save', { p_token: token, p_d: d || {} }),
+    csSiteEnd: (token, id) => rpc('ws_cs_site_end', { p_token: token, p_id: String(id || '') }),
+    csItemsSave: (token, list) => rpc('ws_cs_items_save', { p_token: token, p_list: list || [] }),
+    csGet: (token, date, siteId, round) => rpc('ws_cs_get', { p_token: token, p_date: date || '', p_site: String(siteId || ''), p_round: Number(round) || 0 }),
+    async csSave(token, date, siteId, list, round) {
+      const items = [];
+      for (const x of Array.isArray(list) ? list : []) {
+        const photos = [];
+        for (const p of (x && x.photos) || []) {
+          if (!p || !p.data) { photos.push({ id: p && p.id || '', at: p && p.at || '' }); continue; }
+          let blob; try { blob = dataUrlToBlob(p.data); } catch (e) { return { ok: false, error: '「' + (x.t || '') + '」 사진을 읽지 못했습니다. 다시 찍어 주세요.' }; }
+          photos.push({ id: '', at: p.at || '', file: await upload('cs_photo', blob) });
+        }
+        items.push(Object.assign({}, x, { photos }));
+      }
+      return rpc('ws_cs_save', { p_token: token, p_date: date || '', p_site: String(siteId || ''), p_list: items, p_round: Number(round) || 0 });
+    },
+    async csSavePdf(token, ckId, dataUri) {
+      const pdf = pdfBlob(dataUri); if (pdf.error) return pdf;
+      return rpc('ws_cs_save_pdf', { p_token: token, p_ck_id: String(ckId || ''), p_file: await upload('cs_pdf', pdf) });
+    }
   };
+
+  /* ── 전열기 관리대장 엑셀 → 매장·기기 (Code.gs ehParse_ · ehW_ · ehDate_ 그대로) ── */
+  const EH_FLOORS = ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '팝업'], EH_NO = /^(B[1-3]|[1-6]F|팝업)-(\d+)-(\d+)$/;
+  const clean = (s, max) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+  const ehSeq = no => { const m = EH_NO.exec(no); return m ? Number(m[3]) : 0; };
+  function ehW(s) { const m = /\d+(\.\d+)?/.exec(String(s).replace(/,/g, '')); return m ? m[0] : ''; }
+  function ehDate(s) {
+    const m = /(\d{2,4})\s*[.,\-\/]\s*(\d{1,2})\s*[.,\-\/]\s*(\d{1,2})/.exec(String(s));
+    if (!m) return '';
+    const y = m[1].length === 2 ? '20' + m[1] : m[1], mo = Number(m[2]), d = Number(m[3]);
+    if (y.length !== 4 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+    return y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
+  }
+  function ehParse(sheets) {
+    const stores = [], key = {}, items = [];
+    Object.keys(sheets).forEach(sn => {
+      const fm = /^(B[1-3])F?$|^([1-6]F)$|^(팝업)$/.exec(String(sn).trim());
+      if (!fm) return;
+      const floor = fm[1] || fm[2] || fm[3], rows = sheets[sn] || [];
+      let cur = null, col = null;
+      rows.forEach((r, i) => {
+        const c = (r || []).map(x => String(x == null ? '' : x).trim());
+        if (c.some(x => /^층\s*:/.test(x))) {
+          const nx = (rows[i + 1] || []).map(x => String(x == null ? '' : x).trim()).filter(String);
+          const name = clean(String(nx[0] || '').replace(/^매장명\s*:\s*/, ''), 30);
+          if (!name || name === '0') { cur = null; return; }
+          const k = floor + '|' + name;
+          if (key[k] === undefined) { key[k] = stores.length; stores.push({ floor, name, nos: {} }); }
+          cur = key[k];
+          return;
+        }
+        if (c[0] === 'No') { col = {}; c.forEach((x, j) => { x = x.replace(/\s/g, ''); if (x && col[x] === undefined) col[x] = j; }); return; }
+        if (cur === null || !col || !/^\d+$/.test(c[0])) return;
+        const g = h => col[h] === undefined ? '' : (c[col[h]] || '');
+        const no = g('관리번호'), name = g('기기명');
+        if (!no && !name) return;
+        items.push({ floor, store: cur, raw: no, name: clean(name.replace(/\n/g, ' '), 40) || '(이름 없음)',
+          w: ehW(g('용량(W)')), maker: clean(g('제조사').replace(/\(?폐기\)?/g, ''), 40),
+          m1: clean(g('관리책임자'), 30), m2: col['관리책임자'] === undefined ? '' : clean(c[col['관리책임자'] + 1], 30),
+          date: ehDate(g('승인일자')), gone: /폐기|매장철수/.test(c.join(' ')) });
+      });
+    });
+    const seen = {};
+    let fixed = 0;
+    items.forEach(x => {
+      let no = String(x.raw).split('\n')[0].replace(/\(.*$/, '').trim();
+      const b = no.replace(/^(B[1-3])F-/, '$1-');
+      if (b !== no) { no = b; fixed++; }
+      const m = EH_NO.exec(no);
+      x.no = m && m[1] === x.floor && !seen[no] ? no : '';
+      if (x.no) { seen[no] = 1; const s = stores[x.store].nos; s[m[2]] = (s[m[2]] || 0) + 1; }
+    });
+    const taken = {}, maxNo = {};
+    stores.forEach(s => {
+      const best = Object.keys(s.nos).sort((a, b) => s.nos[b] - s.nos[a] || a - b)[0];
+      Object.keys(s.nos).forEach(n => { maxNo[s.floor] = Math.max(maxNo[s.floor] || 0, Number(n)); });
+      if (best && !taken[s.floor + '-' + best]) { s.no = Number(best); taken[s.floor + '-' + best] = 1; }
+    });
+    stores.forEach(s => { if (!s.no) s.no = maxNo[s.floor] = (maxNo[s.floor] || 0) + 1; });
+    let renumbered = 0;
+    items.forEach(x => {
+      if (x.no) return;
+      const s = stores[x.store], head = s.floor + '-' + s.no + '-';
+      let n = 0;
+      Object.keys(seen).forEach(k => { if (k.indexOf(head) === 0) n = Math.max(n, ehSeq(k)); });
+      x.no = head + (n + 1); seen[x.no] = 1; renumbered++;
+    });
+    const check = { stores: stores.length, items: items.length, renumbered, bfix: fixed, gone: items.filter(x => x.gone).length,
+      noDate: items.filter(x => !x.date).length,
+      floors: EH_FLOORS.map(f => [f, stores.filter(s => s.floor === f).length, items.filter(x => x.floor === f).length]) };
+    return { stores, items, check };
+  }
   /** QR 주소 앞부분: 설정 「바로가기주소」, 없으면 지금 앱이 있는 폴더 (…/fm/ws/) — QR은 거기에 ?fe= 를 붙임 */
   function fePage(r) { if (r && r.ok && !r.execUrl) r.execUrl = new URL('./', location.href).href; return r; }
 

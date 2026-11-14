@@ -1,5 +1,5 @@
 // Supabase 이관 SQL 시험 — PGlite(작은 PostgreSQL)에 Supabase 비슷한 틀(역할·auth·storage)을 만들고
-// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql · 04_attendance.sql · 05_fire.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
+// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql · 04_attendance.sql · 05_fire.sql · 06_eh.sql · 07_cs.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
 // 쓰는 법: node test/sql_test.js   (끝에 「SQL 시험 통과」)
 const { PGlite } = require('@electric-sql/pglite');
 const { pgcrypto } = require('@electric-sql/pglite/contrib/pgcrypto');
@@ -349,6 +349,109 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const dt = await call('ws_fe_detail', [tk, cs.checkId]);
   ok(dt.ok && /p2\.jpg$/.test(dt.photo) && /m2\.png$/.test(dt.signA) && /n2\.png$/.test(dt.signB) && dt.state === '이상없음', '점검 내용 보기: 새 사진·손글씨 주소');
   ok((await call('ws_fe_detail', [tk, 'nope'])).ok === false, '점검 내용: 없는 번호 → 안내');
+  // ══ 3-5 전열필증 (06_eh.sql) ══
+  await db.exec(SQL('06_eh.sql')); await db.exec(SQL('06_eh.sql'));
+  ok(true, '06_eh.sql 실행됨 (두 번)');
+  ok(/permission denied/.test(await asErr('anon', "select ws_eh_list('x', '1F')")), '비로그인: 전열 목록 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', "select ws_eh_out('1F')")), '로그인 기기: 도우미(ws_eh_out) 못 부름');
+  let eh = await call('ws_eh_list', [tk, 'zz']);
+  ok(eh.ok && eh.floor === '1F' && eh.floors.length === 10 && eh.empty === true && eh.dpi === 203, '전열 목록: 없는 층 → 1F, 층 10개, 비어 있음');
+  ok((await call('ws_eh_store_save', [tk, J({ floor: '7F', name: 'a' })])).error === '층을 골라 주세요.', '매장 추가: 없는 층 → 안내');
+  eh = await call('ws_eh_store_save', [tk, J({ floor: '2F', name: '샤넬' })]);
+  const s1 = eh.stores[0];
+  ok(eh.ok && eh.floor === '2F' && s1.name === '샤넬' && s1.no === 1 && /^WS-ES-\d{8}-001$/.test(s1.id), '매장 추가 2F 샤넬 (매장번호 1)');
+  ok((await call('ws_eh_store_save', [tk, J({ floor: '2F', name: '샤넬' })])).error === '2F에 「샤넬」 매장이 이미 있습니다.', '같은 층 같은 이름 → 안내');
+  eh = await call('ws_eh_store_save', [tk, J({ floor: '2F', name: '디올' })]);
+  const s2 = eh.stores.find(x => x.name === '디올');
+  ok(s2.no === 2 && eh.stores.map(x => x.name).join() === '샤넬,디올', '두 번째 매장 번호 2, 번호 순');
+  ok((await call('ws_eh_save', [tk, J({ esId: s1.id, name: '커피머신', w: 'abc', m1: '김', date: '2026-01-02' })])).error === '용량은 W 숫자로 넣어 주세요 (예: 1500).', '기기: 용량 글자 → 안내');
+  ok((await call('ws_eh_save', [tk, J({ esId: s1.id, name: '커피머신', w: '1500', m1: '김', date: '2026-13-02' })])).error === '승인일자를 골라 주세요.', '기기: 틀린 날짜 → 안내');
+  eh = await call('ws_eh_save', [tk, J({ esId: s1.id, name: '커피머신', w: '1,500W', maker: 'LG', m1: '김정', m2: '박부', date: '2026-01-02' })]);
+  let d1 = eh.stores[0].items[0];
+  ok(eh.saved === '2F-1-1' && d1.no === '2F-1-1' && d1.w === '1500' && d1.date === '2026-01-02' && /^[2-9a-km-np-z]{12}$/.test(d1.token) && d1.printed === '', '기기 추가: 관리번호 2F-1-1, 용량 1500, 12자리 QR');
+  eh = await call('ws_eh_save', [tk, J({ esId: s1.id, name: '전기포트', w: '800', m1: '김정', date: '2026-01-03' })]);
+  ok(eh.saved === '2F-1-2' && eh.stores[0].items.map(x => x.no).join() === '2F-1-1,2F-1-2', '두 번째 기기 2F-1-2');
+  eh = await call('ws_eh_printed', [tk, J([d1.id]), '2F']);
+  d1 = eh.stores[0].items[0];
+  ok(eh.count === 1 && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(d1.printed), '인쇄함 표시');
+  eh = await call('ws_eh_save', [tk, J({ id: d1.id, name: '커피머신2', w: '1500', maker: 'LG', m1: '김정', m2: '박부', date: '2026-01-02' })]);
+  ok(eh.saved === '2F-1-1' && eh.stores[0].items[0].printed !== '' && eh.stores[0].items[0].name === '커피머신2', '이름만 바꿈 → 인쇄 표시 그대로');
+  eh = await call('ws_eh_save', [tk, J({ id: d1.id, name: '커피머신2', w: '2000', maker: 'LG', m1: '김정', m2: '박부', date: '2026-01-02' })]);
+  ok(eh.stores[0].items[0].printed === '' && eh.stores[0].items[0].w === '2000', '용량 바꿈 → 「미출력」으로');
+  const anonOne = async (fn, args) => (await as('anon', 'select ' + fn + '(' + args.map((_, i) => '$' + (i + 1)).join(',') + ') r', args))[0].r;
+  const vw = await anonOne('ws_eh_view', [d1.token]);
+  ok(vw.ok && vw.item.no === '2F-1-1' && vw.item.floor === '2F' && vw.item.store === '샤넬' && vw.item.w === '2000' && vw.item.token === undefined && vw.item.printed === undefined, '필증 QR 보기: 비로그인도 읽음 (QR·인쇄 정보는 안 보냄)');
+  ok((await anonOne('ws_eh_view', ['bad'])).error === '필증 QR 주소가 올바르지 않습니다.', '필증 QR: 틀린 모양 → 안내');
+  ok(/permission denied/.test(await asErr('anon', 'select * from eh_devices')), '비로그인: 전열 표는 못 읽음');
+  eh = await call('ws_eh_store_save', [tk, J({ id: s1.id, name: '샤넬뷰티' })]);
+  ok(eh.stores[0].name === '샤넬뷰티' && (await anonOne('ws_eh_view', [d1.token])).item.store === '샤넬뷰티', '매장 이름 바꿈 → 기기 매장명도');
+  eh = await call('ws_eh_delete', [tk, J([eh.stores[0].items[1].id]), '2F']);
+  ok(eh.count === 1 && eh.stores[0].items.length === 1, '기기 필증 삭제');
+  eh = await call('ws_eh_save', [tk, J({ esId: s1.id, name: '토스터', w: '900', m1: '김정', date: '2026-01-04' })]);
+  ok(eh.saved === '2F-1-3', '지운 번호는 다시 안 씀 (2F-1-3)');
+  eh = await call('ws_eh_store_delete', [tk, s1.id]);
+  ok(eh.count === 2 && eh.stores.length === 1 && eh.floors.find(x => x.code === '2F').stores === 1, '매장 삭제 → 기기 2대도');
+  ok((await anonOne('ws_eh_view', [d1.token])).error === '삭제된 필증입니다. 시설팀에 알려 주세요.', '필증 QR: 삭제된 기기 → 안내');
+  eh = await call('ws_eh_store_save', [tk, J({ floor: '2F', name: '새매장' })]);
+  ok(eh.stores.find(x => x.name === '새매장').no === 3, '새 매장 번호는 지운 매장 번호 뒤 (3)');
+  ok((await call('ws_eh_import', [tk, J({ stores: [{ floor: '1F', no: 1, name: 'a' }], items: [{ floor: '1F', store: 0, no: '1F-1-1', name: 'x' }] })])).error === '이미 전열기기가 들어 있어 가져오지 않습니다 (처음 한 번만).', '엑셀 가져오기: 이미 있으면 안 함');
+  await q('delete from eh_devices'); await q('delete from eh_stores');
+  ok((await call('ws_eh_import', [tk, J({ stores: [{ floor: '9F', no: 1, name: 'a' }], items: [{ floor: '1F', store: 0, no: '1F-1-1' }] })])).error === '엑셀 내용이 올바르지 않습니다. 다시 골라 주세요.', '엑셀 가져오기: 틀린 내용 → 안내');
+  eh = await call('ws_eh_import', [tk, J({ stores: [{ floor: '1F', no: 4, name: '카페' }, { floor: '2F', no: 1, name: '샵' }],
+    items: [{ floor: '1F', store: 0, no: '1F-4-1', name: '오븐', w: '3000', maker: 'S', m1: '갑', m2: '을', date: '2024-08-29', gone: false },
+            { floor: '1F', store: 0, no: '1F-4-2', name: '히터', w: '', m1: '갑', date: '', gone: true },
+            { floor: '2F', store: 1, no: '2F-1-1', name: '', w: '10.5', m1: '병', date: '2020-01-01', gone: false }] })]);
+  ok(eh.ok && eh.floor === '1F' && eh.stores[0].no === 4 && eh.stores[0].items.length === 1 && eh.stores[0].items[0].w === '3000' && eh.floors.find(x => x.code === '2F').items === 1, '엑셀 가져오기: 매장 2·기기 3 (폐기 1대는 삭제로)');
+  ok((await one("select count(*)::int n from eh_devices where device_name = '(이름 없음)' and watts = 10.5")).n === 1, '엑셀 가져오기: 이름 없음 · 소수 용량');
+
+  // ══ 3-5 공사장 점검 (07_cs.sql) ══
+  await db.exec(SQL('07_cs.sql')); await db.exec(SQL('07_cs.sql'));
+  ok((await one('select count(*)::int n from cs_items')).n === 9, '07_cs.sql 실행됨 (두 번) — 기본 항목 9개 한 번만');
+  ok(/permission denied/.test(await asErr('anon', "select ws_cs_home('x')")), '비로그인: 공사장 첫 화면 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', 'select ws_cs_items_()')), '로그인 기기: 도우미(ws_cs_items_) 못 부름');
+  let ch = await call('ws_cs_home', [tk]);
+  ok(ch.ok && ch.admin === true && ch.items.length === 9 && ch.items.filter(x => x.use).map(x => x.t).join() === '정리정돈·통로,안전수칙 위반' && ch.sites.length === 0, '공사장 첫 화면: 기본 9개, 점검에 넣기 2개');
+  ok((await call('ws_cs_site_save', [tk, J({ name: ' ' })])).ok === false, '현장: 이름 없음 → 안내');
+  let cst = await call('ws_cs_site_save', [tk, J({ name: '5F 리모와', work: '인테리어', co: 'A사' })]);
+  const site = cst.sites[0];
+  ok(cst.ok && site.name === '5F 리모와' && site.co === 'A사' && /^WS-CS-\d{8}-001$/.test(site.id), '현장 추가');
+  ok((await call('ws_cs_site_save', [tk, J({ name: '5F 리모와' })])).error === '「5F 리모와」 현장이 이미 있습니다.', '같은 현장 이름 → 안내');
+  let cg = await call('ws_cs_get', [tk, '', site.id, 0]);
+  ok(cg.ok && cg.round === 1 && cg.items.length === 2 && cg.check === null && cg.rounds.length === 0 && cg.date === ch.day, '점검 열기: 1회차, 점검에 넣은 항목 2개');
+  const CP = n => { const p = 'cs_photo/' + ym + '/' + n + '.jpg'; return { url: PUB + p, path: p }; };
+  let csv = await call('ws_cs_save', [tk, '', site.id, J([{ t: '정리정돈·통로', d: 'x', st: '양호', memo: '줄1\n줄2<b>', photos: [{ id: '', at: '14:05', file: CP('c1') }, { id: '', at: '14:06', file: CP('c2') }] },
+                                                        { t: '안전수칙 위반', st: '미흡', photos: [] }]), 1]);
+  ok(csv.ok && csv.items[0].length === 2 && csv.items[1].length === 0 && csv.check.ok === 1 && csv.check.bad === 1 && csv.check.by === '홍길동' && /^WS-CK-\d{8}-001$/.test(csv.check.id), '점검 저장: 새 사진 2장, 양호1·미흡1 ' + (csv.check && csv.check.id));
+  ok((await call('ws_cs_get', [tk, '', site.id, 1])).items[0].memo === '줄1\n줄2b', '특이사항: 줄바꿈은 남기고 <> 뺌');
+  const cf = await q("select file_name, drive_folder from files where kind = 'cs_photo' order by file_name");
+  ok(cf.length === 2 && cf[0].file_name === ch.day + '_공사장점검-5F-리모와_오후점검_001.jpg' && cf[0].drive_folder === '점검/공사장점검/' + ch.day.slice(0, 4) + '/' + ch.day.slice(0, 7), '사진 파일 이름·폴더 ' + cf[0].file_name);
+  ok(/파일 정보가 올바르지/.test(await asErr('authenticated', 'select ws_cs_save($1,$2,$3,$4,$5)', [tk, '', site.id, J([{ t: 'a', photos: [{ id: '', file: { url: 'https://evil/x.jpg', path: 'cs_photo/' + ym + '/x.jpg' } }] }]), 1])), '남의 주소 사진 → 거부');
+  csv = await call('ws_cs_save', [tk, '', site.id, J([{ t: '정리정돈·통로', st: '양호', photos: [{ id: csv.items[0][1], at: '14:06' }, { id: '11111111-1111-1111-1111-111111111111' }, { id: '', at: '15:00', file: CP('c3') }] }]), 1]);
+  cg = await call('ws_cs_get', [tk, '', site.id, 1]);
+  ok(csv.items[0].length === 2 && cg.items[0].photos.length === 2 && /c2\.jpg$/.test(cg.items[0].photos[0].src) && /c3\.jpg$/.test(cg.items[0].photos[1].src) && cg.items[0].photos[0].at === '14:06', '다시 저장: 남긴 사진 + 새 사진, 남의 id는 버림');
+  ok((await one("select file_name from files where kind = 'cs_photo' order by created_at desc limit 1")).file_name.endsWith('_003.jpg'), '새 사진 번호 이어서 (지운 번호 안 씀) _003');
+  cg = await call('ws_cs_get', [tk, '', site.id, 0]);
+  ok(cg.round === 2 && cg.check === null && cg.rounds.length === 1, '회차 안 주면 아직 안 한 2회차 (퇴실점검)');
+  csv = await call('ws_cs_save', [tk, '', site.id, J([{ t: '정리정돈·통로', st: '해당없음', photos: [] }]), 2]);
+  ok(csv.rounds.length === 2 && csv.check.round === 2 && csv.check.na === 1, '2회차 저장 → 그날 회차 2개');
+  const pdfP = 'cs_pdf/' + ym + '/p1.pdf';
+  const cpd = await call('ws_cs_save_pdf', [tk, csv.check.id, J({ url: PUB + pdfP, path: pdfP })]);
+  ok(cpd.ok && /p1\.pdf$/.test(cpd.check.pdf.url) && cpd.rounds.every(x => x.pdf && /p1\.pdf$/.test(x.pdf.url)) && cpd.check.stale === false, 'PDF 저장: 그날 회차 모두에 같은 PDF');
+  ok((await one("select file_name from files where kind = 'cs_pdf'")).file_name === ch.day + '_공사장점검-5F-리모와.pdf', 'PDF 이름');
+  ok((await call('ws_cs_save_pdf', [tk, 'nope', J({ url: PUB + pdfP, path: pdfP })])).error === '먼저 저장해 주세요', 'PDF: 없는 점검 → 안내');
+  await call('ws_cs_save', [tk, '', site.id, J([{ t: '정리정돈·통로', st: '양호', photos: [] }]), 2]);
+  ch = await call('ws_cs_home', [tk]);
+  ok(ch.today.length === 2 && ch.today.find(x => x.round === 2).stale === true && ch.today.every(x => x.items === undefined), '첫 화면: 오늘 점검 2개, PDF 뒤에 고친 회차는 「다시 만들기」');
+  ok((await call('ws_cs_items_save', [tk, J([{ t: '정리정돈·통로', use: false }])])).error === '「점검에 넣기」 항목을 1개 이상 골라 주세요.', '기본 항목: 점검에 넣기 없음 → 안내');
+  const is = await call('ws_cs_items_save', [tk, J([{ t: '안전수칙 위반', d: '새 설명', use: true }, { t: '새 항목', d: 'n', use: true }, { t: '비치서류', use: false }])]);
+  const rows = await q('select seq, item, active from cs_items order by seq');
+  ok(is.ok && is.items.map(x => x.t).join() === '안전수칙 위반,새 항목,비치서류' && is.items[0].d === '새 설명' && rows.length === 10 && rows.filter(x => x.active).length === 3 && rows[2].item === '비치서류', '기본 항목 바꾸기: 순서대로, 빠진 7개는 사용 안 함(줄은 남김)');
+  await q("update staff set role = '직원' where staff_id = 'S001'");
+  ok((await call('ws_cs_items_save', [tk, J([{ t: 'a', use: true }])])).error === '기본 항목은 관리자·소장만 고칠 수 있습니다.', '기본 항목: 직원은 못 고침');
+  await q("update staff set role = '소장' where staff_id = 'S001'");
+  cst = await call('ws_cs_site_end', [tk, site.id]);
+  ok(cst.ok && cst.sites.length === 0, '공사 끝 → 목록에서 빠짐');
+  ok((await call('ws_cs_get', [tk, '', site.id, 1])).ok === true, '끝난 현장도 저장한 점검은 열림');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

@@ -114,3 +114,48 @@ chk = '<!-- 자동 생성: tools/build_fm.py (src/Check.html, Supabase 판). 직
 assert '<?' not in chk
 open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'check-sb.html'), 'w', encoding='utf-8').write(chk)
 print('../../fm/ws/check-sb.html', len(chk), 'bytes')
+
+# ── Supabase 이관 3-5: 전열필증 QR(?eh=) 보기 → fm/ws/eh-sb.html (로그인 없음, 읽기만 — 06_eh.sql ws_eh_view) ──
+#    모양은 Code.gs ehViewPage_ 와 같음. 바꿔 타는 날 바로가기 index.html 이 ?eh= 를 이 페이지로 보냄
+EH_SB = r"""<!-- 자동 생성: tools/build_fm.py (Code.gs ehViewPage_ 의 Supabase 판). 직접 고치지 마세요. -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>전열기기 신고필증 · 에비뉴엘 시설팀</title>
+<meta name="robots" content="noindex">
+%STYLES%
+<style>.w{max-width:520px;margin:0 auto;padding:20px 16px}.eht{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line2);border-radius:12px;overflow:hidden;font-size:16px}
+.eht th{width:96px;text-align:left;background:var(--blue-bg);color:var(--blue-d);padding:12px;font-size:14px;border-top:1px solid var(--line3)}.eht td{padding:12px;border-top:1px solid var(--line3);font-weight:700}
+.banner{background:var(--red-bg);color:var(--red);border-radius:12px;padding:16px;line-height:1.6}h1{font-size:20px;margin:0 0 4px}.s{color:var(--muted);font-size:13px;margin-bottom:14px}</style>
+</head>
+<body>
+<div class="w"><h1>전열기기 신고필증</h1><div class="s">롯데백화점 에비뉴엘 월드타워점 · 시설팀</div><div id="b">불러오는 중…</div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var row = function (k, x) { return '<tr><th>' + k + '</th><td>' + esc(x) + '</td></tr>'; };
+  var bad = function (e, no) { return '<div class="banner">' + esc(e) + (no ? '<br><small>' + esc(no) + '</small>' : '') + '</div>'; };
+  var out = document.getElementById('b');
+  var m = location.search.match(/[?&]eh=([^&#]*)/), qr = m ? decodeURIComponent(m[1]) : '';
+  var C = window.WS_CONFIG || {};
+  var sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  sb.rpc('ws_eh_view', { p_qr: qr }).then(function (r) {
+    if (r.error) throw new Error(r.error.message);
+    var v = r.data, i = v.item || {};
+    out.innerHTML = v.ok
+      ? '<table class="eht">' + row('관리번호', i.no) + row('사용장소', i.floor + ' · ' + i.store) + row('기기명', i.name) + row('용량', i.w ? Number(i.w).toLocaleString() + ' W' : '') +
+        row('제조사', i.maker) + row('책임자', i.m1 + (i.m2 ? ' / ' + i.m2 : '')) + row('승인일자', String(i.date).replace(/-/g, '.')) + row('승인', '시설소장') + '</table>'
+      : bad(v.error, v.no);
+  }).catch(function (e) { out.innerHTML = bad('필증 정보를 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.'); });
+})();
+</script>
+</body>
+</html>
+"""
+eh = EH_SB.replace('%STYLES%', styles)
+open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'eh-sb.html'), 'w', encoding='utf-8').write(eh)
+print('../../fm/ws/eh-sb.html', len(eh), 'bytes')
