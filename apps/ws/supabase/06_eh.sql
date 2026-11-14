@@ -229,6 +229,10 @@ declare
   i int := 0;
   sid text;
   gone boolean;
+  re boolean := coalesce(p_data->>'replace', '') = 'true';   -- 새 엑셀로 바꿔 넣기 (전에 들어 있던 것 모두 지움)
+  old jsonb := '{}'::jsonb;   -- 관리번호 → 전 QR·출력 표시 (붙은 필증 그대로 쓰게)
+  pv jsonb;
+  kept int := 0;
 begin
   if jsonb_array_length(it) = 0 then return jsonb_build_object('ok', false, 'error', '전열기기를 찾지 못했습니다. 「2026년 전열기 관리대장」 엑셀이 맞는지 확인해 주세요.'); end if;
   if jsonb_array_length(st) > 2000 or jsonb_array_length(it) > 10000 then return jsonb_build_object('ok', false, 'error', '엑셀이 너무 큽니다.'); end if;
@@ -240,7 +244,11 @@ begin
   end if;
   perform pg_advisory_xact_lock(hashtext('ws_eh'));
   if exists (select 1 from public.eh_devices) or exists (select 1 from public.eh_stores) then
-    return jsonb_build_object('ok', false, 'error', '이미 전열기기가 들어 있어 가져오지 않습니다 (처음 한 번만).');
+    if not re then return jsonb_build_object('ok', false, 'error', '이미 전열기기가 들어 있어 가져오지 않습니다 (처음 한 번만).'); end if;
+    select coalesce(jsonb_object_agg(mgmt_no, jsonb_build_object('qr', qr_token, 'p', printed_at, 'm1', owner_main, 'd', approved_on, 'w', watts)), '{}'::jsonb)
+      into old from public.eh_devices where active and mgmt_no is not null;
+    delete from public.eh_devices where eh_id is not null;   -- where 없는 delete 는 Supabase가 막음
+    delete from public.eh_stores where es_id is not null;
   end if;
   insert into public.eh_stores (es_id, floor, store_no, store_name, active, created_at, created_by)
   select 'WS-ES-' || day_key || '-' || lpad(o::text, 3, '0'), s->>'floor', s->>'no', public.ws_clean(s->>'name', 30), true, t, me.name
@@ -249,14 +257,22 @@ begin
     i := i + 1;
     sid := 'WS-ES-' || day_key || '-' || lpad(((x->>'store')::int + 1)::text, 3, '0');
     gone := coalesce(x->>'gone', '') in ('true', '1');
-    insert into public.eh_devices (eh_id, es_id, floor, store_name, mgmt_no, device_name, watts, maker, owner_main, owner_sub, approved_on, qr_token, active, created_at, created_by, deleted_at)
+    pv := case when gone then null else old->(x->>'no') end;
+    if pv is not null then kept := kept + 1; end if;
+    insert into public.eh_devices (eh_id, es_id, floor, store_name, mgmt_no, device_name, watts, maker, owner_main, owner_sub, approved_on, qr_token, printed_at, active, created_at, created_by, deleted_at)
     select 'WS-EH-' || day_key || '-' || lpad(i::text, 3, '0'), sid, s.floor, s.store_name, x->>'no', coalesce(nullif(public.ws_clean(x->>'name', 40), ''), '(이름 없음)'),
       case when coalesce(x->>'w', '') ~ '^\d+(\.\d+)?$' then (x->>'w')::numeric end, public.ws_clean(x->>'maker', 40), public.ws_clean(x->>'m1', 30), public.ws_clean(x->>'m2', 30),
-      public.ws_date(x->>'date'), public.ws_new_qr(), not gone, t, '엑셀 가져오기', case when gone then t end
+      public.ws_date(x->>'date'),
+      -- shortcut: 새 QR이 아직 안 넣은 전 QR과 겹칠 확률은 거의 0 — 겹치면 unique 로 통째 취소(지운 것도 되돌아감)
+      coalesce(pv->>'qr', public.ws_new_qr()),
+      -- 필증에 찍히는 칸(책임자정·승인일자·용량)이 같을 때만 「출력함」 그대로
+      case when pv is not null and pv->>'m1' is not distinct from public.ws_clean(x->>'m1', 30) and pv->>'d' is not distinct from public.ws_date(x->>'date')::text
+                and (pv->>'w')::numeric is not distinct from case when coalesce(x->>'w', '') ~ '^\d+(\.\d+)?$' then (x->>'w')::numeric end then (pv->>'p')::timestamptz end,
+      not gone, t, '엑셀 가져오기', case when gone then t end
     from public.eh_stores s where s.es_id = sid;
   end loop;
-  perform public.ws_log(me.name, '전열 관리대장 가져오기', '', '매장 ' || jsonb_array_length(st) || '곳 · 기기 ' || jsonb_array_length(it) || '대');
-  return public.ws_eh_out('1F');
+  perform public.ws_log(me.name, case when re then '전열 관리대장 다시 가져오기' else '전열 관리대장 가져오기' end, '', '매장 ' || jsonb_array_length(st) || '곳 · 기기 ' || jsonb_array_length(it) || '대' || case when re then ' (QR 그대로 ' || kept || '대)' else '' end);
+  return public.ws_eh_out('1F') || jsonb_build_object('kept', kept);
 end $$;
 
 -- ---------------------------------------------------------------------------

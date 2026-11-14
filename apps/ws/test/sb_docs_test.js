@@ -331,6 +331,11 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const it3 = ea.items.find(x => x.name === '히터'), ov = ea.items.find(x => x.name === '오븐');
   ok(ei.ok && ei.check.items === 3 && ea.stores.length === 2 && ea.stores[0].no === 4 && ea.stores[1].no === 2 && it3.no === '1F-4-2' && it3.gone === true && ov.date === '2024-08-29' && ov.w === '3000' && ov.m2 === '을' && ea.items.find(x => x.name === '토스터').no === 'B1-2-1',
     '37) 엑셀 가져오기: 나눠 읽은 매장·기기만 넘김 (관리번호·날짜·폐기)');
+  ok(ea.replace === false, '37) 처음 가져오기는 바꿔 넣기 아님');
+  await p.evaluate(() => ehImportDlg(true)); await p.waitForSelector('.dialog .banner.b-red');   // 이 시험 화면은 휴대폰 폭이라 단추 대신 바로 엶
+  await p.evaluate(sh => { S.ehX = sh; }, SH);
+  await p.evaluate(() => { $('ehXo').innerHTML = '<button id="ehXb"></button>'; return ehXSave(); });
+  ok(last('ws_eh_import').a.p_data.replace === true, '37) 엑셀 다시 가져오기: 「모두 지움」 안내 → 바꿔 넣기로 넘김');
   const e = await c.newPage(); e.on('pageerror', x => errs.push('eh-sb: ' + x.message));
   await e.goto('http://localhost:' + PORT + '/ws/eh-sb.html?eh=abcdefghjkmp');
   await e.locator('.eht').waitFor();
