@@ -240,6 +240,12 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(/404/.test(await p.locator('.pv-state').innerText()) && await p.locator('.pv-state button:has-text("다시 시도")').count() === 1 && await p.locator('.pv-bar button:has-text("내려받기")').isDisabled(), 'PV10) 못 받으면 [다시 시도], 내려받기 막힘');
   await p.click('.pv-bar button:has-text("뒤로")');
   ok(await p.evaluate(() => S.view) === 'tbm', 'PV11) 실패 화면에서도 뒤로 → TBM');
+  // 「PDF 저장됨 …」 안내 줄 링크 — PDF 뒤 서명이 늘면 아래 버튼이 [PDF로 저장]이 되어 이 링크만 남음 (11-14 휴대폰에서 계정 창)
+  const pages1 = c.pages().length;
+  await p.click('.banner a:has-text("PDF 열기")');
+  await p.locator('#pvPages canvas').nth(1).waitFor();
+  ok(c.pages().length === pages1 && await p.evaluate(() => S.view) === 'pdf' && /2026-11-14_TBM\.pdf/.test(await p.locator('.pv-tool').innerText()), 'PV12) 안내 줄 [PDF 열기]도 새 창 없이 앱 안에서');
+  await p.click('.pv-bar button:has-text("뒤로")');
   await p.evaluate(() => loadTbm(true));
   ok(/\/ws-files\/tbm_meet\//.test(await p.locator('.tbph img').first().getAttribute('src')), '13) 다시 불러오면 회의 사진은 버킷 주소로 보임');
 
