@@ -1381,6 +1381,8 @@ function lgSet(r) {
   if (auto) LG_DEPTS.forEach(d => { works[d] = Array.from({ length: LG_LINES }, (_, i) => (tbm[d] || [])[i] || ''); });
   S.lg = { srv: r, day: r.day, f, works, ver: r.ver, by: r.by, pdf: r.pdf, dirty: auto, busy: false, night: r.night || '', nightNew: '' };
   if (S.view === 'log') render();
+  // Supabase 판: 공조기·에어커튼은 구글을 거쳐 늦게 옴(6~9초) → 일지를 먼저 보여 주고 그 칸만 나중에 채움
+  if (r.acLater) r.acLater.then(ac => { r.ac = ac; delete r.acLater; const el = S.lg && S.lg.srv === r && document.querySelector('#app .lgac'); if (el) el.outerHTML = lgAc(ac); });
 }
 function lgLeaveOk() { return !(S.lg && S.lg.dirty) || confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?'); }
 function lgCal() {
@@ -1406,7 +1408,8 @@ function lgBars(k) {
 /** 공조기·에어커튼 가동 (결정 120): 온습도 앱 기록. 막대 끝 = 12시간, 미가동 = 빨간 점선, 아직 입력 안 함 = 회색 */
 function lgAc(ac) {
   const head = '<div class="lgsec">공조기 · 에어커튼 가동 <small>온습도 앱 기록 자동 · 그날 장비별 가동시간 합</small></div>';
-  if (!ac || ac.err) return '<div class="lgac">' + head + '<div class="acerr">온습도 앱 기록을 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.</div></div>';
+  if (!ac) return '<div class="lgac">' + head + '<div class="acerr">온습도 앱 기록을 불러오는 중…</div></div>';
+  if (ac.err) return '<div class="lgac">' + head + '<div class="acerr">온습도 앱 기록을 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.</div></div>';
   const v = x => x == null ? '—' : lgF(x);
   const blk = k => '<div class="acb" data-ac="' + k.name + '"><div class="ach"><b>' + k.name + '</b><span>입력 ' + k.entered + '/' + k.total + '대 · 미가동 ' + k.off + '대</span></div>' +
     '<div class="acs">' + [['일일', 'd'], ['월누계', 'm'], ['년누계', 'y']].map(([l, x]) => '<div><small>' + l + ' (시간)</small><em>' + v(k.c[x]) + '</em><i>전년 ' + v(k.p[x]) + '</i></div>').join('') + '</div>' +

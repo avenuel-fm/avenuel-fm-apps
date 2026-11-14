@@ -61,6 +61,7 @@ global.NAVER = { today: '', air: '', calls: 0 };
 // 온습도 앱 읽기 주소 흉내: global.AC.hvac·curtain = 기록 목록, AC.fail = 못 읽음
 global.AC = { hvac: [], curtain: [], fail: false, calls: 0 };
 global.UrlFetchApp = { fetch: u => { if (/script\.google\.com/.test(u)) { AC.calls++; const k = /kind=(\w+)/.exec(u)[1]; return { getResponseCode: () => AC.fail ? 500 : 200, getContentText: () => JSON.stringify({ ok: true, records: AC[k] }) }; } NAVER.calls++; const t = /\/air\//.test(u) ? NAVER.air : NAVER.today; return { getResponseCode: () => 200, getContentText: () => t }; } };
+UrlFetchApp.fetchAll = qs => qs.map(q => UrlFetchApp.fetch(q.url));
 global.CacheService = { getScriptCache: () => ({ get: k => k in cache ? cache[k] : null, put: (k, v) => cache[k] = v, remove: k => delete cache[k] }) };
 global.LockService = { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) };
 const files = {}; let fid = 0;

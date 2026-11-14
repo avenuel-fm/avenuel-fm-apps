@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.10.1', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.10.2', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -1252,11 +1252,19 @@ const LOG_AC = {   // 목록에 없는 번호(공조기 3·37·38번)는 온습�
   curtain: { name: '에어커튼', groups: [['B1 24G', logAcKeys_('B1G24', 2)], ['1G OUT', logAcKeys_('1G1OUT', 7)], ['1G IN', logAcKeys_('1G1IN', 5)], ['2G OUT', logAcKeys_('1G2OUT', 3)],
     ['2G IN', logAcKeys_('1G2IN', 3)], ['6G OUT', logAcKeys_('1G6OUT', 3)], ['6G IN', logAcKeys_('1G6IN', 3)], ['후방 도어', logAcKeys_('1REAR', 8)], ['4·6 브릿지', ['4BR-1', '6BR-1']]] }
 };
-function logAcFetch_(kind, days) {
-  const r = UrlFetchApp.fetch(LOG_AC_URL + '?action=listUsage&kind=' + kind + '&site=' + LOG_AC_SITE + '&days=' + days + '&token=' + LOG_AC_TOKEN, { muteHttpExceptions: true, followRedirects: true });
-  const j = r.getResponseCode() === 200 ? jsonOr_(r.getContentText(), null) : null;
-  if (!j || !j.ok || !Array.isArray(j.records)) throw new Error(j && j.error ? j.error : '응답 ' + r.getResponseCode());
-  return j.records;
+/** 공조기·에어커튼 기록을 동시에 받음 (차례로 받으면 4초씩 두 번) → { hvac: [...], curtain: [...] } */
+function logAcFetch_(days) {
+  const kinds = Object.keys(LOG_AC);
+  const rs = UrlFetchApp.fetchAll(kinds.map(function (kind) {
+    return { url: LOG_AC_URL + '?action=listUsage&kind=' + kind + '&site=' + LOG_AC_SITE + '&days=' + days + '&token=' + LOG_AC_TOKEN, muteHttpExceptions: true, followRedirects: true };
+  }));
+  const out = {};
+  kinds.forEach(function (kind, i) {
+    const r = rs[i], j = r.getResponseCode() === 200 ? jsonOr_(r.getContentText(), null) : null;
+    if (!j || !j.ok || !Array.isArray(j.records)) throw new Error(j && j.error ? j.error : '응답 ' + r.getResponseCode());
+    out[kind] = j.records;
+  });
+  return out;
 }
 /** 그날 장비별 시간 + 올해·전년 일일·월누계·년누계. 못 읽으면 { err } (화면에 「불러오기 실패」) */
 function logAc_(day) {
@@ -1268,10 +1276,11 @@ function logAc_(day) {
   let out;
   try {
     out = {};
+    const recs = logAcFetch_(days);
     Object.keys(LOG_AC).forEach(function (kind) {
       const K = LOG_AC[kind], keys = {}, h = {};   // h[날짜][장비] = 시간
       K.groups.forEach(function (g) { g[1].forEach(function (u) { keys[String(u)] = 1; }); });
-      logAcFetch_(kind, days).forEach(function (r) {
+      recs[kind].forEach(function (r) {
         const u = String(r.unit), hr = r.off ? 0 : r.startMin != null && r.endMin != null ? Math.max(0, r.endMin - r.startMin) / 60 : null;
         if (keys[u] && hr != null && r.date >= from && r.date <= day) (h[r.date] = h[r.date] || {})[u] = hr;
       });
