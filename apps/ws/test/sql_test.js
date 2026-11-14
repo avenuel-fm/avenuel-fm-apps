@@ -31,6 +31,12 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const as = async (role, s, p) => { await db.exec('set role ' + role); try { return await q(s, p); } finally { await db.exec('reset role'); } };
   const asErr = async (role, s, p) => { try { await as(role, s, p); return ''; } catch (e) { await db.exec('reset role'); return e.message; } };
 
+  // 진짜 Supabase는 where 없는 update·delete를 막음(「UPDATE requires a WHERE clause」, 11-14 공사장 기본 항목). PGlite는 안 막으니 글로 찾음
+  // (on conflict … do update · 보안 정책의 for update 는 빼고)
+  const bare = require('fs').readdirSync(path.join(__dirname, '..', 'supabase')).filter(f => /\.sql$/.test(f)).flatMap(f =>
+    (SQL(f).replace(/--[^\n]*/g, '').match(/(?<!do |for |to |on conflict[^;]*)\b(update\s+(public|only|storage)\.\w+\b|delete\s+from)\b[^;]*;/gi) || [])
+      .filter(s => !/\bwhere\b/i.test(s)).map(s => f + ': ' + s.replace(/\s+/g, ' ').slice(0, 60)));
+  ok(!bare.length, 'where 없는 update·delete 없음 ' + bare.join(' / '));
   await db.exec(BASE);
   await db.exec(SQL('01_schema_rls.sql'));
   ok(true, '01_schema_rls.sql 실행됨');

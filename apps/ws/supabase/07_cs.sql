@@ -124,7 +124,7 @@ begin
   if exists (select 1 from jsonb_array_elements(p_list) e where public.ws_clean(e->>'t', 30) = '') then return jsonb_build_object('ok', false, 'error', '항목 이름이 빈 줄이 있습니다.'); end if;
   if not exists (select 1 from jsonb_array_elements(p_list) e where e->>'use' = 'true') then return jsonb_build_object('ok', false, 'error', '「점검에 넣기」 항목을 1개 이상 골라 주세요.'); end if;
   perform pg_advisory_xact_lock(hashtext('ws_cs_items'));
-  update public.cs_items set seq = seq + 100000;   -- 순서(seq)를 새로 매기려고 잠시 비켜 둠
+  update public.cs_items set seq = seq + 100000 where true;   -- 순서(seq)를 새로 매기려고 잠시 비켜 둠 (Supabase는 where 없는 update를 막음)
   for x in select public.ws_clean(e->>'t', 30) t, public.ws_clean(e->>'d', 100) d, e->>'use' = 'true' u, o::int o from jsonb_array_elements(p_list) with ordinality a(e, o) loop
     hit := null;
     update public.cs_items set seq = x.o, descr = x.d, active = true, in_check = x.u, changed_by = me.name, changed_at = at

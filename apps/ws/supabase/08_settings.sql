@@ -160,7 +160,7 @@ begin
     return jsonb_build_object('ok', false, 'error', '낱말이 빈 줄이 있습니다. TBM 작업에서 찾을 낱말을 넣어 주세요.');
   end if;
   perform pg_advisory_xact_lock(hashtext('ws_risk'));
-  delete from public.risk_list;
+  delete from public.risk_list where true;   -- Supabase는 where 없는 delete를 막음
   insert into public.risk_list (seq, words, risk, kind, likelihood, severity, fix1, fix2, fix3, fix4, active)
   select row_number() over (order by o), public.ws_clean(e->>'words', 200), public.ws_clean(e->>'risk', 100), public.ws_clean(e->>'kind', 30),
     case when e->>'p' ~ '^[1-3]$' then (e->>'p')::int else 1 end, case when e->>'s' ~ '^[1-3]$' then (e->>'s')::int else 1 end,
