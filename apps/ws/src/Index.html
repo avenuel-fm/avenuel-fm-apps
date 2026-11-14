@@ -409,6 +409,13 @@ select.lgin{text-align:center;padding:0}
 .lgnight .lgnadd small{color:#5B6573;font-size:12px}
 .lgfoot{display:flex;justify-content:flex-end;font-size:11px;color:#7A8494;margin-top:auto}
 .lgpc{max-width:520px;margin:40px auto;text-align:center}
+.devwrap{max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:48px 24px 28px;gap:24px}
+.devcard{padding:22px 20px;display:flex;flex-direction:column;gap:14px}
+.devlead{font-size:15px;color:var(--sub);line-height:1.6}.devlead b{color:var(--ink)}
+.devf{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--sub)}.devf .inp{font-size:16px}
+.devmsg{font-size:13px;color:var(--red);min-height:18px}
+.devchip{align-self:center;display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;background:var(--green-bg);color:var(--green);font-size:12px}.devchip svg{width:14px;height:14px}
+.devnote{display:block;font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
 @media print{
   body > *:not(#print){display:none!important}
   #print{display:block}
@@ -454,6 +461,7 @@ function tokenAlive(t) { const p = String(t || '').split('.'); return p.length =
 function h(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function $(id) { return document.getElementById(id); }
 function run(fn, ...args) {
+  if (window.WS_API) return WS_API.run(fn, ...args);   // 바로가기 앱(Supabase 이관): fm/ws/ws-api.js
   return new Promise((ok, no) => google.script.run.withSuccessHandler(ok).withFailureHandler(no)[fn](...args));
 }
 async function call(fn, ...args) {
@@ -530,7 +538,7 @@ function renderLogin() {
   const dots = [0, 1, 2, 3].map(i => '<span class="pin-dot' + (i < S.pin.length ? ' on' : '') + '"></span>').join('');
   const keys = ['1','2','3','4','5','6','7','8','9'].map(n => '<button class="key" onclick="pinKey(\'' + n + '\')">' + n + '</button>').join('');
   return '<div style="max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:48px 24px 28px;gap:24px">' +
-    '<div style="text-align:center;display:flex;flex-direction:column;gap:6px"><small style="color:var(--muted)">잠실점 에비뉴엘 · 시설팀</small><b style="font-size:24px">업무지원</b><small style="color:var(--muted)">v0.6 · 테스트판</small></div>' +
+    '<div style="text-align:center;display:flex;flex-direction:column;gap:6px"><small style="color:var(--muted)">잠실점 에비뉴엘 · 시설팀</small><b style="font-size:24px">업무지원</b>' + (window.WS_API ? '<span class="devchip">' + ICON.ok + '등록된 기기</span>' : '<small style="color:var(--muted)">v0.6 · 테스트판</small>') + '</div>' +
     '<div class="card" style="padding:22px 20px;display:flex;flex-direction:column;align-items:center;gap:14px"><b>PIN 입력</b><span style="font-size:14px;color:var(--muted)">본인 휴대폰 번호 뒷 4자리</span>' +
     '<div style="display:flex;gap:16px" aria-label="' + S.pin.length + '자리 입력됨">' + dots + '</div>' +
     '<span id="pinMsg" style="font-size:13px;color:var(--red);min-height:18px" role="alert"></span></div>' +
@@ -705,7 +713,34 @@ function renderSet() {
     '<div style="display:flex;align-items:center;margin-top:8px"><h3 class="sth" style="flex:1">직원 ' + r.staff.length + '명</h3><button class="btn sm pri" onclick="staffDlg()">+ 직원 추가</button></div>' +
     '<div class="card">' + r.staff.map(x => '<div class="strow"><span class="fname"><b>' + h(x.name) + '</b><small>' + h(x.part) + ' · ' + h(x.role) + ' · ' + h(x.staff_id) + '</small></span>' +
       '<button class="btn sm" onclick="staffDlg(\'' + x.staff_id + '\')">편집</button><button class="btn sm" onclick="staffPinDlg(\'' + x.staff_id + '\')">PIN 변경</button>' +
-      (x.staff_id === S.user.staff_id ? '' : '<button class="btn sm warn" onclick="staffDel(\'' + x.staff_id + '\')">삭제</button>') + '</div>').join('') + '</div></div>';
+      (x.staff_id === S.user.staff_id ? '' : '<button class="btn sm warn" onclick="staffDel(\'' + x.staff_id + '\')">삭제</button>') + '</div>').join('') + '</div>' +
+    (window.WS_API && S.device ? '<h3 class="sth" style="margin-top:8px">이 기기</h3><div class="card strow"><span class="fname"><b>등록된 계정</b><small>' + h(S.device.email) + (S.device.at ? ' · ' + Number(S.device.at.slice(5, 7)) + '월 ' + Number(S.device.at.slice(8, 10)) + '일 등록' : '') + '</small></span>' +
+      '<button class="btn sm warn" onclick="deviceOff()">기기 등록 풀기</button></div><small class="devnote">풀면 이 기기에서는 다시 기기 등록을 해야 합니다. 잃어버리거나 바꾼 기기는 관리자에게 알려 주세요.</small>' : '') + '</div>';
+}
+/* ── 기기 등록 (Supabase 이관 3-1, 시안 docs/시안/WS-Supabase_로그인) — 기기마다 처음 한 번, 시설팀 공용 계정 ── */
+function renderDevice() {
+  const d = S.dev || {};
+  return '<div class="devwrap"><div style="text-align:center;display:flex;flex-direction:column;gap:6px"><small style="color:var(--muted)">잠실점 에비뉴엘 · 시설팀</small><b style="font-size:24px">업무지원</b></div>' +
+    '<form class="card devcard" onsubmit="event.preventDefault();deviceReg()"><b style="font-size:18px">기기 등록</b>' +
+    '<span class="devlead">이 휴대폰(PC)에서 <b>처음 한 번만</b> 합니다.<br>등록하면 다음부터는 PIN만 누릅니다.</span>' +
+    '<label class="devf">시설팀 계정 이메일<input class="inp" id="devE" type="email" autocomplete="username" inputmode="email" required value="' + h(d.email || '') + '"></label>' +
+    '<label class="devf">비밀번호<input class="inp" id="devP" type="password" autocomplete="current-password" required></label>' +
+    '<span class="devmsg" role="alert">' + h(d.msg || '') + '</span>' +
+    '<button class="btn pri big" type="submit" style="width:100%"' + (d.busy ? ' disabled' : '') + '>' + (d.busy ? '<span class="spin"></span>' : '기기 등록') + '</button></form>' +
+    '<small style="text-align:center;color:var(--muted);line-height:1.6">계정은 시설팀 관리자에게 받습니다<br>등록은 「환경설정 › 기기 등록 풀기」 전까지 유지됩니다</small></div>';
+}
+async function deviceReg() {
+  const e = $('devE').value, p = $('devP').value;
+  S.dev = { email: e, busy: true }; render();
+  try {
+    await WS_API.register(e, p);
+    S.dev = null; S.device = await WS_API.device(); S.view = 'login'; render();
+  } catch (err) { S.dev = { email: e, msg: err.message }; render(); }
+}
+async function deviceOff() {
+  if (!confirm('이 기기의 등록을 풀까요? 다시 쓰려면 시설팀 계정으로 기기 등록을 해야 합니다.')) return;
+  await WS_API.unregister(S.token);
+  store('ws_token', null); store('ws_main', null); S.token = ''; S.user = null; S.device = null; S.view = 'device'; render();
 }
 async function setToastSec(v) {
   const r = await call('adminSetToast', v);
@@ -2395,6 +2430,7 @@ function render() {
   let html;
   if (S.view === 'loading') html = renderLoading();
   else if (S.view === 'retry') html = renderRetry();
+  else if (S.view === 'device') html = renderDevice();
   else if (S.view === 'sign' && S.sign) html = renderSign();
   else if (!S.token || S.view === 'login') html = renderLogin();
   else if (S.view === 'docs') html = renderDocs();
@@ -2424,6 +2460,10 @@ function render() {
 
 (async function start() {
   render();   // 「불러오는 중」 — 저장된 표를 확인하는 동안 PIN 화면을 보이지 않음 (결정 48)
+  if (window.WS_API) {   // 바로가기 앱: 기기 등록(시설팀 공용 계정 Supabase 로그인)이 먼저 (Supabase 이관 3-1)
+    try { S.device = await WS_API.device(); } catch (e) { S.device = null; }
+    if (!S.device) { S.view = 'device'; render(); return; }
+  }
   if (!tokenAlive(S.token)) {
     store('ws_token', null); S.token = '';
     const t = await SHELL.get();

@@ -41,3 +41,22 @@ out = '<!-- 자동 생성: tools/build_fm.py (src/Check.html). 직접 고치지 
 assert '<?' not in out
 open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'check.html'), 'w', encoding='utf-8').write(out)
 print('../../fm/ws/check.html (저장소 맨 위 fm 폴더)', len(out), 'bytes')
+
+# ── Supabase 이관 3단계: src/Index.html → fm/ws/app.html (바로가기 페이지에서 바로 여는 앱, 구글 웹앱 없이) ──
+#    바꿔 타는 날 전까지는 app.html 로만 시험. 바꿔 타는 날 fm/ws/index.html 을 이 앱으로 (docs/설계/WS_Supabase이관.md 4.8)
+code = open(os.path.join(ROOT, 'src/Code.gs'), encoding='utf-8').read()
+ver = re.search(r"version: '([\d.]+)'", code).group(1)
+ix = open(os.path.join(ROOT, 'src/Index.html'), encoding='utf-8').read()
+HEAD_SB = ('<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
+           '<meta name="theme-color" content="#FFFFFF">\n<link rel="manifest" href="manifest.webmanifest">\n'
+           '<link rel="icon" href="../icon-192.png">\n<link rel="apple-touch-icon" href="../icon-192.png">\n'
+           '<title>업무지원 · 에비뉴엘 시설팀</title>\n<meta name="robots" content="noindex">\n'
+           '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>\n'
+           '<script src="config.js"></script>\n<script>window.WS_VERSION = ' + repr(ver) + ';</script>\n<script src="ws-api.js"></script>\n')
+assert ix.count('<base target="_top">\n') == 1 and ix.count("<?!= include('Styles'); ?>") == 1
+app = ix.replace('<base target="_top">\n', HEAD_SB).replace("<?!= include('Styles'); ?>", styles)
+app = app.replace('<?!= JSON.stringify(execUrl) ?>', "''").replace('<?!= JSON.stringify(APP.version) ?>', repr(ver))
+assert '<?' not in app, '남은 템플릿 태그'
+app = '<!-- 자동 생성: tools/build_fm.py (src/Index.html). 직접 고치지 마세요. -->\n' + app
+open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'app.html'), 'w', encoding='utf-8').write(app)
+print('../../fm/ws/app.html', len(app), 'bytes · v' + ver)

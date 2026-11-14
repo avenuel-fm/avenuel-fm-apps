@@ -5,9 +5,12 @@
   "scripts": {
     "test": "node test/server_test.js",
     "test:all": "node test/run_all.js",
-    "build:fm": "python tools/build_fm.py"
+    "build:fm": "python tools/build_fm.py",
+    "test:sql": "node test/sql_test.js",
+    "test:sb": "python tools/build_fm.py && node test/sb_login_test.js"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.13",
     "@google/clasp": "3.4.1",
     "playwright": "1.63.0",
     "qrcodejs2": "0.0.2"
