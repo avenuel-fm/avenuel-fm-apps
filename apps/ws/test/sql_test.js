@@ -31,6 +31,12 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const as = async (role, s, p) => { await db.exec('set role ' + role); try { return await q(s, p); } finally { await db.exec('reset role'); } };
   const asErr = async (role, s, p) => { try { await as(role, s, p); return ''; } catch (e) { await db.exec('reset role'); return e.message; } };
 
+  // 진짜 Supabase는 where 없는 update·delete를 막음(「UPDATE requires a WHERE clause」, 11-14 공사장 기본 항목). PGlite는 안 막으니 글로 찾음
+  // (on conflict … do update · 보안 정책의 for update 는 빼고)
+  const bare = require('fs').readdirSync(path.join(__dirname, '..', 'supabase')).filter(f => /\.sql$/.test(f)).flatMap(f =>
+    (SQL(f).replace(/--[^\n]*/g, '').match(/(?<!do |for |to |on conflict[^;]*)\b(update\s+(public|only|storage)\.\w+\b|delete\s+from)\b[^;]*;/gi) || [])
+      .filter(s => !/\bwhere\b/i.test(s)).map(s => f + ': ' + s.replace(/\s+/g, ' ').slice(0, 60)));
+  ok(!bare.length, 'where 없는 update·delete 없음 ' + bare.join(' / '));
   await db.exec(BASE);
   await db.exec(SQL('01_schema_rls.sql'));
   ok(true, '01_schema_rls.sql 실행됨');
@@ -403,6 +409,17 @@ alter default privileges in schema public grant all on sequences to anon, authen
             { floor: '2F', store: 1, no: '2F-1-1', name: '', w: '10.5', m1: '병', date: '2020-01-01', gone: false }] })]);
   ok(eh.ok && eh.floor === '1F' && eh.stores[0].no === 4 && eh.stores[0].items.length === 1 && eh.stores[0].items[0].w === '3000' && eh.floors.find(x => x.code === '2F').items === 1, '엑셀 가져오기: 매장 2·기기 3 (폐기 1대는 삭제로)');
   ok((await one("select count(*)::int n from eh_devices where device_name = '(이름 없음)' and watts = 10.5")).n === 1, '엑셀 가져오기: 이름 없음 · 소수 용량');
+  // 다시 가져오기(바꿔 넣기): 같은 관리번호는 QR 그대로, 필증 칸이 같으면 「출력함」도 그대로
+  const qOld = await one("select (select qr_token from eh_devices where mgmt_no = '1F-4-1') a, (select qr_token from eh_devices where mgmt_no = '2F-1-1') b");
+  await q("update eh_devices set printed_at = now() where mgmt_no in ('1F-4-1', '2F-1-1')");
+  eh = await call('ws_eh_import', [tk, J({ replace: true, stores: [{ floor: '1F', no: 4, name: '카페2' }, { floor: '3F', no: 1, name: '새' }],
+    items: [{ floor: '1F', store: 0, no: '1F-4-1', name: '오븐', w: '3000', maker: 'S', m1: '갑', m2: '을', date: '2024-08-29', gone: false },
+            { floor: '1F', store: 0, no: '1F-4-3', name: '포트', w: '1500', m1: '갑', date: '', gone: false },
+            { floor: '3F', store: 1, no: '2F-1-1', name: 'x', w: '20', m1: '병', date: '2020-01-01', gone: false }] })]);
+  const qNew = await one("select (select qr_token from eh_devices where mgmt_no = '1F-4-1') a, (select qr_token from eh_devices where mgmt_no = '2F-1-1') b, (select printed_at is not null from eh_devices where mgmt_no = '1F-4-1') pa, (select printed_at is null from eh_devices where mgmt_no = '2F-1-1') pb, (select count(*)::int from eh_devices) n, (select count(*)::int from eh_stores) s");
+  ok(eh.ok && eh.kept === 2 && qNew.a === qOld.a && qNew.b === qOld.b && qNew.n === 3 && qNew.s === 2, '다시 가져오기: 전부 바꿈 · 같은 관리번호 QR 그대로 (2대)');
+  ok(qNew.pa && qNew.pb, '다시 가져오기: 필증 칸 같으면 출력함 유지, 용량 바뀌면 미출력');
+  ok(eh.stores[0].name === '카페2', '다시 가져오기: 매장 이름도 새 엑셀대로');
 
   // ══ 3-5 공사장 점검 (07_cs.sql) ══
   await db.exec(SQL('07_cs.sql')); await db.exec(SQL('07_cs.sql'));

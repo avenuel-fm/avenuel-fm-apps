@@ -118,11 +118,11 @@
     ehDelete: async (token, ids, floor) => fePage(await rpc('ws_eh_delete', { p_token: token, p_ids: ids || [], p_floor: floor || '' })),
     ehPrinted: async (token, ids, floor) => fePage(await rpc('ws_eh_printed', { p_token: token, p_ids: ids || [], p_floor: floor || '' })),
     /** 엑셀은 여기서 나눠 읽고(Code.gs ehParse_ 와 같음) 저장할 때 매장·기기 목록만 DB에 */
-    async ehImport(token, sheets, save) {
+    async ehImport(token, sheets, save, replace) {
       const P = ehParse(sheets || {});
       if (!P.items.length) return { ok: false, error: '전열기기를 찾지 못했습니다. 「2026년 전열기 관리대장」 엑셀이 맞는지 확인해 주세요.' };
       if (!save) return { ok: true, check: P.check };
-      const r = await rpc('ws_eh_import', { p_token: token, p_data: {
+      const r = await rpc('ws_eh_import', { p_token: token, p_data: { replace: !!replace,
         stores: P.stores.map(s => ({ floor: s.floor, no: s.no, name: s.name })),
         items: P.items.map(x => ({ floor: x.floor, store: x.store, no: x.no, name: x.name, w: x.w, maker: x.maker, m1: x.m1, m2: x.m2, date: x.date, gone: x.gone })) } });
       return r && r.ok ? fePage(Object.assign(r, { check: P.check })) : r;
@@ -256,16 +256,23 @@
   }
   /* 공조기·에어커튼 가동시간은 구글(온습도 앱 읽기)에 남음 → 업무지원 구글 웹앱 ?api=logac 로 받음. 같은 날은 10분 기억 */
   const AC = {};
-  async function withAc(r) {
+  // 기다리지 않음: 기억한 값이 없으면 r.acLater(약속)만 붙여 돌려줌 → 화면이 일지를 먼저 그리고 도착하면 그 칸만 채움
+  function withAc(r) {
     if (!r || !r.day) return r;
     const c = AC[r.day];
-    if (c && Date.now() - c.at < 600e3) { r.ac = c.ac; return r; }
-    try {
-      const j = await (await fetch(C.WS_GAS_URL + '?api=logac&day=' + r.day)).json();
-      if (!j.ok) throw new Error(j.error || '');
-      r.ac = j.ac;
-      if (!j.ac.err) AC[r.day] = { at: Date.now(), ac: j.ac };
-    } catch (e) { r.ac = { err: '온습도 앱 기록을 불러오지 못했습니다' }; }
+    if (c && c.ac && Date.now() - c.at < 600e3) { r.ac = c.ac; return r; }
+    if (!c || !c.p || Date.now() - c.at >= 600e3) {
+      const day = r.day, p = (async () => {
+        try {
+          const j = await (await fetch(C.WS_GAS_URL + '?api=logac&day=' + day)).json();
+          if (!j.ok) throw new Error(j.error || '');
+          if (!j.ac.err) AC[day] = { at: Date.now(), ac: j.ac }; else delete AC[day];
+          return j.ac;
+        } catch (e) { delete AC[day]; return { err: '온습도 앱 기록을 불러오지 못했습니다' }; }
+      })();
+      AC[day] = { at: Date.now(), p };   // 같은 날을 받는 중이면 다시 부르지 않음
+    }
+    r.acLater = AC[r.day].p;
     return r;
   }
 

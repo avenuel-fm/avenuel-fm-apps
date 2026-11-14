@@ -128,7 +128,7 @@ const FAKE = `window.supabase = { createClient() {
 const H2P = "window.html2pdf=function(){const o={set(){return o},from(){return o},outputPdf(){return Promise.resolve('data:application/pdf;filename=generated.pdf;base64,'+btoa('%PDF-1.4 '+'x'.repeat(300)))}};return o};";
 // 앱 안 PDF 보기 시험용 pdf.js 흉내: %PDF 로 시작하는 자료면 2쪽, 아니면 읽기 실패
 const PDFJS_FAKE = "window.pdfjsLib={GlobalWorkerOptions:{},getDocument(src){window.PV_SRC=src;const ok=src.data&&src.data[0]===37&&src.data[1]===80;return{promise:ok?Promise.resolve({numPages:2,getPage:async i=>({getViewport:({scale})=>({width:842*scale,height:595*scale}),render:({canvasContext})=>{canvasContext.fillRect(0,0,20,20);window.PV_DRAWN=(window.PV_DRAWN||0)+1;return{promise:Promise.resolve()}}})}):Promise.reject(new Error('Invalid PDF structure'))}}};";
-let AC_ASKED = '', AC_N = 0, GAS_PDF = [];
+let AC_ASKED = '', AC_N = 0, AC_DELAY = 0, GAS_PDF = [];
 const srv = http.createServer((req, res) => {
   let body = ''; req.on('data', d => body += d); req.on('end', () => {
     const u = new URL(req.url, 'http://x');
@@ -170,7 +170,8 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
     }
     AC_N++; AC_ASKED = u.searchParams.get('api') + ' ' + u.searchParams.get('day');
     const k = n => ({ name: n, total: 2, entered: 1, off: 0, groups: [['1층', [3.5, null]]], c: { d: 3.5, m: 10, y: 100 }, p: { d: 2, m: 9, y: 90 } });
-    r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, day: u.searchParams.get('day'), ac: { hvac: k('공조기'), curtain: k('에어커튼') } }) });
+    const go = () => r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, day: u.searchParams.get('day'), ac: { hvac: k('공조기'), curtain: k('에어커튼') } }) });
+    if (AC_DELAY) setTimeout(go, AC_DELAY); else go();   // 실제는 처음 받는 날 6~9초
   });
   await c.addInitScript(tk => { try { localStorage.setItem('ws_token', tk); localStorage.setItem('ws_dev_at', '2026-11-14'); } catch (e) {} }, TK);
   const p = await c.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
@@ -250,7 +251,12 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(/\/ws-files\/tbm_meet\//.test(await p.locator('.tbph img').first().getAttribute('src')), '13) 다시 불러오면 회의 사진은 버킷 주소로 보임');
 
   // ── 종합업무일지 (PC) ──
-  await p.evaluate(() => openLog()); await p.locator('#lgSheet').waitFor();
+  AC_DELAY = 4000;
+  const t0 = Date.now(); await p.evaluate(() => { openLog(); }); await p.locator('#lgSheet').waitFor();
+  const t1 = Date.now() - t0, wait = await p.locator('.lgac .acerr').innerText();
+  ok(t1 < 2500 && /불러오는 중/.test(wait), '14-1) 일지: 공조기를 기다리지 않고 먼저 보임 (' + t1 + 'ms · ' + wait + ')');
+  await p.locator('.acb[data-ac="공조기"]').waitFor({ timeout: 8000 }); AC_DELAY = 0;
+  ok(await p.locator('.lgac .acerr').count() === 0, '14-2) 도착하면 그 칸만 채움');
   ok(AC_ASKED === 'logac ' + D && await p.locator('.acb[data-ac="공조기"]').count() === 1, '14) 일지: 공조기 가동시간은 구글 ?api=logac 에서 (' + AC_ASKED + ')');
   await p.fill('input.lgin[data-k="전기"]', '1234');
   await p.click('#lgSave');
@@ -325,6 +331,11 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const it3 = ea.items.find(x => x.name === '히터'), ov = ea.items.find(x => x.name === '오븐');
   ok(ei.ok && ei.check.items === 3 && ea.stores.length === 2 && ea.stores[0].no === 4 && ea.stores[1].no === 2 && it3.no === '1F-4-2' && it3.gone === true && ov.date === '2024-08-29' && ov.w === '3000' && ov.m2 === '을' && ea.items.find(x => x.name === '토스터').no === 'B1-2-1',
     '37) 엑셀 가져오기: 나눠 읽은 매장·기기만 넘김 (관리번호·날짜·폐기)');
+  ok(ea.replace === false, '37) 처음 가져오기는 바꿔 넣기 아님');
+  await p.evaluate(() => ehImportDlg(true)); await p.waitForSelector('.dialog .banner.b-red');   // 이 시험 화면은 휴대폰 폭이라 단추 대신 바로 엶
+  await p.evaluate(sh => { S.ehX = sh; }, SH);
+  await p.evaluate(() => { $('ehXo').innerHTML = '<button id="ehXb"></button>'; return ehXSave(); });
+  ok(last('ws_eh_import').a.p_data.replace === true, '37) 엑셀 다시 가져오기: 「모두 지움」 안내 → 바꿔 넣기로 넘김');
   const e = await c.newPage(); e.on('pageerror', x => errs.push('eh-sb: ' + x.message));
   await e.goto('http://localhost:' + PORT + '/ws/eh-sb.html?eh=abcdefghjkmp');
   await e.locator('.eht').waitFor();
