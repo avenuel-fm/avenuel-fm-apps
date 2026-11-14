@@ -3,7 +3,7 @@
 // ⚠ service_role(secret) 키는 절대 여기에 넣지 않습니다 — 구글 Apps Script 스크립트 속성에만.
 window.DW_CONFIG = Object.freeze({
   // 바꿔 타는 날 스위치: true = 바로가기·QR(?store=)·서명 메일(?sign=)이 Supabase 앱(app.html)으로. false 로 되돌리면 옛 구글 앱
-  LIVE: false,
+  LIVE: true,
   SUPABASE_URL: 'https://kjhsduhufwaihhlfdipf.supabase.co',             // 업무지원과 같은 Supabase 프로젝트
   SUPABASE_ANON_KEY: 'sb_publishable_fOT-Mnciwl0HDrPKbfOh4g_VrcOObR6',   // publishable(anon) 키
   SUPABASE_BUCKET_NAME: 'dw-files'                                       // supabase/01_schema.sql 의 공개 버킷
