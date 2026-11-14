@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.8.14',
+  VERSION: '1.9.0',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
@@ -221,6 +221,7 @@ var DEFAULT_SYNONYMS = [
 
 function doGet(e) {
   if (e && e.parameter && e.parameter.api) return blockApi_(e.parameter, null);
+  if (sbLive_() && shortcutUrl_()) return movedPage_(e);   // 바꿔 탄 뒤: 옛 /exec 주소로 열면 Supabase 앱으로 안내 (시트는 더 이상 안 고쳐짐)
   var t = HtmlService.createTemplateFromFile('Index');
   // 출력물 QR: ?store=매장ID 로 열면 로그인 후 그 매장 검토서를 엶
   var store = String((e && e.parameter && e.parameter.store) || '');
@@ -231,6 +232,17 @@ function doGet(e) {
   return t.evaluate()
     .setTitle(APP.STORE_LABEL + ' 도면협의')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/** 바꿔 탄 뒤 /exec 로 연 사람: 바로가기 주소(…/fm/dw/)로 (받은 ?store= ?sign= 그대로) */
+function movedPage_(e) {
+  var q = [];
+  ['store', 'sign'].forEach(function (k) { var v = String((e && e.parameter && e.parameter[k]) || ''); if (/^[-\w]{6,80}$/.test(v)) q.push(k + '=' + v); });
+  var base = shortcutUrl_(), url = base + (q.length ? (base.indexOf('?') >= 0 ? '&' : '?') + q.join('&') : '');
+  return HtmlService.createHtmlOutput('<div style="font:16px sans-serif;line-height:1.7;padding:32px;text-align:center">도면협의 앱 주소가 바뀌었습니다.<br><br>' +
+    '<a href="' + escH_(url) + '" target="_top" style="display:inline-block;background:#1F5FAE;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">새 주소로 열기</a></div>')
+    .setTitle(APP.STORE_LABEL + ' 도면협의').addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -245,6 +257,7 @@ var BLOCK = { NAME: 'drawing-review', TITLE: '도면협의' };
 function doPost(e) {
   var body = {};
   try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}') || {}; } catch (x) { return jsonOut_({ ok: false, error: 'JSON 형식이 아닙니다.' }); }
+  if (body.api === 'dw') return dwApi_(body);   // Supabase 판 화면(fm/dw/app.html)의 메일·옛 파일 통로 (Supa.gs)
   return blockApi_(body, body);
 }
 function jsonOut_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
@@ -371,6 +384,8 @@ function onOpen() {
       .addItem('3. 이전 점검 (파일이 어느 계정 것인지)', 'migrateCheck_')
       .addItem('이어하기 예약 멈추기', 'migrateStop_'))
     .addItem('⑧ 웹앱 주소 · 바로가기 주소', 'showAddresses_')
+    .addSeparator()
+    .addSubMenu(sbMenu_())
     .addToUi();
 }
 
@@ -417,6 +432,7 @@ function setPinFor_(role) {
     return;
   }
   PropertiesService.getScriptProperties().setProperty('PIN_' + role, hash_(pin));
+  if (sbLive_()) sbRpc_('dw_svc_setting', { p_key: 'PIN_' + role, p_value: hash_(pin) });   // 바꿔 탄 뒤: Supabase 앱도 새 PIN
   ui.alert(role + ' PIN이 설정되었습니다. 이 PIN으로 기억해 둔 기기는 다음 접속 때 새 PIN을 한 번 입력합니다.');
 }
 
@@ -1461,7 +1477,8 @@ function setting_(key) {
 }
 function setSetting_(key, value) {
   var sh = settingsSheet_(), rows = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
-  for (var i = 0; i < rows.length; i++) if (String(rows[i][0]).trim() === key) { sh.getRange(i + 2, 2).setNumberFormat('@').setValue(value); return; }
+  for (var i = 0; i < rows.length; i++) if (String(rows[i][0]).trim() === key) { sh.getRange(i + 2, 2).setNumberFormat('@').setValue(value); break; }
+  if (sbLive_() && key === '바로가기주소') sbRpc_('dw_svc_setting', { p_key: key, p_value: value });   // 바꿔 탄 뒤: Supabase 앱(서명 링크)도
 }
 /** 껍데기 주소 형식: https:// 로 시작, 공백·#·? 없음 */
 function okShortcut_(u) { return /^https:\/\/[^\s?#]+$/.test(String(u || '')); }
@@ -1934,6 +1951,9 @@ function fromAliasOk_() {
 /** 발송 창에 보여줄 정보: 시방서 파일 있음/없음, 보내는 주소 */
 function apiSpecInfo(a) {
   auth_(a);
+  return specInfo_();
+}
+function specInfo_() {
   var files = specFiles_();
   return {
     from: APP.SPEC_FROM, fromName: APP.SPEC_FROM_NAME, fromOk: fromAliasOk_(), label: APP.STORE_LABEL, signature: APP.SPEC_SIGNATURE,

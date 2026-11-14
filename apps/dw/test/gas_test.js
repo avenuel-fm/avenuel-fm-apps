@@ -100,6 +100,7 @@ const ctx = {
 vm.createContext(ctx);
 const src = path.join(__dirname, '..', 'src');
 vm.runInContext(fs.readFileSync(path.join(src, 'Code.gs'), 'utf8'), ctx);
+vm.runInContext(fs.readFileSync(path.join(src, 'Supa.gs'), 'utf8'), ctx);   // Supabase 이관 (메일 통로·옮기기·주 1회)
 
 const ok = (cond, msg) => { if (!cond) { throw new Error('실패: ' + msg); } console.log('  ✓', msg); };
 const run = code => vm.runInContext(code, ctx);
@@ -342,7 +343,7 @@ const ix = run('apiGuideIndex(A)');
 ok(ix.length === 1 && ix[0].d === ctx.BID && ix[0].p === 91, '검색 색인 제공 (항목마다 지침 ID)');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 91)`) === img, '쪽 이미지 data URL');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 999)`) === null, '없는 쪽은 null');
-ok(run('apiBootstrap(A)').version === '1.8.14' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
+ok(run('apiBootstrap(A)').version === '1.9.0' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
 
 // 개정판: 다른 PDF로 같은 지침 바꾸기
 const pdf2 = mkFile('통합안전관리지침_27.pdf', 'application/pdf', Buffer.from('new'), gRoot.id);
@@ -868,8 +869,8 @@ xf = null; run('doGet({parameter:{sign:"' + 'a'.repeat(40) + '"}})'); ok(xf === 
 xf = null; run('doGet({parameter:{}})'); ok(xf === 'ALLOWALL', 'doGet 기본 화면 ALLOWALL');
 
 // 1.8.6 (결정 41): 웹앱 화면에서 이름으로 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴 함수는 모두 _
-const pubFns = [...fs.readFileSync(path.join(src, 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(n => !/_$/.test(n));
-const badFns = pubFns.filter(n => !/^(doGet|doPost|include|onOpen|api[A-Z]\w*|backupDaily|migrateSendResume|migrateAcceptResume)$/.test(n));
+const pubFns = [...(fs.readFileSync(path.join(src, 'Code.gs'), 'utf8') + fs.readFileSync(path.join(src, 'Supa.gs'), 'utf8')).matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(n => !/_$/.test(n));
+const badFns = pubFns.filter(n => !/^(doGet|doPost|include|onOpen|api[A-Z]\w*|backupDaily|migrateSendResume|migrateAcceptResume|sbArchiveWeekly|sbArchiveContinue)$/.test(n));
 ok(!badFns.length, '밖에서 부를 수 있는 함수는 진입점·화면용 api…·예약(번호 확인)만 ' + badFns.join(', '));
 
 console.log('\n서버 로직 점검 통과');

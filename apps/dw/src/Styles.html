@@ -146,6 +146,7 @@ canvas.pen-on{cursor:crosshair}
 .pinbox .pin{font-size:24px;letter-spacing:10px;text-align:center;margin-top:10px}
 .pinbox .err{min-height:20px;margin-top:6px}
 .pinbox .btn{width:100%;min-height:50px;font-size:16px;margin-top:6px}
+.pinbox .btn.devoff{min-height:40px;font-size:13px;margin-top:10px;border-color:transparent;background:transparent;color:var(--muted)}
 .whoami{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:999px;background:#EAF2FC;color:var(--blue);font-size:14px;font-weight:500;white-space:nowrap}
 /* 대시보드 차수 · 컨펌완료 · 소장 확인 한 줄 */
 .stepsrow{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
@@ -531,6 +532,17 @@ canvas.pen-on{cursor:crosshair}
 .sigpad{position:relative;height:280px;border:2px solid var(--blue);border-radius:14px;background:#FBFCFD;touch-action:none}
 .sigpad canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
 .sigpad .line{position:absolute;left:40px;right:40px;bottom:64px;border-top:1px dashed #9AA4B2;pointer-events:none}
+/* 앱 안 PDF 보기 (Supabase 판, 업무지원 결정 124 와 같은 모양) */
+html.pv-open,html.pv-open body{overflow:hidden}
+.pvwrap{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;background:var(--ground)}
+.pv-tool{display:flex;align-items:center;gap:8px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:#fff;border-bottom:1px solid var(--line2)}
+.pv-name{flex:1;min-width:0}.pv-name b{font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pv-name small{font-size:12px;color:var(--muted)}
+.pv-zoom{display:flex;align-items:center;border:1px solid var(--line2);border-radius:8px;background:#fff;overflow:hidden;flex:none}.pv-zoom button{width:40px;height:36px;border:0;background:none;font-size:18px;color:inherit;cursor:pointer}.pv-zoom button:disabled{opacity:.35;cursor:default}.pv-zoom span{min-width:56px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}
+.pv-pages{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--line3);padding:12px 10px 20px;display:flex;flex-direction:column;align-items:center;gap:6px}.pv-pages.big{align-items:flex-start}
+.pv-page{display:block;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);flex:none}.pv-no{font-size:12px;color:var(--muted);margin-bottom:8px}
+.pv-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:48px 20px;color:var(--sub)}.pv-state b{color:var(--ink);font-size:17px}
+.pv-spin{width:30px;height:30px;border:3px solid var(--blue);border-right-color:transparent;border-radius:50%;animation:pvs .8s linear infinite}@keyframes pvs{to{transform:rotate(360deg)}}
+.pv-bar{display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line2)}.pv-bar .btn{flex:1}.pv-bar .back-in{flex:none;padding:0 14px 0 8px;gap:2px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:calc(100vw - 32px)}
 .toast.error{background:var(--red)}
 .loading{display:flex;align-items:center;justify-content:center;min-height:50vh;color:var(--muted)}
