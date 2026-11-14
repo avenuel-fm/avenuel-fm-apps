@@ -231,6 +231,7 @@ var GuideIndexer = (function () {
 
   function api(name) {
     var args = Array.prototype.slice.call(arguments, 1);
+    if (window.DW_API) return DW_API.run.apply(null, [name].concat(args)).catch(function (e) { throw new Error(errMsg(e)); });   // 바로가기 앱(Supabase): fm/dw/dw-api.js
     return new Promise(function (resolve, reject) {
       var runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(function (e) { reject(new Error(errMsg(e))); });
       runner[name].apply(runner, args);
@@ -309,8 +310,27 @@ var GuideIndexer = (function () {
       '<input id="pin" class="inp pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" required>' +
       '<div class="err" id="loginErr" role="alert">' + esc(err || '') + '</div>' +
       '<button class="btn pri main-act" type="submit">들어가기</button>' +
+      (window.DW_API ? '<button type="button" class="btn sm devoff" data-act="devoff">기기 등록 풀기</button>' : '') +
       '</form></div>';
     $('#pin').focus();
+  }
+
+  /* 기기 등록 (Supabase 판, 업무지원과 같은 방식): 기기마다 처음 한 번 시설팀 공용 계정. 그다음은 지금처럼 PIN */
+  function renderDevice(email, msg, busy) {
+    S.view = 'device';
+    app.innerHTML =
+      '<div class="pinpop"><form class="dialog pinbox" id="deviceForm" role="dialog" aria-modal="true" aria-labelledby="devTitle">' +
+      '<div class="lock" aria-hidden="true">' + ICON.lock + '</div><div class="muted small">잠실점 에비뉴엘 · 시설팀</div><h1 id="devTitle">기기 등록</h1>' +
+      '<div class="small muted" style="line-height:1.6;margin-top:4px">이 기기에서 <b style="color:var(--ink)">처음 한 번만</b> 합니다.<br>등록하면 다음부터는 PIN만 누릅니다.</div>' +
+      '<label class="small muted" for="devE" style="display:block;margin-top:12px;text-align:left">시설팀 계정 이메일</label>' +
+      '<input id="devE" class="inp" type="email" inputmode="email" autocomplete="username" required value="' + esc(email || '') + '">' +
+      '<label class="small muted" for="devP" style="display:block;margin-top:8px;text-align:left">비밀번호</label>' +
+      '<input id="devP" class="inp" type="password" autocomplete="current-password" required>' +
+      '<div class="err" role="alert">' + esc(msg || '') + '</div>' +
+      '<button class="btn pri main-act" type="submit"' + (busy ? ' disabled' : '') + '>' + (busy ? '확인 중…' : '기기 등록') + '</button>' +
+      '<div class="small muted" style="margin-top:10px;line-height:1.6">계정은 시설팀 관리자에게 받습니다</div>' +
+      '</form></div>';
+    $(email ? '#devP' : '#devE').focus();
   }
 
   /* 로그인 기억: 기기마다 처음 한 번만 PIN. PIN 대신 서버가 준 표(token)를 이 기기에 둠 */
@@ -384,7 +404,7 @@ var GuideIndexer = (function () {
       '<header class="topbar"><div class="topbar-in">' +
       '<div class="tb-title" style="flex:1 1 260px"><div><div class="t1">' + esc(S.boot.storeLabel) + ' · 시설팀' + (S.boot.version ? ' · v' + esc(S.boot.version) : '') + '</div><div class="t2">도면협의 대시보드</div></div></div>' +
       '<div class="tb-actions">' +
-      '<button type="button" class="btn sm" data-act="refresh" title="다시 불러오기">' + ICON.refresh + '<span>구글시트 동기화 · ' + esc(S.syncedAt) + '</span></button>' +
+      '<button type="button" class="btn sm" data-act="refresh" title="다시 불러오기">' + ICON.refresh + '<span>' + (S.boot.sb ? '동기화' : '구글시트 동기화') + ' · ' + esc(S.syncedAt) + '</span></button>' +
       '<span class="whoami" title="다른 사람으로 바꾸려면 로그아웃 후 그 사람의 PIN을 넣습니다">' + ICON.check + esc(S.auth.role) + ' 접속 중</span>' +
       '<button type="button" class="btn sm" data-act="gadmin">' + ICON.doc + '<span>지침 관리</span></button>' +
       '<button type="button" class="btn pri" data-act="new">+ 새 도면협의</button>' +
@@ -683,7 +703,7 @@ var GuideIndexer = (function () {
     }
     el.innerHTML = '<div class="sendlog"><div class="hd">' + ICON.mail + ' 보낸 메일·발송 기록 <span class="c">' + list.length + '건 · 최근 순</span></div><ul>' + list.map(function (x) {
       var t = LOG_T[x.t] || [x.t, 'pdf'];
-      var body = esc(x.d || '') + (x.to ? ' → ' + esc(x.to) : '') + (x.url ? ' <a href="' + esc(x.url) + '" target="_blank" rel="noopener">열기</a>' : '') + (x.by ? ' <span class="who">· ' + esc(x.by) + '</span>' : '');
+      var body = esc(x.d || '') + (x.to ? ' → ' + esc(x.to) : '') + (x.url ? ' <a href="' + esc(x.url) + '" target="_blank" rel="noopener"' + pvAttr({ name: (S.store && S.store.docNo ? S.store.docNo + '_' : '') + (x.round || '') + '차.pdf', meta: x.d || '', f: x.f || '' }) + '>열기</a>' : '') + (x.by ? ' <span class="who">· ' + esc(x.by) + '</span>' : '');
       var m = String(x.at || '').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}:\d{2})/);
       var when = m ? m[2] + '/' + m[3] + ' (' + DOW[new Date(+m[1], +m[2] - 1, +m[3]).getDay()] + ') ' + m[4] : esc(x.at);
       return '<li><span class="dt" title="' + esc(x.at) + '">' + when + '</span><span class="tg ' + t[1] + '">' + t[0] + '</span><span>' + body + '</span></li>';
@@ -1029,7 +1049,7 @@ var GuideIndexer = (function () {
       app.innerHTML = '<div class="signpg">' +
         '<div class="small muted">' + esc(info.label) + ' · 시설팀</div><h1>공사 도면 검토서 서명</h1>' +
         '<div class="card sp-card"><b>' + esc(info.tenant) + '</b> · ' + info.round + '차 검토<br><span class="muted">문서번호 ' + esc(info.docNo) + '<br>서명: <b style="color:var(--ink)">' + esc(info.who) + '</b>' + (info.org ? ' · ' + esc(info.org) : '') + '</span>' +
-        '<a class="btn sp-pdf" href="' + esc(info.pdfUrl) + '" target="_blank" rel="noopener">' + ICON.file + ' 검토서 PDF 보기</a></div>' +
+        '<a class="btn sp-pdf" href="' + esc(info.pdfUrl) + '" target="_blank" rel="noopener"' + pvAttr({ name: info.docNo + '_' + info.round + '차.pdf', meta: info.tenant + ' · ' + info.round + '차 검토서' }) + '>' + ICON.file + ' 검토서 PDF 보기</a></div>' +
         '<div class="card sp-card"><div class="sp-h">서명하는 분</div>' +
         '<label class="lbl" for="spName" style="margin-top:10px">성명</label><input id="spName" class="inp" maxlength="40" value="' + esc(info.name) + '" autocomplete="name">' +
         '<label class="lbl" for="spTel" style="margin-top:10px">연락처</label><input id="spTel" class="inp" type="tel" inputmode="numeric" maxlength="13" value="' + esc(info.tel) + '" autocomplete="tel"></div>' +
@@ -2174,6 +2194,105 @@ var GuideIndexer = (function () {
     return S.pdfjsP;
   }
   function mb(n) { return (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + 'MB'; }
+  /* ───────── 앱 안 PDF 보기 (Supabase 판만, 업무지원 결정 124 와 같음) ─────────
+     [PDF 열기]가 휴대폰의 드라이브·PDF 앱으로 넘어가면 구글 계정을 물음 → 앱 안에서 pdf.js 로 그림.
+     버킷 PDF 는 바로 받고, 드라이브로 옮긴 PDF 는 도면협의 웹앱 통로가 대신 받음 (dw-api.js pdfBlob). 구글 판은 예전처럼 새 창 */
+  var PV_Z = [1, 1.5, 2, 3], PV = null;
+  /** <a data-pv> : o = { name, meta, f(파일 번호) } */
+  function pvAttr(o) { return ' data-pv="' + esc(JSON.stringify(o || {})) + '"'; }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-pv]');
+    if (!a || !window.DW_API) return;
+    e.preventDefault();
+    var o = {}; try { o = JSON.parse(a.dataset.pv || '{}'); } catch (x) { /* 빈 값 */ }
+    pdfView(a.getAttribute('href'), o);
+  }, true);
+  function pdfView(url, o) {
+    var el = $('#pvLayer');
+    if (!el) { el = document.createElement('div'); el.id = 'pvLayer'; el.className = 'pvwrap no-print'; document.body.appendChild(el); }
+    PV = { url: url, f: o.f || '', name: o.name || 'PDF', meta: o.meta || '', z: 1, st: 'load', n: 0, doc: null, bytes: null, y: window.scrollY };
+    document.documentElement.classList.add('pv-open');
+    pvLoad();
+  }
+  function pvClose() {
+    var el = $('#pvLayer'); if (el) el.remove();
+    document.documentElement.classList.remove('pv-open');
+    if (PV) window.scrollTo(0, PV.y);
+    PV = null;
+  }
+  function pvLoad() {
+    var me = PV; if (!me) return;
+    me.st = 'load'; me.err = ''; pvRender();
+    Promise.all([loadPdfJs(), DW_API.pdfBlob(S.auth, me.f ? { fileId: me.f, url: me.url } : me.url).then(function (b) { return b.arrayBuffer(); })]).then(function (r) {
+      me.bytes = new Uint8Array(r[1]);
+      return r[0].getDocument({ data: me.bytes.slice() }).promise;   // pdf.js 가 넘긴 배열을 비우므로 복사본 (내려받기용 원본 보존)
+    }).then(function (doc) {
+      if (PV !== me) return;
+      me.doc = doc; me.n = doc.numPages; me.st = 'ok'; pvRender();
+    }, function (e) {
+      if (PV !== me) return;
+      me.st = 'err'; me.err = errMsg(e); pvRender();
+    });
+  }
+  function pvZoomLabel(z) { return z === 1 ? (window.innerWidth < 700 ? '쪽 맞춤' : '100%') : Math.round(z * 100) + '%'; }
+  function pvRender() {
+    var p = PV, el = $('#pvLayer'); if (!p || !el) return;
+    var pages = '';
+    for (var i = 1; i <= p.n; i++) pages += '<canvas class="pv-page" id="pvC' + i + '" aria-label="' + i + '쪽"></canvas><div class="pv-no">' + i + ' / ' + p.n + '</div>';
+    el.innerHTML =
+      '<div class="pv-tool"><div class="pv-name"><b>' + esc(p.name) + '</b><small>' + esc([p.n ? p.n + '쪽' : '', p.meta].filter(Boolean).join(' · ') || 'PDF') + '</small></div>' +
+      '<div class="pv-zoom" role="group" aria-label="크기"><button type="button" data-pv-act="zout" aria-label="작게"' + (p.z <= PV_Z[0] || p.st !== 'ok' ? ' disabled' : '') + '>−</button>' +
+      '<span>' + pvZoomLabel(p.z) + '</span><button type="button" data-pv-act="zin" aria-label="크게"' + (p.z >= PV_Z[PV_Z.length - 1] || p.st !== 'ok' ? ' disabled' : '') + '>+</button></div></div>' +
+      (p.st === 'err'
+        ? '<div class="pv-state" role="alert"><b>PDF를 불러오지 못했습니다</b><span>' + esc(p.err && !/fetch|network/i.test(p.err) ? p.err : '인터넷 연결을 확인하고 다시 시도해 주세요.') + '</span>' +
+          '<button type="button" class="btn pri" data-pv-act="retry">다시 시도</button><a class="btn" href="' + esc(p.url) + '" target="_blank" rel="noopener">새 창에서 열기</a>' +
+          '<small class="muted">새 창에서 열면 휴대폰이 구글 계정을 물을 수 있습니다.</small></div>'
+        : p.st === 'load' ? '<div class="pv-state"><div class="pv-spin" aria-hidden="true"></div><span>PDF 불러오는 중…</span></div>'
+        : '<div class="pv-pages' + (p.z > 1 ? ' big' : '') + '" id="pvPages">' + pages + '</div>') +
+      '<div class="pv-bar"><button type="button" class="btn back-in" data-pv-act="close">' + ICON.back + '뒤로</button>' +
+      '<button type="button" class="btn" data-pv-act="down"' + (p.bytes ? '' : ' disabled') + '>' + ICON.file + '내려받기</button>' +
+      '<button type="button" class="btn pri" data-pv-act="share">공유</button></div>';
+    el.onclick = function (e) {
+      var b = e.target.closest('[data-pv-act]'); if (!b || b.disabled) return;
+      var act = b.dataset.pvAct;
+      if (act === 'close') pvClose();
+      else if (act === 'retry') pvLoad();
+      else if (act === 'zin' || act === 'zout') { var k = PV_Z.indexOf(p.z) + (act === 'zin' ? 1 : -1); if (k >= 0 && k < PV_Z.length) { p.z = PV_Z[k]; pvRender(); } }
+      else if (act === 'down') pvDown();
+      else if (act === 'share') pvShare();
+    };
+    if (p.st === 'ok') pvDraw();
+  }
+  function pvDraw() {
+    var p = PV, box = $('#pvPages'); if (!p || !p.doc || !box) return;
+    var fit = Math.min(960, box.clientWidth - 20), dpr = Math.min(window.devicePixelRatio || 1, 3), z = p.z, i = 1;
+    (function next() {
+      if (i > p.n) return;
+      var n = i++;
+      p.doc.getPage(n).then(function (pg) {
+        if (PV !== p || p.z !== z) return;   // 그리는 중에 크기를 바꾸거나 닫음
+        var cv = $('#pvC' + n); if (!cv) return;
+        var w = fit * z, sc = w / pg.getViewport({ scale: 1 }).width, k = Math.min(dpr, 4096 / w);   // 캔버스가 너무 크면 휴대폰이 못 그림
+        var vp = pg.getViewport({ scale: sc * k });
+        cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+        cv.style.width = Math.floor(w) + 'px'; cv.style.height = Math.floor(vp.height / k) + 'px';
+        return pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(next);
+      });
+    })();
+  }
+  function pvDown() {
+    var p = PV; if (!p || !p.bytes) return;
+    var u = URL.createObjectURL(new Blob([p.bytes], { type: 'application/pdf' })), a = document.createElement('a');
+    a.href = u; a.download = /\.pdf$/i.test(p.name) ? p.name : p.name + '.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
+  }
+  function pvShare() {
+    var p = PV; if (!p) return;
+    if (navigator.share) { navigator.share({ title: p.name, url: p.url }).catch(function () { /* 취소 */ }); return; }
+    var copy = navigator.clipboard ? navigator.clipboard.writeText(p.url) : Promise.reject();
+    copy.then(function () { toast('PDF 링크를 복사했습니다'); }, function () { window.prompt('PDF 링크 (복사해서 보내세요)', p.url); });
+  }
+
   function stripPdf(name) { return String(name || '').replace(/\.pdf$/i, '').replace(/_/g, ' ').trim(); }
 
   function openGuideAdmin(isRefresh) {
@@ -2223,10 +2342,14 @@ var GuideIndexer = (function () {
         '<div class="gacts"><button type="button" class="btn sm pri" data-act="gbuild" data-file="' + esc(b.fileId) + '" data-replaces="' + esc(b.replaces || '') + '">이어서 만들기</button>' +
         '<button type="button" class="btn sm del" data-act="gcancel">버리기</button></div></div>' : '') +
 
-      '<section class="card"><div class="sh"><span class="dot">1</span><h2>드라이브 지침 폴더</h2>' +
+      (st.sb ? '<section class="card"><div class="sh"><span class="dot">1</span><h2>지침 PDF 올리기</h2>' +
+      '<p>지침 PDF를 올리면 아래 3번 목록에 나옵니다. 지침이 개정되면 새 PDF를 올리고 다시 만들면 됩니다.</p></div>' +
+      '<div class="gfolder"><div><div style="font-weight:600">지침 PDF</div><div class="small muted">글자를 선택할 수 있는 PDF만 검색됩니다 (스캔한 사진 PDF는 불가) · 일주일 뒤 드라이브 ' + esc(st.folderName) + ' 폴더에도 보관</div></div>' +
+      '<button type="button" class="btn sm pri" data-act="gpdfUp">' + ICON.pdf + '<span>PDF 올리기</span></button><input type="file" id="gpdfFile" accept="application/pdf,.pdf" hidden></div></section>'
+      : '<section class="card"><div class="sh"><span class="dot">1</span><h2>드라이브 지침 폴더</h2>' +
       '<p>이 폴더에 지침 PDF를 넣고 <b>폴더 다시 확인</b>을 누르면 아래 3번 목록에 나옵니다. 지침이 개정되면 새 PDF를 넣고 다시 만들면 됩니다.</p></div>' +
       '<div class="gfolder"><div><div style="font-weight:600">' + esc(st.folderName) + '</div><div class="small muted">내 드라이브 · 글자를 선택할 수 있는 PDF만 검색됩니다 (스캔한 사진 PDF는 불가)</div></div>' +
-      '<a class="btn sm" href="' + esc(st.folderUrl) + '" target="_blank" rel="noopener">드라이브에서 폴더 열기</a></div></section>' +
+      '<a class="btn sm" href="' + esc(st.folderUrl) + '" target="_blank" rel="noopener">드라이브에서 폴더 열기</a></div></section>') +
 
       '<section class="card"><div class="sh"><span class="dot">2</span><h2>검색에 쓰는 지침</h2><span class="chip blue">' + srcs.length + '개</span>' +
       '<p>특이사항 지침 검색에 나오는 지침입니다. 줄임말은 삽입 문구에 들어갑니다. 예: (줄임말 구분, p.12)</p></div>' +
@@ -2258,8 +2381,9 @@ var GuideIndexer = (function () {
         return '<div class="grow"><div class="gmain"><div class="gname">' + ICON.pdf + ' ' + esc(f.name) + '</div>' +
           '<div class="small muted">' + mb(f.size) + ' · 수정 ' + esc(String(f.updated).replace('T', ' ').slice(0, 16)) + ' · ' +
           (g ? '검색에 사용 중 (' + esc(g.short) + ')' : '아직 색인 없음') + '</div></div>' +
-          '<div class="gacts"><button type="button" class="btn sm' + (g ? '' : ' pri') + '" data-act="gbuild" data-file="' + esc(f.fileId) + '"' + (g ? ' data-replaces="' + esc(g.id) + '"' : '') + '>' + (g ? '다시 만들기' : '색인 만들기') + '</button></div></div>';
-      }).join('') + '</div>' : '<div class="muted small">폴더에 PDF가 없습니다. <b>드라이브에서 폴더 열기</b>로 지침 PDF를 올린 뒤 <b>폴더 다시 확인</b>을 눌러 주세요.</div>') +
+          '<div class="gacts"><button type="button" class="btn sm' + (g ? '' : ' pri') + '" data-act="gbuild" data-file="' + esc(f.fileId) + '"' + (g ? ' data-replaces="' + esc(g.id) + '"' : '') + '>' + (g ? '다시 만들기' : '색인 만들기') + '</button>' +
+          (st.sb && !g ? '<button type="button" class="btn sm del" data-act="gpdfDel" data-file="' + esc(f.fileId) + '" data-name="' + esc(f.name) + '">지우기</button>' : '') + '</div></div>';
+      }).join('') + '</div>' : '<div class="muted small">' + (st.sb ? '올린 PDF가 없습니다. 위 1번에서 <b>PDF 올리기</b>를 눌러 주세요.' : '폴더에 PDF가 없습니다. <b>드라이브에서 폴더 열기</b>로 지침 PDF를 올린 뒤 <b>폴더 다시 확인</b>을 눌러 주세요.') + '</div>') +
       '</section></div>';
   }
 
@@ -3713,10 +3837,11 @@ var GuideIndexer = (function () {
       }).then(function (r) {
         if (r && r.store) { S.stores = S.stores.map(function (x) { return x.id === r.store.id ? r.store : x; }); if (S.store && S.store.id === r.store.id) S.store = r.store; }
         dialog({
-          title: '드라이브에 저장했습니다',
-          body: '<div class="small" style="margin-top:10px;line-height:1.7"><b>' + esc(r.name) + '</b><br>' + esc(r.folder) + ' 폴더에 저장했습니다. 같은 차수를 다시 저장하면 새 내용으로 바뀝니다.' +
-            (isIOS() ? '<br>드라이브에서 열고 <b>공유(↑) → 프린트</b>로 A4 인쇄할 수 있습니다.' : '') + '</div>' +
-            '<a class="btn pri" style="width:100%;margin-top:16px;min-height:52px" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + ICON.pdf + 'PDF 열기</a>',
+          title: S.boot.sb ? 'PDF를 저장했습니다' : '드라이브에 저장했습니다',
+          body: '<div class="small" style="margin-top:10px;line-height:1.7"><b>' + esc(r.name) + '</b><br>' +
+            (S.boot.sb ? '저장했습니다. 일주일 뒤 드라이브 ' + esc(r.folder) + ' 폴더에도 보관합니다. 같은 차수를 다시 저장하면 새 내용으로 바뀝니다.'
+              : esc(r.folder) + ' 폴더에 저장했습니다. 같은 차수를 다시 저장하면 새 내용으로 바뀝니다.' + (isIOS() ? '<br>드라이브에서 열고 <b>공유(↑) → 프린트</b>로 A4 인쇄할 수 있습니다.' : '')) + '</div>' +
+            '<a class="btn pri" style="width:100%;margin-top:16px;min-height:52px" href="' + esc(r.url) + '" target="_blank" rel="noopener"' + pvAttr({ name: r.name, meta: S.round + '차 검토서', f: r.fileId || '' }) + '>' + ICON.pdf + 'PDF 열기</a>',
           actions: [{ label: '닫기', value: null }]
         });
       })
@@ -3737,6 +3862,13 @@ var GuideIndexer = (function () {
 
   /* ───────── 이벤트 ───────── */
   app.addEventListener('submit', function (e) {
+    if (e.target.id === 'deviceForm') {
+      e.preventDefault();
+      var em = $('#devE').value, pw = $('#devP').value;
+      renderDevice(em, '', true);
+      DW_API.register(em, pw).then(function () { renderLogin(); }, function (err) { renderDevice(em, errMsg(err)); });
+      return;
+    }
     if (e.target.id !== 'loginForm') return;
     e.preventDefault();
     var pin = $('#pin').value;
@@ -3775,6 +3907,22 @@ var GuideIndexer = (function () {
         break;
       case 'switchrole': switchRole(el.dataset.role); break;
       case 'logout': authKeep(null); S.auth = null; S.stores = []; renderLogin(); break;
+      case 'devoff':
+        dialog({ title: '이 기기의 등록을 풀까요?', body: '<div class="muted small" style="margin-top:6px;line-height:1.6">다시 쓰려면 시설팀 계정으로 기기 등록을 해야 합니다.</div>',
+          actions: [{ label: '취소', value: false }, { label: '등록 풀기', cls: 'del main-act', value: true }] }).then(function (v) {
+          if (!v) { renderLogin(); return; }
+          authKeep(null); S.auth = null; S.stores = [];
+          DW_API.unregister().then(function () { renderDevice(); }, function () { renderDevice(); });
+        });
+        break;
+      case 'gpdfUp': $('#gpdfFile').click(); break;
+      case 'gpdfDel':
+        dialog({ title: '이 PDF를 지울까요?', body: '<div class="muted small" style="margin-top:6px;line-height:1.6">' + esc(el.dataset.name || '') + '<br>이미 만든 검색 색인은 그대로 남습니다.</div>',
+          actions: [{ label: '취소', value: false }, { label: '지우기', cls: 'del main-act', value: true }] }).then(function (v) {
+          if (!v) return;
+          api('apiGuidePdfRemove', S.auth, el.dataset.file).then(function (st) { setGuideState(st); renderGuideAdmin(); toast('PDF를 지웠습니다'); }, function (er) { toast(errMsg(er), true); });
+        });
+        break;
       case 'refresh': openDashboard().then(function () { toast('최신 내용으로 불러왔습니다'); }); break;
       case 'tab': S.dash.tab = el.dataset.tab; renderDashBody(); break;
       case 'calnav': S.dash.cal = el.dataset.m; renderDashBody(); break;
@@ -3939,6 +4087,12 @@ var GuideIndexer = (function () {
   });
   app.addEventListener('change', function (e) {
     if (e.target.id === 'chiefOk') { setChiefOk(e.target); return; }
+    if (e.target.id === 'gpdfFile') {   // 지침 PDF 올리기 (Supabase 판)
+      var gf = e.target.files && e.target.files[0]; if (!gf) return;
+      toast('PDF 올리는 중… ' + mb(gf.size));
+      api('apiGuidePdfAdd', S.auth, gf).then(function (st) { setGuideState(st); renderGuideAdmin(); toast('올렸습니다: ' + gf.name); }, function (er) { toast(errMsg(er), true); });
+      return;
+    }
     if (e.target.id === 'dm') { S.dash.month = e.target.value; renderDashBody(); return; }
     if (e.target.id === 'ds') { S.dash.sort = e.target.value; renderDashBody(); return; }
     onField(e);
@@ -3983,8 +4137,12 @@ var GuideIndexer = (function () {
     return Promise.resolve();
   }
 
-  (function start() {
+  function start() {
     if (window.__SIGN) { renderSignPage(window.__SIGN); return; } // 원격 서명 링크: PIN 없이 서명 페이지만
+    if (window.DW_API && !window.__DEV_OK) {   // 바로가기 앱(Supabase): 기기 등록이 먼저
+      DW_API.device().then(function (d) { if (d) { window.__DEV_OK = true; start(); } else renderDevice(); }, function () { renderDevice(); });
+      return;
+    }
     var saved = authSaved();
     if (saved && saved.role && (saved.token || saved.pin)) {
       var c = loadStartCache(saved.role);
@@ -4010,7 +4168,8 @@ var GuideIndexer = (function () {
     } else {
       renderLogin();
     }
-  })();
+  }
+  start();
 
   window.__DR = S; // 점검용
 })();
