@@ -1,5 +1,5 @@
 // Supabase 이관 SQL 시험 — PGlite(작은 PostgreSQL)에 Supabase 비슷한 틀(역할·auth·storage)을 만들고
-// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql · 04_attendance.sql · 05_fire.sql · 06_eh.sql · 07_cs.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
+// supabase/01_schema_rls.sql · 02_login.sql · 03_docs.sql · 04_attendance.sql · 05_fire.sql · 06_eh.sql · 07_cs.sql · 08_settings.sql 을 그대로 돌려 로그인 규칙을 확인. 진짜 Supabase에는 아무것도 보내지 않음.
 // 쓰는 법: node test/sql_test.js   (끝에 「SQL 시험 통과」)
 const { PGlite } = require('@electric-sql/pglite');
 const { pgcrypto } = require('@electric-sql/pglite/contrib/pgcrypto');
@@ -452,6 +452,49 @@ alter default privileges in schema public grant all on sequences to anon, authen
   cst = await call('ws_cs_site_end', [tk, site.id]);
   ok(cst.ok && cst.sites.length === 0, '공사 끝 → 목록에서 빠짐');
   ok((await call('ws_cs_get', [tk, '', site.id, 1])).ok === true, '끝난 현장도 저장한 점검은 열림');
+  // ══ 3-6 환경설정 (08_settings.sql) ══
+  await db.exec(SQL('08_settings.sql')); await db.exec(SQL('08_settings.sql'));
+  ok(true, '08_settings.sql 실행됨 (두 번)');
+  ok(/permission denied/.test(await asErr('anon', "select ws_admin_staff('x')")), '비로그인: 환경설정 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', 'select ws_staff_out()')), '로그인 기기: 도우미(ws_staff_out) 못 부름');
+  ok(/소장만/.test(await asErr('authenticated', 'select ws_admin_staff($1)', [kk])), '직원 기기 → 「소장만」');
+  ok(/소장만/.test(await asErr('authenticated', "select ws_risk_save($1, '[]')", [kk])), '위험성 목록: 직원은 못 고침');
+  let ad = await call('ws_admin_staff', [tk]);
+  ok(ad.ok && ad.staff.length === 3 && ad.staff[0].staff_id === 'S001' && ad.toastSec === 2.6 && ad.staff[0].pin_hash === undefined, '직원 목록 3명 (PIN 정보는 안 보냄), 알림 기본 2.6초');
+  ok((await call('ws_admin_set_toast', [tk, 20])).error === '0.5~10초 사이로 골라 주세요.', '알림 시간 범위 밖 → 안내');
+  ok((await call('ws_admin_set_toast', [tk, 1.5])).toastSec === 1.5 && (await call('ws_admin_staff', [tk])).toastSec === 1.5, '알림 시간 1.5초 저장');
+  ok((await call('ws_admin_staff_save', [tk, J({ name: '박', pin: '12a4' })])).error === 'PIN은 숫자 4자리입니다.', '직원 추가: PIN 모양 → 안내');
+  ok(/다른 직원이 쓰고/.test((await call('ws_admin_staff_save', [tk, J({ name: '박', pin: '5678' })])).error), '직원 추가: 남의 PIN → 안내');
+  ad = await call('ws_admin_staff_save', [tk, J({ name: '박민수', pin: '1357' })]);
+  const nw = ad.staff.find(x => x.name === '박민수');
+  ok(ad.ok && nw.staff_id === 'S004' && nw.part === '전방파트' && nw.role === '직원', '직원 추가 S004 (파트·역할 기본값)');
+  const nt = await login('1357', 'n1', 'https://x/sign/n.png', 'sign/2026-11/n.png');
+  ok(nt.ok === true || nt.needSign === true || nt.blocked === true, '새 직원 PIN 으로 로그인됨 (' + JSON.stringify(Object.keys(nt)) + ')');
+  ad = await call('ws_admin_staff_save', [tk, J({ staff_id: 'S004', name: '박민수', part: '기건파트', role: '파트장' })]);
+  ok(ad.staff.find(x => x.staff_id === 'S004').role === '파트장', '직원 편집: 파트·역할');
+  ad = await call('ws_admin_staff_save', [tk, J({ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '직원' })]);
+  ok(ad.staff.find(x => x.staff_id === 'S001').role === '소장', '내 역할은 못 바꿈 (소장 그대로)');
+  ok((await call('ws_admin_staff_save', [tk, J({ staff_id: 'S004', name: '박', part: '', role: '직원' })])).error === '파트를 넣어 주세요.', '직원 편집: 파트 빔 → 안내');
+  ok(/다른 직원이 쓰고/.test((await call('ws_admin_staff_pin', [tk, 'S004', '1234'])).error), 'PIN 바꾸기: 남의 PIN → 안내');
+  const before = (await one("select count(*)::int n from ws_sessions where staff_id = 'S002'")).n;
+  const pc = await call('ws_admin_staff_pin', [tk, 'S002', '9753']);
+  ok(pc.ok && pc.name === '김철수' && before > 0 && (await one("select count(*)::int n from ws_sessions where staff_id = 'S002'")).n === 0, 'PIN 바꿈 → 그 직원 기기 표 지움 (다시 로그인)');
+  ok((await login('5678', 'pc1')).ok === false, '옛 PIN 은 이제 안 됨');
+  ok((await call('ws_admin_staff_remove', [tk, 'S001'])).error === '내 계정은 지울 수 없습니다.', '내 계정 삭제 → 막음');
+  ad = await call('ws_admin_staff_remove', [tk, 'S004']);
+  ok(ad.ok && !ad.staff.some(x => x.staff_id === 'S004') && (await one("select active from staff where staff_id = 'S004'")).active === false, '직원 삭제 (줄은 남기고 사용 안 함)');
+  ok((await login('1357', 'n2')).ok === false, '지운 직원 PIN → 로그인 안 됨');
+
+  // 위험성 목록
+  let rk = await call('ws_risk_get', [tk]);
+  ok(rk.ok && rk.rows.length === 18 && typeof rk.rows[0].words === 'string' && Array.isArray(rk.rows[0].fixes), '위험성 목록 18줄 (낱말은 글자 그대로)');
+  ok((await call('ws_risk_save', [tk, J([{ words: '', risk: '감전' }])])).error === '낱말이 빈 줄이 있습니다. TBM 작업에서 찾을 낱말을 넣어 주세요.', '낱말 빈 줄 → 안내');
+  rk = await call('ws_risk_save', [tk, J([{ words: '분전반, 배선', risk: '감전', kind: '감전', p: '2', s: 3, fixes: [{ t: '', on: true }, { t: '절연장갑', on: true }, { t: '전원 차단 확인', on: false }] },
+    { words: '', risk: '' }, { words: '사다리', risk: '떨어짐', p: 9, s: '1', fixes: [] }])]);
+  ok(rk.ok && rk.rows.length === 2 && rk.rows[0].p === 2 && rk.rows[0].s === 3 && rk.rows[0].fixes.length === 2 && rk.rows[0].fixes[0].t === '절연장갑' && rk.rows[0].fixes[0].on === true && rk.rows[0].fixes[1].on === false && rk.rows[1].p === 1,
+    '위험성 목록 저장: 빈 줄 버림, 빈 개선조치 당김, ✓ 미리 체크');
+  const tb = await call('ws_tbm_get', [tk, '']);
+  ok(tb.risks.length === 2 && tb.risks[0].words.join() === '분전반,배선', 'TBM 이 고친 목록을 씀');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

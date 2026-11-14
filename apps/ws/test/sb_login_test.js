@@ -11,6 +11,8 @@ const PORT = 8131;
 const DB = { staff: [{ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장', pin: '1234' }], signs: [], sessions: {}, fails: 0 };
 const day = () => new Date(Date.now() + 9 * 3600e3 - 6 * 3600e3).toISOString().slice(0, 10);
 const RPC = {
+  ws_admin_staff: () => ({ ok: true, toastSec: 2.6, staff: [{ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }] }),
+  ws_risk_get: () => ({ ok: true, rows: [] }),
   ws_login(a) {
     const me = DB.staff.find(s => s.pin === a.p_pin);
     if (!me) { DB.fails++; return { ok: false, error: 'PIN이 맞지 않습니다. (' + DB.fails + '/5)' }; }
@@ -93,9 +95,8 @@ const srv = http.createServer((req, res) => {
   ok(UPLOADS.length === 1 && /^sign\/\d{4}-\d{2}\/[a-z0-9]+\.png$/.test(UPLOADS[0].p) && UPLOADS[0].type === 'image/png', '6) 서명 PNG를 버킷 sign/ 아래 영문 경로로 올림 ' + (UPLOADS[0] || {}).p);
   ok(/소화기/.test(await p.locator('.grid6').innerText()), '7) 메인 화면 (소화기 칸)');
   await p.click('button:text-is("환경설정")');
-  ok(await p.locator('.toast', { hasText: '아직 옮기지 않은 기능' }).waitFor({ timeout: 5000 }).then(() => true, () => false), '8) 아직 안 옮긴 기능(환경설정)은 안내 알림 (3-6 묶음에서 옮김)');
-  // 환경설정 화면(직원 목록)은 3-6에서 옮김 → 여기서는 「이 기기」 칸만 그려 확인
-  await p.evaluate(() => { S.set = { toastSec: 2.6, staff: [S.user] }; S.view = 'set'; render(); });
+  await p.locator('.card.strow', { hasText: 'team@avenuel-fm.app' }).waitFor({ timeout: 5000 }).catch(() => {});
+  ok(/위험성 목록 0줄/.test(await p.locator('.wrap.list').innerText()), '8) 환경설정이 Supabase에서 열림 (3-6: 직원 목록·위험성 목록)');
   ok(/team@avenuel-fm\.app/.test(await p.locator('.card.strow').last().innerText()), '9) 환경설정 「이 기기」에 등록된 계정');
   await p.screenshot({ path: 'shot_sb_set.png', fullPage: true });
   await p.click('button:text-is("기기 등록 풀기")'); await p.locator('.devcard').waitFor();

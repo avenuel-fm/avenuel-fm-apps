@@ -150,7 +150,16 @@
     async csSavePdf(token, ckId, dataUri) {
       const pdf = pdfBlob(dataUri); if (pdf.error) return pdf;
       return rpc('ws_cs_save_pdf', { p_token: token, p_ck_id: String(ckId || ''), p_file: await upload('cs_pdf', pdf) });
-    }
+    },
+
+    /* ── 3-6 환경설정 (supabase/08_settings.sql, 소장만). 위험성 목록은 시트 대신 여기서 고침 ── */
+    adminStaff: token => rpc('ws_admin_staff', { p_token: token }),
+    adminSetToast: (token, sec) => rpc('ws_admin_set_toast', { p_token: token, p_sec: Number(sec) }),
+    adminStaffSave: (token, d) => rpc('ws_admin_staff_save', { p_token: token, p_d: d || {} }),
+    adminStaffPin: (token, id, pin) => rpc('ws_admin_staff_pin', { p_token: token, p_staff_id: String(id || ''), p_pin: String(pin || '') }),
+    adminStaffRemove: (token, id) => rpc('ws_admin_staff_remove', { p_token: token, p_staff_id: String(id || '') }),
+    riskGet: token => rpc('ws_risk_get', { p_token: token }),
+    riskSave: (token, rows) => rpc('ws_risk_save', { p_token: token, p_rows: rows || [] })
   };
 
   /* ── 전열기 관리대장 엑셀 → 매장·기기 (Code.gs ehParse_ · ehW_ · ehDate_ 그대로) ── */

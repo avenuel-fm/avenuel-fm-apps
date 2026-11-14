@@ -1,4 +1,4 @@
-// Supabase 이관 3-2~3-5 화면 시험: 명일 작업 · TBM · 종합업무일지 · 출근현황 · 소화기(QR 점검 check-sb.html 포함) · 전열필증(eh-sb.html 포함) · 공사장 점검가 Supabase 통로(ws-api.js)로 저장되는지 (fm/ws/app.html)
+// Supabase 이관 3-2~3-5 화면 시험: 명일 작업 · TBM · 종합업무일지 · 출근현황 · 소화기(QR 점검 check-sb.html 포함) · 전열필증(eh-sb.html 포함) · 공사장 점검 · 환경설정가 Supabase 통로(ws-api.js)로 저장되는지 (fm/ws/app.html)
 // 진짜 Supabase 대신 가짜(FAKE)를 씀 — 화면 → 통로 → DB 함수에 넘기는 값만 봄. DB 함수 자체 시험은 sql_test.js
 // 먼저: python tools/build_fm.py   그다음: node test/sb_docs_test.js
 const { chromium } = require('playwright');
@@ -33,6 +33,9 @@ const EH_F = ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '팝업'];
 const ehData = () => ({ ok: true, floor: '1F', floors: EH_F.map(f => ({ code: f, stores: f === '1F' ? 1 : 0, items: f === '1F' ? 1 : 0 })),
   stores: [{ id: 'WS-ES-1', no: 1, name: '카페', items: [{ id: 'WS-EH-1', no: '1F-1-1', name: '오븐', w: '3000', maker: 'S', m1: '갑', m2: '을', date: '2026-01-02', printed: '', token: 'abcdefghjkmp' }] }],
   names: [['1F', '카페', 'WS-ES-1']], empty: false, execUrl: '', dpi: 203 });
+const STAFF = [{ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, { staff_id: 'S002', name: '김철수', part: '기건파트', role: '직원' }];
+const RISK = [{ words: '(기본)', risk: '손 다침', kind: '베임', p: 1, s: 2, fixes: [{ t: '보호장갑', on: true }] },
+  { words: '분전반, 배선', risk: '감전', kind: '감전', p: 2, s: 3, fixes: [{ t: '전원 차단', on: true }] }];
 const CSITE = { id: 'WS-CS-1', name: '5F 리모와', work: '인테리어', co: 'A사' }, CS = {};
 const feData = () => ({ ok: true, items: FE, execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const RPC = {
@@ -98,6 +101,14 @@ const RPC = {
     return { ok: true, items: CS.items.map(x => x.photos.map(ph => ph.id)), check: CS.check, rounds: [CS.check] };
   },
   ws_cs_save_pdf: a => { CS.check.pdf = { url: a.p_file.url, at: ver() }; return { ok: true, check: CS.check, rounds: [CS.check], warn: '' }; },
+  /* 3-6 환경설정 */
+  ws_admin_staff: () => ({ ok: true, toastSec: 2.6, staff: STAFF }),
+  ws_risk_get: () => ({ ok: true, rows: RISK }),
+  ws_risk_save: a => { RISK.splice(0, RISK.length, ...a.p_rows.filter(r => r.risk)); return { ok: true, rows: RISK }; },
+  ws_admin_set_toast: a => ({ ok: true, toastSec: a.p_sec }),
+  ws_admin_staff_save: a => { STAFF.push({ staff_id: 'S004', name: a.p_d.name, part: a.p_d.part, role: a.p_d.role }); return { ok: true, staff: STAFF }; },
+  ws_admin_staff_pin: a => ({ ok: true, staff_id: a.p_staff_id, name: '김철수' }),
+  ws_admin_staff_remove: a => { STAFF.splice(STAFF.findIndex(x => x.staff_id === a.p_staff_id), 1); return { ok: true, staff: STAFF }; },
   ws_log_save_pdf: a => {
     if (a.p_d) { const s = RPC.ws_log_save(a); if (!s.ok) return s; }
     LOG[a.p_day].pdf = { id: 'f2', at: ver(), url: a.p_files.pdf.url };
@@ -239,8 +250,9 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const png = 'data:image/png;base64,' + Buffer.from('x'.repeat(300)).toString('base64'), jpg = 'data:image/jpeg;base64,' + Buffer.from('y'.repeat(900)).toString('base64');
   const r1 = await q.evaluate(([png, jpg]) => FM_CHECK.submit('abcdefghjkmn', { photo: jpg, signA: png, signB: png, state: '이상없음', overwrite: false }), [png, jpg]);
   const ups = UPLOADS.slice(n0), cs = last('ws_check_submit').a;
-  ok(r1.ok && ups.length === 3 && ups.every(u => /^fire\/abcdefghjkmn\/\d{4}-\d{2}\/[a-z0-9]+\.(jpg|png)$/.test(u.p)) && cs.p_files.photo.path === ups[0].p && cs.p_d.state === '이상없음' && !('photo' in cs.p_d), '31) 사진·손글씨 3개를 fire/{QR}/ 아래에 올리고 주소만 넘김');
-  ok(ups[0].type === 'image/jpeg' && ups[0].size === 900, '32) 사진은 화면이 줄인 그대로 (다시 줄이지 않음)');
+  ok(r1.ok && ups.length === 3 && ups.every(u => /^fire\/abcdefghjkmn\/\d{4}-\d{2}\/[a-z0-9]+\.(jpg|png)$/.test(u.p)) && cs.p_files.photo.path === ups.find(u => /\.jpg$/.test(u.p)).p && cs.p_d.state === '이상없음' && !('photo' in cs.p_d), '31) 사진·손글씨 3개를 fire/{QR}/ 아래에 올리고 주소만 넘김');
+  const uj = ups.find(u => u.type === 'image/jpeg');
+  ok(uj && uj.size === 900, '32) 사진은 화면이 줄인 그대로 (다시 줄이지 않음)');
   const n1 = UPLOADS.length;
   const r2 = await q.evaluate(([png, jpg]) => FM_CHECK.submit('abcdefghjkmn', { photo: jpg, signA: png, signB: png, state: '이상없음', overwrite: false }), [png, jpg]);
   ok(r2.ok === false && r2.exists === true && UPLOADS.length === n1, '33) 이번 달 이미 있으면 올리기 전에 물음 (버킷에 안 남김)');
@@ -292,8 +304,35 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const cpu = UPLOADS.find(x => /^cs_pdf\//.test(x.p));
   ok(cpu && cpu.type === 'application/pdf' && last('ws_cs_save_pdf').a.p_file.path === cpu.p && last('ws_cs_save_pdf').a.p_ck_id === 'WS-CK-1', '45) PDF를 버킷 cs_pdf/ 에 올리고 점검 번호와 함께');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_cs.png') });
+
+  // ── 환경설정 (3-6) ──
+  await p.evaluate(() => openSet()); await p.locator('.strow').first().waitFor();
+  ok(await p.locator('.strow').count() >= 2 && /김철수/.test(await p.locator('.wrap.list').innerText()), '46) 환경설정: Supabase에서 직원 목록');
+  await p.evaluate(() => setToastSec(1.5));
+  ok(last('ws_admin_set_toast').a.p_sec === 1.5 && await toast('알림 시간 1.5초로 저장'), '47) 알림 시간 저장');
+  await p.evaluate(() => staffDlg()); await p.fill('#sfN', '박민수'); await p.fill('#sfX', '1357'); await p.click('#sfB');
+  ok(await toast('박민수 님을 추가했습니다') && last('ws_admin_staff_save').a.p_d.pin === '1357' && last('ws_admin_staff_save').a.p_d.staff_id === '', '48) 직원 추가 → DB 함수에 이름·PIN');
+  await p.evaluate(() => staffPinDlg('S002')); await p.fill('#spX', '9753'); await p.click('#spB');
+  ok(await toast('김철수 님의 PIN을 바꿨습니다') && last('ws_admin_staff_pin').a.p_pin === '9753', '49) PIN 변경');
+  await p.evaluate(() => staffDel('S004'));
+  ok(await toast('박민수 님을 삭제했습니다') && last('ws_admin_staff_remove').a.p_staff_id === 'S004', '50) 직원 삭제');
+  ok(/위험성 목록 2줄/.test(await p.locator('.wrap.list').innerText()), '51) 환경설정에 「TBM 위험성 목록 2줄」');
+  await p.click('button[onclick="openRisk()"]'); await p.locator('.tbw').first().waitFor();
+  ok(await p.locator('.tbw').count() === 2, '52) 위험성 목록 편집 화면: 2줄');
+  await p.click('.tbw:nth-of-type(3) button[aria-label="위로"]');   // 2번째 카드(배너 다음) 위로
+  ok(await p.evaluate(() => S.rk.rows[0].risk) === '감전' && /고친 내용 있음/.test(await p.locator('#rkSt').innerText()), '53) ↑ 로 순서 바꿈');
+  await p.click('button[onclick="rkAdd()"]');
+  await p.locator('.tbedit input').nth(0).fill('사다리, 고소'); await p.locator('.tbedit input').nth(1).fill('떨어짐');
+  await p.locator('.tbedit .tbseg').nth(1).locator('button', { hasText: '3' }).click();
+  await p.locator('.tbedit .tbown input.inp').nth(1).fill('2인 1조'); await p.locator('.tbedit .tbown input[type=checkbox]').nth(1).check();
+  await p.click('button[onclick="rkSave()"]');
+  ok(await toast('위험성 목록 3줄 저장'), '54) 줄 추가 → 저장');
+  const rs = last('ws_risk_save').a.p_rows;
+  ok(rs.length === 3 && rs[0].risk === '감전' && rs[2].words === '사다리, 고소' && rs[2].s === 3 && rs[2].fixes[1].t === '2인 1조' && rs[2].fixes[1].on === true && /저장됨/.test(await p.locator('#rkSt').innerText()),
+    '55) DB 함수에 순서·낱말·중대성·개선조치(✓) 넘김');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_risk.png'), fullPage: true });
   ok(!errs.length, '화면 오류 없음' + (errs.length ? ': ' + errs.join(' / ') : ''));
   await b.close(); srv.close();
-  console.log(fail ? '\n화면 시험 실패 ' + fail + '개' : '\n3-2~3-5 화면 시험 통과');
+  console.log(fail ? '\n화면 시험 실패 ' + fail + '개' : '\n3-2~3-6 화면 시험 통과');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.log('ERR ' + e.message); srv.close(); process.exit(1); });
