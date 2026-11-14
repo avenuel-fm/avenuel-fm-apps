@@ -168,8 +168,11 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const pa = pdfApi_('SHAREDpdf_abcdefghijklmn');
   ok(pa.ok && pa.name === '2026-10-01_TBM.pdf' && Buffer.from(pa.b64, 'base64').toString() === '%PDF-1', '?api=pdf: 「링크가 있는 사람 보기」 PDF는 내용을 돌려줌');
   const pErr = id => { try { pdfApi_(id); return ''; } catch (e) { return e.message; } };
-  ok(pErr('PRIVATEpdf_abcdefghijkl') === '볼 수 없는 파일입니다' && pErr('SHAREDjpg_abcdefghijklmn') === '볼 수 없는 파일입니다' && pErr('TRASHEDpdf_abcdefghijkl') === '볼 수 없는 파일입니다',
-    '?api=pdf: 공유 안 된 파일·PDF 아닌 파일·휴지통 파일은 거절 (드라이브의 다른 파일이 새지 않음)');
+  ok(pErr('PRIVATEpdf_abcdefghijkl') === '볼 수 없는 파일입니다' && pErr('SHAREDjpg_abcdefghijklmn') === 'PDF 파일이 아닙니다' && pErr('TRASHEDpdf_abcdefghijkl') === '지워진 파일입니다 (드라이브 휴지통)' && !files.PRIVATEpdf_abcdefghijkl.sharing,
+    '?api=pdf: 업무지원 폴더 밖 공유 안 된 파일·PDF 아닌 파일·휴지통 파일은 거절, 공유도 안 바꿈 (드라이브의 다른 파일이 새지 않음)');
+  files.APPpdf_abcdefghijklmnop = { name: '2026-11-12_TBM.pdf', blob: pdfB, parents: ['F_20_업무지원'] };
+  const pa2 = pdfApi_('APPpdf_abcdefghijklmnop');
+  ok(pa2.ok && files.APPpdf_abcdefghijklmnop.sharing === 'ANYONE_WITH_LINK:VIEW', '?api=pdf: 업무지원 폴더 안 PDF가 공유 안 되어 있으면 「링크가 있는 사람 보기」로 걸고 보여 줌 (11-14 TBM 11-12)');
   ok(pErr('x') === '파일 번호가 맞지 않습니다' && pErr('../../etc') === '파일 번호가 맞지 않습니다', '?api=pdf: 이상한 번호 거절');
 
   await db.close();
