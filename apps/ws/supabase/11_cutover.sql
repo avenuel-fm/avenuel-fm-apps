@@ -9,10 +9,11 @@
 --  · ws_check_setup(): 시트 메뉴 ⑬ 연결 확인 — 02~11 을 실행했는지 (읽기만)
 --  · 모두 service_role(관리자 열쇠)만 — 앱 화면은 못 부름
 -- ============================================================================
+alter table public.daily_log add column if not exists humidity numeric;   -- 습도(%) — 12_ahu.sql 에도 같은 줄 (어느 쪽을 먼저 돌려도 됨)
 create or replace function public.ws_log_weather(p_day date, p_w jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare
-  num text[] := array['최저', '최고', '최고풍속', '미세먼지'];
+  num text[] := array['최저', '최고', '최고풍속', '미세먼지', '습도'];   -- 습도 = 공조기 환기온도 머리용 (12_ahu.sql 이 humidity 칸을 더함, 결정 128)
   k text;
   v jsonb := '{}'::jsonb;
   wx text := nullif(public.ws_clean(p_w->>'날씨', 10), '');
@@ -33,13 +34,14 @@ begin
   if v->>'최고풍속' is not null and r.wind_max is null then filled := array_append(filled, '최고풍속'); end if;
   if v->>'미세먼지' is not null and r.pm is null then filled := array_append(filled, '미세먼지'); end if;
   if grade is not null and r.pm_grade is null then filled := array_append(filled, '미세먼지등급'); end if;
+  if v->>'습도' is not null and r.humidity is null then filled := array_append(filled, '습도'); end if;
   if cardinality(filled) = 0 then return jsonb_build_object('ok', true, 'filled', '[]'::jsonb); end if;
-  insert into public.daily_log as t (log_date, weather, t_min, t_max, wind_max, pm, pm_grade, weather_source)
-  values (p_day, wx, (v->>'최저')::numeric, (v->>'최고')::numeric, (v->>'최고풍속')::numeric, (v->>'미세먼지')::numeric, grade, '네이버')
+  insert into public.daily_log as t (log_date, weather, t_min, t_max, wind_max, pm, pm_grade, humidity, weather_source)
+  values (p_day, wx, (v->>'최저')::numeric, (v->>'최고')::numeric, (v->>'최고풍속')::numeric, (v->>'미세먼지')::numeric, grade, (v->>'습도')::numeric, '네이버')
   on conflict (log_date) do update set
     weather = coalesce(t.weather, excluded.weather), t_min = coalesce(t.t_min, excluded.t_min), t_max = coalesce(t.t_max, excluded.t_max),
     wind_max = coalesce(t.wind_max, excluded.wind_max), pm = coalesce(t.pm, excluded.pm), pm_grade = coalesce(t.pm_grade, excluded.pm_grade),
-    weather_source = '네이버';
+    humidity = coalesce(t.humidity, excluded.humidity), weather_source = '네이버';
   perform public.ws_log('예약 작업', '종합업무일지 날씨', p_day::text, array_to_string(filled, ','));
   return jsonb_build_object('ok', true, 'filled', to_jsonb(filled));
 end $$;
@@ -69,7 +71,7 @@ create or replace function public.ws_check_setup()
 returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object('missing', coalesce(jsonb_agg(f order by i) filter (where not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = f)), '[]'::jsonb))
-  from unnest(array['ws_login', 'ws_log_save', 'ws_att_get', 'ws_fe_list', 'ws_eh_list', 'ws_cs_get', 'ws_risk_save', 'ws_migrate_clear', 'ws_backup', 'ws_log_weather'])
+  from unnest(array['ws_login', 'ws_log_save', 'ws_att_get', 'ws_fe_list', 'ws_eh_list', 'ws_cs_get', 'ws_risk_save', 'ws_migrate_clear', 'ws_backup', 'ws_log_weather', 'ws_ahu_get'])
     with ordinality u(f, i);
 $$;
 revoke all on function public.ws_check_setup() from public, anon, authenticated;

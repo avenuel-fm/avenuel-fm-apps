@@ -720,11 +720,12 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   // 6단계: 네이버 날씨 (오후 1시)
   const wxToday = d => '..."nowFcastInfo":{"wetrCd":"7","wetrTxt":"흐림","regionName":"잠실동","tmpr":15.6,"windSpd":0.9,"oneHourRainAmt":"0.0"},"airNowInfo":{}...' +
     '"pastWetr":{"aplYmd":"' + d + '","lareaNm":"서울","minTmpr":1.0,"maxTmpr":2.0}' +
-    '"weeklyFcastList":[{"naverRgnCd":"09710101","aplYmd":"' + d + '","aplYmdt":"' + d + '","amWetrCd":"5","amWetrTxt":"구름많음","pmRainProb":30,"minTmpr":8.0,"maxTmpr":17.4,"fcastYmdt":"x"}]';
+    '"weeklyFcastList":[{"naverRgnCd":"09710101","aplYmd":"' + d + '","aplYmdt":"' + d + '","amWetrCd":"5","amWetrTxt":"구름많음","pmRainProb":30,"minTmpr":8.0,"maxTmpr":17.4,"fcastYmdt":"x"}]' +
+    '"domesticWetrList":[{"wetrCd":"7","wetrTxt":"흐림","tmpr":15.6,"windSpd":0.9,"humd":62.0,"oneHourRainAmt":"0.0"},{"humd":90.0}]';
   NAVER.air = '"airNow":{"stationId":"송파구","stationPm10":42,"stationPm10Legend":"보통","stationPm25":27}';
   NAVER.today = wxToday('20261114');
   let w = logWeatherFetch_('2026-11-14');
-  assert(w && w['날씨'] === '흐림' && w['최저'] === '8' && w['최고'] === '17.4' && w['최고풍속'] === '0.9' && w['미세먼지'] === '42' && w['미세먼지등급'] === '보통', '날씨: 네이버 화면에서 날씨·오늘 최저·최고(예보)·풍속·송파구 미세먼지 값·등급 ' + JSON.stringify(w));
+  assert(w && w['날씨'] === '흐림' && w['최저'] === '8' && w['최고'] === '17.4' && w['최고풍속'] === '0.9' && w['미세먼지'] === '42' && w['미세먼지등급'] === '보통' && w['습도'] === '62', '날씨: 네이버 화면에서 습도(지금 값)· 날씨·오늘 최저·최고(예보)·풍속·송파구 미세먼지 값·등급 ' + JSON.stringify(w));
   assert(logWeatherFetch_('2026-11-15')['최저'] === '', '날씨: 다른 날 예보는 안 씀 (최저·최고 빈칸)');
   NOW.d = new Date('2026-11-14T10:00:00+09:00');
   const lt2 = login('8642', 'log2', SIG).token;

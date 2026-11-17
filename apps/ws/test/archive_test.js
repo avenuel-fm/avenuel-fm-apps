@@ -112,7 +112,7 @@ const put = (i, kind, days, folder, name, objDays) => {
   ok(r.orphans === 1 && !S.obj['cs_photo/2026-10/stray.jpg'] && S.obj['cs_photo/2026-11/justnow.jpg'], '버킷 정리: DB에 없는 2일 지난 파일만 지움 (막 올린 것은 남김)');
   const bk = Object.values(D.files).filter(f => f.path === '시설팀 통합업무/20_업무지원/Supabase백업/2026-11-03');
   const st = bk.find(f => f.name === 'staff.csv');
-  ok(bk.length === 19 && bk.every(f => f.type === 'text/csv') && st && st.data === '﻿staff_id,name,meta\r\nS001,"홍,""길동""","{""a"":1}"', 'DB 백업: 표 19개 CSV (Supabase백업/날짜, 쉼표·따옴표 처리)');
+  ok(bk.length === 21 && bk.every(f => f.type === 'text/csv') && st && st.data === '﻿staff_id,name,meta\r\nS001,"홍,""길동""","{""a"":1}"', 'DB 백업: 표 21개 CSV (Supabase백업/날짜, 쉼표·따옴표 처리)');
   ok(mails.length === 1 && mails[0].to === 'owner@test' && /실패 2건/.test(mails[0].s) && /없는파일\.jpg: .*404/.test(mails[0].b) && /DB 줄을 고치지 못함/.test(mails[0].b), '실패는 스크립트 주인에게 메일 (실패 2건, 이유)');
   ok(!props.getProperty('ARC_CUTOFF') && T.list.length === 0, '끝나면 이어하기 표시·예약 없음');
 
@@ -121,7 +121,7 @@ const put = (i, kind, days, folder, name, objDays) => {
   delete S.patchMiss[e.id];
   const n0 = D.n; mails.length = 0;
   const r2 = archiveFilesToDrive();
-  ok(pre.length === 1 && r2.n === 1 && e.drive_id === pre[0] && D.n === n0 + 19, '지난번에 저장만 하고 멈춘 파일은 그 드라이브 파일을 씀 (두 번 저장 안 함)');
+  ok(pre.length === 1 && r2.n === 1 && e.drive_id === pre[0] && D.n === n0 + 21, '지난번에 저장만 하고 멈춘 파일은 그 드라이브 파일을 씀 (두 번 저장 안 함)');
 
   // 많을 때: 4분 반에 못 끝내면 1분 뒤 이어서, 실패에 막히지 않음
   for (let i = 10; i < 20; i++) put(i, 'fire_photo', 20, '소화기점검/2026-10', 'p' + i + '.jpg', i === 10 ? null : undefined);
@@ -183,7 +183,7 @@ create table storage.objects (id uuid primary key default gen_random_uuid(), buc
 alter table storage.objects enable row level security;
 grant usage on schema public, storage to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;`);
-  for (const f of ['01_schema_rls.sql', '02_login.sql', '03_docs.sql', '04_attendance.sql', '05_fire.sql', '06_eh.sql', '07_cs.sql', '08_settings.sql', '09_migrate.sql', '10_archive.sql', '11_cutover.sql'])
+  for (const f of ['01_schema_rls.sql', '02_login.sql', '03_docs.sql', '04_attendance.sql', '05_fire.sql', '06_eh.sql', '07_cs.sql', '08_settings.sql', '09_migrate.sql', '10_archive.sql', '11_cutover.sql', '12_ahu.sql'])
     await db.exec(fs.readFileSync(path.join(__dirname, '..', 'supabase', f), 'utf8'));
   const as = async (role, s) => { await db.exec('set role ' + role); try { return (await db.query(s)).rows; } catch (x) { return x; } finally { await db.exec('reset role'); } };
   const rk = await as('service_role', "select ws_backup('risk_list') r");

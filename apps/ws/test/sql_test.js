@@ -512,6 +512,29 @@ alter default privileges in schema public grant all on sequences to anon, authen
     '위험성 목록 저장: 빈 줄 버림, 빈 개선조치 당김, ✓ 미리 체크');
   const tb = await call('ws_tbm_get', [tk, '']);
   ok(tb.risks.length === 2 && tb.risks[0].words.join() === '분전반,배선', 'TBM 이 고친 목록을 씀');
+
+  // ══ 공조기 환기온도 (12_ahu.sql, 결정 128) ══
+  await db.exec(SQL('12_ahu.sql')); await db.exec(SQL('12_ahu.sql'));
+  ok((await one('select count(*)::int n from ahu_unit')).n === 38, '12_ahu.sql 실행됨 (두 번) · 공조기 38대');
+  ok(/permission denied/.test(await asErr('authenticated', 'select * from ahu_temp')) && /permission denied/.test(await asErr('authenticated', 'select ws_ahu_data(current_date)')), '공조기: 표·도우미는 로그인 기기도 바로 못 읽음');
+  ok(/permission denied/.test(await asErr('anon', "select ws_ahu_get('x','')")) && /LOGIN/.test(await callErr('ws_ahu_get', ['bad', ''])), '공조기: 비로그인·틀린 기기 표 막음');
+  let ah = await call('ws_ahu_get', [tk, '']);
+  ok(ah.ok && ah.day === D && ah.units.length === 38 && ah.units[0].no === '7F-39' && ah.units[37].no === 'B3F-HVU1' && ah.rec === null && ah.wx.tmin === -3, '공조기: 빈 날, 목록 순서, 종합업무일지 날씨 ' + J(ah.wx));
+  ok((await call('ws_ahu_get', [tk, tomorrow])).ok === false, '공조기: 앞날 → 안내');
+  ah = await call('ws_ahu_save', [tk, D, J({ out_t12: '9.84', out_h12: '52', temps: { '7F-39': { 12: '22.3' }, 'B3F-HVU1': { 12: ' 24 ' } } })]);
+  ok(ah.ok && ah.rec.out_t12 === 9.8 && ah.rec.out_h12 === 52 && ah.rec.temps['7F-39']['12'] === 22.3 && ah.rec.temps['B3F-HVU1']['12'] === 24 && ah.rec.authors.join() === '홍길동' && ah.rec.ver, '공조기 저장: 소수 한 자리, 외조기 포함');
+  ah = await call('ws_ahu_save', [tk, D, J({ out_t16: '11.2', temps: { '7F-39': { 16: '22.7' } } })]);
+  ok(ah.rec.out_t12 === 9.8 && ah.rec.out_t16 === 11.2 && ah.rec.temps['7F-39']['12'] === 22.3 && ah.rec.temps['7F-39']['16'] === 22.7, '공조기: 16:00 따로 저장해도 12:00 값 그대로 (고친 칸만 합침)');
+  ah = await call('ws_ahu_save', [tk, D, J({ out_h12: '', temps: { 'B3F-HVU1': { 12: '' } } })]);
+  ok(ah.rec.out_h12 === null && !('B3F-HVU1' in ah.rec.temps) && ah.rec.authors.length === 1, '공조기: 빈칸으로 지움, 다 비면 그 공조기 뺌, 점검자 한 번만');
+  ok(/-10 ~ 50/.test((await call('ws_ahu_save', [tk, D, J({ temps: { '6F-36': { 12: '60' } } })])).error), '공조기: 환기온도 범위 밖 → 안내');
+  ok(/습도 12:00/.test((await call('ws_ahu_save', [tk, D, J({ out_h12: 'abc' })])).error), '공조기: 외기 칸 글자 → 안내');
+  ok(/목록에 없/.test((await call('ws_ahu_save', [tk, D, J({ temps: { 'X-1': { 12: '20' } } })])).error) && /12:00·16:00/.test((await call('ws_ahu_save', [tk, D, J({ temps: { '6F-36': { 19: '20' } } })])).error), '공조기: 없는 번호·19시 → 안내');
+  ok((await call('ws_ahu_save_pdf', [tk, yest, J(F('ahu_pdf', 'a0', 'pdf'))])).error === '먼저 [저장]을 눌러 주세요', '공조기 PDF: 저장 안 한 날 → 안내');
+  ah = await call('ws_ahu_save_pdf', [tk, D, J(F('ahu_pdf', 'a1', 'pdf'))]);
+  ok(ah.ok && /a1\.pdf$/.test(ah.rec.pdf.url) && (await one("select file_name, drive_folder from files where kind = 'ahu_pdf'")).file_name === D + '_공조기환기온도.pdf', '공조기 PDF 저장 · 파일 이름');
+  await q("update daily_log set humidity = 45 where log_date = $1", [D]);
+  ok((await call('ws_ahu_get', [tk, D])).wx.humidity === 45, '공조기: 종합업무일지 습도 칸을 읽음');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

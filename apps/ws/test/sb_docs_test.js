@@ -25,6 +25,8 @@ const logData = d => {
     ver: c ? c.ver : '', by: c ? ME.name : '', pdf: c && c.pdf || null, night: c && c.night || '', tbm: { 전기방재: ['1층 등 교체'], 기계건축: [] } };
 };
 const AT = {};
+const AHU = {}, AHU_UNITS = [{ no: '7F-39', room: '공조실-4', place: '6층 더페어링,와인 라콘차' }, { no: '6F-36', room: '공조실-1', place: '6층 뮤지엄' }, { no: 'B3F-HVU1', room: '공조실-1', place: 'B3층 직원식당 주방 (외조기)' }];
+const ahuData = d => ({ ok: true, day: d, workDay: D, units: AHU_UNITS, rec: AHU[d] || null, wx: { weather: '맑음', tmin: 4, tmax: 13.5, humidity: 45 } });
 const attData = d => ({ ok: true, date: d, today: D, months: [D.slice(0, 7)], ju: Array(30).fill(1), upBy: ME.name, upAt: D + ' 08:00:00', canFix: true, canBoss: true,
   people: [{ sec: '전기', role: '소장', name: ME.name, v: '', raw: '', fix: null, hol: '' },
     { sec: '기계', role: '기사', name: '김철수', v: AT.fix ? AT.fix.v : '', raw: '', fix: AT.fix ? { by: ME.name, at: D + ' 09:00:00' } : null, hol: AT.hol || '' }] });
@@ -65,6 +67,17 @@ const RPC = {
     t.pdf = { id: 'f1', at: ver(), signs: a.p_sign_ids.length, url: a.p_files.pdf.url, shared: true };
     return { ok: true, warn: '', pdf: t.pdf };
   },
+  // 공조기 환기온도 (12_ahu.sql) — 고친 칸만 합침
+  ws_ahu_get: a => ahuData(a.p_day || D),
+  ws_ahu_save: a => {
+    const r = AHU[a.p_day] = AHU[a.p_day] || { temps: {}, authors: [] };
+    Object.entries(a.p_c).forEach(([k, v]) => { if (k !== 'temps') r[k] = v === '' ? null : Number(v); });
+    Object.entries(a.p_c.temps || {}).forEach(([u, o]) => { r.temps[u] = Object.assign(r.temps[u] || {}, ...Object.entries(o).map(([t, v]) => ({ [t]: v === '' ? null : Number(v) }))); });
+    if (r.authors.indexOf(ME.name) === -1) r.authors.push(ME.name);
+    r.ver = ver(); r.by = ME.name;
+    return ahuData(a.p_day);
+  },
+  ws_ahu_save_pdf: a => { if (!AHU[a.p_day]) return { ok: false, error: '먼저 [저장]을 눌러 주세요' }; AHU[a.p_day].pdf = { url: a.p_file.url, at: ver() }; return ahuData(a.p_day); },
   ws_log_get: a => logData(a.p_day || D),
   ws_log_save: a => {
     const d = a.p_day, c = LOG[d];
@@ -214,7 +227,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.locator('#pvPages canvas').nth(1).waitFor();
   await p.waitForFunction(() => window.PV_DRAWN >= 2);
   ok(c.pages().length === pages0 && await p.evaluate(() => S.view) === 'pdf' && /PDF 보기/.test(await p.locator('.top').innerText()), 'PV1) [PDF 열기] → 새 창 없이 앱 안 「PDF 보기」');
-  ok(await p.evaluate(() => PV_SRC.data && String.fromCharCode(...PV_SRC.data.slice(0, 8)) === '%PDF-1.4') && /2026-11-14_TBM\.pdf/.test(await p.locator('.pv-tool').innerText()) && /2쪽 · 서명 1명/.test(await p.locator('.pv-tool').innerText()),
+  ok(await p.evaluate(() => PV_SRC.data && String.fromCharCode(...PV_SRC.data.slice(0, 8)) === '%PDF-1.4') && new RegExp(D + "_TBM\.pdf").test(await p.locator('.pv-tool').innerText()) && /2쪽 · 서명 1명/.test(await p.locator('.pv-tool').innerText()),
     'PV2) 버킷 PDF를 받아 2쪽 그림, 이름·쪽 수·서명 수');
   const w1 = await p.evaluate(() => parseFloat($('pvC1').style.width));
   await p.click('.pv-zoom button[aria-label="크게"]'); await p.waitForFunction(() => window.PV_DRAWN >= 4);
@@ -245,7 +258,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const pages1 = c.pages().length;
   await p.click('.banner a:has-text("PDF 열기")');
   await p.locator('#pvPages canvas').nth(1).waitFor();
-  ok(c.pages().length === pages1 && await p.evaluate(() => S.view) === 'pdf' && /2026-11-14_TBM\.pdf/.test(await p.locator('.pv-tool').innerText()), 'PV12) 안내 줄 [PDF 열기]도 새 창 없이 앱 안에서');
+  ok(c.pages().length === pages1 && await p.evaluate(() => S.view) === 'pdf' && new RegExp(D + "_TBM\.pdf").test(await p.locator('.pv-tool').innerText()), 'PV12) 안내 줄 [PDF 열기]도 새 창 없이 앱 안에서');
   await p.click('.pv-bar button:has-text("뒤로")');
   await p.evaluate(() => loadTbm(true));
   ok(/\/ws-files\/tbm_meet\//.test(await p.locator('.tbph img').first().getAttribute('src')), '13) 다시 불러오면 회의 사진은 버킷 주소로 보임');
@@ -270,6 +283,30 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(lu && lp.p_files.pdf.path === lu.p && lp.p_d === null && lp.p_ver === LOG[D].ver, '19) 고친 것 없으면 PDF만 (저장 안 함, ver 넘김)');
   ok(await p.locator('#lgBar a', { hasText: 'PDF 열기' }).getAttribute('href') === lp.p_files.pdf.url, '20) 일지 [PDF 열기] = 버킷 주소');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_log.png') });
+
+  // ── 공조기 환기온도 (결정 128): PC = 종이 위에 바로 ──
+  await p.evaluate(() => openAhu()); await p.locator('#ahuSheet').waitFor();
+  const sh = await p.locator('#ahuSheet').innerText();
+  ok(/에비뉴엘 AHU · 환기온도 점검일지/.test(sh) && /파트장/.test(sh) && /습도\s*45%/.test(sh) && /B3F-HVU1/.test(sh) && await p.locator('#ahuBar .back-in').count() === 1, 'A1) 공조기 PC: B4 종이 · 서명란 파트장 · 날씨·습도 자동 · 외조기 · 아래 줄 [뒤로]');
+  await p.fill('input.lgin[data-u="7F-39"][data-t="12"]', '22.3'); await p.fill('input.lgin[data-k="out_t12"]', '9.8');
+  ok(/저장 안 함/.test(await p.locator('#ahuState').innerText()), 'A2) 고치면 「저장 안 함」');
+  await p.click('#ahuSave');
+  ok(await toast('저장했습니다') && JSON.stringify(last('ws_ahu_save').a.p_c) === '{"temps":{"7F-39":{"12":"22.3"}},"out_t12":"9.8"}' && last('ws_ahu_save').a.p_day === D, 'A3) 저장: 고친 칸만 넘김 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
+  const na = count('ws_ahu_save_pdf'); await p.click('#ahuPdf');
+  ok(await called('ws_ahu_save_pdf', na) && await toast('PDF로 저장했습니다'), 'A4) 공조기 PDF 만들기');
+  const au = UPLOADS.find(x => /^ahu_pdf\//.test(x.p));
+  ok(au && last('ws_ahu_save_pdf').a.p_file.path === au.p && await p.locator('#ahuBar a', { hasText: 'PDF 열기' }).getAttribute('href') === last('ws_ahu_save_pdf').a.p_file.url, 'A5) PDF는 버킷 ahu_pdf/ 에, [PDF 열기] = 그 주소');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_ahu_pc.png') });
+  // 휴대폰 = 12:00·16:00 골라 한 대씩
+  await p.setViewportSize({ width: 390, height: 800 });
+  await p.evaluate(() => { S.ahu.slot = '16'; render(); });
+  ok(await p.locator('.hvr').count() === 3 && /12:00 · 22\.3℃/.test(await p.locator('.hvr').first().innerText()) && /입력 1\/3/.test(await p.locator('#ahuCnt12').innerText()), 'A6) 휴대폰: 16:00 고르면 줄마다 12:00 값 회색, 입력 수');
+  await p.fill('.hvr input[data-u="6F-36"]', '23.5'); await p.fill('input.inp[data-k="cw_t16"]', '7.4');
+  ok(/입력 1\/3/.test(await p.locator('#ahuCnt16').innerText()), 'A7) 넣는 동안 입력 수 바뀜 (16:00 1/3)');
+  await p.click('#ahuSave');
+  ok(await toast('저장했습니다') && JSON.stringify(last('ws_ahu_save').a.p_c) === '{"temps":{"6F-36":{"16":"23.5"}},"cw_t16":"7.4"}' && AHU[D].temps['7F-39']['12'] === 22.3, 'A8) 휴대폰 저장도 고친 칸만 (12:00 값 그대로)');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_ahu_m.png'), fullPage: true });
+  await p.setViewportSize({ width: 1280, height: 900 });
 
   // ── 출근현황 (3-3) ──
   await p.setViewportSize({ width: 390, height: 800 });

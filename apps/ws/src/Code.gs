@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.10.4', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.11.0', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -1188,8 +1188,9 @@ function logWeatherFetch_(day) {
   const now = /"nowFcastInfo":\{([^}]*)\}/.exec(today), pick = function (o, k) { const m = o && new RegExp('"' + k + '":"?([^",]*)').exec(o[1]); return m ? m[1] : null; };
   const wk = new RegExp('"aplYmd":"' + ymd + '","aplYmdt":"[^"]*",[^}]*?"minTmpr":(-?[\\d.]+),"maxTmpr":(-?[\\d.]+)').exec(today);
   const pm = /"stationPm10":(\d+(?:\.\d+)?),"stationPm10Legend":"([^"]*)"/.exec(air);
+  const hm = /"domesticWetrList":\[\{[^}]*?"humd":(\d+(?:\.\d+)?)/.exec(today);   // 지금 습도 (공조기 환기온도 머리, 결정 128)
   const o = { '날씨': cleanText_(pick(now, 'wetrTxt') || '', 10), '최저': wk ? n1(wk[1]) : '', '최고': wk ? n1(wk[2]) : '', '최고풍속': n1(pick(now, 'windSpd')),
-    '미세먼지': pm ? n1(pm[1]) : '', '미세먼지등급': pm && LOG_GRADES.indexOf(pm[2]) !== -1 ? pm[2] : '' };
+    '미세먼지': pm ? n1(pm[1]) : '', '미세먼지등급': pm && LOG_GRADES.indexOf(pm[2]) !== -1 ? pm[2] : '', '습도': hm ? n1(hm[1]) : '' };   // 습도는 Supabase 일지에만 (시트 일지에는 칸 없음)
   return LOG_WX.some(function (k) { return o[k]; }) ? o : null;
 }
 /** 그날 줄의 빈 날씨 칸만 채움 (직원이 쓴 값은 그대로). 줄이 없으면 날씨만 든 줄을 만듦 */

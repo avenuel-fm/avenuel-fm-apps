@@ -43,7 +43,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const q = (s, p) => db.query(s, p).then(r => r.rows);
   const as = async (role, s, p) => { await db.exec('set role ' + role); try { return await q(s, p); } finally { await db.exec('reset role'); } };
   await db.exec(BASE);
-  for (const f of ['01_schema_rls.sql', '02_login.sql', '03_docs.sql', '04_attendance.sql', '05_fire.sql', '06_eh.sql', '07_cs.sql', '08_settings.sql', '09_migrate.sql', '10_archive.sql', '11_cutover.sql']) await db.exec(SQL(f));
+  for (const f of ['01_schema_rls.sql', '02_login.sql', '03_docs.sql', '04_attendance.sql', '05_fire.sql', '06_eh.sql', '07_cs.sql', '08_settings.sql', '09_migrate.sql', '10_archive.sql', '11_cutover.sql', '12_ahu.sql']) await db.exec(SQL(f));
   const denied = async role => { try { await as(role, 'select ws_migrate_clear()'); return false; } catch (e) { await db.exec('reset role'); return /permission denied/.test(e.message); } };
   ok(await denied('anon') && await denied('authenticated'), '비우기(ws_migrate_clear)는 앱 화면이 못 부름');
   await as('service_role', 'select ws_migrate_clear()');
@@ -121,10 +121,10 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const wday = '2026-11-10';
   await q("insert into daily_log (log_date, t_min, m_city_water, author, editor, updated_at) values ($1, -3, 12.5, '홍길동', '홍길동', '2026-11-10 09:00+09')", [wday]);
   const before = await call('ws_log_get', [tk, wday]);
-  const W = { '날씨': '맑음', '최저': '1.5', '최고': '9', '최고풍속': '3.2', '미세먼지': '41', '미세먼지등급': '보통' };
+  const W = { '날씨': '맑음', '최저': '1.5', '최고': '9', '최고풍속': '3.2', '미세먼지': '41', '미세먼지등급': '보통', '습도': '55' };
   const f1 = await svc('select ws_log_weather($1::date, $2::jsonb) r', [wday, JSON.stringify(W)]);
   const after = await call('ws_log_get', [tk, wday]);
-  ok(f1.filled.join() === '날씨,최고,최고풍속,미세먼지,미세먼지등급' && after.cur['최저'] === '-3' && after.cur['날씨'] === '맑음' && after.cur['날씨출처'] === '네이버' && after.cur['시수'] === '12.5',
+  ok(f1.filled.join() === '날씨,최고,최고풍속,미세먼지,미세먼지등급,습도' && (await q('select humidity from daily_log where log_date = $1', [wday]))[0].humidity == 55 && after.cur['최저'] === '-3' && after.cur['날씨'] === '맑음' && after.cur['날씨출처'] === '네이버' && after.cur['시수'] === '12.5',
     '날씨 예약: 빈 칸만 채움 (직원이 쓴 최저 -3·검침 그대로)');
   ok(after.cur['수정시각'] === before.cur['수정시각'], '날씨 예약: 수정시각 그대로 → 보고 있던 화면이 저장해도 겹침 안 남');
   const sv = await call('ws_log_save', [tk, wday, JSON.stringify(Object.assign({}, after.cur, { '날씨': '' })), before.cur['수정시각'], null]);
