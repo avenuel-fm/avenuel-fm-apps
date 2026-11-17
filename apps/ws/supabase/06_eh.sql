@@ -54,11 +54,15 @@ begin
   return public.ws_eh_out(p_floor);
 end $$;
 
+-- 001·099·999·1000 — lpad(…, 3) 는 1000 을 '100' 으로 잘라 번호가 겹침 (11-17 엑셀 3,028대 가져오기 오류). Code.gs pad3_ 와 같음
+create or replace function public.ws_pad3(n int)
+returns text language sql immutable as $$ select case when n < 1000 then lpad(n::text, 3, '0') else n::text end $$;
+
 -- 그날 번호 'WS-{kind}-YYYYMMDD-###' 다음 것
 create or replace function public.ws_next_id(p_kind text, p_ids text[])
 returns text language sql stable set search_path = public as $$
   select 'WS-' || p_kind || '-' || to_char(now() at time zone 'Asia/Seoul', 'YYYYMMDD') || '-' ||
-         lpad((coalesce(max(substring(x from '-(\d+)$')::int), 0) + 1)::text, 3, '0')
+         public.ws_pad3(coalesce(max(substring(x from '-(\d+)$')::int), 0) + 1)
   from unnest(p_ids) x where x like 'WS-' || p_kind || '-' || to_char(now() at time zone 'Asia/Seoul', 'YYYYMMDD') || '-%';
 $$;
 
@@ -251,16 +255,16 @@ begin
     delete from public.eh_stores where es_id is not null;
   end if;
   insert into public.eh_stores (es_id, floor, store_no, store_name, active, created_at, created_by)
-  select 'WS-ES-' || day_key || '-' || lpad(o::text, 3, '0'), s->>'floor', s->>'no', public.ws_clean(s->>'name', 30), true, t, me.name
+  select 'WS-ES-' || day_key || '-' || public.ws_pad3(o::int), s->>'floor', s->>'no', public.ws_clean(s->>'name', 30), true, t, me.name
   from jsonb_array_elements(st) with ordinality a(s, o);
   for x in select * from jsonb_array_elements(it) loop
     i := i + 1;
-    sid := 'WS-ES-' || day_key || '-' || lpad(((x->>'store')::int + 1)::text, 3, '0');
+    sid := 'WS-ES-' || day_key || '-' || public.ws_pad3((x->>'store')::int + 1);
     gone := coalesce(x->>'gone', '') in ('true', '1');
     pv := case when gone then null else old->(x->>'no') end;
     if pv is not null then kept := kept + 1; end if;
     insert into public.eh_devices (eh_id, es_id, floor, store_name, mgmt_no, device_name, watts, maker, owner_main, owner_sub, approved_on, qr_token, printed_at, active, created_at, created_by, deleted_at)
-    select 'WS-EH-' || day_key || '-' || lpad(i::text, 3, '0'), sid, s.floor, s.store_name, x->>'no', coalesce(nullif(public.ws_clean(x->>'name', 40), ''), '(이름 없음)'),
+    select 'WS-EH-' || day_key || '-' || public.ws_pad3(i), sid, s.floor, s.store_name, x->>'no', coalesce(nullif(public.ws_clean(x->>'name', 40), ''), '(이름 없음)'),
       case when coalesce(x->>'w', '') ~ '^\d+(\.\d+)?$' then (x->>'w')::numeric end, public.ws_clean(x->>'maker', 40), public.ws_clean(x->>'m1', 30), public.ws_clean(x->>'m2', 30),
       public.ws_date(x->>'date'),
       -- shortcut: 새 QR이 아직 안 넣은 전 QR과 겹칠 확률은 거의 0 — 겹치면 unique 로 통째 취소(지운 것도 되돌아감)
@@ -278,7 +282,7 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 권한: 도우미는 막음. 로그인 기기 7개, 필증 보기 1개는 비로그인도
 -- ---------------------------------------------------------------------------
-revoke all on function public.ws_eh_floors(), public.ws_eh_seq(text), public.ws_eh_item(public.eh_devices), public.ws_eh_out(text), public.ws_eh_list(text, text),
+revoke all on function public.ws_pad3(int), public.ws_eh_floors(), public.ws_eh_seq(text), public.ws_eh_item(public.eh_devices), public.ws_eh_out(text), public.ws_eh_list(text, text),
   public.ws_next_id(text, text[]), public.ws_new_qr(), public.ws_eh_store_save(text, jsonb), public.ws_eh_store_delete(text, text), public.ws_eh_save(text, jsonb),
   public.ws_eh_bulk_(text, jsonb, text, boolean), public.ws_eh_delete(text, jsonb, text), public.ws_eh_printed(text, jsonb, text), public.ws_eh_view(text),
   public.ws_eh_import(text, jsonb)
