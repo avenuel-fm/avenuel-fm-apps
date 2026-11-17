@@ -61,6 +61,14 @@ app = '<!-- 자동 생성: tools/build_fm.py (src/Index.html). 직접 고치지 
 open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'app.html'), 'w', encoding='utf-8').write(app)
 print('../../fm/ws/app.html', len(app), 'bytes · v' + ver)
 
+# ── 외부용 시방서 검색 단독 페이지 (결정 142): 같은 화면 코드를 WS_PUB 로 → 로그인 없이 시방서 검색만 ──
+T_APP = '<title>업무지원 · 에비뉴엘 시설팀</title>'
+assert app.count(T_APP) == 1
+pub = app.replace(T_APP, '<title>시방서 검색 · 에비뉴엘 시설팀</title>\n<script>window.WS_PUB = true;</script>')
+pub = pub.replace('<link rel="manifest" href="manifest.webmanifest">\n', '')   # 홈 화면 추가 때 업무지원 앱으로 열리지 않게
+open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'spec.html'), 'w', encoding='utf-8').write(pub)
+print('../../fm/ws/spec.html', len(pub), 'bytes')
+
 # ── Supabase 이관 3-4: src/Check.html → fm/ws/check-sb.html (QR 점검 입력을 Supabase로, 매장 직원은 기기 등록 없이) ──
 #    바꿔 타는 날 check.html 을 이것으로 바꿈. 그 전까지 지금 check.html(구글)은 그대로
 BOOT_SB = r"""<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>

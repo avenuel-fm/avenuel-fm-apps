@@ -1,5 +1,5 @@
 -- ============================================================================
--- 업무지원(WS) 시방서 검색 (결정 140) + 옵저버 역할 (결정 138)
+-- 업무지원(WS) 시방서 검색 (결정 140) + 옵저버 역할 (결정 138) + 외부용 단독 페이지 (결정 142, 맨 아래)
 -- 실행: SQL Editor 에 통째로 붙여 넣고 Run (여러 번 돌려도 안전). 08_settings.sql · 13_map.sql 도 다시 Run (옵저버)
 -- 설계: docs/설계/WS_시방서검색.md
 --
@@ -45,3 +45,32 @@ end $$;
 
 revoke all on function public.ws_spec_boot(text), public.ws_spec_index(text), public.ws_spec_page(text, text, int) from public, anon, authenticated;
 grant execute on function public.ws_spec_boot(text), public.ws_spec_index(text), public.ws_spec_page(text, text, int) to authenticated;
+
+-- ── 외부용 단독 페이지 fm/ws/spec.html (결정 142): 링크만 알면 누구나 · 읽기만 · 지금 판 지침만 · 원본 PDF 주소 없음 ──
+create or replace function public.ws_spec_pub_boot()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  return jsonb_build_object('ok', true, 'synonyms', public.dw_synonyms_(),
+    'guides', (select coalesce(jsonb_agg(g), '[]') from jsonb_array_elements(public.dw_guides_client_()) g where not coalesce((g->>'archived')::boolean, false)));
+end $$;
+
+create or replace function public.ws_spec_pub_index()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  return jsonb_build_object('ok', true, 'entries', (select coalesce(jsonb_agg(e order by g.ord, g.id desc, o), '[]')
+    from public.dw_guides g cross join lateral jsonb_array_elements(g.entries) with ordinality x(e, o) where not g.archived));
+end $$;
+
+create or replace function public.ws_spec_pub_page(p_guide text, p_page int)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare g public.dw_guides; img text;
+begin
+  select * into g from public.dw_guides where id = p_guide and not archived;
+  if not found then return jsonb_build_object('ok', false, 'error', '지침을 찾지 못했습니다'); end if;
+  select file_url into img from public.dw_files
+    where (id::text = g.page_map->>(p_page::text) or drive_id = g.page_map->>(p_page::text)) and kind = 'guide_page' and storage_path is not null and not trash limit 1;
+  return jsonb_build_object('ok', true, 'img', coalesce(img, ''), 'pdf', '');
+end $$;
+
+revoke all on function public.ws_spec_pub_boot(), public.ws_spec_pub_index(), public.ws_spec_pub_page(text, int) from public;
+grant execute on function public.ws_spec_pub_boot(), public.ws_spec_pub_index(), public.ws_spec_pub_page(text, int) to anon, authenticated;

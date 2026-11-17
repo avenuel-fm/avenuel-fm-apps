@@ -23,6 +23,9 @@ const RPC = {
   ws_bootstrap() { return { ok: true, user: { staff_id: 'S003', name: '이영희', part: '전방파트', role: '직원' }, toastSec: 2.6, needSign: false, docs: { signs: 0 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 } } }; },
   ws_spec_boot() { return { ok: true, guides: GUIDES, synonyms: [['방화구획', '방화 구획', '방화벽']] }; },
   ws_spec_index() { return { ok: true, entries: ENTRIES }; },
+  ws_spec_pub_boot() { return { ok: true, guides: GUIDES.filter(g => !g.archived), synonyms: [['방화구획', '방화 구획', '방화벽']] }; },
+  ws_spec_pub_index() { return { ok: true, entries: ENTRIES.filter(e => e.d !== 'G0') }; },
+  ws_spec_pub_page(a) { PAGES.push('pub:' + a.p_guide + ':' + a.p_page + ':' + ('p_token' in a)); return { ok: true, img: BASE + '/page.svg', pdf: '' }; },
   ws_spec_page(a) { PAGES.push(a.p_guide + ':' + a.p_page); return { ok: true, img: BASE + '/page.svg', pdf: a.p_guide === 'G1' ? BASE + '/g1.pdf' : '' }; }
 };
 const FAKE = `window.supabase = { createClient() {
@@ -46,15 +49,15 @@ const srv = http.createServer((req, res) => {
   });
 }).listen(PORT);
 
-async function open(b, opts) {
+async function open(b, opts, url) {
   const c = await b.newContext(Object.assign({ viewport: { width: 1440, height: 900 } }, opts || {}));
   await c.route('https://cdn.jsdelivr.net/npm/@supabase/**', r => r.fulfill({ contentType: 'application/javascript', body: FAKE }));
   await c.route(/fonts\.googleapis|cdnjs\.cloudflare/, r => r.fulfill({ contentType: 'text/css', body: '' }));
-  await c.addInitScript(t => localStorage.setItem('ws_token', t), TOK);
+  if (!url) await c.addInitScript(t => localStorage.setItem('ws_token', t), TOK);
   const p = await c.newPage(); p.errs = [];
   p.on('pageerror', e => p.errs.push(e.message));
-  await p.goto(BASE + '/ws/app.html');
-  await p.locator('.grid6').waitFor();
+  await p.goto(BASE + (url || '/ws/app.html'));
+  await p.locator(url ? '#spQ' : '.grid6').waitFor();
   return p;
 }
 const texts = (p, sel) => p.locator(sel).allInnerTexts();
@@ -75,6 +78,13 @@ const texts = (p, sel) => p.locator(sel).allInnerTexts();
   const chips = await texts(p, '#spF button');
   ok(/전체 2/.test(chips[0]) && /시설공사 1/.test(chips[1]) && /통합안전 1/.test(chips[2]) && /이전 판 포함/.test(chips[chips.length - 1]), '5) 지침별 건수 · 이전 판 포함 단추');
   await p.locator('#spPv .sppv-b img').waitFor();
+  const fit = async pg => pg.evaluate(() => [...document.querySelectorAll('.sppv-b')].filter(b => b.offsetParent).every(b => { const g = b.querySelector('.sppg'); return g && g.getBoundingClientRect().bottom <= b.getBoundingClientRect().bottom + 1 && b.scrollHeight <= b.clientHeight + 1; }));
+  await p.waitForFunction(() => { const g = document.querySelector('#spPv .sppg'); return g && g.style.width; });
+  ok(await fit(p), '6-1) PC: 쪽 한 장이 칸 안에 다 보임 (아래 안 잘림, 스크롤 없음)');
+  await p.click('#spPv [aria-label="크게"]'); await p.waitForFunction(() => /125%/.test(document.querySelector('#spPv .sptools').textContent));
+  await p.waitForFunction(() => document.querySelector('#spPv .sppv-b').scrollHeight > document.querySelector('#spPv .sppv-b').clientHeight + 1);
+  ok(true, '6-2) + 누르면 그때 크게 (스크롤로 봄)');
+  await p.click('#spPv [aria-label="작게"]');
   ok(await p.locator('#spPv .hl').count() >= 1 && await p.locator('#spPv .spo').isVisible() && /3\.4 방화구획/.test(await p.locator('#spPv .spttl').innerText()), '6) PC: 첫 결과의 쪽이 오른쪽에 바로 · 노란 표시 · PDF 원본 단추');
   await p.locator('#spRes .sphit').nth(1).click();
   await p.waitForFunction(() => /방화벽/.test(document.querySelector('#spPv .spttl').textContent));
@@ -123,12 +133,23 @@ const texts = (p, sel) => p.locator(sel).allInnerTexts();
   ok(!wide.length, '21) 휴대폰: 가로로 넘치지 않음 ' + wide.join(' / '));
   await m.locator('#spRes .pgb').first().tap();
   await m.locator('.spsheet .sppv-b img').waitFor();
-  ok(await m.locator('.spsheet .hl').count() >= 1, '22) 휴대폰: 쪽 번호 누르면 아래에서 쪽 보기 창');
+  await m.waitForFunction(() => { const g = document.querySelector('.spsheet .sppg'); return g && g.style.width; });
+  ok(await m.locator('.spsheet .hl').count() >= 1 && await fit(m), '22) 휴대폰: 쪽 번호 누르면 아래에서 쪽 보기 창 · 쪽 한 장이 다 보임');
   const rc = await m.evaluate(() => { const r = document.querySelector('.spsheet .sppv').getBoundingClientRect(); return { r: r.right, b: r.bottom, w: innerWidth, h: innerHeight, vv: visualViewport.width }; });
   ok(rc.r <= rc.w + 1 && rc.b <= rc.h + 1, '22-1) 휴대폰: 쪽 보기 창이 화면 안에 다 들어옴 ' + JSON.stringify(rc));
   await m.screenshot({ path: path.join(__dirname, 'shot_spec_phone.png') });
   await m.tap('.spsheet [aria-label="닫기"]');
   ok(await m.locator('.spsheet').count() === 0 && !m.errs.length, '23) 닫기 · 휴대폰 화면 오류 없음 ' + m.errs.join(' / '));
+
+
+  // ── 외부용 단독 페이지 spec.html (결정 142): 로그인·기기 등록 없이 시방서 검색만 ──
+  const x = await open(b, {}, '/ws/spec.html');
+  ok(/롯데백화점 잠실점 에비뉴엘 · 시설팀/.test(await x.locator('header.top').innerText()) && !(await x.locator('text=로그아웃').count()) && !(await x.locator('.backbar').count()) && (await x.title()) === '시방서 검색 · 에비뉴엘 시설팀', '24) 외부용: 로그인 없이 바로 시방서 검색 (이름·로그아웃·뒤로 없음)');
+  await x.fill('#spQ', '방화구획');
+  await x.locator('#spPv .sppv-b img').waitFor();
+  ok((await texts(x, '#spRes .sphit')).length === 2 && !(await x.locator('#spF .old').count()) && !(await x.locator('#spPv .spo').isVisible()) && PAGES.includes('pub:G1:12:false'), '25) 외부용: 검색·쪽 보기 됨 · 이전 판 단추·PDF 원본 없음 · 로그인 표를 안 보냄');
+  ok(/문의: 에비뉴엘 시설팀/.test(await x.locator('.spside').innerText()) && !x.errs.length, '26) 외부용: 안내 글 · 화면 오류 없음 ' + x.errs.join(' / '));
+  await x.screenshot({ path: path.join(__dirname, 'shot_spec_pub.png') });
 
   await b.close(); srv.close();
   console.log(fail ? '\n시방서 검색 화면 시험 실패 ' + fail + '개' : '\n시방서 검색 화면 시험 통과');

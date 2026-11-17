@@ -617,6 +617,13 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(si.ok && si.entries.length === 3 && si.entries[0].p === 12 && si.entries[2].d === 'G0', '시방서: 검색 항목 (지금 판 먼저, 쪽 순서)');
   const sp = await call('ws_spec_page', ['emp', 'G1', 12]), sp2 = await call('ws_spec_page', ['emp', 'G1', 13]);
   ok(sp.img === 'https://b/g1/12.jpg' && sp.pdf === 'https://b/g1.pdf' && sp2.ok && sp2.img === '' && (await call('ws_spec_page', ['emp', 'GX', 1])).ok === false, '시방서: 쪽 그림·원본 PDF 주소 (드라이브로 옮긴 것은 빈 값, 없는 지침은 안내)');
+  // 외부용 단독 페이지 (결정 142): 로그인 없이(anon) 읽기만 · 지금 판만 · 원본 PDF 주소 없음
+  const pr = r => r[0][Object.keys(r[0])[0]];
+  const pb = pr(await as('anon', 'select ws_spec_pub_boot()')), pi = pr(await as('anon', 'select ws_spec_pub_index()'));
+  const pp = pr(await as('anon', "select ws_spec_pub_page('G1', 12)")), po = pr(await as('anon', "select ws_spec_pub_page('G0', 1)"));
+  ok(pb.ok && pb.guides.length === 1 && pb.guides[0].id === 'G1' && pb.synonyms.length === 1, '외부용: 손님(anon)도 열림 · 이전 판 지침은 목록에서 뺌');
+  ok(pi.entries.length === 2 && pi.entries.every(e => e.d === 'G1'), '외부용: 검색 항목도 지금 판만');
+  ok(pp.img === 'https://b/g1/12.jpg' && pp.pdf === '' && po.ok === false, '외부용: 쪽 그림만 (원본 PDF 주소 없음 · 이전 판 쪽은 안 줌)');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
