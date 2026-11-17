@@ -536,20 +536,51 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q("update daily_log set humidity = 45 where log_date = $1", [D]);
   ok((await call('ws_ahu_get', [tk, D])).wx.humidity === 45, '공조기: 종합업무일지 습도 칸을 읽음');
 
-  // ══ 지도 (13_map.sql, 결정 130) ══
+  // ══ 지도 (13_map.sql, 결정 130 · 기록 132 · 동시 편집·권한 134) ══
+  await db.exec(SQL('13_map.sql'));
+  await q("insert into map_kv (k, v, editor) values ('lotte_symbols_B1', '[\"old\"]', '옛사람')");   // 기록 시작 전부터 있던 칸 (11-17 배포 때처럼)
   await db.exec(SQL('13_map.sql')); await db.exec(SQL('13_map.sql'));
   ok((await one('select count(*)::int n from map_floor')).n === 0 && !SQL('13_map.sql').includes('amazonaws'), '13_map.sql 실행됨 (두 번) · 층 주소는 저장소에 없음');
+  const yd = (await one("select ((now() at time zone 'Asia/Seoul')::date - 1)::text d")).d, td = (await one("select ((now() at time zone 'Asia/Seoul')::date)::text d")).d;
+  ok((await one("select count(*)::int n, min(day)::text d from map_hist")).d === yd && (await one('select count(*)::int n from map_hist')).n === 1, '기록 시작: 있던 칸을 어제 기록으로 한 번만 (두 번 실행해도 1줄)');
   await q("insert into map_floor values ('avenuel','1F','https://x/1F.svg'),('avenuel','B1','https://x/B1.svg'),('dept','01','https://x/d01.svg')");
-  ok(/permission denied/.test(await asErr('authenticated', 'select * from map_kv')) && /permission denied/.test(await asErr('authenticated', 'select * from map_floor')), '지도: 표는 로그인 기기도 바로 못 읽음');
-  ok(/permission denied/.test(await asErr('anon', "select ws_map_load('x')")) && /LOGIN/.test(await callErr('ws_map_load', ['bad'])) && /LOGIN/.test(await callErr('ws_map_save', ['bad', 'lotte_symbols_1F', '[]'])), '지도: 비로그인·PIN 표 없음 → 막음');
+  ok(/permission denied/.test(await asErr('authenticated', 'select * from map_kv')) && /permission denied/.test(await asErr('authenticated', 'select * from map_hist')) && /permission denied/.test(await asErr('authenticated', "select ws_map_state(now())")), '지도: 표·도우미는 로그인 기기도 바로 못 읽음');
+  ok(/permission denied/.test(await asErr('anon', "select ws_map_load('x')")) && /LOGIN/.test(await callErr('ws_map_load', ['bad'])) && /LOGIN/.test(await callErr('ws_map_save', ['bad', 'lotte_symbols_1F', '[]', ''])) && /LOGIN/.test(await callErr('ws_map_days', ['bad'])), '지도: 비로그인·PIN 표 없음 → 막음');
   let mp = await call('ws_map_load', [tk]);
-  ok(mp.ok && Object.keys(mp.kv).length === 0 && /^https:/.test(mp.urls.avenuel['1F']) && Object.keys(mp.urls.dept).length === 1, '지도: 처음 = 빈 칸 · 건물별 층 주소');
-  ok((await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[{"id":"a"}]'])).ok && (await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[]'])).ok, '지도: 저장 · 덮어쓰기');
-  await call('ws_map_save', [tk, 'lotte_scale_settings_dept', '{"ratio":200}']);
+  ok(mp.ok && mp.canEdit && mp.isBoss && mp.kv.lotte_symbols_B1 === '["old"]' && /^https:/.test(mp.urls.avenuel['1F']) && Object.keys(mp.urls.dept).length === 1, '지도: 받기 (칸·판·층 주소·소장)');
+  let ms = await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[{"id":"a"}]', '']);
+  ok(ms.ok && ms.ver, '지도: 새 칸 저장 → 새 판');
+  ok((await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[]', ''])).conflict === true, '동시 편집: 옛 판(빈 판)으로 저장 → 「그사이 고침」');
+  const ms2 = await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[]', ms.ver]);
+  ok(ms2.ok && ms2.ver !== ms.ver && (await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[1]', ms.ver])).conflict === true, '동시 편집: 맞는 판이면 저장, 다른 사람이 먼저 고친 판이면 막음');
+  ok((await call('ws_map_save', [tk, 'lotte_symbols_B1', null, mp.vers.lotte_symbols_B1])).ok && !('lotte_symbols_B1' in (await call('ws_map_load', [tk])).kv), '지도: null = 지움');
+  ok((await call('ws_map_save', [tk, 'ws_token', 'x', ''])).ok === false && (await call('ws_map_save', [tk, 'lotte_base_svg_1F', 'x', ''])).ok === false, '지도: 이상한 칸 이름 · 바탕 도면 칸은 저장 함수로 못 씀');
+  await q("insert into ws_sessions (token, staff_id, expires_at) values ('emp', 'S003', now() + interval '1 hour')");
+  const em = await call('ws_map_load', ['emp']);
+  ok(em.ok && em.canEdit === false && em.isBoss === false && /파트장 이상/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
+  ok((await one("select count(*)::int n from map_hist where k = 'lotte_util_lines_1F'")).n === 1 && (await one("select v from map_hist where k = 'lotte_util_lines_1F'")).v === '[]', '기록: 같은 날 같은 칸은 마지막 것만');
+  // 업체 바탕 도면
+  let mb = await call('ws_map_base', ['emp', 'lotte_base_svg_1F', '<svg>v1</svg>']);
+  ok(mb.ok && !mb.same && (await call('ws_map_base', ['emp', 'lotte_base_svg_1F', '<svg>v1</svg>'])).same === true && (await call('ws_map_load', [tk])).bases.lotte_base_svg_1F === mb.sha, '바탕 도면: 처음 보관, 같은 그림은 다시 안 넣음, 받기에 sha');
+  ok((await call('ws_map_base', [tk, 'lotte_symbols_1F', 'x'])).ok === false, '바탕 도면: 다른 칸 이름 → 막음');
+  // 날짜별 보기: 어제(기록 시작) · 오늘
+  let mdy = await call('ws_map_days', [tk]);
+  ok(mdy.days.length === 2 && mdy.days[0].day === yd && mdy.days[1].day === td && mdy.days[1].keys.includes('lotte_util_lines_1F') && mdy.days[1].by.includes('홍길동'), '기록 날짜: 어제 · 오늘, 바뀐 칸 · 고친 사람');
+  let mat = await call('ws_map_at', [tk, yd]);
+  ok(mat.ok && mat.kv.lotte_symbols_B1 === '["old"]' && !('lotte_util_lines_1F' in mat.kv) && !('lotte_base_svg_1F' in mat.kv), '어제 모습: 그때 칸만 (오늘 지운 칸은 있고, 오늘 만든 칸·바탕은 없음)');
+  mat = await call('ws_map_at', [tk, td]);
+  ok(mat.kv.lotte_util_lines_1F === '[]' && !('lotte_symbols_B1' in mat.kv) && mat.kv.lotte_base_svg_1F === '<svg>v1</svg>', '오늘 모습: 바탕 도면 포함, 지운 칸 없음');
+  ok((await call('ws_map_at', [tk, 'x'])).ok === false, '날짜 모양이 틀리면 안내');
+  // 되돌리기 (소장만)
+  ok(/소장만/.test((await call('ws_map_restore', ['emp', yd])).error) && /지난 날짜/.test((await call('ws_map_restore', [tk, td])).error), '되돌리기: 직원 막음 · 오늘은 안 됨');
+  const mrs = await call('ws_map_restore', [tk, yd]);
   mp = await call('ws_map_load', [tk]);
-  ok(mp.kv.lotte_util_lines_1F === '[]' && mp.kv.lotte_scale_settings_dept === '{"ratio":200}' && (await one("select editor from map_kv where k = 'lotte_util_lines_1F'")).editor === '홍길동', '지도: 다시 받으면 마지막 값 · 고친 사람');
-  ok((await call('ws_map_save', [tk, 'lotte_util_lines_1F', null])).ok && !('lotte_util_lines_1F' in (await call('ws_map_load', [tk])).kv), '지도: null = 지움');
-  ok((await call('ws_map_save', [tk, 'ws_token', 'x'])).ok === false && (await call('ws_map_save', [tk, 'lotte_a b', 'x'])).ok === false, '지도: lotte_ 로 시작하지 않는 칸 이름 → 막음');
+  ok(mrs.ok && mrs.n === 2 && mp.kv.lotte_symbols_B1 === '["old"]' && !('lotte_util_lines_1F' in mp.kv), '되돌리기: 어제 모습으로 (칸 2개 바뀜)');
+  mdy = await call('ws_map_days', [tk]);
+  ok(mdy.restores.length === 1 && mdy.restores[0].to === yd && mdy.restores[0].by === '홍길동', '되돌리기 기록');
+  mat = await call('ws_map_at', [tk, mdy.restores[0].before]);
+  ok(mat.kv.lotte_util_lines_1F === '[]' && !('lotte_symbols_B1' in mat.kv), '되돌리기 전 모습을 그대로 불러옴 (기록에 남음)');
+  ok((await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[9]', ''])).ok && (await call('ws_map_at', [tk, mdy.restores[0].before])).kv.lotte_util_lines_1F === '[]', '되돌린 뒤 또 고쳐도 되돌리기 전 기록은 지워지지 않음');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
