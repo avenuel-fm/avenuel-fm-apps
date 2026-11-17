@@ -420,6 +420,12 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(eh.ok && eh.kept === 2 && qNew.a === qOld.a && qNew.b === qOld.b && qNew.n === 3 && qNew.s === 2, '다시 가져오기: 전부 바꿈 · 같은 관리번호 QR 그대로 (2대)');
   ok(qNew.pa && qNew.pb, '다시 가져오기: 필증 칸 같으면 출력함 유지, 용량 바뀌면 미출력');
   ok(eh.stores[0].name === '카페2', '다시 가져오기: 매장 이름도 새 엑셀대로');
+  // 기기 1,000대 넘게 (11-17 실제 엑셀 3,028대: 일련번호가 '100' 으로 잘려 겹치던 오류)
+  eh = await call('ws_eh_import', [tk, J({ replace: true, stores: [{ floor: '1F', no: 4, name: '카페2' }],
+    items: Array.from({ length: 1005 }, (_, k) => ({ floor: '1F', store: 0, no: '1F-4-' + (k + 1), name: '기기' + k, w: '10', m1: '갑', date: '', gone: false })) })]);
+  const big = await one("select count(*)::int n, count(distinct eh_id)::int d, max(eh_id) filter (where mgmt_no = '1F-4-1000') k from eh_devices");
+  ok(eh.ok && big.n === 1005 && big.d === 1005 && /-1000$/.test(big.k) && eh.kept === 2, '다시 가져오기: 기기 1,005대 (일련번호 1000 이상도 겹치지 않음) ' + big.k);
+  ok((await one("select ws_pad3(7) a, ws_pad3(999) b, ws_pad3(1000) c")).c === '1000', '번호 자리: 007 · 999 · 1000');
 
   // ══ 3-5 공사장 점검 (07_cs.sql) ══
   await db.exec(SQL('07_cs.sql')); await db.exec(SQL('07_cs.sql'));
