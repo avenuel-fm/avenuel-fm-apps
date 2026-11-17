@@ -212,6 +212,16 @@ if (require.main === module) (async () => {
   await call('dw_svc_setting', { p_key: 'PIN_소장', p_value: H('4321') }, 'service_role');
   ok((await call('dw_login', { p_a: { pin: '4321' } })).role === '소장' && /PIN이 바뀌었습니다/.test(await callErr('dw_list_stores', { p_a: A })), 'PIN 바꾸면 예전 기기 기억은 안 통함');
   ok(/넣을 수 없는 설정/.test(await callErr('dw_svc_setting', { p_key: 'LAST_SEQ', p_value: '0' }, 'service_role')), '정해진 설정만 넣음');
+  // 서명란 연락처 (결정 139): 성명별 마지막 연락처, 안전관리팀·영업팀만, 연락처 없는 것은 뺌
+  await q("insert into dw_stores values ('ct', 990, '{}')");
+  await q("insert into dw_reviews (id, store_id, round, data) values ('ct1', 'ct', 1, $1), ('ct2', 'ct', 2, $2)", [
+    JSON.stringify({ savedAt: '2026-11-01 10:00:00', safetyName: '김안전', safetyTel: '010-1111-1111', salesName: '이영업', salesTel: '', respName: '박책임', respTel: '010-9' }),
+    JSON.stringify({ savedAt: '2026-11-10 10:00:00', safetyName: '김안전', safetyTel: '010-2222-2222', salesName: '최영업', salesTel: '010-3333-3333' })]);
+  const A2 = { role: '소장', token: H('token:소장:' + H('4321')) }, ct = await call('dw_contacts', { p_a: A2 });
+  ok(ct.map(c => c.who + ':' + c.name + ':' + c.tel).join(' ') === 'safety:김안전:010-2222-2222 sales:최영업:010-3333-3333', '서명란 연락처: 최근 번호 · 빈 번호 뺌 · 공사 책임자 뺌');
+  ok(/permission denied/.test(await callErr('dw_contacts', { p_a: A2 }, 'anon')), '서명란 연락처: 비로그인 못 부름');
+  await q("delete from dw_stores where id = 'ct'");
+
   const ck = await call('dw_check_setup', {}, 'service_role');
   ok(ck.bucket === true && ck.pin['소장'] === true && ck.counts['매장'] === 1, '연결 확인');
   ok((await call('dw_backup', { p_table: 'dw_stores' }, 'service_role')).length === 1, 'DB 백업 (표 통째로)');

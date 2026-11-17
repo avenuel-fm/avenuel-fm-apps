@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.9.1',
+  VERSION: '1.9.2',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
@@ -1547,6 +1547,19 @@ function readCompanies_() {
       var name = String(r[p[0] + 'Company'] || '').trim();
       if (!name) return;
       map[name] = { name: name, kind: p[1], person: r[p[0] + 'Name'] || '', tel: r[p[0] + 'Tel'] || '', email: r[p[0] + 'Email'] || '' };
+    });
+  });
+  return Object.keys(map).sort().map(function (k) { return map[k]; });
+}
+
+/** 담당 확인 · 서명란 연락처 (안전관리팀·영업팀, 결정 139): 지난 검토서의 성명별 마지막 연락처 */
+function apiContacts(a) {
+  auth_(a);
+  var map = {};
+  readReviews_().sort(function (x, y) { return String(x.savedAt).localeCompare(String(y.savedAt)); }).forEach(function (r) {
+    ['safety', 'sales'].forEach(function (w) {
+      var n = String(r[w + 'Name'] || '').trim(), t = String(r[w + 'Tel'] || '').trim();
+      if (n && t) map[w + ':' + n] = { who: w, name: n, tel: t };
     });
   });
   return Object.keys(map).sort().map(function (k) { return map[k]; });

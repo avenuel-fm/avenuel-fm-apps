@@ -160,6 +160,19 @@ const FAKE = `window.supabase = { createClient() {
   ok(await p.locator('.gv, video').count() === 0, '12-4) 서명칸 안내 동영상 없음');
   await p.click('#sigCancel');
 
+  // 서명란 연락처 자동 입력 (결정 139) + 대시보드 날짜 한 줄
+  await db.query("insert into dw_stores values ('ct', 2, '{}')");
+  await db.query("insert into dw_reviews (id, store_id, round, data) values ('ct1', 'ct', 1, $1)", [JSON.stringify({ savedAt: '2026-11-10 10:00:00', safetyName: '김안전', safetyTel: '010-1234-5678' })]);
+  await p.locator('[data-act=dash]').first().click();
+  await p.locator('[data-act=new]').first().waitFor();
+  ok(await p.evaluate(() => !document.querySelector('td.c-open br')), '13) 대시보드 오픈 예정일: 날짜와 D-표시 한 줄 (줄바꿈 없음)');
+  await p.locator('[data-act=new]').first().click();
+  await p.locator('#f-safetyName').waitFor();
+  await p.waitForFunction(() => (document.querySelector('#dl-safety') || {}).children && document.querySelector('#dl-safety').children.length > 0, null, { timeout: 15000 });
+  await p.fill('#f-safetyName', '김안전'); await p.locator('#f-safetyName').dispatchEvent('change');
+  ok(await p.inputValue('#f-safetyTel') === '010-1234-5678', '14) 새 양식: 안전관리팀 성명 넣으면 연락처 자동');
+  ok(await p.locator('#f-respName[list]').count() === 0 && await p.locator('#f-ownerName[list]').count() === 0, '   공사 책임자·발주처 성명은 대상 아님');
+
   await p.reload();
   await p.waitForFunction(() => document.querySelector('[data-act=open]') || document.querySelector('#loginForm'));
   ok(await p.locator('#deviceForm').count() === 0, '11) 다시 열면 기기 등록 안 물음');

@@ -343,7 +343,7 @@ const ix = run('apiGuideIndex(A)');
 ok(ix.length === 1 && ix[0].d === ctx.BID && ix[0].p === 91, '검색 색인 제공 (항목마다 지침 ID)');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 91)`) === img, '쪽 이미지 data URL');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 999)`) === null, '없는 쪽은 null');
-ok(run('apiBootstrap(A)').version === '1.9.1' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
+ok(run('apiBootstrap(A)').version === '1.9.2' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
 
 // 개정판: 다른 PDF로 같은 지침 바꾸기
 const pdf2 = mkFile('통합안전관리지침_27.pdf', 'application/pdf', Buffer.from('new'), gRoot.id);
@@ -669,6 +669,7 @@ ok(!JSON.parse(st8.sigPending)['1:safety'] && JSON.parse(st8.sigPending)['1:resp
 // 화면을 열어 둔 채 저장해도 원격 서명은 그대로
 ctx.R8.storeId = ctx.S8; ctx.R8.round = 1; ctx.R8.location = '5';
 let keep = run('apiSaveReview(A, R8, false)').reviews[0];
+{ const ct = run('apiContacts(A)'); ok(ct.some(c => c.who === 'safety' && c.name === '박안전' && c.tel === '010-2222-3333') && ct.every(c => c.who === 'safety' || c.who === 'sales'), '서명란 연락처 목록: 안전관리팀·영업팀 성명 → 연락처 (결정 139)'); }
 ok(keep.safetySig === 'data:image/png;base64,AAAA' && keep.safetyName === '박안전' && keep.salesName === '이영업', '열어 둔 화면에서 저장해도 원격 서명은 지워지지 않음');
 ctx.R8._sigCleared = ['safetySig'];
 let clr = run('apiSaveReview(A, R8, false)').reviews[0];

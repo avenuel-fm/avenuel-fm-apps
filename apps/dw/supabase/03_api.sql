@@ -317,6 +317,18 @@ begin
       where name <> '' order by name, at desc, saved_at desc, o desc) b);
 end $$;
 
+/* 담당 확인 · 서명란 연락처 (안전관리팀·영업팀, 결정 139): 성명별 마지막 연락처 */
+create or replace function public.dw_contacts(p_a jsonb) returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform public.dw_role_(p_a);
+  return (select coalesce(jsonb_agg(jsonb_build_object('who', who, 'name', name, 'tel', tel) order by who, name collate "C"), '[]')
+    from (select distinct on (who, name) who, name, tel from (
+      select p.k who, btrim(coalesce(r.data->>(p.k || 'Name'), '')) name, btrim(coalesce(r.data->>(p.k || 'Tel'), '')) tel,
+             coalesce(r.data->>'savedAt', '') at, r.saved_at
+      from public.dw_reviews r cross join (values ('safety'), ('sales')) p(k)) a
+      where name <> '' and tel <> '' order by who, name, at desc, saved_at desc) b);
+end $$;
+
 /* ───────── 검토서 저장 · 차수 ───────── */
 create or replace function public.dw_save_review(p_a jsonb, p_review jsonb, p_finalize boolean) returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare role text := public.dw_role_(p_a); nowt text := public.dw_now_text(); d jsonb; cid text; sid text; s public.dw_stores;
@@ -837,7 +849,7 @@ end $$;
 
 grant execute on function
   public.dw_login(jsonb), public.dw_start(jsonb), public.dw_bootstrap(jsonb), public.dw_list_stores(jsonb), public.dw_get_store(jsonb, text),
-  public.dw_companies(jsonb), public.dw_save_review(jsonb, jsonb, boolean), public.dw_next_round(jsonb, text), public.dw_delete_store(jsonb, text),
+  public.dw_companies(jsonb), public.dw_contacts(jsonb), public.dw_save_review(jsonb, jsonb, boolean), public.dw_next_round(jsonb, text), public.dw_delete_store(jsonb, text),
   public.dw_delete_last_round(jsonb, text), public.dw_set_chief_ok(jsonb, text, int, boolean), public.dw_set_confirmed(jsonb, text, boolean),
   public.dw_save_phrases(jsonb, jsonb), public.dw_file(jsonb, text, text), public.dw_photo_added(jsonb, text, int, jsonb),
   public.dw_pdf_saved(jsonb, text, int, text, jsonb, boolean), public.dw_firedoc_set(jsonb, text, jsonb), public.dw_firedoc(jsonb, text),
