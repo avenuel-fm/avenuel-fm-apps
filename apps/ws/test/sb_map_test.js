@@ -30,7 +30,7 @@ const RPC = {
   },
   ws_map_save(a) {
     const u = me(a); SAVES.push(a);
-    if (u.role === '직원') return { ok: false, error: '지도는 소장·부소장·파트장만 고칠 수 있습니다' };
+    if (u.role === '직원') return { ok: false, error: '지도는 소장·부소장·파트장·옵저버만 고칠 수 있습니다' };
     if ((VERS[a.p_k] || '') !== (a.p_ver || '')) return { ok: false, conflict: true, error: '그사이 김철수님이 이 층을 고쳤습니다. 새로 불러옵니다.' };
     if (a.p_v == null) { delete KV[a.p_k]; delete VERS[a.p_k]; return { ok: true, ver: '' }; }
     KV[a.p_k] = a.p_v; VERS[a.p_k] = 'v' + (++n); return { ok: true, ver: VERS[a.p_k] };
@@ -89,7 +89,7 @@ async function openMap(p) {
   // ── 소장 · PC ──
   const p = await open(b, TOK.boss);
   const tiles = await p.locator('.grid6 .tile').allInnerTexts();
-  ok(tiles.length === 6 && /지도/.test(tiles[5]) && tiles.filter(t => /작업중/.test(t)).length === 3, '1) 메인 6번째(환경설정 위) 칸이 「지도」, 나머지 작업중 3칸 그대로');
+  ok(tiles.length === 6 && /지도/.test(tiles[5]) && tiles.filter(t => /작업중/.test(t)).length === 2 && /시방서 검색/.test(tiles[3]), '1) 메인 6번째(환경설정 위) 칸이 「지도」, 4번째 「시방서 검색」(결정 140), 나머지 작업중 2칸 그대로');
   let f = await openMap(p);
   ok(new URL(p.url()).pathname === '/ws/app.html' && await f.evaluate(() => !!document.querySelector('#map-container svg rect')), '2) 업무지원 화면 안에서 열림 · 로그인 표로 받은 주소로 그림');
   ok(!fs.readFileSync(path.join(FM, 'map', 'js', 'config', 'floors.js'), 'utf8').includes('amazonaws'), '3) 공개 코드(floors.js)에 도면 주소 없음');

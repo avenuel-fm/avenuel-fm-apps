@@ -44,7 +44,7 @@ create table if not exists public.staff (
   staff_id     text primary key,               -- S001 …
   name         text not null,
   part         text,                           -- 파트명 (전방파트·기건파트 …)
-  role         text not null check (role in ('소장','부소장','파트장','직원','관리자')),
+  role         text not null check (role in ('소장','부소장','파트장','직원','관리자','옵저버')),
   auth_user_id uuid unique references auth.users(id) on delete set null,   -- (쓰지 않을 수 있음: 공용 계정 + PIN 방식)
   pin_hash     text,                           -- PIN 로그인 (결정 11-14). 화면에는 안 보이고 pin_login() 안에서만 씀
   pin_salt     text,

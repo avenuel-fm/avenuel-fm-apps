@@ -498,6 +498,9 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ad = await call('ws_admin_staff_save', [tk, J({ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '직원' })]);
   ok(ad.staff.find(x => x.staff_id === 'S001').role === '소장', '내 역할은 못 바꿈 (소장 그대로)');
   ok((await call('ws_admin_staff_save', [tk, J({ staff_id: 'S004', name: '박', part: '', role: '직원' })])).error === '파트를 넣어 주세요.', '직원 편집: 파트 빔 → 안내');
+  ad = await call('ws_admin_staff_save', [tk, J({ staff_id: 'S004', name: '박민수', part: '기건파트', role: '옵저버' })]);
+  ok(ad.ok && ad.staff.find(x => x.staff_id === 'S004').role === '옵저버' && ad.staff.find(x => x.staff_id === 'S004').part === '관리', '옵저버: 역할로 고를 수 있고 파트는 「관리」로 고정 (결정 138)');
+  ad = await call('ws_admin_staff_save', [tk, J({ staff_id: 'S004', name: '박민수', part: '기건파트', role: '파트장' })]);
   ok(/다른 직원이 쓰고/.test((await call('ws_admin_staff_pin', [tk, 'S004', '1234'])).error), 'PIN 바꾸기: 남의 PIN → 안내');
   const before = (await one("select count(*)::int n from ws_sessions where staff_id = 'S002'")).n;
   const pc = await call('ws_admin_staff_pin', [tk, 'S002', '9753']);
@@ -563,10 +566,13 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_map_save', [tk, 'ws_token', 'x', ''])).ok === false && (await call('ws_map_save', [tk, 'lotte_base_svg_1F', 'x', ''])).ok === false, '지도: 이상한 칸 이름 · 바탕 도면 칸은 저장 함수로 못 씀');
   await q("insert into ws_sessions (token, staff_id, expires_at) values ('emp', 'S003', now() + interval '1 hour')");
   await q("update staff set role = '관리자' where staff_id = 'S003'");
-  ok((await call('ws_map_load', ['emp'])).canEdit === false && /소장·부소장·파트장만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 관리자도 지도는 보기만 (결정 136)');
+  ok((await call('ws_map_load', ['emp'])).canEdit === false && /소장·부소장·파트장·옵저버만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 관리자도 지도는 보기만 (결정 136)');
+  await q("update staff set role = '옵저버' where staff_id = 'S003'");
+  ok((await call('ws_map_load', ['emp'])).canEdit === true && (await call('ws_map_save', ['emp', 'lotte_symbols_9F', '[]', ''])).ok === true, '권한: 옵저버는 지도 고칠 수 있음 (결정 138)');
+  await call('ws_map_save', ['emp', 'lotte_symbols_9F', null, (await call('ws_map_load', ['emp'])).vers.lotte_symbols_9F]);
   await q("update staff set role = '직원' where staff_id = 'S003'");
   const em = await call('ws_map_load', ['emp']);
-  ok(em.ok && em.canEdit === false && em.isBoss === false && /소장·부소장·파트장만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
+  ok(em.ok && em.canEdit === false && em.isBoss === false && /소장·부소장·파트장·옵저버만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
   ok((await one("select count(*)::int n from map_hist where k = 'lotte_util_lines_1F'")).n === 1 && (await one("select v from map_hist where k = 'lotte_util_lines_1F'")).v === '[]', '기록: 같은 날 같은 칸은 마지막 것만');
   // 업체 바탕 도면
   let mb = await call('ws_map_base', ['emp', 'lotte_base_svg_1F', '<svg>v1</svg>']);
@@ -590,6 +596,27 @@ alter default privileges in schema public grant all on sequences to anon, authen
   mat = await call('ws_map_at', [tk, mdy.restores[0].before]);
   ok(mat.kv.lotte_util_lines_1F === '[]' && !('lotte_symbols_B1' in mat.kv), '되돌리기 전 모습을 그대로 불러옴 (기록에 남음)');
   ok((await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[9]', ''])).ok && (await call('ws_map_at', [tk, mdy.restores[0].before])).kv.lotte_util_lines_1F === '[]', '되돌린 뒤 또 고쳐도 되돌리기 전 기록은 지워지지 않음');
+  // ══ 시방서 검색 (14_spec.sql, 결정 140) — 도면협의 표·함수는 DW SQL 에서 그대로 떼어 옴 ══
+  const DW = f => require('fs').readFileSync(path.join(__dirname, '..', '..', 'dw', 'supabase', f), 'utf8');
+  await db.exec(DW('01_schema.sql').match(/create table if not exists public\.(dw_files|dw_guides|dw_synonyms) \([\s\S]*?\);/g).join('\n'));
+  await db.exec(DW('03_api.sql').match(/create or replace function public\.(dw_guides_client_|dw_synonyms_)\(\)[\s\S]*?\$\$;/g).join('\n'));
+  await db.exec(SQL('14_spec.sql')); await db.exec(SQL('14_spec.sql'));
+  ok(/check/.test(await err("update staff set role = '손님' where staff_id = 'S003'")) && !(await err("update staff set role = '옵저버' where staff_id = 'S003'")), '14_spec.sql 두 번 실행 · 역할 검사에 옵저버 (다른 이름은 막음)');
+  await q("update staff set role = '직원' where staff_id = 'S003'");
+  const gpg = await one("insert into dw_files (kind, file_url, storage_path) values ('guide_page', 'https://b/g1/12.jpg', 'guide/G1/12.jpg') returning id::text");
+  const gpd = await one("insert into dw_files (kind, file_url, storage_path) values ('guide_pdf', 'https://b/g1.pdf', 'guide/pdf/g1.pdf') returning id::text");
+  const mv = await one("insert into dw_files (kind, file_url, drive_id) values ('guide_page', 'https://drive/x', 'DRV1') returning id::text");
+  await q("insert into dw_guides (id, ord, title, short, pages, file_id, entries, page_map) values ('G1', 1, '시설공사 지침', '시설공사', 86, $1, $2, $3)",
+    [gpd.id, JSON.stringify([{ d: 'G1', p: 12, t: '방화구획 관통부' }, { d: 'G1', p: 13, t: '감지기' }]), JSON.stringify({ 12: gpg.id, 13: mv.id })]);
+  await q("insert into dw_guides (id, title, short, entries, archived, archived_at) values ('G0', '옛 지침', '옛', $1, true, '2026-01-01')", [JSON.stringify([{ d: 'G0', p: 1, t: '방화구획 옛' }])]);
+  await q("insert into dw_synonyms values (1, '방화구획', '방화 구획, 방화벽')");
+  ok(/permission denied/.test(await asErr('anon', "select ws_spec_index('x')")) && /LOGIN/.test(await callErr('ws_spec_boot', ['bad'])) && /LOGIN/.test(await callErr('ws_spec_page', ['bad', 'G1', 12])), '시방서: 손님 막음 · 로그인 표 없으면 막음');
+  const sb = await call('ws_spec_boot', ['emp']);
+  ok(sb.ok && sb.guides.length === 2 && sb.guides[0].id === 'G1' && sb.guides[1].archived === true && sb.synonyms.length === 1 && sb.synonyms[0].includes('방화벽'), '시방서: 지침 목록(이전 판 뒤) · 비슷한 말 — 직원도 읽음');
+  const si = await call('ws_spec_index', ['emp']);
+  ok(si.ok && si.entries.length === 3 && si.entries[0].p === 12 && si.entries[2].d === 'G0', '시방서: 검색 항목 (지금 판 먼저, 쪽 순서)');
+  const sp = await call('ws_spec_page', ['emp', 'G1', 12]), sp2 = await call('ws_spec_page', ['emp', 'G1', 13]);
+  ok(sp.img === 'https://b/g1/12.jpg' && sp.pdf === 'https://b/g1.pdf' && sp2.ok && sp2.img === '' && (await call('ws_spec_page', ['emp', 'GX', 1])).ok === false, '시방서: 쪽 그림·원본 PDF 주소 (드라이브로 옮긴 것은 빈 값, 없는 지침은 안내)');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

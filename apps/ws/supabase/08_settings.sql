@@ -63,11 +63,12 @@ declare
   v_part text := btrim(coalesce(p_d->>'part', ''));
   v_role text := btrim(coalesce(p_d->>'role', ''));
   v_pin text := btrim(coalesce(p_d->>'pin', ''));
-  roles text[] := array['소장', '부소장', '파트장', '직원', '관리자'];
+  roles text[] := array['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];
   salt text;
   n int;
 begin
   perform pg_advisory_xact_lock(hashtext('ws_staff'));
+  if v_role = '옵저버' then v_part := '관리'; end if;   -- 옵저버는 파트 「관리」 고정 (결정 138)
   if v_id = '' then   -- Code.gs addStaff_
     if v_part = '' then v_part := '전방파트'; end if;
     if v_role = '' then v_role := '직원'; end if;

@@ -12,10 +12,10 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.13.1', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.14.0', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
-const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
+const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
 const STATE_OK = '이상없음';
 const STATE_BAD = '이상있음';
 
@@ -215,6 +215,7 @@ function addStaff_(name, pin, part, role, by) {
   pin = String(pin || '').trim();
   part = String(part || '').trim() || '전방파트';
   role = String(role || '').trim() || '직원';
+  if (role === '옵저버') part = '관리';
   if (!name) return { ok: false, error: '이름을 넣어 주세요.' };
   if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN은 숫자 4자리입니다.' };
   if (ROLES.indexOf(role) === -1) return { ok: false, error: '역할은 ' + ROLES.join(' / ') + ' 중 하나입니다.' };
@@ -350,8 +351,8 @@ function adminStaffSave(token, d) {
     const r = addStaff_(d.name, d.pin, d.part, d.role, me['이름']);
     return r.ok ? { ok: true, staff: staffOut_() } : r;
   }
-  const name = String(d.name || '').trim(), part = String(d.part || '').trim();
-  let role = String(d.role || '').trim();
+  const name = String(d.name || '').trim();
+  let role = String(d.role || '').trim(), part = role === '옵저버' ? '관리' : String(d.part || '').trim();
   if (!name) return { ok: false, error: '이름을 넣어 주세요.' };
   if (!part) return { ok: false, error: '파트를 넣어 주세요.' };
   if (d.staff_id === me['staff_id']) role = me['역할'];   // 내 역할은 못 바꿈 (환경설정을 잃지 않게)
