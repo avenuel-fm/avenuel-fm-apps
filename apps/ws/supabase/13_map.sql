@@ -9,7 +9,7 @@
 --  · map_hist  = 날짜별 기록 (결정 132). 저장할 때마다 같은 칸·같은 날은 마지막 것만 남김 (되돌리기 전 기록은 남김)
 --                업체 바탕 도면(lotte_base_svg_*)도 그림이 바뀌었을 때만 여기 보관 → 업체가 그림을 바꿔도 옛 모습을 불러옴
 --  · map_restore = 소장의 「이 날로 되돌리기」 기록
---  · 화면은 PIN 로그인 표(ws_auth)가 있어야 읽음. 고치기는 파트장 이상(소장·부소장·파트장·관리자), 되돌리기는 소장만 (결정 134)
+--  · 화면은 PIN 로그인 표(ws_auth)가 있어야 읽음. 고치기는 소장·부소장·파트장만 (결정 136, 관리자 뺌), 되돌리기는 소장만 (결정 134)
 --  · 같은 칸을 그사이 다른 사람이 고쳤으면 저장하지 않고 알림 (ver 비교, 결정 134)
 -- ============================================================================
 create table if not exists public.map_kv (
@@ -56,7 +56,7 @@ from public.map_kv where not exists (select 1 from public.map_hist);
 
 create or replace function public.ws_map_can_edit(p_role text)
 returns boolean language sql immutable set search_path = public as $$
-  select coalesce(p_role in ('소장', '부소장', '파트장', '관리자'), false);
+  select coalesce(p_role in ('소장', '부소장', '파트장'), false);
 $$;
 
 -- 기록 한 줄: 같은 칸·같은 날은 마지막 것만 (마지막 되돌리기 뒤에 쓴 줄만 지움 → 되돌리기 전 모습은 남음)
@@ -91,7 +91,7 @@ declare
   cur public.map_kv;
   nv text;
 begin
-  if not public.ws_map_can_edit(me.role) then return jsonb_build_object('ok', false, 'error', '지도는 파트장 이상만 고칠 수 있습니다'); end if;
+  if not public.ws_map_can_edit(me.role) then return jsonb_build_object('ok', false, 'error', '지도는 소장·부소장·파트장만 고칠 수 있습니다'); end if;
   if coalesce(p_k, '') !~ '^lotte_[A-Za-z0-9_]+$' or p_k like 'lotte\_base\_svg\_%' or length(p_k) > 80 then
     return jsonb_build_object('ok', false, 'error', '저장 칸 이름이 맞지 않습니다');
   end if;

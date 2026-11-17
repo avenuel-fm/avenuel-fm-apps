@@ -24,11 +24,13 @@ const RPC = {
   ws_map_load(a) {
     const u = me(a);
     return { ok: true, kv: KV, vers: VERS, bases: {}, canEdit: u.role !== '직원', isBoss: u.role === '소장',
-      urls: { avenuel: Object.fromEntries(['6F', '5F', '4F', '3F', '2F', '1F', 'B1'].map(f => [f, 'http://localhost:' + PORT + '/floor.svg'])) } };
+      urls: { avenuel: Object.fromEntries(['6F', '5F', '4F', '3F', '2F', '1F', 'B1'].map(f => [f, 'http://localhost:' + PORT + '/floor.svg'])),
+        dept: Object.fromEntries(['12', '11', '10', '09', '08', '07', '06', '05', '04', '03', '02', '01', 'B1', 'B2', 'B3', 'B4'].map(f => [f, 'http://localhost:' + PORT + '/floor.svg'])),
+        castle: Object.fromEntries(['02', '01', 'B1'].map(f => [f, 'http://localhost:' + PORT + '/floor.svg'])) } };
   },
   ws_map_save(a) {
     const u = me(a); SAVES.push(a);
-    if (u.role === '직원') return { ok: false, error: '지도는 파트장 이상만 고칠 수 있습니다' };
+    if (u.role === '직원') return { ok: false, error: '지도는 소장·부소장·파트장만 고칠 수 있습니다' };
     if ((VERS[a.p_k] || '') !== (a.p_ver || '')) return { ok: false, conflict: true, error: '그사이 김철수님이 이 층을 고쳤습니다. 새로 불러옵니다.' };
     if (a.p_v == null) { delete KV[a.p_k]; delete VERS[a.p_k]; return { ok: true, ver: '' }; }
     KV[a.p_k] = a.p_v; VERS[a.p_k] = 'v' + (++n); return { ok: true, ver: VERS[a.p_k] };
@@ -128,7 +130,7 @@ async function openMap(p) {
   const nSave = SAVES.length;
   await f.evaluate(() => mapStore.setItem('lotte_symbols_1F', '["x"]'));
   await p.waitForTimeout(300);
-  ok(SAVES.length === nSave && await f.evaluate(() => document.body.classList.contains('map-ro') && getComputedStyle(document.getElementById('btn-edit-menu')).pointerEvents === 'none'), '11) 지난 날 보기: 저장 안 함 · 편집 버튼 막힘');
+  ok(SAVES.length === nSave && await f.evaluate(() => document.body.classList.contains('map-ro') && document.getElementById('btn-edit-menu').disabled && /지난 기록/.test(document.getElementById('btn-edit-menu').title)), '11) 지난 날 보기: 저장 안 함 · 편집 버튼 막힘');
   await shot(p, 'shot_sb_map.png');
   await p.frameLocator('iframe.mapframe').locator('#hist-rest').click();
   await p.frameLocator('iframe.mapframe').locator('.hist-dlg .yes').click();
@@ -138,6 +140,22 @@ async function openMap(p) {
   ok(await f.evaluate(() => !mapStore.viewAt && !document.querySelector('.hist-bar')), '13) 되돌린 뒤 지금 모습으로 새로 불러옴');
   const ctx = d => d.evaluate(() => !document.body.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
   ok(await ctx(p) && await ctx(f), '14) PC 오른쪽 버튼 메뉴 막음 (업무지원 · 지도 둘 다)');
+  // 타점 (결정 136): 제목 없음 · [에비뉴엘] [타점 ›] · 밀려 나오는 메뉴로 백화점 → 같은 기능
+  const fl = p.frameLocator('iframe.mapframe');
+  ok(await f.evaluate(() => !document.querySelector('.main-title') && !/잠실점 쇼핑맵/.test(document.querySelector('header').innerText) && document.querySelectorAll('.mainboard-building-tab').length === 2), '14-1) 「잠실점 쇼핑맵」 글자 없음 · 건물 탭은 에비뉴엘·타점 둘');
+  await fl.locator('#btn-other-bld').click(); await fl.locator('#other-drawer.open').waitFor();
+  await p.waitForTimeout(300);
+  await fl.locator('.other-card[data-building="dept"]').click();
+  await fl.locator('#map-container svg rect').first().waitFor(); await p.waitForTimeout(500);
+  ok(await f.evaluate(() => currentBuildingId === 'dept' && FLOORS.length === 16 && /타점 · 백화점/.test(document.getElementById('btn-other-bld').innerText) && document.getElementById('btn-other-bld').classList.contains('active') && !document.getElementById('other-drawer').classList.contains('open')), '14-2) 타점 › 백화점: 메뉴 닫히고 백화점 16개 층 지도 · 탭에 「타점 · 백화점」');
+  const nD = SAVES.length;
+  await f.evaluate(() => mapStore.setItem('lotte_symbols_01_dept', '[9]')); await p.waitForTimeout(300);
+  ok(SAVES.length === nD + 1 && SAVES[nD].p_k === 'lotte_symbols_01_dept' && BASES.some(k => /_dept$/.test(k)), '14-3) 백화점도 저장·업체 도면 보관 같게 (칸 이름 끝 _dept)');
+  await fl.locator('#btn-other-bld').click(); await fl.locator('#other-drawer.open').waitFor(); await p.waitForTimeout(300);
+  await fl.locator('.other-card[data-building="castle"]').click(); await p.waitForTimeout(800);
+  ok(await f.evaluate(() => currentBuildingId === 'castle' && FLOORS.length === 3 && /타점 · 캐슬플라자/.test(document.getElementById('btn-other-bld').innerText)), '14-4) 타점 › 캐슬플라자 3개 층');
+  await fl.locator('.mainboard-building-tab[data-building="avenuel"]').click(); await p.waitForTimeout(800);
+  ok(await f.evaluate(() => currentBuildingId === 'avenuel' && document.getElementById('other-tab-label').textContent === '타점'), '14-5) 에비뉴엘로 돌아오면 탭 글자 「타점」');
   await p.click('.backbar button'); await p.locator('.grid6').waitFor();
   ok(!p.errs.length, '15) 화면 오류 없음 (소장)' + (p.errs.length ? ': ' + p.errs.join(' / ') : ''));
 
@@ -148,7 +166,7 @@ async function openMap(p) {
   const nS = SAVES.length;
   await fe.evaluate(() => mapStore.setItem('lotte_symbols_1F', '["e"]'));
   await e.waitForTimeout(300);
-  ok(await fe.evaluate(() => !mapStore.canEdit && !!document.querySelector('.ro-chip') && document.body.classList.contains('map-ro')) && SAVES.length === nS, '16) 직원: 「보기 전용」 표시 · 편집 버튼 막힘 · 저장 안 보냄');
+  ok(await fe.evaluate(() => !mapStore.canEdit && !!document.querySelector('.ro-chip') && document.body.classList.contains('map-ro') && document.getElementById('btn-edit-menu').disabled && document.getElementById('btn-undo').disabled) && SAVES.length === nS, '16) 직원: 「보기 전용」 표시 · 편집·되돌리기 버튼 꺼짐 · 저장 안 보냄');
   await e.frameLocator('iframe.mapframe').locator('#btn-hist').tap();
   await e.frameLocator('iframe.mapframe').locator('.hist-cal').waitFor();
   if (YEST.slice(0, 7) !== TODAY.slice(0, 7)) await e.frameLocator('iframe.mapframe').locator('.hist-pop button[data-m="-1"]').tap();

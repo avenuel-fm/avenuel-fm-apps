@@ -556,8 +556,11 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_map_save', [tk, 'lotte_symbols_B1', null, mp.vers.lotte_symbols_B1])).ok && !('lotte_symbols_B1' in (await call('ws_map_load', [tk])).kv), '지도: null = 지움');
   ok((await call('ws_map_save', [tk, 'ws_token', 'x', ''])).ok === false && (await call('ws_map_save', [tk, 'lotte_base_svg_1F', 'x', ''])).ok === false, '지도: 이상한 칸 이름 · 바탕 도면 칸은 저장 함수로 못 씀');
   await q("insert into ws_sessions (token, staff_id, expires_at) values ('emp', 'S003', now() + interval '1 hour')");
+  await q("update staff set role = '관리자' where staff_id = 'S003'");
+  ok((await call('ws_map_load', ['emp'])).canEdit === false && /소장·부소장·파트장만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 관리자도 지도는 보기만 (결정 136)');
+  await q("update staff set role = '직원' where staff_id = 'S003'");
   const em = await call('ws_map_load', ['emp']);
-  ok(em.ok && em.canEdit === false && em.isBoss === false && /파트장 이상/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
+  ok(em.ok && em.canEdit === false && em.isBoss === false && /소장·부소장·파트장만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
   ok((await one("select count(*)::int n from map_hist where k = 'lotte_util_lines_1F'")).n === 1 && (await one("select v from map_hist where k = 'lotte_util_lines_1F'")).v === '[]', '기록: 같은 날 같은 칸은 마지막 것만');
   // 업체 바탕 도면
   let mb = await call('ws_map_base', ['emp', 'lotte_base_svg_1F', '<svg>v1</svg>']);
