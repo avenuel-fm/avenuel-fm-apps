@@ -369,6 +369,10 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(ei.ok && ei.check.items === 3 && ea.stores.length === 2 && ea.stores[0].no === 4 && ea.stores[1].no === 2 && it3.no === '1F-4-2' && it3.gone === true && ov.date === '2024-08-29' && ov.w === '3000' && ov.m2 === '을' && ea.items.find(x => x.name === '토스터').no === 'B1-2-1',
     '37) 엑셀 가져오기: 나눠 읽은 매장·기기만 넘김 (관리번호·날짜·폐기)');
   ok(ea.replace === false, '37) 처음 가져오기는 바꿔 넣기 아님');
+  const SH2 = { '2F': [['전열기  관리대장 (2026)'], ['', '', '층 :', '2'], ['', '', '매장명 :', '사파이어 라운지'], ['No', '관리번호', '기기명', '사용처', '용량(W)'], ['1', '2F-2-1', '공기청정기', '사파이어 라운지', '70']] };
+  await p.evaluate(sh => run('ehImport', S.token, sh, true), SH2);
+  const ea2 = last('ws_eh_import').a.p_data;
+  ok(ea2.stores[0].name === '사파이어 라운지' && ea2.stores[0].no === 2 && ea2.items[0].no === '2F-2-1', '37) 새 양식 엑셀 (「매장명 :」 옆 칸)');
   await p.evaluate(() => ehImportDlg(true)); await p.waitForSelector('.dialog .banner.b-red');   // 이 시험 화면은 휴대폰 폭이라 단추 대신 바로 엶
   await p.evaluate(sh => { S.ehX = sh; }, SH);
   await p.evaluate(() => { $('ehXo').innerHTML = '<button id="ehXb"></button>'; return ehXSave(); });

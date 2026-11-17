@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.11.0', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.11.1', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자'];
@@ -1932,7 +1932,7 @@ function ehParse_(sheets) {
       const c = (r || []).map(function (x) { return String(x == null ? '' : x).trim(); });
       if (c.some(function (x) { return /^층\s*:/.test(x); })) {
         const nx = (rows[i + 1] || []).map(function (x) { return String(x == null ? '' : x).trim(); }).filter(String);
-        const name = cleanText_(String(nx[0] || '').replace(/^매장명\s*:\s*/, ''), 30);   // 엑셀 칸 서식이 「매장명 : 」을 붙여 읽힘
+        const name = cleanText_(String((/^매장명\s*:?$/.test(nx[0]) ? nx[1] : nx[0]) || '').replace(/^매장명\s*:\s*/, ''), 30);   // 새 양식(11월): 「매장명 :」 옆 칸 · 옛 양식: 칸 서식이 「매장명 : 」을 붙여 읽힘
         if (!name || name === '0') { cur = null; return; }
         const k = floor + '|' + name;
         if (key[k] === undefined) { key[k] = stores.length; stores.push({ floor: floor, name: name, nos: {} }); }
