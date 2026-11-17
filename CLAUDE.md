@@ -32,6 +32,7 @@
 | `apps/dw/test/` | 시험 도구 (`gas_test.js` 서버 시험, `e2e*.py`·`ui_audit.py` 화면 시험) |
 | `docs/블럭_연동규칙.md` | 앱 사이 통로(`?api=`) 규칙 |
 | `apps/hub/` | 통합 대시보드 (아직 코드 없음) |
+| `apps/map/` · `fm/map/` | 지도(도면 앱, 결정 130). 앱 파일은 `fm/map/`(만들기 단계 없음), 인계 문서는 `apps/map/` — 설계 `docs/설계/WS_지도.md` |
 | `fm/` | 바로가기 페이지(GitHub Pages `avenuel-fm.github.io/fm/`)에 올리는 파일의 원본. `apps.js`에 각 앱 웹앱 주소 |
 
 ## 기술 규칙 (이미 정한 것 — 바꾸려면 사용자 확인)

@@ -8,7 +8,7 @@
 const ARC_ROOT = ['시설팀 통합업무', '20_업무지원'];
 const ARC_DAYS = 7, ARC_ORPHAN_DAYS = 2, ARC_PAGE = 100, ARC_BUDGET = 270000;
 const ARC_TABLES = ['files', 'settings', 'staff', 'change_log', 'signs', 'next_work', 'tbm', 'risk_list', 'daily_log', 'roster', 'roster_changes',
-  'default_holidays', 'fire_ext', 'fire_checks', 'eh_stores', 'eh_devices', 'cs_sites', 'cs_items', 'cs_checks', 'ahu_unit', 'ahu_temp'];   // 기기 표(ws_sessions)는 백업 안 함
+  'default_holidays', 'fire_ext', 'fire_checks', 'eh_stores', 'eh_devices', 'cs_sites', 'cs_items', 'cs_checks', 'ahu_unit', 'ahu_temp', 'map_kv', 'map_floor'];   // 기기 표(ws_sessions)는 백업 안 함
 
 function archiveMenu_() {
   migrateConf_();   // 열쇠가 없으면 여기서 안내

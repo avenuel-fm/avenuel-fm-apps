@@ -535,6 +535,21 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(ah.ok && /a1\.pdf$/.test(ah.rec.pdf.url) && (await one("select file_name, drive_folder from files where kind = 'ahu_pdf'")).file_name === D + '_공조기환기온도.pdf', '공조기 PDF 저장 · 파일 이름');
   await q("update daily_log set humidity = 45 where log_date = $1", [D]);
   ok((await call('ws_ahu_get', [tk, D])).wx.humidity === 45, '공조기: 종합업무일지 습도 칸을 읽음');
+
+  // ══ 지도 (13_map.sql, 결정 130) ══
+  await db.exec(SQL('13_map.sql')); await db.exec(SQL('13_map.sql'));
+  ok((await one('select count(*)::int n from map_floor')).n === 0 && !SQL('13_map.sql').includes('amazonaws'), '13_map.sql 실행됨 (두 번) · 층 주소는 저장소에 없음');
+  await q("insert into map_floor values ('avenuel','1F','https://x/1F.svg'),('avenuel','B1','https://x/B1.svg'),('dept','01','https://x/d01.svg')");
+  ok(/permission denied/.test(await asErr('authenticated', 'select * from map_kv')) && /permission denied/.test(await asErr('authenticated', 'select * from map_floor')), '지도: 표는 로그인 기기도 바로 못 읽음');
+  ok(/permission denied/.test(await asErr('anon', "select ws_map_load('x')")) && /LOGIN/.test(await callErr('ws_map_load', ['bad'])) && /LOGIN/.test(await callErr('ws_map_save', ['bad', 'lotte_symbols_1F', '[]'])), '지도: 비로그인·PIN 표 없음 → 막음');
+  let mp = await call('ws_map_load', [tk]);
+  ok(mp.ok && Object.keys(mp.kv).length === 0 && /^https:/.test(mp.urls.avenuel['1F']) && Object.keys(mp.urls.dept).length === 1, '지도: 처음 = 빈 칸 · 건물별 층 주소');
+  ok((await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[{"id":"a"}]'])).ok && (await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[]'])).ok, '지도: 저장 · 덮어쓰기');
+  await call('ws_map_save', [tk, 'lotte_scale_settings_dept', '{"ratio":200}']);
+  mp = await call('ws_map_load', [tk]);
+  ok(mp.kv.lotte_util_lines_1F === '[]' && mp.kv.lotte_scale_settings_dept === '{"ratio":200}' && (await one("select editor from map_kv where k = 'lotte_util_lines_1F'")).editor === '홍길동', '지도: 다시 받으면 마지막 값 · 고친 사람');
+  ok((await call('ws_map_save', [tk, 'lotte_util_lines_1F', null])).ok && !('lotte_util_lines_1F' in (await call('ws_map_load', [tk])).kv), '지도: null = 지움');
+  ok((await call('ws_map_save', [tk, 'ws_token', 'x'])).ok === false && (await call('ws_map_save', [tk, 'lotte_a b', 'x'])).ok === false, '지도: lotte_ 로 시작하지 않는 칸 이름 → 막음');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
