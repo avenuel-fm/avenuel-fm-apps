@@ -143,6 +143,23 @@ const FAKE = `window.supabase = { createClient() {
   await p.click('[data-pv-act=close]');
   ok(await p.locator('#pvLayer').count() === 0 && !(await p.evaluate(() => document.documentElement.classList.contains('pv-open'))), '10) 뒤로 → 보기 닫힘, 매장 화면 그대로');
 
+  // 서명칸 손바닥 무시: 펜이 한 번 닿으면 터치는 안 그림, 펜 전 손바닥 자국은 지움
+  await p.locator('[data-act=sig]').first().click();
+  await p.locator('#sigc').waitFor();
+  const ink = () => p.evaluate(() => { const c = document.querySelector('#sigc'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; });
+  const stroke = (type, id, y) => p.evaluate(([type, id, y]) => {
+    const c = document.querySelector('#sigc'), r = c.getBoundingClientRect(), o = (t, x) => c.dispatchEvent(new PointerEvent(t, { pointerType: type, pointerId: id, clientX: r.left + x, clientY: r.top + y, bubbles: true, cancelable: true, pressure: 0.5 }));
+    o('pointerdown', 20); for (let x = 30; x <= 200; x += 10) o('pointermove', x); o('pointerup', 200);
+  }, [type, id, y]);
+  await stroke('touch', 11, 40); const a1 = await ink();
+  await stroke('pen', 22, 90); const a2 = await ink();
+  await stroke('touch', 12, 140); const a3 = await ink();
+  ok(a1 > 0, '12-1) 서명칸: 펜 전에는 손가락으로 그려짐');
+  ok(a2 > 0 && a2 === a3, '12-2) 펜이 닿은 뒤 손바닥(터치)은 안 그려짐');
+  ok(await p.evaluate(() => { const c = document.querySelector('#sigc'), d = c.getContext('2d').getImageData(0, 0, c.width, Math.floor(c.height * 0.25)).data; for (let i = 3; i < d.length; i += 4) if (d[i]) return false; return true; }), '12-3) 펜 전 손바닥 자국은 지워짐');
+  ok(await p.locator('.gv, video').count() === 0, '12-4) 서명칸 안내 동영상 없음');
+  await p.click('#sigCancel');
+
   await p.reload();
   await p.waitForFunction(() => document.querySelector('[data-act=open]') || document.querySelector('#loginForm'));
   ok(await p.locator('#deviceForm').count() === 0, '11) 다시 열면 기기 등록 안 물음');

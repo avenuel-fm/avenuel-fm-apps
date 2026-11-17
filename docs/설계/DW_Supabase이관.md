@@ -67,6 +67,11 @@
 - `node sb_ui_test.js` — `fm/dw/app.html` 휴대폰 화면 + 진짜 SQL: 기기 등록 → PIN → 매장 → 앱 안 PDF 보기 → 기기 등록 풀기 **17개**
 - `node gas_test.js` — 구글 쪽 (Supa.gs 포함) **266개**
 
+## 7-1. 고친 것 (v1.9.1, 결정 137)
+
+- Supabase 는 **조건 없는 UPDATE·DELETE 를 막음**(실수 방지 장치). 표 전체를 고칠 때도 `where true` 를 붙임. `sb_sql_test.js` 가 이런 명령을 잡음 (PGlite 에는 이 장치가 없어서 따로 검사).
+- 서명 안내 동영상(`guide`)은 첫 화면·서명 정보에서 뺌.
+
 ## 8. 뒤로 미룬 것
 
 - 앱 사이 통로(`?api=summary`·`stores`·`defect`)는 아직 시트 자료 → HUB 만들 때 DB 로.

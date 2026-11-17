@@ -262,9 +262,6 @@ begin
   if coalesce(sc, '') !~ '^https://[^\s?#]+$' then sc := ''; end if;
   return jsonb_build_object(
     'version', '', 'appUrl', '', 'publicUrl', sc,   -- 비면 dw-api.js 가 지금 주소(…/fm/dw/)로 채움
-    'guide', case when sc = '' then jsonb_build_object('mp4', '', 'gif', '') else jsonb_build_object(
-      'mp4', sc || case when right(sc, 1) = '/' then '' else '/' end || 'sign_guide.mp4',
-      'gif', sc || case when right(sc, 1) = '/' then '' else '/' end || 'sign_guide.gif') end,
     'phraseCats', c->'phraseCats', 'synonyms', public.dw_synonyms_(), 'storeLabel', c->'storeLabel', 'docPrefix', c->'docPrefix',
     'fields', c->'fields', 'rules', public.dw_rules_(), 'phrases', public.dw_phrases_(), 'guides', public.dw_guides_client_(),
     'signature', c->'signature', 'specFrom', c->'specFrom', 'specFromName', c->'specFromName',
@@ -457,7 +454,7 @@ begin
   n := jsonb_array_length(lst);
   if n > 300 then raise exception '문구는 300개까지 저장할 수 있습니다.'; end if;
   perform public.dw_lock();
-  delete from public.dw_phrases;
+  delete from public.dw_phrases where true;   -- Supabase 는 조건 없는 지우기를 막음
   insert into public.dw_phrases (seq, t, c) select o, e->>'t', e->>'c' from jsonb_array_elements(lst) with ordinality x(e, o);
   perform public.dw_log_(role, '자주 쓰는 문구 저장', '', '', n || '개');
   return public.dw_phrases_();
@@ -611,7 +608,7 @@ begin
     'docNo', s.data->>'docNo', 'who', c->>'l',
     'org', coalesce(nullif(c->>'org', ''), nullif(r.data->>(c->>'orgKey'), ''), nullif(r.data->>'contractorCompany', ''), ''),
     'name', coalesce(r.data->>(c->>'name'), ''), 'tel', coalesce(r.data->>(c->>'tel'), ''),
-    'pdfUrl', t.pdf_url, 'until', to_char(t.exp at time zone 'Asia/Seoul', 'FMMM/FMDD'), 'guide', public.dw_bootstrap_()->'guide');
+    'pdfUrl', t.pdf_url, 'until', to_char(t.exp at time zone 'Asia/Seoul', 'FMMM/FMDD'));
 end $$;
 
 create or replace function public.dw_sign_submit(p_token text, p_data jsonb) returns jsonb language plpgsql security definer set search_path = public, extensions as $$
@@ -753,7 +750,7 @@ begin
     b := jsonb_set(b, array['pages', p::text], to_jsonb(fid::text));
     n := n + 1;
   end loop;
-  update public.dw_guide_build set data = b;
+  update public.dw_guide_build set data = b where one;
   return jsonb_build_object('saved', n);
 end $$;
 
@@ -782,7 +779,7 @@ begin
   values (p_id, pos, b->>'title', b->>'short', pages, public.dw_truthy(p_meta->'landscape'), public.dw_truthy(b->'localPages'), b->>'fileId', b->>'fileName', b->>'fileUpdated',
     (select jsonb_agg(case when jsonb_typeof(e) = 'object' then e || jsonb_build_object('d', p_id) else e end order by o) from jsonb_array_elements(p_entries) with ordinality x(e, o)),
     jsonb_array_length(p_entries), b->'pages', nowt, role);
-  delete from public.dw_guide_build;
+  delete from public.dw_guide_build where true;
   perform public.dw_log_(role, '지침 색인', '', '', (b->>'title') || ' · ' || pages || '쪽 · ' || jsonb_array_length(p_entries) || '개 항목');
   return public.dw_guide_state_();
 end $$;
@@ -824,7 +821,7 @@ begin
   perform public.dw_role_(p_a);
   perform public.dw_lock();
   select data into b from public.dw_guide_build;
-  if b is not null then perform public.dw_guide_trash_pages_(b->'pages'); delete from public.dw_guide_build; end if;
+  if b is not null then perform public.dw_guide_trash_pages_(b->'pages'); delete from public.dw_guide_build where true; end if;
   return public.dw_guide_state_();
 end $$;
 

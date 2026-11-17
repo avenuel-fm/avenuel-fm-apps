@@ -343,7 +343,7 @@ const ix = run('apiGuideIndex(A)');
 ok(ix.length === 1 && ix[0].d === ctx.BID && ix[0].p === 91, '검색 색인 제공 (항목마다 지침 ID)');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 91)`) === img, '쪽 이미지 data URL');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 999)`) === null, '없는 쪽은 null');
-ok(run('apiBootstrap(A)').version === '1.9.0' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
+ok(run('apiBootstrap(A)').version === '1.9.1' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
 
 // 개정판: 다른 PDF로 같은 지침 바꾸기
 const pdf2 = mkFile('통합안전관리지침_27.pdf', 'application/pdf', Buffer.from('new'), gRoot.id);
@@ -849,7 +849,7 @@ pt = SHELL; al.length = 0; run('showAddresses_()');
 ok(setSh.get(2, 2) === SHELL && /저장했습니다/.test(al[1]) && al[1].indexOf(SHELL + '?store=시험') >= 0, '바로가기 주소 저장 + 시험 주소 안내');
 ok(run('publicLink_("store=abc")') === SHELL + '?store=abc', 'QR 링크 = 바로가기 주소 + ?store=');
 ok(run('apiBootstrap(A)').publicUrl === SHELL && run('apiBootstrap(A)').appUrl === EXEC, '부트스트랩: 화면 QR용 publicUrl, /exec도 그대로');
-ok(run('apiBootstrap(A)').guide.mp4 === SHELL + 'sign_guide.mp4' && run('apiBootstrap(A)').guide.gif === SHELL + 'sign_guide.gif', '1.8.7 서명 안내 영상 주소 = 바로가기 주소 + sign_guide.mp4/gif');
+ok(!('guide' in run('apiBootstrap(A)')), '서명 안내 영상 없음 (11-17 뺌)');
 ok(run('blockStores_("")').stores.every(x => x.url.indexOf(SHELL + '?store=') === 0), '다른 앱에 주는 매장 링크도 바로가기 주소');
 const smB = J('doGet({parameter:{api:"summary",key:"' + 'k'.repeat(40) + '"}})');
 ok(smB.url === EXEC && smB.link === SHELL, '요약 API: 앱끼리 부르는 url은 /exec 그대로, 사람이 여는 link는 바로가기 주소');

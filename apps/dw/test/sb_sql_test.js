@@ -44,6 +44,9 @@ if (require.main === module) (async () => {
   ok(true, '01~04 SQL 두 번 실행해도 오류 없음');
   ok(SQL('02_const.sql') === sqlOf(constOf(fs.readFileSync(path.join(__dirname, '..', 'src', 'Code.gs'), 'utf8'))), '02_const.sql 이 Code.gs 값과 같음 (다르면 node tools/gen_const_sql.js)');
 
+  const noWhere = FILES.flatMap(f => (SQL(f).match(/\b(update|delete\s+from)\s+public\.\w+[^;]*;/gi) || []).filter(s => !/\bwhere\b/i.test(s)).map(s => f + ': ' + s.slice(0, 50)));
+  ok(!noWhere.length, '조건(where) 없는 update·delete 없음 — Supabase 가 막음 ' + noWhere.join(' | '));
+
   // ── 보안 ──
   ok(/permission denied/.test(await asErr('authenticated', 'select * from dw_stores')), '로그인 기기: 매장 표 직접 못 읽음');
   ok(/permission denied/.test(await asErr('anon', 'select * from dw_settings')), '비로그인: 설정 표 못 읽음');
