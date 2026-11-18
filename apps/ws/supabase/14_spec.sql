@@ -1,5 +1,5 @@
 -- ============================================================================
--- 업무지원(WS) 시방서 검색 (결정 140) + 옵저버 역할 (결정 138) + 외부용 단독 페이지 (결정 142, 맨 아래)
+-- 업무지원(WS) 시방서 검색 (결정 140) + 옵저버 역할 (결정 138) + 외부용 단독 페이지 (결정 142·146, 맨 아래)
 -- 실행: SQL Editor 에 통째로 붙여 넣고 Run (여러 번 돌려도 안전). 08_settings.sql · 13_map.sql 도 다시 Run (옵저버)
 -- 설계: docs/설계/WS_시방서검색.md
 --
@@ -15,8 +15,9 @@ alter table public.staff add constraint staff_role_check check (role in ('소장
 -- 지침 목록(이전 판 포함) + 비슷한 말 — 화면 첫 열기 때 한 번
 create or replace function public.ws_spec_boot(p_token text)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare me public.staff := public.ws_auth(p_token);
 begin
-  perform public.ws_auth(p_token);
+  perform public.ws_menu_guard(me.role, 'spec');   -- 메인 메뉴에서 끈 시방서 검색 (결정 148, 15_menu.sql)
   return jsonb_build_object('ok', true, 'guides', public.dw_guides_client_(), 'synonyms', public.dw_synonyms_());
 end $$;
 
@@ -54,11 +55,28 @@ begin
     'guides', (select coalesce(jsonb_agg(g), '[]') from jsonb_array_elements(public.dw_guides_client_()) g where not coalesce((g->>'archived')::boolean, false)));
 end $$;
 
-create or replace function public.ws_spec_pub_index()
+-- 검색은 서버에서 (결정 146): 전체 색인을 내려주지 않음. 검색어 40자까지 · 띄어쓰기 무시 · 비슷한 말 묶음까지
+--   counts = 지침별 건수(지금 판 전부), entries = 고른 지침(p_guides) 결과 최대 80건 — 화면은 노란 표시 위치만 다시 계산
+drop function if exists public.ws_spec_pub_index();
+create or replace function public.ws_spec_pub_search(p_q text, p_guides text[])
 returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare cq text := lower(regexp_replace(left(coalesce(p_q, ''), 40), '\s+', '', 'g')); terms text[]; r jsonb;
 begin
-  return jsonb_build_object('ok', true, 'entries', (select coalesce(jsonb_agg(e order by g.ord, g.id desc, o), '[]')
-    from public.dw_guides g cross join lateral jsonb_array_elements(g.entries) with ordinality x(e, o) where not g.archived));
+  if cq = '' then return jsonb_build_object('ok', true, 'counts', '{}'::jsonb, 'entries', '[]'::jsonb); end if;
+  select array_agg(distinct w) into terms from (
+    select cq w
+    union select lower(regexp_replace(x, '\s+', '', 'g')) from jsonb_array_elements(public.dw_synonyms_()) grp cross join lateral jsonb_array_elements_text(grp) x
+      where exists (select 1 from jsonb_array_elements_text(grp) y where lower(regexp_replace(y, '\s+', '', 'g')) = cq)) t where w <> '';
+  with hit as (
+    select g.id, g.ord, x.e, x.o from public.dw_guides g cross join lateral jsonb_array_elements(g.entries) with ordinality x(e, o)
+    where not g.archived and exists (select 1 from unnest(terms) w where
+      strpos(lower(regexp_replace(coalesce(x.e->>'t', ''), '\s+', '', 'g')), w) > 0
+      or strpos(lower(regexp_replace(coalesce(x.e->>'h', '') || coalesce(x.e->>'l', ''), '\s+', '', 'g')), w) > 0))
+  select jsonb_build_object('ok', true,
+    'counts', coalesce((select jsonb_object_agg(id, n) from (select id, count(*) n from hit group by id) c), '{}'::jsonb),
+    'entries', coalesce((select jsonb_agg(e order by ord, id desc, o) from (select * from hit where id = any(coalesce(p_guides, '{}'::text[])) order by ord, id desc, o limit 80) z), '[]'::jsonb))
+    into r;
+  return r;
 end $$;
 
 create or replace function public.ws_spec_pub_page(p_guide text, p_page int)
@@ -72,5 +90,5 @@ begin
   return jsonb_build_object('ok', true, 'img', coalesce(img, ''), 'pdf', '');
 end $$;
 
-revoke all on function public.ws_spec_pub_boot(), public.ws_spec_pub_index(), public.ws_spec_pub_page(text, int) from public;
-grant execute on function public.ws_spec_pub_boot(), public.ws_spec_pub_index(), public.ws_spec_pub_page(text, int) to anon, authenticated;
+revoke all on function public.ws_spec_pub_boot(), public.ws_spec_pub_search(text, text[]), public.ws_spec_pub_page(text, int) from public;
+grant execute on function public.ws_spec_pub_boot(), public.ws_spec_pub_search(text, text[]), public.ws_spec_pub_page(text, int) to anon, authenticated;

@@ -73,6 +73,7 @@ create or replace function public.ws_map_load(p_token text)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare me public.staff := public.ws_auth(p_token);
 begin
+  perform public.ws_menu_guard(me.role, 'map');   -- 메인 메뉴에서 끈 지도 (결정 148, 15_menu.sql)
   return jsonb_build_object('ok', true, 'canEdit', public.ws_map_can_edit(me.role), 'isBoss', me.role = '소장',
     'kv', (select coalesce(jsonb_object_agg(k, v), '{}'::jsonb) from public.map_kv),
     'vers', (select coalesce(jsonb_object_agg(k, public.ws_ver(updated_at)), '{}'::jsonb) from public.map_kv),

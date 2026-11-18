@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.15.0', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.17.0', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -336,6 +336,15 @@ function adminStaff(token) {
   bossOnly_(token);
   return { ok: true, staff: staffOut_(), toastSec: toastSec_() };
 }
+const MENU_KEYS_ = ['docs', 'inspect', 'spec', 'map'];   // 메인 메뉴 켜기·끄기 (결정 148) — 설정 시트 「메인메뉴끄기」
+function menuOff_() { return String(setting_('메인메뉴끄기') || '').split(',').filter(function (k) { return MENU_KEYS_.indexOf(k) !== -1; }); }
+function adminSetMenu(token, off) {
+  const me = bossOnly_(token);
+  const v = MENU_KEYS_.filter(function (k) { return (off || []).indexOf(k) !== -1; });
+  setSetting_('메인메뉴끄기', v.join(','));
+  log_(me['이름'], '메인 메뉴 끄기', '', v.join(',') || '모두 켬');
+  return { ok: true, off: menuOff_() };
+}
 function adminSetToast(token, sec) {
   const me = bossOnly_(token);
   sec = Number(sec);
@@ -568,7 +577,7 @@ function bootstrap(token) {
   if (mode === 'block') throw new Error('LOGIN');   // 그날 휴무로 바뀌었으면 기기 표도 막음 → 다시 PIN 넣으면 안내
   const signs = daySigns_(day);
   return {
-    ok: true, user: userOut_(me), app: APP, toastSec: toastSec_(),
+    ok: true, user: userOut_(me), app: APP, toastSec: toastSec_(), menuOff: menuOff_(),
     needSign: mode === 'sign' && !signs.some(function (r) { return r['staff_id'] === me['staff_id']; }),
     docs: { day: day, signs: signs.length },
     fire: fireSummary_()

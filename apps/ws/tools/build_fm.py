@@ -61,11 +61,47 @@ app = '<!-- 자동 생성: tools/build_fm.py (src/Index.html). 직접 고치지 
 open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'app.html'), 'w', encoding='utf-8').write(app)
 print('../../fm/ws/app.html', len(app), 'bytes · v' + ver)
 
-# ── 외부용 시방서 검색 단독 페이지 (결정 142): 같은 화면 코드를 WS_PUB 로 → 로그인 없이 시방서 검색만 ──
-T_APP = '<title>업무지원 · 에비뉴엘 시설팀</title>'
-assert app.count(T_APP) == 1
-pub = app.replace(T_APP, '<title>시방서 검색 · 에비뉴엘 시설팀</title>\n<script>window.WS_PUB = true;</script>')
-pub = pub.replace('<link rel="manifest" href="manifest.webmanifest">\n', '')   # 홈 화면 추가 때 업무지원 앱으로 열리지 않게
+# ── 외부용 시방서 검색 단독 페이지 (결정 142·146): 시방서 코드만 떼어 담은 가벼운 파일 → 업무지원 앱의 다른 코드·통로는 안 들어감 ──
+#    서버 함수는 로그인 없는 ws_spec_pub_* 3개만 (14_spec.sql). 검색은 서버에서, 색인 전체는 내려주지 않음
+J0, J1 = ix.index('/* ── 시방서 검색 (결정 140'), ix.index('/* ── 메인 메뉴 켜기·끄기')
+CSS = ix[ix.index('<style>'):ix.index('</style>') + 8]   # 모양(글자 모양뿐)은 통째로 — 머리·알림·띠 모양을 같이 씀
+ICONS = ''.join(l.strip() + '\n' for l in ix.splitlines() if re.match(r"\s+(search|x): '<svg", l))
+assert ICONS.count('<svg') == 2 and J0 < J1
+PUB_JS = r"""window.WS_PUB = true;
+const S = { view: 'spec', sp: null };
+const ICON = {
+%ICONS%};
+function h(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function $(id) { return document.getElementById(id); }
+function toast(msg) {
+  let t = document.querySelector('.toast');
+  if (!t) { t = document.createElement('div'); t.className = 'toast hide'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg; t.classList.remove('hide'); clearTimeout(toast.k); toast.k = setTimeout(() => t.classList.add('hide'), 2600);
+}
+const C = window.WS_CONFIG || {};
+const SB = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+function rpc(fn, a) { return SB.rpc(fn, a).then(r => { if (r.error) throw new Error(r.error.message); return r.data; }); }
+const API = {
+  specPubBoot: () => rpc('ws_spec_pub_boot', {}),
+  specPubSearch: (q, g) => rpc('ws_spec_pub_search', { p_q: String(q || '').slice(0, 40), p_guides: g }),
+  specPubPage: (d, p) => rpc('ws_spec_pub_page', { p_guide: String(d || ''), p_page: Number(p) || 0 })
+};
+function call(fn, ...a) { return API[fn](...a).catch(e => { toast('서버 오류: ' + (e && e.message || e)); throw e; }); }
+function go(v) { S.view = v; }
+function render() { $('app').innerHTML = S.sp ? renderSpec() : ''; if (S.sp && S.sp.boot) spDraw(); }
+"""
+PUB_END = r"""// 소스 보기·저장 단축키 막기 (F12, Ctrl+U, Ctrl+S, Ctrl+Shift+I/J/C) — 숨김이 아니라 손쉬운 복사를 줄이는 정도
+document.addEventListener('keydown', e => { const k = (e.key || '').toLowerCase(); if (k === 'f12' || ((e.ctrlKey || e.metaKey) && (k === 'u' || k === 's' || (e.shiftKey && 'ijc'.indexOf(k) >= 0)))) e.preventDefault(); });
+document.addEventListener('contextmenu', e => e.preventDefault());
+openSpec();
+"""
+pub = ('<!-- 자동 생성: tools/build_fm.py (src/Index.html 의 시방서 검색 부분만). 직접 고치지 마세요. -->\n<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
+       '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<meta name="theme-color" content="#FFFFFF">\n'
+       '<link rel="icon" href="../icon-192.png">\n<title>시방서 검색 · 에비뉴엘 시설팀</title>\n<meta name="robots" content="noindex">\n'
+       '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>\n'
+       '<script src="config.js?v=' + ver + '"></script>\n' + styles + CSS + '\n</head>\n<body>\n<div id="app"></div>\n<script>\n'
+       + PUB_JS.replace('%ICONS%', ICONS) + ix[J0:J1] + PUB_END + '</script>\n</body>\n</html>\n')
+assert '<?' not in pub and 'ws-api.js' not in pub and 'renderMain' not in pub
 open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'spec.html'), 'w', encoding='utf-8').write(pub)
 print('../../fm/ws/spec.html', len(pub), 'bytes')
 

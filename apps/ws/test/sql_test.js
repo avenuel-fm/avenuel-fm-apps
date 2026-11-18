@@ -545,6 +545,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q("update daily_log set humidity = 45 where log_date = $1", [D]);
   ok((await call('ws_ahu_get', [tk, D])).wx.humidity === 45, '공조기: 종합업무일지 습도 칸을 읽음');
 
+  await db.exec(SQL('15_menu.sql')); await db.exec(SQL('15_menu.sql'));   // 메인 메뉴 켜기·끄기 (결정 148) — 지도·시방서가 부름
   // ══ 지도 (13_map.sql, 결정 130 · 기록 132 · 동시 편집·권한 134) ══
   await db.exec(SQL('13_map.sql'));
   await q("insert into map_kv (k, v, editor) values ('lotte_symbols_B1', '[\"old\"]', '옛사람')");   // 기록 시작 전부터 있던 칸 (11-17 배포 때처럼)
@@ -573,6 +574,15 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q("update staff set role = '직원' where staff_id = 'S003'");
   const em = await call('ws_map_load', ['emp']);
   ok(em.ok && em.canEdit === false && em.isBoss === false && /소장·부소장·파트장·옵저버만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
+  // ══ 메인 메뉴 켜기·끄기 (15_menu.sql, 결정 148) ══
+  ok(/소장만/.test(await callErr('ws_admin_set_menu', ['emp', ['map']])) && (await call('ws_menu', ['emp'])).off.length === 0, '메뉴: 끄기는 소장만 · 처음엔 모두 켜짐');
+  ok(JSON.stringify((await call('ws_admin_set_menu', [tk, ['map', 'x', 'map', 'docs']])).off) === '["docs","map"]' && JSON.stringify((await call('ws_menu', ['emp'])).off) === '["docs","map"]', '메뉴: 소장이 끄면 모두에게 (모르는 이름·겹침은 버림)');
+  ok(/사용 중지/.test(await callErr('ws_map_load', ['emp'])) && (await call('ws_map_load', [tk])).ok, '메뉴: 꺼진 지도는 직원에게 서버에서도 막힘 · 소장은 엶');
+  await q("update staff set role = '옵저버' where staff_id = 'S003'"); const mo = await call('ws_map_load', ['emp']);
+  await q("update staff set role = '관리자' where staff_id = 'S003'"); const ma = await call('ws_map_load', ['emp']);
+  await q("update staff set role = '직원' where staff_id = 'S003'");
+  ok(mo.ok && ma.ok, '메뉴: 옵저버·관리자는 꺼진 지도도 엶');
+  ok((await call('ws_admin_set_menu', [tk, []])).off.length === 0 && (await call('ws_map_load', ['emp'])).ok && (await one("select value from settings where key = '메인메뉴끄기'")).value === '', '메뉴: 다시 켜면 직원도 엶 (설정 표 「메인메뉴끄기」)');
   ok((await one("select count(*)::int n from map_hist where k = 'lotte_util_lines_1F'")).n === 1 && (await one("select v from map_hist where k = 'lotte_util_lines_1F'")).v === '[]', '기록: 같은 날 같은 칸은 마지막 것만');
   // 업체 바탕 도면
   let mb = await call('ws_map_base', ['emp', 'lotte_base_svg_1F', '<svg>v1</svg>']);
@@ -611,6 +621,8 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q("insert into dw_guides (id, title, short, entries, archived, archived_at) values ('G0', '옛 지침', '옛', $1, true, '2026-01-01')", [JSON.stringify([{ d: 'G0', p: 1, t: '방화구획 옛' }])]);
   await q("insert into dw_synonyms values (1, '방화구획', '방화 구획, 방화벽')");
   ok(/permission denied/.test(await asErr('anon', "select ws_spec_index('x')")) && /LOGIN/.test(await callErr('ws_spec_boot', ['bad'])) && /LOGIN/.test(await callErr('ws_spec_page', ['bad', 'G1', 12])), '시방서: 손님 막음 · 로그인 표 없으면 막음');
+  await call('ws_admin_set_menu', [tk, ['spec']]);
+  ok(/사용 중지/.test(await callErr('ws_spec_boot', ['emp'])) && (await call('ws_admin_set_menu', [tk, []])).ok, '메뉴: 꺼진 시방서 검색도 직원에게 서버에서 막힘 (결정 148)');
   const sb = await call('ws_spec_boot', ['emp']);
   ok(sb.ok && sb.guides.length === 2 && sb.guides[0].id === 'G1' && sb.guides[1].archived === true && sb.synonyms.length === 1 && sb.synonyms[0].includes('방화벽'), '시방서: 지침 목록(이전 판 뒤) · 비슷한 말 — 직원도 읽음');
   const si = await call('ws_spec_index', ['emp']);
@@ -619,10 +631,14 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(sp.img === 'https://b/g1/12.jpg' && sp.pdf === 'https://b/g1.pdf' && sp2.ok && sp2.img === '' && (await call('ws_spec_page', ['emp', 'GX', 1])).ok === false, '시방서: 쪽 그림·원본 PDF 주소 (드라이브로 옮긴 것은 빈 값, 없는 지침은 안내)');
   // 외부용 단독 페이지 (결정 142): 로그인 없이(anon) 읽기만 · 지금 판만 · 원본 PDF 주소 없음
   const pr = r => r[0][Object.keys(r[0])[0]];
-  const pb = pr(await as('anon', 'select ws_spec_pub_boot()')), pi = pr(await as('anon', 'select ws_spec_pub_index()'));
+  const pb = pr(await as('anon', 'select ws_spec_pub_boot()')), ps = q2 => as('anon', 'select ws_spec_pub_search($1, $2)', q2).then(pr);
   const pp = pr(await as('anon', "select ws_spec_pub_page('G1', 12)")), po = pr(await as('anon', "select ws_spec_pub_page('G0', 1)"));
   ok(pb.ok && pb.guides.length === 1 && pb.guides[0].id === 'G1' && pb.synonyms.length === 1, '외부용: 손님(anon)도 열림 · 이전 판 지침은 목록에서 뺌');
-  ok(pi.entries.length === 2 && pi.entries.every(e => e.d === 'G1'), '외부용: 검색 항목도 지금 판만');
+  const ss1 = await ps(['방화 구획', ['G1', 'G0']]), ss2 = await ps(['방화벽', ['G1']]), ss3 = await ps(['감지기', []]), ss4 = await ps(['  ', ['G1']]);
+  ok(ss1.entries.length === 1 && ss1.entries[0].p === 12 && ss1.counts.G1 === 1 && !('G0' in ss1.counts), '외부용 검색(결정 146): 서버에서 찾음 · 띄어쓰기 무시 · 이전 판은 고르더라도 안 줌');
+  ok(ss2.entries.length === 1 && ss2.entries[0].p === 12, '외부용 검색: 비슷한 말 묶음(방화벽 → 방화구획)도 찾음');
+  ok(ss3.entries.length === 0 && ss3.counts.G1 === 1 && ss4.entries.length === 0, '외부용 검색: 고른 지침이 없으면 결과 없이 건수만 · 빈 검색어는 빈 답');
+  ok(/does not exist/.test(await asErr('anon', 'select ws_spec_pub_index()')), '외부용: 색인 통째로 주던 함수는 없앰');
   ok(pp.img === 'https://b/g1/12.jpg' && pp.pdf === '' && po.ok === false, '외부용: 쪽 그림만 (원본 PDF 주소 없음 · 이전 판 쪽은 안 줌)');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');

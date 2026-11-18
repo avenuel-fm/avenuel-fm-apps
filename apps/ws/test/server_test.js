@@ -362,7 +362,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(checkSubmit(fe.token, { photo: pic, signA: sg, signB: sg, state: '이상없음', overwrite: true }).ok && Object.values(F).filter(f => f.trashed).length === trashed0 + 3, '결정80: 성공하면 그때 옛 파일 3개 휴지통');
   // 밖에서 부를 수 있는 함수(이름이 _로 안 끝남)는 정한 것만 — 시트 메뉴·예약 함수는 모두 _
   const pub = [...fs.readFileSync(require('path').join(__dirname, '..', 'src', 'Code.gs'), 'utf8').matchAll(/^function\s+([A-Za-z0-9$]+)\s*\(/gm)].map(m => m[1]).filter(x => !/_$/.test(x));
-  const ALLOWED = ['adminStaff', 'adminSetToast', 'adminStaffSave', 'adminStaffPin', 'adminStaffRemove', 'onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport', 'csHome', 'csSiteSave', 'csSiteEnd', 'csItemsSave', 'csGet', 'csSave', 'csSavePdf', 'logGet', 'logSave', 'logSavePdf'];
+  const ALLOWED = ['adminStaff', 'adminSetToast', 'adminSetMenu', 'adminStaffSave', 'adminStaffPin', 'adminStaffRemove', 'onOpen', 'doPost', 'doGet', 'include', 'login', 'signToday', 'bootstrap', 'tbmGet', 'tbmSave', 'tbmSavePdf', 'nextWorkGet', 'nextWorkSave', 'attGet', 'attPut', 'attFix', 'attHoliday', 'feList', 'feAdd', 'feDelete', 'labelSave', 'feStatus', 'feDetail', 'checkInit', 'checkSubmit', 'ehList', 'ehStoreSave', 'ehStoreDelete', 'ehSave', 'ehDelete', 'ehPrinted', 'ehImport', 'csHome', 'csSiteSave', 'csSiteEnd', 'csItemsSave', 'csGet', 'csSave', 'csSavePdf', 'logGet', 'logSave', 'logSavePdf'];
   const extra = pub.filter(x => ALLOWED.indexOf(x) === -1);
   assert(!extra.length, '결정80: 밖에서 부를 수 있는 함수는 화면용으로 정한 것만 ' + extra.join(', '));
 }
@@ -644,6 +644,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(no, '결정102: 직원은 환경설정 못 씀');
   let r = adminStaff(bs); assert(r.ok && r.staff.some(x => x.name === '설정직원') && r.toastSec === 2.6, '결정102: 소장 직원 목록 · 알림 기본 2.6초');
   assert(!adminSetToast(bs, 30).ok && adminSetToast(bs, 1.5).ok && bootstrap(em).toastSec === 1.5, '결정102: 알림 시간 저장 → 모두에게');
+  assert(JSON.stringify(adminSetMenu(bs, ['map', 'x', 'docs']).off) === '["docs","map"]' && JSON.stringify(bootstrap(em).menuOff) === '["docs","map"]' && adminSetMenu(bs, []).off.length === 0, '결정148: 메인 메뉴 끄기 저장 → 모두에게 (모르는 이름은 버림)');
   assert(!adminStaffSave(bs, { name: '새직원', pin: '4111', part: '기건파트', role: '직원' }).ok, '결정102: 남의 PIN으로 추가 거부');
   r = adminStaffSave(bs, { name: '새직원', pin: '6333', part: '기건파트', role: '직원' }); assert(r.ok && r.staff.some(x => x.name === '새직원'), '결정102: 직원 추가');
   const nid = r.staff.filter(x => x.name === '새직원')[0].staff_id;
