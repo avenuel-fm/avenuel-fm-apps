@@ -544,6 +544,21 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(ah.ok && /a1\.pdf$/.test(ah.rec.pdf.url) && (await one("select file_name, drive_folder from files where kind = 'ahu_pdf'")).file_name === D + '_공조기환기온도.pdf', '공조기 PDF 저장 · 파일 이름');
   await q("update daily_log set humidity = 45 where log_date = $1", [D]);
   ok((await call('ws_ahu_get', [tk, D])).wx.humidity === 45, '공조기: 종합업무일지 습도 칸을 읽음');
+  {   // 서명란: 소장 > 부소장, 기계·건축 파트장 > 냉동장, 그날 서명한 사람만 (사용자 11-19)
+    const X = '2026-10-05', sf = (await one('select sign_file_id::text f from signs where sign_file_id is not null limit 1')).f;
+    const sg = async () => (await call('ws_ahu_get', [tk, X])).signs;
+    const sign = (id, name, staff, at) => q("insert into signs (sign_id, work_day, staff_id, name, sign_file_id, signed_at) values ($1, $2, $3, $4, $5, $6)", [id, X, staff, name, sf, X + 'T' + at + '+09']);
+    await q("insert into roster (ym, seq, section, role, name) values ('2026-10',1,'관리파트','부소장','부가람'),('2026-10',2,'기계·건축','파트장','파나래'),('2026-10',3,'기계·건축','냉동장','냉다솜'),('2026-10',4,'전기·방재','파트장','전라온')");
+    let x = await sg();
+    ok(x.boss === null && x.part === null, '공조기 서명란: 아무도 서명 안 한 날 → 빈 칸 ' + J(x));
+    await sign('AS1', '전라온', null, '08:00'); await sign('AS2', '냉다솜', null, '08:10'); await sign('AS3', '부가람', null, '08:20');
+    x = await sg();
+    ok(x.boss.name === '부가람' && x.part.name === '냉다솜' && /^https:\/\/x\/sign\//.test(x.part.img), '공조기 서명란: 소장·파트장 없으면 부소장·냉동장 (전기 파트장은 안 씀) ' + J(x));
+    const boss = (await one("select staff_id from staff where role = '소장' and name = '홍길동'")).staff_id;
+    await sign('AS4', '파나래', null, '09:00'); await sign('AS5', '홍길동', boss, '09:30');
+    x = await sg();
+    ok(x.boss.name === '홍길동' && x.part.name === '파나래', '공조기 서명란: 둘 다 나오면 소장·기계·건축 파트장 ' + J(x));
+  }
 
   await db.exec(SQL('15_menu.sql')); await db.exec(SQL('15_menu.sql'));   // 메인 메뉴 켜기·끄기 (결정 148) — 지도·시방서가 부름
   // ══ 지도 (13_map.sql, 결정 130 · 기록 132 · 동시 편집·권한 134) ══

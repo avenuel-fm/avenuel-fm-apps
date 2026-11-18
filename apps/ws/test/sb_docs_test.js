@@ -26,7 +26,7 @@ const logData = d => {
 };
 const AT = {};
 const AHU = {}, AHU_UNITS = [{ no: '7F-39', room: '공조실-4', place: '6층 더페어링,와인 라콘차' }, { no: '6F-36', room: '공조실-1', place: '6층 뮤지엄' }, { no: 'B3F-HVU1', room: '공조실-1', place: 'B3층 직원식당 주방 (외조기)' }];
-const ahuData = d => ({ ok: true, day: d, workDay: D, units: AHU_UNITS, rec: AHU[d] || null, wx: { weather: '맑음', tmin: 4, tmax: 13.5, humidity: 45 } });
+const ahuData = d => ({ ok: true, day: d, workDay: D, units: AHU_UNITS, rec: AHU[d] || null, wx: { weather: '맑음', tmin: 4, tmax: 13.5, humidity: 45 }, signs: { boss: { name: '홍길동', img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60'%3E%3Cpath d='M8 40 C20 10 30 50 42 25 S60 45 70 20 S95 50 112 18' fill='none' stroke='%23123' stroke-width='4'/%3E%3C/svg%3E" }, part: null } });
 const attData = d => ({ ok: true, date: d, today: D, months: [D.slice(0, 7)], ju: Array(30).fill(1), upBy: ME.name, upAt: D + ' 08:00:00', canFix: true, canBoss: true,
   people: [{ sec: '전기', role: '소장', name: ME.name, v: '', raw: '', fix: null, hol: '' },
     { sec: '기계', role: '기사', name: '김철수', v: AT.fix ? AT.fix.v : '', raw: '', fix: AT.fix ? { by: ME.name, at: D + ' 09:00:00' } : null, hol: AT.hol || '' }] });
@@ -288,6 +288,8 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.evaluate(() => openAhu()); await p.locator('#ahuSheet').waitFor();
   const sh = await p.locator('#ahuSheet').innerText();
   ok(/에비뉴엘 AHU · 환기온도 점검일지/.test(sh) && /파트장/.test(sh) && /습도\s*45%/.test(sh) && /B3F-HVU1/.test(sh) && await p.locator('#ahuBar .back-in').count() === 1, 'A1) 공조기 PC: B4 종이 · 서명란 파트장 · 날씨·습도 자동 · 외조기 · 아래 줄 [뒤로]');
+  ok(await p.locator('.hvsign img').count() === 1 && await p.locator('.hvsign td').nth(1).locator('img[alt="홍길동 서명"]').count() === 1, 'A1b) 서명란: 소장 칸에 그날 서명 그림, 파트장 칸은 빈 칸');
+  await p.locator('.hvsh').screenshot({ path: path.join(__dirname, 'shot_sb_ahu_sign.png') });
   await p.fill('input.lgin[data-u="7F-39"][data-t="12"]', '22.3'); await p.fill('input.lgin[data-k="out_t12"]', '9.8');
   ok(/저장 안 함/.test(await p.locator('#ahuState').innerText()), 'A2) 고치면 「저장 안 함」');
   await p.click('#ahuSave');

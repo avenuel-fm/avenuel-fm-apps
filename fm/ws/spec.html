@@ -482,7 +482,7 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:i
 .hvs h1{margin:0;font-size:26px;font-weight:700}
 .hvsh{display:flex;align-items:flex-end;gap:16px}.hvsh .d{font-size:14px;color:#3F4855;margin-top:4px}
 .hvsh .wx{margin-left:auto;display:flex;gap:4px 10px;align-items:center;font-size:12.5px;color:#3F4855}.hvsh .wx b{color:#18202B}
-.hvsign{border-collapse:collapse;margin-left:16px}.hvsign th,.hvsign td{border:1px solid #18202B;width:74px;text-align:center;font-size:11.5px}.hvsign th{height:22px;font-weight:500;background:#EDF0F3}.hvsign td{height:44px}
+.hvsign{border-collapse:collapse;margin-left:16px}.hvsign th,.hvsign td{border:1px solid #18202B;width:74px;text-align:center;font-size:11.5px}.hvsign th{height:22px;font-weight:500;background:#EDF0F3}.hvsign td{height:44px;padding:1px}.hvsign img{display:block;margin:auto;max-width:72px;max-height:42px;object-fit:contain}
 .hvsmall{border-collapse:collapse;font-size:13.5px}.hvsmall th,.hvsmall td{border:1px solid #CBD2DB;height:24px;padding:0 8px;text-align:center;min-width:70px}.hvsmall th{background:#EDF0F3;font-weight:500;color:#3F4855}
 .hvnote{border:1px solid #CBD2DB;padding:10px 14px;font-size:13.5px;line-height:1.7;color:#3F4855;flex:1}.hvnote b{font-weight:600;color:#18202B}
 .hvgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
@@ -609,7 +609,7 @@ async function openSpec() {
   go('spec');
   try {
     if (S.sp.boot) {}
-    else if (window.WS_PUB) { S.sp.boot = await call('specPubBoot'); S.sp.idx = []; }   // 외부용(spec.html): 색인은 내려주지 않고 서버에서 찾음 (결정 144)
+    else if (window.WS_PUB) { S.sp.boot = await call('specPubBoot'); S.sp.idx = []; }   // 외부용(spec.html): 색인은 내려주지 않고 서버에서 찾음 (결정 146)
     else { const [b, x] = await Promise.all([call('specBoot'), call('specIndex')]); S.sp.boot = b; S.sp.idx = x.entries || []; }
   } catch (e) { S.sp.err = '시방서를 불러오지 못했습니다. 다시 열어 주세요.'; }
   if (S.view === 'spec') { render(); const i = $('spQ'); if (i && !('ontouchstart' in window)) i.focus(); }
@@ -682,7 +682,7 @@ function renderSpec() {
     '<div id="spBig"></div>';
 }
 function spQ(v, setBox) { S.sp.q = v; S.sp.sel = null; if (setBox) $('spQ').value = v; spGo(); }
-/** 외부용(spec.html)은 서버에서 찾아 받은 뒤 그림 — 전체 색인을 내려주지 않음, 고른 지침만 최대 80건 (결정 144) */
+/** 외부용(spec.html)은 서버에서 찾아 받은 뒤 그림 — 전체 색인을 내려주지 않음, 고른 지침만 최대 80건 (결정 146) */
 let spT = 0, spN = 0;
 function spGo() {
   if (!window.WS_PUB) return spDraw();

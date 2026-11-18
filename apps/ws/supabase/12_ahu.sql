@@ -82,10 +82,34 @@ returns numeric[] language sql immutable set search_path = public as $$
                when p_key like 'cw_t%' then array[-5, 40] else array[-10, 50] end)::numeric[];
 $$;
 
+-- 서명란 (사용자 11-19): 그날 로그인 서명한 사람 중에서
+--  · 소장 칸  = 소장 > 부소장 (직원 탭 역할 또는 그 달 근무표 직책)
+--  · 파트장 칸 = 기계·건축 파트장 > 냉동장 (근무표 직책. 근무표가 없으면 직원 탭 「파트장」 + 파트 기건·기계)
+--  같은 순위가 여럿이면 먼저 서명한 사람. 아무도 없으면 빈 칸
+create or replace function public.ws_ahu_signs(p_day date)
+returns jsonb language sql stable security definer set search_path = public as $$
+  with sg as (
+    select s.name, s.signed_at, public.ws_file_url(s.sign_file_id) img, coalesce(st.role, '') srole, coalesce(st.part, '') spart,
+           coalesce(r.section, '') rsec, coalesce(r.role, '') rrole
+    from public.signs s left join public.staff st using (staff_id)
+    left join lateral (select section, role from public.roster where ym = to_char(p_day, 'YYYY-MM') and name = s.name and not deleted order by seq limit 1) r on true
+    where s.work_day = p_day and not s.deleted and s.sign_file_id is not null),
+  rk as (
+    select name, img, signed_at,
+           case when srole = '소장' or rrole = '소장' then 1 when srole = '부소장' or rrole = '부소장' then 2 end boss,
+           case when rrole like '%파트장%' and rsec ~ '기계|건축' then 1
+                when rrole = '' and srole = '파트장' and spart ~ '기건|기계|건축' then 1
+                when rrole like '%냉동%' then 2 end part
+    from sg)
+  select jsonb_build_object(
+    'boss', (select jsonb_build_object('name', name, 'img', img) from rk where boss is not null order by boss, signed_at limit 1),
+    'part', (select jsonb_build_object('name', name, 'img', img) from rk where part is not null order by part, signed_at limit 1));
+$$;
+
 -- 화면이 받는 모양: 목록 · 그날 기록 · 종합업무일지 날씨
 create or replace function public.ws_ahu_data(p_day date)
 returns jsonb language sql stable security definer set search_path = public as $$
-  select jsonb_build_object('ok', true, 'day', p_day, 'workDay', public.ws_work_day(),
+  select jsonb_build_object('ok', true, 'day', p_day, 'workDay', public.ws_work_day(), 'signs', public.ws_ahu_signs(p_day),
     'units', (select coalesce(jsonb_agg(jsonb_build_object('no', no, 'room', room, 'place', place) order by seq), '[]'::jsonb) from public.ahu_unit where active),
     'rec', (select jsonb_build_object('out_t12', t.out_t12, 'out_t16', t.out_t16, 'out_h12', t.out_h12, 'out_h16', t.out_h16, 'cw_t12', t.cw_t12, 'cw_t16', t.cw_t16,
                      'temps', t.temps, 'authors', to_jsonb(t.authors), 'by', coalesce(t.editor, ''), 'ver', public.ws_ver(t.updated_at),
@@ -190,6 +214,6 @@ begin
 end $$;
 
 -- 권한: 도우미는 막음. 로그인 기기만 3개
-revoke all on function public.ws_ahu_range(text), public.ws_ahu_data(date), public.ws_ahu_get(text, text), public.ws_ahu_save(text, text, jsonb),
+revoke all on function public.ws_ahu_range(text), public.ws_ahu_data(date), public.ws_ahu_signs(date), public.ws_ahu_get(text, text), public.ws_ahu_save(text, text, jsonb),
   public.ws_ahu_save_pdf(text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.ws_ahu_get(text, text), public.ws_ahu_save(text, text, jsonb), public.ws_ahu_save_pdf(text, text, jsonb) to authenticated;
