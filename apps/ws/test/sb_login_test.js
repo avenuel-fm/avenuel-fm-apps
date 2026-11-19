@@ -47,7 +47,7 @@ const FAKE = `window.supabase = { createClient() {
     },
     async rpc(fn, args) { if (!get()) return { data: null, error: { message: 'permission denied' } }; const r = await post('/rpc/' + fn, args); return r.err ? { data: null, error: { message: r.err } } : { data: r.data, error: null }; },
     storage: { from() { return {
-      async upload(p, blob) { if (!get()) return { error: { message: 'row-level security' } }; await post('/upload', { p, type: blob.type, size: blob.size }); return { error: null }; },
+      async upload(p, blob) { if (!get()) return { error: { message: 'row-level security' } }; let corner = null, ink = 0; if (blob.type === 'image/png') { const bm = await createImageBitmap(blob), c = new OffscreenCanvas(bm.width, bm.height).getContext('2d'); c.drawImage(bm, 0, 0); const d = c.getImageData(0, 0, bm.width, bm.height).data; corner = d[3]; for (let i = 3; i < d.length; i += 4) if (d[i] === 255) ink++; } await post('/upload', { p, type: blob.type, size: blob.size, corner, ink }); return { error: null }; },
       getPublicUrl(p) { return { data: { publicUrl: location.origin + '/public/' + p } }; } }; } }
   };
 } };`;
@@ -93,6 +93,7 @@ const srv = http.createServer((req, res) => {
   await p.mouse.up(); await p.click('#sGo');
   await p.locator('.grid6').waitFor();
   ok(UPLOADS.length === 1 && /^sign\/\d{4}-\d{2}\/[a-z0-9]+\.png$/.test(UPLOADS[0].p) && UPLOADS[0].type === 'image/png', '6) 서명 PNG를 버킷 sign/ 아래 영문 경로로 올림 ' + (UPLOADS[0] || {}).p);
+  ok(UPLOADS[0] && UPLOADS[0].corner === 0 && UPLOADS[0].ink > 0, '6-1) 서명 PNG 바탕은 투명, 글씨만 남음 (모서리 투명도 ' + (UPLOADS[0] || {}).corner + ', 글씨 점 ' + (UPLOADS[0] || {}).ink + ')');
   ok(/소화기/.test(await p.locator('.grid6').innerText()), '7) 메인 화면 (소화기 칸)');
   await p.click('button:text-is("환경설정")');
   await p.locator('.card.strow', { hasText: 'team@avenuel-fm.app' }).waitFor({ timeout: 5000 }).catch(() => {});
