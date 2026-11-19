@@ -558,6 +558,21 @@ alter default privileges in schema public grant all on sequences to anon, authen
     await sign('AS4', '파나래', null, '09:00'); await sign('AS5', '홍길동', boss, '09:30');
     x = await sg();
     ok(x.boss.name === '홍길동' && x.part.name === '파나래', '공조기 서명란: 둘 다 나오면 소장·기계·건축 파트장 ' + J(x));
+    // 종합업무일지 서명란 4칸 (결정 162)
+    const ls = async d => (await call('ws_log_get', [tk, d])).signs, nm = v => ['front', 'mech', 'vice', 'boss'].map(k => v[k] ? v[k].name : '-').join(',');
+    let v = await ls(X);
+    ok(nm(v) === '전라온,파나래,부가람,홍길동' && /^https:\/\/x\/sign\//.test(v.front.img), '일지 서명란: 파트장 둘·부소장·소장이 다 나오면 각자 ' + nm(v));
+    const X2 = '2026-10-06', sign2 = (id, name, staff, at) => q("insert into signs (sign_id, work_day, staff_id, name, sign_file_id, signed_at) values ($1, $2, $3, $4, $5, $6)", [id, X2, staff, name, sf, X2 + 'T' + at + '+09']);
+    await q("insert into roster (ym, seq, section, role, name) values ('2026-10',5,'전기·방재','주임','주하나'),('2026-10',6,'전기·방재','주임','주세찬'),('2026-10',7,'기계·건축','주임','주두리')");
+    ok(nm(await ls(X2)) === '-,-,-,-', '일지 서명란: 아무도 서명 안 한 날 → 빈 칸');
+    await sign2('LS1', '주두리', null, '07:50'); await sign2('LS2', '주하나', null, '08:00'); await sign2('LS3', '주세찬', null, '08:05'); await sign2('LS4', '홍길동', boss, '08:30');
+    v = await ls(X2);
+    ok(nm(v) === '주하나,주두리,홍길동,홍길동', '일지 서명란: 파트장·냉동장 없으면 주임(먼저 서명한 사람) · 부소장 없으면 소장이 두 칸 ' + nm(v));
+    await sign2('LS5', '냉다솜', null, '09:00'); await sign2('LS6', '부가람', null, '09:10');
+    v = await ls(X2);
+    ok(nm(v) === '주하나,냉다솜,부가람,홍길동', '일지 서명란: 냉동장이 주임보다 앞 · 부소장 칸은 부소장 ' + nm(v));
+    await q("delete from signs where sign_id = 'LS4'");
+    ok(nm(await ls(X2)) === '주하나,냉다솜,부가람,부가람', '일지 서명란: 소장 없으면 소장 칸에 부소장');
   }
 
   await db.exec(SQL('15_menu.sql')); await db.exec(SQL('15_menu.sql'));   // 메인 메뉴 켜기·끄기 (결정 148) — 지도·시방서가 부름
