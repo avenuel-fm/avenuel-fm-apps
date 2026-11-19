@@ -50,7 +50,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
     await q('없는현장'); ok(await p.locator('.csrow').count() === 0 && await p.locator('text=없는현장」 없음').count() === 1, '없는 말 → 「없음」 안내');
     await q(''); ok(await p.locator('.csrow').count() === 2, '검색 지우면 다시 2곳');
   }
-  ok(await p.locator('.csbtns button:has-text("새 공사 현장 추가") + button:has-text("기본 항목 고치기 (2 / 9)")').count() === 1, '[기본 항목 고치기 (2 / 9)]는 [새 공사 현장 추가] 옆');
+  ok(await p.locator('.csbtns button:has-text("새 공사 현장 추가") + button:has-text("공사 완료")').count() === 1 && await p.locator('.csbtns button:has-text("기본 항목 고치기 (2 / 9)")').count() === 1, '[새 공사 현장 추가] 옆에 [공사 완료], 아래 줄에 [기본 항목 고치기 (2 / 9)]');
   // 처음엔 「점검에 넣기」 2개만: 오후점검은 1. 정리정돈·통로 · 2. 안전수칙 위반 (나가도 줄 안 생김)
   await p.click('.csrow:has-text("5F 리모와") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit').count() === 2 && /^1\. 정리정돈·통로/.test(await p.locator('.csit h3').first().innerText()) && /^2\. 안전수칙 위반/.test(await p.locator('.csit h3').nth(1).innerText()), '오후점검 = 정리정돈·통로 · 안전수칙 위반 → 1·2번');
@@ -148,6 +148,26 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.click('#ciSb'); await p.waitForSelector('button:has-text("기본 항목 고치기 (9 / 9)")');
   await p.click('.csrow:has-text("3F 메종키츠네") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit h3:has-text("양중 작업")').count() === 1 && await p.locator('.csit h3:has-text("고소·사다리")').count() === 0, '새 점검은 고친 기본 항목으로');
+
+  // 공사 완료 (결정 174): 골라서 뺌 → 오늘 목록에서 빠지고, 점검 기록은 지난 점검(날짜 아코디언)에 남아 검색됨
+  await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와")');
+  await p.click('.csbtns .csdone'); await p.waitForSelector('.csdl');
+  ok(await p.locator('.csdl').count() === 2 && await p.locator('#csDb').isDisabled(), '공사 완료 창: 현장 2곳, 고르기 전엔 단추 꺼짐');
+  await p.locator('.csdl:has-text("5F 리모와") input').check();
+  ok(/선택한 1곳 공사 완료/.test(await p.locator('#csDb').innerText()), '고르면 「선택한 1곳 공사 완료」');
+  await p.click('#csDb'); await p.waitForFunction(() => !document.querySelector('.csdl'));
+  await p.waitForFunction(() => document.querySelectorAll('#csRes > .cslist:first-child .csrow').length === 1);
+  ok(await p.locator('#csRes > .cslist:first-child .csrow:has-text("5F 리모와")').count() === 0 && await p.locator('#csRes > .cslist:first-child .csrow:has-text("3F 메종키츠네")').count() === 1, '오늘 점검할 현장에서 5F 리모와 빠짐');
+  ok(/현장 1곳/.test(await p.locator('.cshd').innerText()), '머리 칸: 현장 1곳');
+  ok(await p.locator('.csacc').count() === 1 && await p.locator('.csacc').getAttribute('aria-expanded') === 'true' && await p.locator('.csacc ~ .csrow:has-text("5F 리모와")').count() === 1 && await p.locator('.csacc ~ .csrow:has-text("5F 리모와") a:has-text("PDF")').count() === 1, '지난 점검: 오늘 날짜 아코디언(펼침)에 5F 리모와 기록·PDF 남음');
+  await p.click('.csacc'); ok(await p.locator('.csacc').getAttribute('aria-expanded') === 'false' && await p.locator('.csacc ~ .csrow').count() === 0, '아코디언 누르면 접힘');
+  await p.fill('#csQ', '리모와'); await p.waitForFunction(() => /없음/.test(document.querySelector('#csRes').innerText));
+  ok(await p.locator('.csacc').count() === 1 && await p.locator('.csacc').getAttribute('aria-expanded') === 'true' && await p.locator('.csacc ~ .csrow:has-text("5F 리모와")').count() === 1, '검색: 완료한 현장도 찾아지고 찾은 날은 펼쳐짐');
+  await p.fill('#csQ', '');
+  await p.click('.csrow:has-text("3F 메종키츠네") .ehmore'); await p.click('button:has-text("공사 완료") >> nth=-1'); await p.waitForFunction(() => !document.querySelector('.csrow .ehmore'));
+  ok(await p.locator('.csbtns .csdone').isDisabled() && await p.locator('.csacc ~ .csrow').count() === 1, '⋯ 메뉴의 [공사 완료]로도 빠짐 · 현장 없으면 [공사 완료] 꺼짐');
+  ok(!(await overflow(p)), '공사 완료·아코디언 · 휴대폰 가로 넘침 없음');
+  await p.screenshot({ path: __dirname + '/shot_cs_done.png', fullPage: true });
 
   // 소장(홍길동)은 단추 있음, 직원(김철수)은 없음
   const z = await open('1234');
