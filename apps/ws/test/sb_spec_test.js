@@ -161,12 +161,12 @@ const texts = (p, sel) => p.locator(sel).allInnerTexts();
 
   // ── 메인 메뉴 켜기·끄기 (결정 148): 직원은 꺼진 칸을 못 엶, 소장·관리자·옵저버는 엶, 소장이 환경설정에서 끔 ──
   MENU_OFF = ['map'];
-  const e1 = await open(b), mt1 = e1.locator('.grid6 .tile:has-text("지도")');
-  ok(await mt1.getAttribute('aria-disabled') === 'true' && /사용 중지/.test(await mt1.innerText()), 'M1) 직원: 꺼진 지도 칸은 흐리게 · 「지금은 사용 중지」');
-  await mt1.click({ force: true }); await e1.locator('.toast:not(.hide)').waitFor();
-  ok(await e1.locator('.grid6').count() === 1 && /지도는 지금 사용 중지입니다/.test(await e1.locator('.toast').innerText()), 'M2) 직원: 눌러도 안 열리고 알림만');
+  const e1 = await open(b), mt1 = e1.locator('.grid6 .tile').nth(5);
+  ok(/작업중/.test(await mt1.innerText()) && await e1.locator('.grid6 .tile:has-text("지도")').count() === 0, 'M1) 직원: 꺼진 지도 칸은 「작업중」 칸으로 보임');
+  ok(await mt1.isDisabled() && await e1.locator('.grid6 .tile.soon:disabled').count() === 3, 'M2) 직원: 꺼진 칸·작업중 칸 모두 눌리지 않음');
   ROLE = '옵저버'; const e2 = await open(b);
-  ok(/직원에게 꺼짐/.test(await e2.locator('.grid6 .tile:has-text("지도")').innerText()), 'M3) 옵저버: 지도 칸에 「직원에게 꺼짐」 표시');
+  ok(!/꺼짐/.test(await e2.locator('.grid6').innerText()) && await e2.locator('.grid6 .tile:has-text("지도")').isEnabled(), 'M3) 옵저버: 지도 칸은 평소 모양 (「직원에게 꺼짐」 글자 없음)');
+  await e2.screenshot({ path: path.join(__dirname, 'shot_menu_main_admin.png') });
   await e2.click('.grid6 .tile:has-text("지도")'); await e2.locator('.mapframe').waitFor();
   ok(true, 'M4) 옵저버: 꺼진 지도도 열림');
   ROLE = '소장'; const e3 = await open(b);
