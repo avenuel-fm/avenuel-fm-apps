@@ -336,6 +336,39 @@ returns date language sql stable set search_path = public as $$
 $$;
 
 -- 화면에 줄 것 전부 (Code.gs logData_) — 공조기(ac)는 화면 통로가 구글에서 받아 붙임
+-- 일지 서명란 (사용자 11-19, 결정 162): 그날 로그인 서명한 사람 중에서. 같은 순위가 여럿이면 먼저 서명한 사람
+--  · 전방책임자 = 전기·방재 파트장 > 전기·방재 주임
+--  · 기건책임자 = 기계·건축 파트장 > 냉동장 > 기계·건축 주임
+--  · 시설부소장 = 부소장 > 소장 · 시설소장 = 소장 > 부소장
+--  직책은 직원 탭 역할(소장·부소장) · 그 달 근무표 구역·직책. 근무표가 없으면 직원 탭 「파트장」 + 파트
+create or replace function public.ws_log_signs(p_day date)
+returns jsonb language sql stable security definer set search_path = public as $$
+  with sg as (
+    select s.name, s.signed_at, public.ws_file_url(s.sign_file_id) img, coalesce(st.role, '') srole, coalesce(st.part, '') spart,
+           coalesce(r.section, '') rsec, coalesce(r.role, '') rrole
+    from public.signs s left join public.staff st using (staff_id)
+    left join lateral (select section, role from public.roster where ym = to_char(p_day, 'YYYY-MM') and name = s.name and not deleted order by seq limit 1) r on true
+    where s.work_day = p_day and not s.deleted and s.sign_file_id is not null),
+  rk as (
+    select name, img, signed_at,
+           case when rrole like '%파트장%' and rsec ~ '전기|방재' then 1
+                when rrole = '' and srole = '파트장' and spart ~ '전방|전기|방재' then 1
+                when rrole like '%주임%' and rsec ~ '전기|방재' then 2 end front,
+           case when rrole like '%파트장%' and rsec ~ '기계|건축' then 1
+                when rrole = '' and srole = '파트장' and spart ~ '기건|기계|건축' then 1
+                when rrole like '%냉동%' then 2
+                when rrole like '%주임%' and rsec ~ '기계|건축' then 3 end mech,
+           case when srole = '부소장' or rrole = '부소장' then 1 when srole = '소장' or rrole = '소장' then 2 end vice,
+           case when srole = '소장' or rrole = '소장' then 1 when srole = '부소장' or rrole = '부소장' then 2 end boss
+    from sg)
+  select jsonb_build_object(
+    'front', (select jsonb_build_object('name', name, 'img', img) from rk where front is not null order by front, signed_at limit 1),
+    'mech', (select jsonb_build_object('name', name, 'img', img) from rk where mech is not null order by mech, signed_at limit 1),
+    'vice', (select jsonb_build_object('name', name, 'img', img) from rk where vice is not null order by vice, signed_at limit 1),
+    'boss', (select jsonb_build_object('name', name, 'img', img) from rk where boss is not null order by boss, signed_at limit 1));
+$$;
+revoke all on function public.ws_log_signs(date) from public, anon, authenticated;
+
 create or replace function public.ws_log_data(p_day date)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare
@@ -353,7 +386,7 @@ begin
     'year', jsonb_build_object('c', public.ws_log_sum(date_trunc('year', p_day)::date, p_day), 'p', public.ws_log_sum(date_trunc('year', prev)::date, prev)),
     'ver', public.ws_ver(c.updated_at), 'by', case when c.updated_at is not null then coalesce(c.editor, '') else '' end,   -- 과거자료(고친 적 없음)는 ''
     'pdf', case when c.pdf_file_id is not null then jsonb_build_object('id', c.pdf_file_id, 'at', public.ws_ver(c.pdf_at), 'url', public.ws_file_url(c.pdf_file_id)) end,
-    'night', public.ws_file_url(c.night_file_id), 'tbm', public.ws_log_tbm(p_day));
+    'night', public.ws_file_url(c.night_file_id), 'tbm', public.ws_log_tbm(p_day), 'signs', public.ws_log_signs(p_day));
 end $$;
 
 create or replace function public.ws_log_get(p_token text, p_day text)
