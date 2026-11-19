@@ -1536,7 +1536,7 @@ function nwDraw() {
     font(400, 15);
     c.forEach((lines, j) => {
       const col = j + 1, left = col === 4;
-      g.fillStyle = col === 5 && nwHot(rows[i].note) ? ERR : NAVY;   // 위험 낱말이 든 비고만 빨간색 (결정 154)
+      g.fillStyle = col === 5 && nwHot(rows[i].note) ? ERR : NAVY;   // 위험 낱말이 든 비고만 빨간색 (결정 158)
       g.textAlign = left ? 'left' : 'center';
       const top = y + rowH[i] / 2 - (lines.length - 1) * 12;
       lines.forEach((l, k) => g.fillText(l, left ? colX[col] + 12 : colX[col] + COLS[col][1] / 2, top + k * 24));
