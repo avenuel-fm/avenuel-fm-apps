@@ -22,11 +22,13 @@ const logData = d => {
   const c = LOG[d];
   return { ok: true, day: d, prevDay: (Number(d.slice(0, 4)) - 1) + d.slice(4), workDay: D, cur: c ? c.cur : null, prev: null,
     vals: { c: {}, p: {}, y: {} }, month: { c: zero(), p: zero() }, year: { c: zero(), p: zero() },
-    ver: c ? c.ver : '', by: c ? ME.name : '', pdf: c && c.pdf || null, night: c && c.night || '', tbm: { 전기방재: ['1층 등 교체'], 기계건축: [] } };
+    ver: c ? c.ver : '', by: c ? ME.name : '', pdf: c && c.pdf || null, night: c && c.night || '', tbm: { 전기방재: ['1층 등 교체'], 기계건축: [] },
+    signs: { front: null, mech: null, vice: { name: '홍길동', img: SIGN_IMG }, boss: { name: '홍길동', img: SIGN_IMG } } };
 };
 const AT = {};
 const AHU = {}, AHU_UNITS = [{ no: '7F-39', room: '공조실-4', place: '6층 더페어링,와인 라콘차' }, { no: '6F-36', room: '공조실-1', place: '6층 뮤지엄' }, { no: 'B3F-HVU1', room: '공조실-1', place: 'B3층 직원식당 주방 (외조기)' }];
-const ahuData = d => ({ ok: true, day: d, workDay: D, units: AHU_UNITS, rec: AHU[d] || null, wx: { weather: '맑음', tmin: 4, tmax: 13.5, humidity: 45 }, signs: { boss: { name: '홍길동', img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60'%3E%3Cpath d='M8 40 C20 10 30 50 42 25 S60 45 70 20 S95 50 112 18' fill='none' stroke='%23123' stroke-width='4'/%3E%3C/svg%3E" }, part: null } });
+var SIGN_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60'%3E%3Cpath d='M8 40 C20 10 30 50 42 25 S60 45 70 20 S95 50 112 18' fill='none' stroke='%23123' stroke-width='4'/%3E%3C/svg%3E";
+const ahuData = d => ({ ok: true, day: d, workDay: D, units: AHU_UNITS, rec: AHU[d] || null, wx: { weather: '맑음', tmin: 4, tmax: 13.5, humidity: 45 }, signs: { boss: { name: '홍길동', img: SIGN_IMG }, part: null } });
 const attData = d => ({ ok: true, date: d, today: D, months: [D.slice(0, 7)], ju: Array(30).fill(1), upBy: ME.name, upAt: D + ' 08:00:00', canFix: true, canBoss: true,
   people: [{ sec: '전기', role: '소장', name: ME.name, v: '', raw: '', fix: null, hol: '' },
     { sec: '기계', role: '기사', name: '김철수', v: AT.fix ? AT.fix.v : '', raw: '', fix: AT.fix ? { by: ME.name, at: D + ' 09:00:00' } : null, hol: AT.hol || '' }] });
@@ -271,6 +273,9 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.locator('.acb[data-ac="공조기"]').waitFor({ timeout: 8000 }); AC_DELAY = 0;
   ok(await p.locator('.lgac .acerr').count() === 0, '14-2) 도착하면 그 칸만 채움');
   ok(AC_ASKED === 'logac ' + D && await p.locator('.acb[data-ac="공조기"]').count() === 1, '14) 일지: 공조기 가동시간은 구글 ?api=logac 에서 (' + AC_ASKED + ')');
+  const lsg = await p.locator('#lgSheet .lgsign td').evaluateAll(t => t.map(x => { const i = x.querySelector('img'); return i ? i.alt : ''; }).join(','));
+  ok(lsg === ',,홍길동 서명,홍길동 서명', '14-3) 일지 서명란: 서버가 고른 서명 그림 (부소장·소장 칸) ' + lsg);
+  await p.locator('#lgSheet .lghead').screenshot({ path: path.join(__dirname, 'shot_sb_log_sign.png') });
   await p.fill('input.lgin[data-k="전기"]', '1234');
   await p.click('#lgSave');
   ok(await toast('저장했습니다'), '15) 일지 저장');
