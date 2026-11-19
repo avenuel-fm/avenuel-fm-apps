@@ -2176,9 +2176,10 @@ function renderInspect() {
 
 /* ── 열화상점검 (결정 166): 직원은 이름만(눌리지 않음), 소장·부소장·관리자·옵저버만 엶. 앱은 PC 프로그램이라 안내만 ── */
 const thCanOpen = () => !!S.user && ['소장', '부소장', '관리자', '옵저버'].indexOf(S.user.role) !== -1;
+const THERMAL_ON = false;   // shortcut: 작성기 fm/thermal 이 바로가기 페이지에 없어 안내 화면만. 붙이는 날(WS_열화상점검 3장) true
 function renderThermal() {
   if (!thCanOpen()) return renderInspect();
-  if (window.WS_API) return '<div class="mapview">' + topbar('점검 ›', '열화상점검') + '<iframe class="mapframe" src="../thermal/index.html" title="열화상 보고서 작성" allow="fullscreen"></iframe>' +
+  if (window.WS_API && THERMAL_ON) return '<div class="mapview">' + topbar('점검 ›', '열화상점검') + '<iframe class="mapframe" src="../thermal/index.html" title="열화상 보고서 작성" allow="fullscreen"></iframe>' +
     '<button class="btn mapback" onclick="back()">' + ICON.back + '뒤로</button></div>';   // 작성기(fm/thermal)를 지도처럼 화면 안 창으로 (결정 168)
   return topbar('점검 ›', '열화상점검') + '<div class="wrap list">' +
     '<div class="banner b-gray">준비 중입니다. 지금은 사무실 PC에서만 씁니다.</div>' +
