@@ -4,7 +4,8 @@ import os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TARGETS = ['apps/ws/src/Styles.html', 'apps/dw/src/Styles.html', 'fm/map/css/common.css',
-           'fm/index.html', 'fm/ws/index.html', 'fm/dw/index.html', 'fm/hub/index.html']
+           'fm/index.html', 'fm/ws/index.html', 'fm/dw/index.html', 'fm/hub/index.html',
+           'apps/thermal-reporter/web/tokens.css']
 A, B = '/* DESIGN-TOKENS:START */', '/* DESIGN-TOKENS:END */'
 
 tokens = open(os.path.join(ROOT, 'apps/design/tokens.css'), encoding='utf-8').read().strip()
@@ -12,6 +13,7 @@ block = A + '\n' + tokens + '\n' + B
 stale = []
 for rel in TARGETS:
     path = os.path.join(ROOT, rel)
+    if not os.path.exists(path): continue  # 열화상 작성기는 아직 저장소에 없는 로컬 도구
     text = open(path, encoding='utf-8', newline='').read()
     assert text.count(A) == 1 and text.count(B) == 1, rel + ': 표시 구간이 없습니다'
     nl = '\r\n' if '\r\n' in text else '\n'
