@@ -310,6 +310,23 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(await called('ws_ahu_save', ns2) && JSON.stringify(last('ws_ahu_save').a.p_c) === '{"temps":{"6F-36":{"16":"23.5"}},"cw_t16":"7.4"}' && AHU[D].temps['7F-39']['12'] === 22.3, 'A8) 휴대폰 저장도 고친 칸만 (12:00 값 그대로)');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_ahu_m.png'), fullPage: true });
   await p.setViewportSize({ width: 1280, height: 900 });
+  // 칸 검사 (김종우 PC 「저장 안 함」 11-20): 숫자 아닌 글자 → 서버에 안 보내고 그 칸 빨갛게 + 이유를 아래 줄에
+  await p.evaluate(() => { window.print = () => {}; render(); });
+  const n9 = count('ws_ahu_save');
+  await p.fill('input.lgin[data-u="7F-39"][data-t="16"]', '정지'); await p.click('#ahuSave');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_ahu_bad.png') });
+  const er = await p.locator('#ahuState').innerText();
+  ok(count('ws_ahu_save') === n9 && /고칠 칸 1개/.test(er) && /7F-39 16:00/.test(er) && await p.locator('input.lgin.bad[data-u="7F-39"][data-t="16"]').count() === 1, 'A9) 글자 넣고 저장 → 서버에 안 보냄 · 칸 빨간 표시 · 이유가 아래 줄에 남음 ' + er);
+  await p.fill('input.lgin[data-u="7F-39"][data-t="16"]', '23,5℃');
+  ok(/저장 안 함/.test(await p.locator('#ahuState').innerText()) && await p.locator('input.lgin.bad').count() === 0, 'A10) 「23,5℃」는 숫자로 봐 줌 → 빨간 표시 사라짐');
+  await p.click('#ahuSave');
+  ok(await toast('저장했습니다') && last('ws_ahu_save').a.p_c.temps['7F-39']['16'] === '23.5', 'A11) 쉼표·℃는 「23.5」로 고쳐 보냄 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
+  await p.fill('input.lgin[data-u="7F-39"][data-t="12"]', '22.9'); const nb = count('ws_ahu_save');
+  await p.click('button:has-text("인쇄 (B4)")');
+  ok(await called('ws_ahu_save', nb) && last('ws_ahu_save').a.p_c.temps['7F-39']['12'] === '22.9', 'A12) 저장 안 한 값이 있으면 인쇄 전에 먼저 저장');
+  await p.locator('#ahuState', { hasText: '저장됨' }).waitFor();
+  const sv = await p.evaluate(() => { const g = S.ahu; return ahuLate({ temps: { '7F-39': { 16: '30' } }, out_t12: '8' }, { temps: { '7F-39': { 16: '29' } }, out_t12: '8' }) || [g.v.temps['7F-39'][16], JSON.stringify(g.ch)]; });
+  ok(sv[0] === '30' && sv[1] === '{"temps":{"7F-39":{"16":"30"}}}', 'A13) 저장하는 사이 더 넣은 값은 다시 「저장 안 함」으로 남김 ' + sv);
 
   // ── 출근현황 (3-3) ──
   await p.setViewportSize({ width: 390, height: 800 });

@@ -10,9 +10,9 @@
 <title>업무지원 · 에비뉴엘 시설팀</title>
 <meta name="robots" content="noindex">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=0.20.0"></script>
-<script>window.WS_VERSION = '0.20.0';</script>
-<script src="ws-api.js?v=0.20.0"></script>
+<script src="config.js?v=0.20.1"></script>
+<script>window.WS_VERSION = '0.20.1';</script>
+<script src="ws-api.js?v=0.20.1"></script>
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -537,6 +537,7 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:n
 .hvin{position:relative;display:block}.hvin .inp{text-align:right;padding-right:var(--sp-8);font-variant-numeric:tabular-nums;font-weight:500}
 .hvin span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:var(--size-m);color:var(--muted);pointer-events:none}
 .hvin .inp.empty{background:var(--tint);border-color:var(--line)}
+.inp.bad,.lgin.bad{border-color:var(--red);background:var(--red-bg,#FDECEC);outline:2px solid var(--red);outline-offset:-1px}.hverr{color:var(--red);font-size:var(--size-s)}
 .hvw{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);margin-top:var(--sp-2)}.hvw label{font-size:var(--size-s);color:var(--sub)}
 .hvmeta{font-size:var(--size-s);color:var(--muted);margin-top:var(--sp-2);line-height:1.5}
 .hvchip{display:inline-flex;align-items:center;height:24px;padding:0 var(--sp-2);border-radius:var(--radius);font-size:var(--size-s);font-weight:500;background:var(--orange-bg);color:var(--orange);margin-right:var(--sp-1)}
@@ -650,7 +651,7 @@ select.lgin{text-align:center;padding:0}
 const EXEC_URL = '';
 const FLOORS = ['B1','1F','2F','3F','4F','5F','6F'];
 const CAN_PRINT = window.matchMedia('(hover: hover) and (pointer: fine)').matches && window.innerWidth >= 900;
-const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: '0.20.0' || store('ws_ver') || '' };
+const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: '0.20.1' || store('ws_ver') || '' };
 
 /* ── 도우미 ── */
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
@@ -2011,13 +2012,32 @@ function ahuCal() {
 function ahuSlot(t) { S.ahu.slot = t; render(); }
 // 입력 중에는 다시 그리지 않음 (초점 유지)
 function ahuIn(el) {
-  const g = S.ahu, k = el.dataset.k, u = el.dataset.u, t = el.dataset.t, val = el.value.trim();
+  const g = S.ahu, k = el.dataset.k, u = el.dataset.u, t = el.dataset.t, val = ahuNorm(el.value); g.err = '';
   if (u) { g.v.temps[u][t] = val; const c = g.ch.temps = g.ch.temps || {}; (c[u] = c[u] || {})[t] = val; }
   else { g.v[k] = val; g.ch[k] = val; }
   if (el.classList.contains('inp')) el.classList.toggle('empty', !val);
+  el.classList.toggle('bad', !!ahuCheck(k || 'u', val));
   const e = $('ahuState'); if (e) e.innerHTML = ahuState();
   docSlotSet(ahuDoc());
   const n = t && $('ahuCnt' + t); if (n) n.textContent = ahuCount(t);
+}
+// 「22,5」→「22.5」, 「22.5℃」→「22.5」 (서버가 숫자만 받으므로 미리 고침)
+function ahuNorm(x) { return String(x).replace(/[℃%\s]/g, '').replace(/,/g, '.'); }
+// 칸 하나 검사 (서버 ws_ahu_save 와 같은 범위). 문제 없으면 ''
+function ahuCheck(k, val, name) {
+  if (val === '') return '';
+  const rg = k === 'u' ? [-10, 50] : k.indexOf('out_t') === 0 ? [-30, 50] : k.indexOf('out_h') === 0 ? [0, 100] : [-5, 40];
+  return /^-?\d+(\.\d+)?$/.test(val) && Number(val) >= rg[0] && Number(val) <= rg[1] ? '' : (name || '') + ' ' + rg[0] + ' ~ ' + rg[1] + ' 숫자로 넣어 주세요';
+}
+// 고친 칸 중 문제 있는 칸 [{k, u, t, msg}]
+function ahuBads() {
+  const g = S.ahu, out = [], nm = {};
+  AHU_OUT.forEach(o => { nm[o[0]] = o[1]; });
+  Object.keys(g.ch).forEach(k => {
+    if (k === 'temps') Object.keys(g.ch.temps).forEach(u => Object.keys(g.ch.temps[u]).forEach(t => { const m = ahuCheck('u', g.ch.temps[u][t], u + ' ' + t + ':00'); if (m) out.push({ u, t, msg: m }); }));
+    else { const m = ahuCheck(k, g.ch[k], nm[k.slice(0, 5)] + ' ' + k.slice(5) + ':00'); if (m) out.push({ k, t: k.slice(5), msg: m }); }
+  });
+  return out;
 }
 function ahuCount(t) { const g = S.ahu; return '입력 ' + g.srv.units.filter(u => g.v.temps[u.no][t] !== '').length + '/' + g.srv.units.length; }
 function ahuDoc() {
@@ -2026,6 +2046,9 @@ function ahuDoc() {
 }
 function ahuState() {
   const g = S.ahu, r = g.srv.rec;
+  const bad = ahuDirty() ? ahuBads() : [];
+  if (bad.length) return '<span class="nwstate dirty"><i class="dot"></i>고칠 칸 ' + bad.length + '개' + (g.err ? '<small class="hverr"> · ' + h(g.err) + '</small>' : '') + '</span>';
+  if (g.err) return '<span class="nwstate dirty"><i class="dot"></i>저장 안 함<small class="hverr"> · ' + h(g.err) + '</small></span>';
   return ahuDirty() ? '<span class="nwstate dirty"><i class="dot"></i>저장 안 함</span>' : r && r.ver ? '<span class="nwstate">' + ICON.ok + '저장됨' + (lgPc() ? ' · ' + h(String(r.ver).slice(11, 16)) + ' ' + h(r.by) : '') + '</span>' : '<span class="nwstate" style="color:var(--muted)">아직 저장 안 함</span>';
 }
 function ahuMd(d, y) { return (y ? d.slice(0, 4) + '년 ' : '') + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + '일월화수목금토'[new Date(d + 'T12:00:00+09:00').getDay()] + ')'; }
@@ -2035,7 +2058,10 @@ function ahuWx() {
   const w = S.ahu.srv.wx || {}, n = (x, u) => x == null || x === '' ? '—' : x + u;
   return [['날씨', w.weather || '—'], ['최저', n(w.tmin, '℃')], ['최고', n(w.tmax, '℃')], ['습도', n(w.humidity, '%')]];
 }
-function ahuBox(attrs, val, cls) { return '<input class="' + cls + (val === '' && cls === 'inp' ? ' empty' : '') + '" inputmode="decimal" maxlength="6" value="' + h(val) + '" ' + attrs + ' oninput="ahuIn(this)">'; }
+function ahuBox(attrs, val, cls) {
+  const m = /data-k="([a-z_0-9]+)"/.exec(attrs), bad = ahuCheck(m ? m[1] : 'u', val) ? ' bad' : '';   // 고쳐야 할 칸은 다시 그려도 빨간 채로
+  return '<input class="' + cls + (val === '' && cls === 'inp' ? ' empty' : '') + bad + '" inputmode="decimal" maxlength="8" value="' + h(val) + '" ' + attrs + ' oninput="ahuIn(this)" onchange="this.value=ahuNorm(this.value)">';
+}
 /** 종이 (화면·인쇄·PDF 같은 틀) */
 function ahuSheet(edit) {
   const g = S.ahu, us = g.srv.units, val = (a, x) => edit ? ahuBox(a, x, 'lgin') : h(x);
@@ -2078,15 +2104,33 @@ function renderAhu() {
 async function ahuSave(quiet) {
   const g = S.ahu; if (g.busy) return false;
   if (!ahuDirty()) { if (!quiet) toast('바뀐 것이 없습니다'); return true; }
+  const bad = ahuBads();
+  if (bad.length) {   // 서버에 보내기 전에: 첫 문제 칸으로 가서 이유를 아래 줄에 남김 (사라지는 알림만으로는 놓침)
+    const b = bad[0]; g.err = b.msg;
+    if (!lgPc() && g.slot !== b.t) g.slot = b.t;
+    render(); toast(b.msg);
+    const el = document.querySelector(b.u ? '[data-u="' + b.u + '"][data-t="' + b.t + '"]' : '[data-k="' + b.k + '"]');
+    if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
+    return false;
+  }
+  const sent = JSON.parse(JSON.stringify(g.ch));
   g.busy = true; render();
   try {
     const r = await call('ahuSave', g.day, g.ch);
-    if (!r.ok) { g.busy = false; render(); toast(r.error); return false; }
-    ahuSet(r); if (!quiet) toast('저장했습니다'); return true;
-  } catch (e) { g.busy = false; render(); return false; }
+    if (!r.ok) { g.busy = false; g.err = r.error; render(); toast(r.error); return false; }
+    const late = g.ch;   // 저장하는 사이에 더 넣은 값은 지우지 않고 「저장 안 함」으로 남김
+    ahuSet(r); ahuLate(late, sent); if (!quiet) toast('저장했습니다'); return true;
+  } catch (e) { g.busy = false; g.err = '서버에 닿지 않았습니다. 다시 눌러 주세요'; render(); return false; }
+}
+function ahuLate(late, sent) {
+  const g = S.ahu, tp = late.temps || {}, st = sent.temps || {};
+  Object.keys(tp).forEach(u => Object.keys(tp[u]).forEach(t => { const x = tp[u][t]; if ((st[u] || {})[t] !== x) { g.v.temps[u][t] = x; ((g.ch.temps = g.ch.temps || {})[u] = g.ch.temps[u] || {})[t] = x; } }));
+  Object.keys(late).forEach(k => { if (k !== 'temps' && sent[k] !== late[k]) { g.v[k] = late[k]; g.ch[k] = late[k]; } });
+  if (ahuDirty()) render();
 }
 /* 인쇄 = B4 가로 한 장 (1376px = 364mm) */
-function ahuPrint() {
+async function ahuPrint() {
+  if (ahuDirty() && !(await ahuSave(true))) return;   // 저장 안 한 값이 있으면 먼저 저장 (인쇄만 하면 기록에 안 남음)
   $('print').innerHTML = '<style>@page{size:364mm 257mm;margin:0}</style>' + ahuSheet(false);
   setTimeout(() => window.print(), 300);
 }
