@@ -1,0 +1,9 @@
+/* 사용자가 직접 고르는 표시용 색. 화면 부품의 색으로는 쓰지 않습니다. */
+[data-palette='red'] { --palette-color: #D92D20; }
+[data-palette='orange'] { --palette-color: #EF6820; }
+[data-palette='yellow'] { --palette-color: #EAAA08; }
+[data-palette='green'] { --palette-color: #079455; }
+[data-palette='teal'] { --palette-color: #0E9384; }
+[data-palette='blue'] { --palette-color: #1570EF; }
+[data-palette='purple'] { --palette-color: #7A5AF8; }
+[data-palette='gray'] { --palette-color: #667085; }

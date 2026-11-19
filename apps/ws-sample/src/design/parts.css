@@ -1,0 +1,118 @@
+/* 부품 모양. 값은 tokens.css 변수만 씁니다. */
+.palette-swatch {
+  inline-size: var(--control-h);
+  block-size: var(--control-h);
+  padding: 0;
+  background: var(--palette-color);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.palette-swatch[aria-checked='true'] {
+  outline: var(--border-strong-w) solid var(--navy);
+  outline-offset: var(--border-strong-w);
+}
+.palette-mark {
+  display: inline-block;
+  inline-size: var(--sp-3);
+  block-size: var(--sp-3);
+  background: var(--palette-color);
+  border-radius: var(--radius);
+}
+
+/* 손가락으로 누르는 기기: 버튼·입력칸 높이와 입력칸 글자 */
+@media (pointer: coarse) {
+  :root {
+    --control-h: var(--control-h-touch);
+  }
+  #root input:not([type='checkbox'], [type='radio']),
+  #root textarea,
+  #root select {
+    font-size: var(--size-input-touch);
+  }
+}
+
+/* 머리줄: 남색 바탕에 흰 글자 */
+.astryx-app-shell-header.astryx-app-shell-header,
+.astryx-top-nav.astryx-top-nav {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+.astryx-top-nav.astryx-top-nav {
+  padding-inline-start: var(--sp-2);
+}
+.astryx-top-nav-heading.astryx-top-nav-heading,
+.astryx-top-nav-heading.astryx-top-nav-heading * {
+  color: var(--white);
+}
+.astryx-top-nav-item.astryx-top-nav-item,
+.astryx-top-nav-item.astryx-top-nav-item * {
+  background: var(--navy);
+  color: var(--white);
+}
+.astryx-top-nav-item.astryx-top-nav-item {
+  border-block-end: var(--border-strong-w) solid var(--navy);
+}
+.astryx-top-nav-item.astryx-top-nav-item[aria-current='page'] {
+  border-block-end-color: var(--white);
+}
+
+/* 표 머리 */
+.astryx-table-header-cell.astryx-table-header-cell {
+  background: var(--tint);
+}
+
+/* 보조 버튼: 흰 바탕에 남색 테두리 */
+.astryx-button.astryx-button[data-variant='secondary'] {
+  background: var(--white);
+  color: var(--navy);
+  border: var(--border-w) solid var(--navy);
+}
+
+/* 고르기 칸: 고른 쪽만 남색으로 채움 */
+.astryx-segmented-control.astryx-segmented-control {
+  block-size: var(--control-h);
+  min-block-size: var(--control-h);
+  padding: 0;
+  background: var(--white);
+  border: var(--border-w) solid var(--line);
+}
+.astryx-segmented-control-item.astryx-segmented-control-item {
+  block-size: 100%;
+  min-block-size: 0;
+  background: var(--white);
+  color: var(--navy);
+}
+.astryx-segmented-control-item.astryx-segmented-control-item[aria-checked='true'] {
+  background: var(--navy);
+  color: var(--white);
+}
+.astryx-segmented-control-item.astryx-segmented-control-item[aria-checked='true'] * {
+  color: var(--white);
+}
+
+/* 상태는 색이 아니라 모양과 글자로 구분: 불량 채움, 정상 남색 테두리, 미점검 회색 테두리 */
+.astryx-badge.astryx-badge[data-variant='info'] {
+  background: var(--navy);
+  color: var(--white);
+  border: var(--border-w) solid var(--navy);
+}
+.astryx-badge.astryx-badge[data-variant='neutral'] {
+  background: var(--white);
+  color: var(--navy);
+  border: var(--border-w) solid var(--navy);
+}
+.astryx-badge.astryx-badge[data-variant='warning'] {
+  background: var(--white);
+  color: var(--text-sub);
+  border: var(--border-w) solid var(--line);
+}
+
+/* 넓은 화면에서는 층·위치 칸이 따로 있으므로 번호 아래 줄을 숨김 */
+[data-narrow-only] {
+  display: none;
+}
+table:not(:has(th[data-column-key='place'])) [data-narrow-only] {
+  display: inline;
+}
