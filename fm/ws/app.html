@@ -2297,12 +2297,28 @@ function renderInspect() {
 const thCanOpen = () => !!S.user && ['소장', '부소장', '관리자', '옵저버'].indexOf(S.user.role) !== -1;
 function renderThermal() {
   if (!thCanOpen()) return renderInspect();
+  if (window.WS_API) return '<div class="mapview">' + topbar('점검 ›', '열화상점검') + '<iframe class="mapframe" src="../thermal/index.html" title="열화상 보고서 작성" allow="fullscreen"></iframe>' +
+    '<button class="btn mapback" onclick="back()">' + ICON.back + '뒤로</button></div>';   // 작성기(fm/thermal)를 지도처럼 화면 안 창으로 (결정 168)
   return topbar('점검 ›', '열화상점검') + '<div class="wrap list">' +
     '<div class="banner b-gray">준비 중입니다. 지금은 사무실 PC에서만 씁니다.</div>' +
     '<div class="card" style="padding:var(--sp-4)"><h3 style="margin:0 0 var(--sp-2);font-size:var(--size-m)">할 수 있는 일</h3><div style="line-height:1.7">FLIR 열화상 사진(.jpg)을 넣으면 점 3개(R·S·T상) 온도와 상간 온도차를 계산해 FLIR Thermal Studio 보고서(.atr)로 만듭니다.</div></div>' +
     '<div class="card" style="padding:var(--sp-4)"><h3 style="margin:0 0 var(--sp-2);font-size:var(--size-m)">쓰는 방법 (PC)</h3><div style="line-height:1.7">FLIR Thermal Studio가 깔린 PC에서 <b>run.bat</b>을 두 번 누르면 화면이 열립니다. 사진 이름은 <b>1층1번_일반.jpg</b>처럼 붙입니다.</div></div>' +
     '</div>';
 }
+
+/* 작성기(fm/thermal)가 부르는 통로 (결정 168, WS_열화상점검 3장). 자료는 PIN 로그인 표로 16_thermal.sql 함수만 */
+const thExt = n => { const m = /\.([A-Za-z0-9]{1,5})$/.exec(String(n || '')); return m ? m[1].toLowerCase() : 'bin'; };
+const thOk = r => { if (!r || !r.ok) throw new Error((r && r.error) || '저장하지 못했습니다'); return r; };
+window.WS_THERMAL = {
+  me: async () => ({ name: S.user ? S.user.name : '', role: S.user ? S.user.role : '' }),
+  boot: async () => { const r = thOk(await call('thermalBoot')); return { me: r.me, model: r.model, template: r.template, template_url: r.template ? r.template.url : '', reports: r.reports }; },
+  saveModel: async m => thOk(await call('thermalSet', 'model', m)),
+  saveTemplate: async t => thOk(await call('thermalSet', 'template', t)),   // t = upload() 결과 + name
+  upload: (blob, name) => WS_API.upload('thermal', blob, thExt(name)),   // 원본 그대로 (줄이지 않음)
+  saveReport: async r => thOk(await call('thermalReport', r)),
+  toDrive: async () => { throw new Error('구글 드라이브로 옮기기는 다음 단계에서 됩니다. 지금은 내려받아 주세요.'); },
+  full: on => mapFull(on)
+};
 
 /* ── 개선 A: 입력 기간 안내 ── */
 function periodBanner(st, counts) {

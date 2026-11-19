@@ -1,0 +1,41 @@
+열화상 리포트 작성기 웹 전환 — 업무지원 앱 연동 규격 (Claude Code 세션이 정리, 사용자가 전달)
+
+지금 하고 있는 「웹에서 단독 실행」 작업은 끝나면 업무지원 앱 [점검 › 열화상점검] 안에 붙습니다.
+붙일 때 다시 고치지 않도록 아래 규격대로 만들어 주세요. 자세한 표는 저장소의 docs/설계/WS_열화상점검.md 3장에 있습니다.
+
+[파일 자리]
+- 완성본은 c:\avenuel\avenuel-fm-apps\fm\thermal\ 폴더에 둔다 (index.html + 필요한 js·css). 만들기 단계 없는 정적 파일.
+- 파이썬 서버(server.py)와 engine 폴더의 FLIR 부품(DLL·FlirTool.exe) 없이 브라우저만으로 돈다.
+- 작업하면서는 apps/thermal-reporter 안에서 해도 되지만, 결과는 fm/thermal/ 에 모은다. 그 밖의 폴더는 고치지 않는다(apps/ws, apps/design, fm/ws, fm/map 등 읽기만).
+
+[로그인·자료 — 가장 중요]
+- 작성기에는 로그인 화면을 만들지 않는다. 업무지원이 PIN 로그인과 권한을 맡는다.
+- Supabase 에 직접 붙지 않는다(키·표·버킷을 새로 만들지 않는다). 자료는 모두 부모 창의 window.parent.WS_THERMAL 통로로만 주고받는다.
+  · me() → { name, role }
+  · boot() → { model, template_url, reports } (점 위치 학습 값, 양식 .atr 주소, 최근 보고서 목록)
+  · saveModel(model) → { ok }
+  · upload(blob, name) → { path, url } (사진·양식·보고서 파일)
+  · saveReport({ title, inspector, date, path, pages, max_dt }) → { ok, id }
+  · toDrive(path, name) → { ok, url } (구글 드라이브 옮기기, 나중 단계)
+  · full(on) (화면 가득)
+  모두 Promise 를 돌려준다.
+- 부모 창이 없으면(window.parent === window) fm/thermal/mock_bridge.js 의 가짜 통로(브라우저 저장소)를 써서 혼자서도 시험할 수 있게 한다.
+- 측정자 기본값은 me().name 으로 채운다.
+
+[내려받기]
+- .atr 은 브라우저에서 zip 으로 만들어 바로 내려받는다. 라이브러리는 cdnjs 의 고정 판만 (예: https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js).
+- 만든 뒤 upload() 와 saveReport() 를 불러 기록을 남긴다.
+
+[화면]
+- 공통 디자인 apps/design/tokens.css 의 값(남색 #1E3A5F, 바탕 흰색, 모서리 2px, 버튼·입력칸 40px)을 쓴다. 이 파일은 고치지 않는다.
+- 업무지원 화면 안 창(iframe)에 들어가므로 맨 위 남색 머리줄과 「뒤로」는 만들지 않는다(업무지원이 그림).
+- 휴대폰(390px)·태블릿·PC 모두 가로 넘침 없이.
+
+[꼭 확인해서 알려 줄 것]
+1. FLIR 사진 안 온도 자료를 브라우저에서 읽어 점 3개 온도가 예전(FlirTool.exe) 값과 같은지 — 사진 3장 이상 비교 표.
+2. 점 3개 위치를 jpg 안에 다시 써 넣는 일이 브라우저에서 되는지. 안 되면 무엇이 달라지는지(Thermal Studio 에서 점이 안 보임 등).
+3. 만든 .atr 을 FLIR Thermal Studio 로 열었을 때 확인할 항목 목록 (사용자가 직접 연다).
+
+[지킬 것]
+- git 저장(commit·push)은 하지 않는다.
+- 끝나면 바꾼 파일 목록, 확인한 방법, 못 한 것을 한국어로 짧게 알려 준다.

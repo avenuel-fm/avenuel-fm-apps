@@ -670,6 +670,26 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(ss3.entries.length === 0 && ss3.counts.G1 === 1 && ss4.entries.length === 0, '외부용 검색: 고른 지침이 없으면 결과 없이 건수만 · 빈 검색어는 빈 답');
   ok(/does not exist/.test(await asErr('anon', 'select ws_spec_pub_index()')), '외부용: 색인 통째로 주던 함수는 없앰');
   ok(pp.img === 'https://b/g1/12.jpg' && pp.pdf === '' && po.ok === false, '외부용: 쪽 그림만 (원본 PDF 주소 없음 · 이전 판 쪽은 안 줌)');
+  // ══ 열화상점검 (16_thermal.sql, 결정 166·168) — 작성기(fm/thermal)는 업무지원 통로로만 ══
+  await db.exec(SQL('16_thermal.sql')); await db.exec(SQL('16_thermal.sql'));
+  ok(/permission denied/.test(await asErr('authenticated', 'select * from thermal_kv')) || !(await as('authenticated', 'select * from thermal_kv')).length, '16_thermal.sql 두 번 실행 · 표는 직접 못 읽음');
+  ok(/permission denied/.test(await asErr('anon', "select ws_thermal_boot('x')")), '열화상: 비로그인(anon)은 못 부름');
+  await q("update staff set role = '직원' where staff_id = 'S003'");
+  ok((await call('ws_thermal_boot', ['emp'])).ok === false && /소장·부소장·관리자·옵저버만/.test((await call('ws_thermal_set', ['emp', 'model', '{}'])).error), '열화상: 직원은 못 엶·못 씀 (결정 166)');
+  for (const role of ['부소장', '관리자', '옵저버']) {
+    await q("update staff set role = $1 where staff_id = 'S003'", [role]);
+    ok((await call('ws_thermal_boot', ['emp'])).ok === true, '열화상: ' + role + '도 엶');
+  }
+  await q("update staff set role = '직원' where staff_id = 'S003'");
+  const tb0 = await call('ws_thermal_boot', [tk]);
+  ok(tb0.ok && tb0.me.role === '소장' && tb0.model === null && tb0.template === null && tb0.reports.length === 0, '열화상: 처음엔 학습 값·양식·보고서 없음 · 나(이름·역할)');
+  ok((await call('ws_thermal_set', [tk, 'model', JSON.stringify({ avg_y: 125, samples: [] })])).ok && (await call('ws_thermal_boot', [tk])).model.avg_y === 125, '열화상: 학습 값 저장·읽기');
+  ok((await call('ws_thermal_set', [tk, 'x', '{}'])).ok === false && (await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'sign/a.atr' })])).ok === false, '열화상: 모르는 칸·thermal/ 밖 양식 경로는 막음');
+  ok((await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'thermal/2026-11/a.atr', url: 'https://b/a.atr', name: '양식.atr' })])).ok && (await call('ws_thermal_boot', [tk])).template.name === '양식.atr', '열화상: 양식 파일 저장');
+  ok((await call('ws_thermal_report', [tk, JSON.stringify({ title: '', path: 'thermal/x.atr', url: 'https://b/x' })])).ok === false && (await call('ws_thermal_report', [tk, JSON.stringify({ title: 'EPS', path: 'tbm_pdf/x', url: 'https://b/x' })])).ok === false, '열화상: 제목 없음·thermal/ 밖 경로는 막음');
+  const tr = await call('ws_thermal_report', [tk, JSON.stringify({ title: '2026년 4분기 EPS 1층', inspector: '홍길동', date: '2026-11-20', path: 'thermal/2026-11/r.atr', url: 'https://b/r.atr', pages: 3, max_dt: '4.2' })]);
+  const tb1 = await call('ws_thermal_boot', [tk]);
+  ok(tr.ok && tr.id > 0 && tb1.reports.length === 1 && tb1.reports[0].pages === 3 && Number(tb1.reports[0].max_dt) === 4.2 && !('editor' in tb1.reports[0]), '열화상: 보고서 기록 → 목록에 (만든 사람 이름은 안 내보냄)');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
