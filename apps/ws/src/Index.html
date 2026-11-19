@@ -169,6 +169,7 @@ button.nwdate{border:0;font-family:inherit}
 .nwbar{position:sticky;bottom:0;z-index:15;background:var(--white);border-top:1px solid var(--line2);margin:0 calc(var(--sp-4) * -1);padding:var(--sp-2) var(--sp-4) calc(var(--sp-2) + env(safe-area-inset-bottom));display:flex;gap:var(--sp-2);align-items:center}
 .nwbar .btn{flex:1;min-height:var(--control-h);font-size:var(--size-m);font-weight:500}
 .nwbar .btn.green{background:var(--green);border-color:var(--green);color:var(--white)}
+.dslot{display:contents}
 .nwstate{font-size:var(--size-s);color:var(--green);white-space:nowrap}
 .nwstate.dirty{color:var(--orange)}
 .sec{font-size:var(--size-s);font-weight:600;color:var(--muted);margin:var(--sp-2) var(--sp-1) calc(var(--sp-1) * -1)}
@@ -1249,7 +1250,9 @@ function tbmUse(r) {
   if (S.view === 'tbm') render();
 }
 function tbmState() { const r = S.tbm; return r.dirty ? '<span class="nwstate dirty">● 저장 안 함</span>' : r.saved ? '<span class="nwstate">✓ 저장됨</span>' : ''; }
-function tbmDirty() { S.tbm.dirty = true; S.tbm.pdfStale = true; const e = $('tbState'); if (e) e.innerHTML = tbmState(); }
+function tbmDirty() { S.tbm.dirty = true; S.tbm.pdfStale = true; const e = $('tbState'); if (e) e.innerHTML = tbmState(); docSlotSet(tbmDoc()); }
+// PDF를 만든 뒤 고친 것·새 서명이 없으면 [PDF 보기], 아니면 [저장] = 저장 + PDF (결정 72·176)
+function tbmDoc() { const r = S.tbm; return { sid: 'tbState', state: tbmState(), save: 'tbmPdf()', busy: r.busy || r.pdfBusy, pdfBusy: r.pdfBusy, pdf: r.pdf && !r.dirty && !r.pdfStale && r.signs.length <= r.pdf.signs ? { url: r.pdf.url, pv: tbmPv(r) } : null }; }
 function tbmCard(w, i) {
   const r = S.tbm, ed = r.edit === i, cur = r.risks.find(x => x.risk === w.risk);
   const seg = (k) => '<div class="seg tbseg" role="group" aria-label="' + (k === 'p' ? '가능성' : '중대성') + '">' + [1, 2, 3].map(n => '<button type="button" class="' + (Number(w[k]) === n ? 'on' : '') + '" aria-pressed="' + (Number(w[k]) === n) + '" onclick="tbmSet(' + i + ',\'' + k + '\',' + n + ')">' + n + '</button>').join('') + '</div>';
@@ -1297,7 +1300,7 @@ function renderTbm() {
     '<button class="btn sm" onclick="loadTbm()">새로고침</button><button class="btn sm" onclick="S.tbm.showSigns=!S.tbm.showSigns;render()">' + (r.showSigns ? '목록 닫기' : '서명 목록') + '</button></div>' +
     (r.showSigns ? list : '') +
     (r.pdf && r.pdf.shared === false ? '<div class="banner b-red">이 PDF는 <b>공유가 안 되어</b> 구글 로그인을 안 한 휴대폰·PC에서는 열리지 않습니다. 시설팀 공용 계정의 드라이브에서 파일 공유를 「링크가 있는 모든 사용자」로 바꾸거나 관리자에게 알려 주세요.</div>' : '') +
-    (r.pdf ? '<div class="banner ' + (more ? 'b-warn' : 'b-info') + '">PDF 저장됨 ' + h(String(r.pdf.at).slice(11, 16)) + ' · 서명 ' + r.pdf.signs + '명' + (more ? ' — <b>PDF 뒤 서명 ' + more + '명 추가</b>. [PDF로 저장]을 다시 누르면 새로 만듭니다.' : '') + ' ' + pdfBtn(null, 'PDF 열기', r.pdf.url, tbmPv(r)) + '</div>' : '') +
+    (r.pdf ? '<div class="banner ' + (more ? 'b-warn' : 'b-info') + '">PDF 저장됨 ' + h(String(r.pdf.at).slice(11, 16)) + ' · 서명 ' + r.pdf.signs + '명' + (more ? ' — <b>PDF 뒤 서명 ' + more + '명 추가</b>. [저장]을 다시 누르면 PDF를 새로 만듭니다.' : '') + ' ' + pdfBtn(null, 'PDF 보기', r.pdf.url, tbmPv(r)) + '</div>' : '') +
     '<div class="sec">작업 표 — ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 명일 작업 예정에서 가져옴</div>' +
     (r.works.length ? r.works.map(tbmCard).join('') : '<div class="banner b-gray">이 날짜의 명일 작업 예정이 없습니다. 아래 [+ 작업 줄 추가]로 넣어 주세요.</div>') +
     '<button class="btn nwadd" onclick="tbmAdd()"' + (r.works.length >= 30 ? ' disabled' : '') + '>+ 작업 줄 추가</button>' +
@@ -1305,11 +1308,8 @@ function renderTbm() {
     '<div class="card tbck">' + TBM_CHECKS.map(k => '<button type="button" class="' + (r.checks[k] ? 'on' : '') + '" aria-pressed="' + !!r.checks[k] + '" onclick="tbmCheck(\'' + k + '\')">' + k + (r.checks[k] ? ' ○' : '') + '</button>').join('') + '</div>' +
     '<div class="sec">사진</div>' +
     '<div class="card tbphs">' + tbmPhotoCell('meet', '회의 사진') + tbmPhotoCell('chant', '구호 사진') + '</div>' +
-    '<div class="nwbar"><span id="tbState">' + tbmState() + '</span>' +
-    '<button class="btn" onclick="tbmSaveBtn()"' + (r.busy || r.pdfBusy ? ' disabled' : '') + '>' + (r.busy ? '<span class="spin"></span>' : '저장') + '</button>' +
-    // PDF를 만든 뒤 고친 것·새 서명이 없으면 [PDF 열기] (결정 72)
-    (r.pdf && !r.dirty && !r.pdfStale && !more ? pdfBtn('pri', 'PDF 열기', r.pdf.url, tbmPv(r)) :
-      '<button class="btn pri" onclick="tbmPdf()"' + (r.busy || r.pdfBusy ? ' disabled' : '') + '>' + (r.pdfBusy ? '<span class="spin"></span> PDF 만드는 중' : 'PDF로 저장') + '</button>') + '</div></div>';
+    '<div class="nwbar">' + docBar(tbmDoc()) +
+    '</div></div>';
 }
 function tbmPv(r) { return { name: r.day + '_TBM.pdf', sub: '서류작업 › TBM ›', meta: '서명 ' + r.pdf.signs + '명 · ' + String(r.pdf.at).slice(11, 16) + ' 만듦' }; }
 function tbmW(i) { return S.tbm.works[i]; }
@@ -1369,7 +1369,7 @@ function loadH2p() {
 }
 async function tbmPdf() {
   const r = S.tbm; if (r.busy || r.pdfBusy) return;
-  if (!(r.up.meet || r.photos.meet) || !(r.up.chant || r.photos.chant)) { if (!confirm('사진이 비어 있습니다. 그래도 PDF로 저장할까요?')) return; }
+  if (!(r.up.meet || r.photos.meet) || !(r.up.chant || r.photos.chant)) { if (!confirm('사진이 비어 있습니다. 그래도 저장할까요?')) return; }
   const save = r.dirty || !r.saved ? { day: r.day, works: r.works, checks: r.checks, meet: r.up.meet || '', chant: r.up.chant || '' } : null;
   r.pdfBusy = true; render();
   try {
@@ -1379,7 +1379,7 @@ async function tbmPdf() {
     r.pdfBusy = false;
     if (!res.ok) { render(); toast(res.error); return; }
     if (save) { Object.assign(r.photos, r.up); r.up = {}; r.saved = true; r.dirty = false; }
-    r.pdf = res.pdf; r.pdfStale = false; render(); toast(res.warn || 'PDF로 저장했습니다');
+    r.pdf = res.pdf; r.pdfStale = false; render(); toast(res.warn || '저장하고 PDF도 만들었습니다');
   } catch (e) { r.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
 }
 /* PDF = A4 가로 2쪽 (1123×794px). 1쪽 평가표, 2쪽 사진. 양식: docs/양식/WS_TBM_양식_*, 시안: WS_TBM_시안_* */
@@ -1506,8 +1506,8 @@ function renderNw() {
     '<div class="nwrows"><div class="nwhd" aria-hidden="true"><span>순번</span><span>부서</span><span>작업장소</span><span>작업 내용</span><span>비고</span><span></span></div>' + rows +
     '<button type="button" class="btn nwadd" onclick="nwAdd()"' + (n.rows.length >= 30 ? ' disabled' : '') + '>' + ICON.plus + '줄 더하기</button></div>' +
     '<div class="nwbar" id="nwBar"><span id="nwState">' + nwState() + '</span>' +
-    '<button class="btn pri" id="nwSave" onclick="nwSave()"' + (n.busy ? ' disabled' : '') + '>' + (n.busy ? '<span class="spin"></span>' : '저장') + '</button>' +
-    '<button class="btn green" onclick="nwImage()">' + ICON.dl + '그림으로 저장</button></div></div>';
+    '<button class="btn" onclick="nwImage()">' + ICON.dl + '그림으로 저장</button>' +
+    '<button class="btn pri" id="nwSave" onclick="nwSave()"' + (n.busy ? ' disabled' : '') + '>' + (n.busy ? '<span class="spin"></span>' : '저장') + '</button></div></div>';
 }
 function nwDirty() { S.nw.dirty = true; const e = $('nwState'); if (e) e.innerHTML = nwState(); }
 // 입력 중에는 다시 그리지 않음 (글자 칸 초점 유지) — 빨간색만 바로 바꿈
@@ -1678,7 +1678,7 @@ function renderAtt() {
   return topbar('서류작업 ›', '출근현황') + '<div class="wrap list">' + head +
     '<div class="atwho">' + (r.canFix ? '상태 칸을 눌러 이날 상태를 고릅니다 · ' : '') + '이름을 누르면 기본 휴일을 봅니다</div>' +
     atOrg(r.people, true) + atSums(r.people) +
-    '<div class="nwbar"><button class="btn" onclick="atCal()">날짜 바꾸기</button><button class="btn pri" id="atImgBtn" onclick="atImage()">' + ICON.dl + '그림으로 저장</button></div></div>';
+    '<div class="nwbar"><button class="btn" onclick="atCal()">날짜 바꾸기</button><button class="btn" id="atImgBtn" onclick="atImage()">' + ICON.dl + '그림으로 저장</button></div></div>';
 }
 /* 달력: 그 달 날짜별 주간 인원 (엑셀 「주간근무총원」과 같은 셈). ‹ ›로 앞뒤 달 */
 function atCal() {
@@ -1813,13 +1813,10 @@ function renderLog() {
     '<div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-3)"><button class="nwdate" data-date="' + h(g.day) + '" onclick="lgCal()" aria-label="일자 바꾸기">' + ICON.cal + md(g.day) + '</button>' +
     (g.day < g.srv.workDay ? '<span style="font-size:var(--size-s);color:var(--muted)">지난 날짜입니다 · 고치면 저장할 수 있습니다</span>' : '') + '</div>' +
     '<div id="lgSheet" style="zoom:' + lgZoom() + '">' + lgSheet(true) + '</div>' +
-    '<div class="nwbar" id="lgBar"><span id="lgState">' + lgState() + '</span>' +
-    '<button class="btn" onclick="lgPrint()">' + ICON.print + '인쇄 (B4)</button>' +
-    (g.pdf && !g.dirty ? pdfBtn('', ICON.file + 'PDF 열기', g.pdf.url, { name: g.day + '_종합업무일지.pdf', sub: '서류작업 › 종합업무일지 ›' }) : '') +
-    '<button class="btn" id="lgPdf" onclick="lgPdf()"' + (g.busy ? ' disabled' : '') + '>' + ICON.file + (g.pdfBusy ? 'PDF 만드는 중…' : 'PDF로 저장') + '</button>' +
-    '<button class="btn pri" id="lgSave" onclick="lgSave()"' + (g.busy ? ' disabled' : '') + '>' + (g.busy && !g.pdfBusy ? '<span class="spin"></span>' : ICON.ok + '저장') + '</button></div></div>';
+    '<div class="nwbar" id="lgBar">' + docBar(lgDoc()) + '</div></div>';
 }
-function lgDirty() { S.lg.dirty = true; const e = $('lgState'); if (e) e.innerHTML = lgState(); }
+function lgDoc() { const g = S.lg; return { sid: 'lgState', state: lgState(), print: 'lgPrint()', id: 'lgSave', save: 'lgSave()', busy: g.busy, pdfBusy: g.pdfBusy, pdf: g.pdf && !g.dirty ? { url: g.pdf.url, pv: { name: g.day + '_종합업무일지.pdf', sub: '서류작업 › 종합업무일지 ›' } } : null }; }
+function lgDirty() { S.lg.dirty = true; const e = $('lgState'); if (e) e.innerHTML = lgState(); docSlotSet(lgDoc()); }
 // 입력 중에는 다시 그리지 않음 (초점 유지) — 계산 칸만 바꿈
 function lgIn(el) {
   const k = el.dataset.k; S.lg.f[k] = el.value; lgDirty();
@@ -1835,22 +1832,13 @@ function lgPayload() {
   if (g.nightNew) d.night = g.nightNew;
   return d;
 }
-async function lgSave() {
-  const g = S.lg; if (g.busy) return;
-  g.busy = true; render();
-  try {
-    const r = await call('logSave', g.day, lgPayload(), g.ver || '');
-    if (r.conflict) { lgSet(r); toast(r.error); return; }
-    if (!r.ok) { g.busy = false; render(); toast(r.error); return; }
-    lgSet(r); toast('저장했습니다');
-  } catch (e) { g.busy = false; render(); }
-}
 /* 인쇄 = B4 가로 한 장. 종이 틀(1587×1120)을 0.867배 → 364×257mm */
 function lgPrint() {
   $('print').innerHTML = '<style>@page{size:364mm 257mm;margin:0}</style><div style="zoom:.8668">' + lgSheet(false) + '</div>';
   setTimeout(() => window.print(), 300);
 }
-async function lgPdf() {
+// [저장] = 일지 저장 + PDF 만들기 한 번에 (결정 176)
+async function lgSave() {
   const g = S.lg; if (g.busy) return;
   g.busy = true; g.pdfBusy = true; render();
   try {
@@ -1873,7 +1861,7 @@ async function lgPdf() {
     const r = await call('logSavePdf', g.day, uri, g.dirty || !g.ver ? lgPayload() : null, g.ver || '');
     if (r.conflict) { lgSet(r); toast(r.error); return; }
     if (!r.ok) { g.busy = false; g.pdfBusy = false; render(); toast(r.error); return; }
-    lgSet(r); toast(r.warn || 'PDF로 저장했습니다');
+    lgSet(r); toast(r.warn || '저장하고 PDF도 만들었습니다');
   } catch (e) { g.busy = false; g.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
 }
 
@@ -1909,9 +1897,14 @@ function ahuIn(el) {
   else { g.v[k] = val; g.ch[k] = val; }
   if (el.classList.contains('inp')) el.classList.toggle('empty', !val);
   const e = $('ahuState'); if (e) e.innerHTML = ahuState();
+  docSlotSet(ahuDoc());
   const n = t && $('ahuCnt' + t); if (n) n.textContent = ahuCount(t);
 }
 function ahuCount(t) { const g = S.ahu; return '입력 ' + g.srv.units.filter(u => g.v.temps[u.no][t] !== '').length + '/' + g.srv.units.length; }
+function ahuDoc() {
+  const g = S.ahu, pdf = g.srv.rec && g.srv.rec.pdf;
+  return { sid: 'ahuState', state: ahuState(), print: lgPc() ? 'ahuPrint()' : '', id: 'ahuSave', save: 'ahuPdf()', busy: g.busy, pdfBusy: g.pdfBusy, pdf: pdf && !ahuDirty() ? { url: pdf.url, pv: { name: g.day + '_공조기환기온도.pdf', sub: '서류작업 › 공조기 환기온도 ›' } } : null };
+}
 function ahuState() {
   const g = S.ahu, r = g.srv.rec;
   return ahuDirty() ? '<span class="nwstate dirty"><i class="dot"></i>저장 안 함</span>' : r && r.ver ? '<span class="nwstate">' + ICON.ok + '저장됨' + (lgPc() ? ' · ' + h(String(r.ver).slice(11, 16)) + ' ' + h(r.by) : '') + '</span>' : '<span class="nwstate" style="color:var(--muted)">아직 저장 안 함</span>';
@@ -1946,12 +1939,7 @@ function renderAhu() {
   const g = S.ahu;
   if (!g) return topbar('서류작업 ›', '공조기 환기온도') + '<div class="wrap list"><div class="banner b-gray">불러오는 중…</div></div>';
   const past = g.day < g.srv.workDay ? '<span style="font-size:var(--size-s);color:var(--muted)">지난 날짜입니다 · 고치면 저장할 수 있습니다</span>' : '';
-  const pv = g.srv.rec && g.srv.rec.pdf && !ahuDirty() ? [g.srv.rec.pdf.url, { name: g.day + '_공조기환기온도.pdf', sub: '서류작업 › 공조기 환기온도 ›' }] : null;
-  const pdf = pv ? pdfBtn('', ICON.file + 'PDF 열기', pv[0], pv[1]) : '';   // 휴대폰은 아래 줄이 좁아 위 글자 링크로
-  const bar = '<div class="nwbar" id="ahuBar"><span id="ahuState">' + ahuState() + '</span>' +
-    '<button class="btn pri" id="ahuSave" onclick="ahuSave()"' + (g.busy ? ' disabled' : '') + '>' + (g.busy && !g.pdfBusy ? '<span class="spin"></span>' : '저장') + '</button>' +
-    (lgPc() ? '<button class="btn" onclick="ahuPrint()">' + ICON.print + '인쇄 (B4)</button>' + pdf : '') +
-    '<button class="btn green" id="ahuPdf" onclick="ahuPdf()"' + (g.busy ? ' disabled' : '') + '>' + (g.pdfBusy ? 'PDF 만드는 중…' : 'PDF 만들기') + '</button></div>';
+  const bar = '<div class="nwbar" id="ahuBar">' + docBar(ahuDoc()) + '</div>';
   const date = '<button class="nwdate" data-date="' + h(g.day) + '" onclick="ahuCal()" aria-label="일자 바꾸기">' + ICON.cal + ahuMd(g.day) + '</button>';
   if (lgPc()) return topbar('서류작업 ›', '공조기 환기온도') + '<div class="lgwrap">' +
     '<div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-3)">' + date + (past || '<span style="font-size:var(--size-s);color:var(--muted)">칸을 눌러 바로 입력 · 휴대폰에서 넣은 값도 여기 보임</span>') + '</div>' +
@@ -1962,7 +1950,7 @@ function renderAhu() {
     '<label class="hvin">' + ahuBox('data-u="' + h(u.no) + '" data-t="' + t + '" aria-label="' + h(u.no) + ' 환기온도"', g.v.temps[u.no][t], 'inp') + '<span>℃</span></label></div>').join('');
   return topbar('서류작업 ›', '공조기 환기온도') + '<div class="wrap list">' +
     '<div class="card" style="padding:var(--sp-4)"><div class="hvhd"><b>AHU 환기온도 점검일지</b>' + date + '</div>' +
-    '<div class="hvmeta">' + (ahuLong(g.day) ? '<span class="hvchip">연장영업</span>' : '') + '점검자 ' + h(ahuWho()) + (pv ? ' · ' + pdfBtn(null, 'PDF 열기', pv[0], pv[1]) : '') + (past ? '<br>' + past : '') + '</div>' +
+    '<div class="hvmeta">' + (ahuLong(g.day) ? '<span class="hvchip">연장영업</span>' : '') + '점검자 ' + h(ahuWho()) + (past ? '<br>' + past : '') + '</div>' +
     '<div class="seg hvtime" role="group" aria-label="점검 시각">' + ['12', '16'].map(x => '<button type="button" class="' + (x === t ? 'on' : '') + '" aria-pressed="' + (x === t) + '" onclick="ahuSlot(\'' + x + '\')">' + x + ':00<small id="ahuCnt' + x + '">' + ahuCount(x) + '</small></button>').join('') + '</div>' +
     '<div class="hvw">' + AHU_OUT.map(x => '<label>' + x[1] + '<span class="hvin">' + ahuBox('data-k="' + x[0] + t + '"', g.v[x[0] + t], 'inp') + '<span>' + x[2] + '</span></span></label>').join('') + '</div>' +
     '<div class="hvmeta">' + ahuWx().map(x => x[0] + ' ' + h(x[1])).join(' · ') + ' <span style="color:var(--muted)">(종합업무일지에서 자동)</span></div></div>' +
@@ -1986,7 +1974,7 @@ function ahuPrint() {
 async function ahuPdf() {
   if (S.ahu.busy) return;
   if (ahuDirty() && !(await ahuSave(true))) return;
-  if (!S.ahu.srv.rec) { toast('먼저 값을 넣고 저장해 주세요'); return; }
+  if (!S.ahu.srv.rec) { toast('먼저 값을 넣어 주세요'); return; }
   const g = S.ahu; g.busy = true; g.pdfBusy = true; render();
   try {
     await loadH2p();
@@ -2007,7 +1995,7 @@ async function ahuPdf() {
     } finally { wrap.remove(); }
     const r = await call('ahuSavePdf', g.day, uri);
     if (!r.ok) { g.busy = false; g.pdfBusy = false; render(); toast(r.error); return; }
-    ahuSet(r); toast('PDF로 저장했습니다');
+    ahuSet(r); toast('저장하고 PDF도 만들었습니다');
   } catch (e) { g.busy = false; g.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
 }
 
@@ -2518,6 +2506,14 @@ function withBack(html) { return html.replace(/<div class="(nwbar|csbar-in)"( id
    Supabase 저장소 PDF는 바로 받고, 드라이브로 옮긴 PDF는 구글 웹앱 ?api=pdf 가 대신 받아 줌(「링크가 있는 사람 보기」 파일만). 구글 판은 예전처럼 새 창 */
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 const PV_Z = [1, 1.5, 2, 3];
+/* 서류 화면 아래 줄 공통 (결정 176) — 왼쪽 상태 글자, 오른쪽 아래 [인쇄] + [저장 ⇄ PDF 보기]. 남색은 「저장」 하나.
+   저장하면 PDF도 같이 만들고, 끝나면 그 자리가 [PDF 보기]. 고치면 다시 [저장]. o = { sid, state, print, id, save, label, busy, pdfBusy, pdf: { url, pv } | null } */
+function docSlot(o) {
+  return o.pdf ? pdfBtn('', 'PDF 보기', o.pdf.url, o.pdf.pv) :
+    '<button class="btn pri"' + (o.id ? ' id="' + o.id + '"' : '') + ' onclick="' + o.save + '"' + (o.busy ? ' disabled' : '') + '>' + (o.busy ? '<span class="spin"></span> ' + (o.pdfBusy ? 'PDF 만드는 중…' : '저장 중…') : o.label || '저장') + '</button>';
+}
+function docBar(o) { return '<span id="' + o.sid + '">' + o.state + '</span>' + (o.print ? '<button class="btn" onclick="' + o.print + '">' + ICON.print + '인쇄 (B4)</button>' : '') + '<div class="dslot" id="' + o.sid + 'Slot">' + docSlot(o) + '</div>'; }
+function docSlotSet(o) { const e = $(o.sid + 'Slot'); if (e) e.innerHTML = docSlot(o); }
 function pdfBtn(cls, label, url, o) {   // o = { name, sub, meta } — 돌아갈 화면은 지금 화면, cls = null 이면 글자 링크
   return '<a' + (cls == null ? '' : ' class="btn ' + cls + '"') + ' href="' + h(url) + '" target="_blank" rel="noopener" data-pv="' + h(JSON.stringify(o)) + '" onclick="return pdfOpen(this)">' + label + '</a>';
 }
@@ -2995,15 +2991,14 @@ function renderCsCk() {
   const k = S.ck;
   if (!k) return topbar('공사장 점검 ›', '불러오는 중') + '<div class="wrap list"><div class="banner b-gray">불러오는 중…</div></div>';
   const c = csCnt(k), left = k.items.length - c['양호'] - c['미흡'] - c['해당없음'];
-  const R = CS_RD[k.round - 1], dp = csDayPdf(k.rounds);
+  const R = CS_RD[k.round - 1];
   return topbar(csDay(k.date) + ' 공사장 점검', k.site.name) + '<div class="wrap list" style="padding-bottom:120px">' + csTabsHtml(k) +
     '<div class="card csmeta"><div><small>현장</small><b>' + h(k.site.name) + '</b></div><div><small>공사 내용 · 업체</small><b>' + h([k.site.work, k.site.co].filter(Boolean).join(' · ') || '-') + '</b></div>' +
     '<div><small>점검자 <em>자동</em></small><b>' + h(k.check ? k.check.by : S.user.name) + '</b></div><div><small>' + R + ' 시각 <em>자동</em></small><b>' + h(k.check ? k.check.at : '처음 저장할 때') + '</b></div></div>' +
     k.items.map(csItemHtml).join('') +
     '<button class="btn big csadd" onclick="csExtraOpen()">＋ 이 현장에 점검 항목 추가</button></div>' +
     '<div class="csbar"><div class="csbar-in"><div><b>미흡 ' + c['미흡'] + ' · 양호 ' + c['양호'] + (c['해당없음'] ? ' · 해당없음 ' + c['해당없음'] : '') + '</b>' + (left ? ' · 안 고름 ' + left : '') + '<br><span id="csSt">' + csStateHtml() + '</span></div>' +
-    (dp && !dp.stale && !k.pdfBusy ? pdfBtn('big', 'PDF 열기', dp.url, { name: k.date + '_공사장점검-' + k.site.name + '.pdf', sub: '공사장 점검 ›' }) : '') +
-    '<button class="btn big pri" onclick="csPdf()"' + (k.pdfBusy ? ' disabled' : '') + '>' + (k.pdfBusy ? '<span class="spin"></span> PDF 만드는 중' : dp && !dp.stale ? 'PDF 다시' : '점검 끝 · PDF') + '</button></div></div>';
+    '<div class="dslot" id="csSlot">' + csSlotHtml(k) + '</div></div></div>';
 }
 function csItemHtml(x, i) {
   return '<div class="card csit' + (x.st === '미흡' ? ' bad' : '') + '"><h3><span>' + (i + 1) + '. ' + h(x.t) + '</span>' + (x.extra ? '<button class="btn sm warn" onclick="csExtraDel(' + i + ')">지우기</button>' : '') + '</h3>' +
@@ -3035,7 +3030,13 @@ function csExtraAdd() {
 function csExtraDel(i) { if (!confirm('「' + S.ck.items[i].t + '」 항목을 지울까요?')) return; S.ck.items.splice(i, 1); csDirty(); render(); }
 let CS_T = null;
 function csDirty(now) { const k = S.ck; k.ver++; k.dirty = true; k.err = false; csStRefresh(); clearTimeout(CS_T); CS_T = setTimeout(csFlush, now ? 0 : 1500); }
-function csStRefresh() { const e = $('csSt'); if (e && S.ck) e.innerHTML = csStateHtml(); }
+function csStRefresh() { const e = $('csSt'); if (e && S.ck) e.innerHTML = csStateHtml(); const b = $('csSlot'); if (b && S.ck) b.innerHTML = csSlotHtml(S.ck); }
+// [점검 끝] = 저장 + PDF, 끝나면 [PDF 보기], 고치면 다시 [점검 끝] (결정 176)
+function csSlotHtml(k) {
+  const dp = csDayPdf(k.rounds);
+  return dp && !dp.stale && !k.dirty && !k.pdfBusy ? pdfBtn('big', 'PDF 보기', dp.url, { name: k.date + '_공사장점검-' + k.site.name + '.pdf', sub: '공사장 점검 ›' }) :
+    '<button class="btn big pri" onclick="csPdf()"' + (k.pdfBusy ? ' disabled' : '') + '>' + (k.pdfBusy ? '<span class="spin"></span> PDF 만드는 중' : '점검 끝') + '</button>';
+}
 function csFlush() {
   const k = S.ck;
   if (!k) return Promise.resolve(true);

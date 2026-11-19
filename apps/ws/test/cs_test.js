@@ -103,8 +103,8 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.evaluate(() => window.scrollTo(0, 0)); await p.screenshot({ path: __dirname + '/shot_cs_check.png' });
 
   // PDF
-  await p.click('.csbar button:has-text("점검 끝 · PDF")');
-  await p.waitForSelector('.csbar a:has-text("PDF 열기")', { timeout: 15000 });
+  await p.click('.csbar button:has-text("점검 끝")');
+  await p.waitForSelector('.csbar a:has-text("PDF 보기")', { timeout: 15000 });
   const pdf = await p.evaluate(() => window.__pdfEl || '');
   ok((pdf.match(/class="pc"/g) || []).length === 10 && /5F 리모와/.test(pdf) && /공사관리/.test(pdf) && /오후점검/.test(pdf), 'PDF 화면: 항목 10칸 · 현장 · 점검자 · 오후점검');
   const pp = await b.newPage({ viewport: { width: 794, height: 1123 } });
@@ -130,9 +130,9 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.locator('.csrtabs button').first().click();
   await p.waitForFunction(() => /오후점검/.test((document.querySelector('.csrtabs .on') || {}).textContent || '') && document.querySelectorAll('.csit').length === 10);
   ok(await p.locator('.csit').nth(3).locator('img').count() === 2 && /감지기 덮개/.test(await p.locator('.csit').nth(3).locator('textarea').inputValue()), '오후점검 칸 → 사진·메모·추가 항목 그대로');
-  ok(!/PDF 열기/.test(await p.locator('.csbar').innerText()) && /점검 끝 · PDF/.test(await p.locator('.csbar').innerText()), '퇴실점검을 더했으니 옛 PDF 대신 「점검 끝 · PDF」');
-  await p.evaluate(() => { window.__pdfEl = ''; }); await p.click('.csbar button:has-text("점검 끝 · PDF")');
-  await p.waitForSelector('.csbar button:has-text("PDF 다시")', { timeout: 15000 });
+  ok(!/PDF 보기/.test(await p.locator('.csbar').innerText()) && /점검 끝/.test(await p.locator('.csbar').innerText()), '퇴실점검을 더했으니 옛 PDF 대신 「점검 끝」');
+  await p.evaluate(() => { window.__pdfEl = ''; }); await p.click('.csbar button:has-text("점검 끝")');
+  await p.waitForSelector('.csbar a:has-text("PDF 보기")', { timeout: 15000 });
   const pdf2 = await p.evaluate(() => window.__pdfEl || '');
   ok((pdf2.match(/class="cspdf"/g) || []).length === 2 && /오후점검[\s\S]*퇴실점검/.test(pdf2) && /page-break-before/.test(pdf2) && (pdf2.match(/class="pc"/g) || []).length === 19, 'PDF 한 파일: 오후점검(10칸) → 새 쪽 퇴실점검(9칸)');
   await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와") .csrd .ok:text-is("퇴실점검 양호")');

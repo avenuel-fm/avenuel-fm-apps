@@ -64,21 +64,20 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   ok(box[0] === '16px' && box[1] >= 44, '고르기 칸 16px · 높이 ' + box[1]);
   ok(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), '휴대폰 옆으로 넘침 없음');
   await p.screenshot({ path: 'shot_tbm.png', fullPage: true });
-  await p.click('.nwbar button:text-is("저장")'); await p.waitForFunction(() => S.tbm && S.tbm.saved && !S.tbm.dirty && !S.tbm.busy);
+  await p.click('.nwbar button:text-is("저장")'); await p.waitForFunction(() => S.tbm && S.tbm.saved && !S.tbm.dirty && !S.tbm.busy && S.tbm.pdf && !S.tbm.pdfBusy);
   const g = await run('tbmGet', hong.token);
   ok(g.saved && g.works.length === 4 && g.works[0].p === 3 && g.works[0].n === '3' && g.works[0].fixes.length === 4 && g.photos.meet && g.photos.chant, '저장 → 작업 표 4줄 · 사진 2장');
-  await p.click('.nwbar button:text-is("PDF로 저장")'); await p.waitForFunction(() => S.tbm && S.tbm.pdf && !S.tbm.pdfBusy);
   ok((await p.locator('.banner.b-info').first().innerText()).indexOf('PDF 저장됨') !== -1, 'PDF 저장 → 「PDF 저장됨」 표시');
-  const openBtn = p.locator('.nwbar a.btn.pri');
-  ok(await openBtn.innerText() === 'PDF 열기' && /drive\.google\.com\/file\/d\/.+\/view/.test(await openBtn.getAttribute('href')) && await openBtn.getAttribute('target') === '_blank', 'PDF 저장 뒤 버튼 = [PDF 열기] (새 창)');
+  const openBtn = p.locator('.nwbar a.btn');
+  ok(await openBtn.innerText() === 'PDF 보기' && await p.locator('.nwbar button.pri').count() === 0 && /drive\.google\.com\/file\/d\/.+\/view/.test(await openBtn.getAttribute('href')) && await openBtn.getAttribute('target') === '_blank', '저장 뒤 [저장] 자리 = [PDF 보기] (새 창)');
   ok((await p.locator('.tbpb').first().innerText()).replace(/\s+/g, ' ').trim() === '카메라 파일' && await p.locator('.tbpb').first().locator('svg.ui-ico').count() === 2, '사진 버튼 선 아이콘 (WS-25)');
   await p.locator('.tbck button').nth(1).click();
-  ok(await p.locator('.nwbar button.pri').innerText() === 'PDF로 저장', '고치면 다시 [PDF로 저장]');
+  ok(await p.locator('.nwbar button.pri').innerText() === '저장', '고치면 다시 [저장]');
   ok(await p.locator('.nwbar > .back-in:first-child').count() === 1 && await p.locator('.backbar').count() === 0, '뒤로 버튼은 저장 줄 맨 왼쪽 (WS-25)');
   let saveCalls = 0; p.on('request', q => { if (q.url().endsWith('/run') && /"fn":"tbmSave"/.test(q.postData() || '')) saveCalls++; });
   await p.click('.nwbar button.pri'); await p.waitForFunction(() => S.tbm && !S.tbm.pdfBusy && !S.tbm.dirty && !S.tbm.pdfStale);
   const g3 = await run('tbmGet', hong.token);
-  ok(saveCalls === 0 && g3.checks['비계'] === true, '결정78: 고친 뒤 [PDF로 저장] → 따로 [저장] 없이 한 번에 저장됨');
+  ok(saveCalls === 0 && g3.checks['비계'] === true, '결정78: 고친 뒤 [저장] → 저장과 PDF가 한 번에');
   const pdf = await p.evaluate(() => {
     const e = window.__pdfEl, t = e.innerText;
     return { pages: e.querySelectorAll('.pg').length, rows: e.querySelectorAll('.wk tr').length - 1, signs: e.querySelectorAll('.sg img').length, inn: (t.match(/\(인\)/g) || []).length,
