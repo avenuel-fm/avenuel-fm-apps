@@ -440,7 +440,7 @@
             border-color: var(--border-focus);
         }
 
-/* 매장 대장 (결정 152) */
+/* 매장 대장 (결정 154) */
 #edit-modal { max-width: 600px; max-height: calc(100dvh - var(--sp-8)); }
 #edit-modal .edit-fields-wrap { overflow-y: auto; }
 .store-id-chip { width: fit-content; font-size: var(--size-s); font-weight: 500; background: var(--tint); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 var(--sp-2); line-height: 24px; font-variant-numeric: tabular-nums; }

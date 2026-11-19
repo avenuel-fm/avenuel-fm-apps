@@ -699,7 +699,7 @@
 .other-note { margin: var(--sp-1) 0 0; color: var(--text-sub); font-size: var(--size-s); line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) { .other-drawer { transition: none; } }
 
-/* 매장 목록: 엑셀 버튼 · 확인 필요 (결정 152) */
+/* 매장 목록: 엑셀 버튼 · 확인 필요 (결정 154) */
 .store-excel-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) 0; }
 .store-excel-row button { min-height: var(--control-h); }
 body.map-ro .store-excel-row { grid-template-columns: 1fr; }

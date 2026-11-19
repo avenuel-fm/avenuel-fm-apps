@@ -1,4 +1,4 @@
-// 지도 매장 대장 화면 시험 (결정 152): 고유번호 · 이름 바꾸기·지우기 · 도형 삭제 · 되돌리기 · 엑셀 받기·올리기 · 직원 권한
+// 지도 매장 대장 화면 시험 (결정 154): 고유번호 · 이름 바꾸기·지우기 · 도형 삭제 · 되돌리기 · 엑셀 받기·올리기 · 직원 권한
 // 엑셀 도구(SheetJS)는 실제 주소에서 받으므로 인터넷이 필요함. 실행: node test/sb_map_book_test.js
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');

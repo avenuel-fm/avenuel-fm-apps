@@ -37,9 +37,18 @@ async function open(b, opt) {
   ok(!(await p.locator('.lgtools,.lgchip').count()), '종이 위 문구·TBM 줄 없음');
   const wv = (d, i) => p.inputValue('.lgin[data-d="' + d + '"][data-i="' + i + '"]');
   ok(await wv('전기방재', 0) === '2층 자동문 재결선' && await wv('전기방재', 9) === 'B9 순찰' && await wv('기계건축', 0) === '옥상 배수구 청소' && (await p.locator('#lgState').innerText()).indexOf('저장 안 함') !== -1, '새 날: TBM 작업 표로 금일작업 채워 둠 (10줄까지, 11번부터 뺌)');
-  const png = await p.screenshot({ clip: { x: 0, y: 0, width: 800, height: 500 } });
+  // 빨강 그림을 올려 회색으로 바뀌는지 봄 (빨강의 회색 값 = 약 76)
+  const redUrl = await p.evaluate(() => { const c = document.createElement('canvas'); c.width = 800; c.height = 500; const g = c.getContext('2d'); g.fillStyle = '#f00'; g.fillRect(0, 0, 800, 500); return c.toDataURL('image/png'); });
+  const png = Buffer.from(redUrl.split(',')[1], 'base64');
+  const nightPixel = () => p.evaluate(async () => { const im = new Image(); im.src = S.lg.nightNew; await im.decode(); const c = document.createElement('canvas'); c.width = 8; c.height = 8; const g = c.getContext('2d'); g.drawImage(im, 0, 0, 8, 8); return Array.from(g.getImageData(4, 4, 1, 1).data).slice(0, 3); });
+  const isGray = c => Math.max(...c) - Math.min(...c) <= 2 && Math.abs(c[0] - 76) <= 4;
   await p.setInputFiles('#lgNight input[type=file]', { name: 'night.png', mimeType: 'image/png', buffer: png });
   await p.waitForSelector('#lgNight img');
+  ok(isGray(await nightPixel()), '야간 그림: 파일로 올리면 회색으로 바뀜');
+  await p.evaluate(() => { S.lg.nightNew = ''; });
+  await p.evaluate(async u => { const b = await (await fetch(u)).blob(), t = new DataTransfer(); t.items.add(new File([b], 'n.png', { type: 'image/png' })); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: t, cancelable: true })); }, redUrl);
+  await p.waitForFunction(() => S.lg.nightNew);
+  ok(isGray(await nightPixel()), '야간 그림: Ctrl+V로 붙여 넣어도 회색으로 바뀜');
   const nb = await p.evaluate(() => { const i = $('lgNight').querySelector('img'), r = i.getBoundingClientRect(), b = $('lgNight').getBoundingClientRect(); return [S.lg.nightNew.slice(0, 23), r.width <= b.width + 1 && r.height <= b.height + 1]; });
   ok(nb[0] === 'data:image/jpeg;base64,' && nb[1], '야간 그림: JPEG로 줄여 칸 안에 맞춤');
   const set = (k, v) => p.locator('.lgin[data-k="' + k + '"]').fill(v);

@@ -73,7 +73,7 @@ var lastCreatedStoreId = null;
                 .replace(/'/g, '&#039;');
         }
 
-        // 수정 창의 상세 항목 칸 (항목은 엑셀에 열을 더해 늘림, 결정 152)
+        // 수정 창의 상세 항목 칸 (항목은 엑셀에 열을 더해 늘림, 결정 154)
         function renderStoreDetailForm(store) {
             const box = document.getElementById('store-detail-form');
             if (!box) return;
@@ -364,7 +364,7 @@ var lastCreatedStoreId = null;
             activeSelectedStore.type = currentEditType;
             activeSelectedStore.fillColor = currentEditColor;
 
-            // 대장에 저장: 번호는 그대로, 이름·상세내역만 바뀜 (결정 152)
+            // 대장에 저장: 번호는 그대로, 이름·상세내역만 바뀜 (결정 154)
             if (bookId) {
                 const book = getStoreBook(floor.code);
                 const it = book.items[bookId];

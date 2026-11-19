@@ -290,7 +290,7 @@ var storeFilterMode = 'all'; // 'all' | 'store' | 'utility'
                     matchedPolygon = matchingPaths[0];
                 }
 
-                // 도형의 고유값: 한 도형에 글자가 여럿이면 뒤에 #2, #3 (결정 152)
+                // 도형의 고유값: 한 도형에 글자가 여럿이면 뒤에 #2, #3 (결정 154)
                 let shapeKey = null;
                 if (matchedPolygon) {
                     const base = matchedPolygon.id || `xy:${matchedPolygon.getAttribute('ds-x')}:${matchedPolygon.getAttribute('ds-y')}`;
@@ -563,7 +563,7 @@ var storeFilterMode = 'all'; // 'all' | 'store' | 'utility'
         }
 
 
-        // 도면의 도형과 매장 대장을 맞추고, 대장의 이름·상세내역을 화면에 씀 (결정 152)
+        // 도면의 도형과 매장 대장을 맞추고, 대장의 이름·상세내역을 화면에 씀 (결정 154)
         function applyStoreBook(floor) {
             const key = getStoreBookKey(floor.code);
             const write = !mapStore.readOnly();

@@ -1,4 +1,4 @@
-// 지도 매장 대장 규칙 시험 (결정 152) — 화면 없이 계산만. 실행: node test/store_book_test.js
+// 지도 매장 대장 규칙 시험 (결정 154) — 화면 없이 계산만. 실행: node test/store_book_test.js
 const assert = require('assert');
 const B = require('../../../fm/map/js/storage/storeBook.js');
 let n = 0;
