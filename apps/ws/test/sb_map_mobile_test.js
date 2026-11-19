@@ -21,7 +21,8 @@ const FAKE = `window.supabase = { createClient() {
 } };`;
 const room = (id, name, x, y) => `<path id="${id}" d="M${x - 150} ${y - 100}h300v200h-300z" fill="#dfe7f0" ds-x="${x}" ds-y="${y}" ds-width="300" ds-height="200"/><text x="${x}" y="${y}"><tspan>${name}</tspan></text>`;
 const poi = (name, x, y) => `<g group-type="POI_GROUP" name="${name}"><image width="50" height="50" href="data:image/gif;base64,R0lGODlhAQABAAAAACw=" x="${x}" y="${y}"/></g>`;
-const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="9280 3880 1950 2080" width="1950" height="2080"><g>${room('a', '아그라', 9600, 4200)}${poi('엘리베이터', 9900, 4600)}${poi('Tax Refund', 9950, 4600)}${poi('출입구', 10000, 4600)}</g></svg>`;
+const plate = (id, x, y, tf) => `<path id="${id}" d="M${x} ${y} L${x + 50} ${y} L${x + 50} ${y + 50} L${x} ${y + 50} Z" fill="#67615d" stroke="#ffffff"${tf ? ` transform="${tf}"` : ''}/>`;
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="9280 3880 1950 2080" width="1950" height="2080"><g>${room('a', '아그라', 9600, 4200)}${plate('pl-ev', 9890, 4590, 'matrix(1,0,0,1,10,10)')}${plate('pl-door', 10000, 4600)}${poi('엘리베이터', 9900, 4600)}${poi('Tax Refund', 9950, 4600)}${poi('출입구', 10000, 4600)}</g></svg>`;
 const srv = http.createServer((req, res) => {
   let body = ''; req.on('data', d => body += d); req.on('end', () => {
     const u = new URL(req.url, 'http://x');
@@ -78,7 +79,7 @@ const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); r
   await fl.locator('#btn-fullscreen').tap(); await p.waitForTimeout(400);
   ok(await p.evaluate(() => !document.body.classList.contains('mapfull')) && await vis(f, 'header') && /전체화면/.test(await fl.locator('#btn-fullscreen').innerText()), '8) 종료하면 원래 화면');
 
-  const info = await f.evaluate(() => { const l = document.getElementById('info-layer'); const names = l ? Array.from(l.children).map(g => g.getAttribute('name')) : []; const top = document.getElementById('custom-stores-top-layer'); return { names, after: !top || !!(top.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING), pe: l && l.style.pointerEvents }; });
+  const info = await f.evaluate(() => { const l = document.getElementById('info-layer'); const names = l ? Array.from(l.querySelectorAll('g[group-type]')).map(g => g.getAttribute('name')) : []; const top = document.getElementById('custom-stores-top-layer'); return { names, after: !top || !!(top.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING), pe: l && l.style.pointerEvents }; });
   ok(info.names.join() === '엘리베이터,Tax Refund' && info.pe === 'none', '9) 인포 레이어: 엘리베이터·택스리펀드만 묶음 (출입구는 뺌) · 눌러도 그리기 안 막음');
   await f.evaluate(() => { drawingPoints = [{ x: 10300, y: 5100 }, { x: 10420, y: 5100 }, { x: 10420, y: 5250 }, { x: 10300, y: 5250 }]; finishDrawingPolygon(); closeAllPopovers(); });
   await p.waitForTimeout(300);
@@ -86,6 +87,10 @@ const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); r
   ok(order, '10) 매장을 그린 뒤에도 인포 레이어가 그린 매장보다 위');
   await f.evaluate(() => onInfoLayerChange(false));
   ok(await f.evaluate(() => document.getElementById('info-layer').style.display === 'none'), '11) 레이어 메뉴 「인포」 끄면 숨김');
+  const pl = await f.evaluate(() => ({ ev: !!document.querySelector('#info-layer #pl-ev'), door: !document.getElementById('pl-door').closest('#info-layer'),
+    tint: Array.from(document.querySelectorAll('#info-layer image')).every(i => i.getAttribute('filter') === 'url(#info-tint)') && !!document.getElementById('info-tint') }));
+  ok(pl.ev && pl.door, '11-1) 인포 그림 밑 받침 사각형도 인포 레이어로 (끄면 바닥 보임) · 출입구 받침은 그대로');
+  ok(pl.tint, '11-2) 인포 그림 색을 하나로 (남색 바탕 · 흰 그림)');
   await f.evaluate(() => onInfoLayerChange(true));
 
   const cs = await f.evaluate(() => currentStores.find(s => s.isCustom).bookId);
