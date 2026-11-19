@@ -87,7 +87,7 @@
             }
         }
 
-        // 매장 대장: 층마다 고유번호·이름·상세내역 (결정 152)
+        // 매장 대장: 층마다 고유번호·이름·상세내역 (결정 154)
         function getStoreBookKey(floorCode) {
             return `lotte_store_book_${floorCode}${getBuildingStorageSuffix()}`;
         }
