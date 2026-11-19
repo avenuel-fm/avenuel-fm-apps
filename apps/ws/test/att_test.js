@@ -54,6 +54,7 @@ const AOA = () => { const a = aoa(); return { a, hid: a.hid }; };
   ok(secs.map(s => s.split('\n')[0]).join('|') === '사업소장|관리파트|전기·방재|기계·건축|공사장 안전관리', '조직도 구역 순서 ' + secs.map(s => s.split('\n')[0]).join('|'));
   ok(await p.locator('.atp.vac').count() === 1 && await p.locator('.atp:not(.vac)').count() === 7, '사람 7칸 + 공석 1칸');
   ok(await p.locator('.k4', { hasText: '공사가짜' }).count() === 1, '공사가짜는 공사장 안전관리 구역 (맨 아래)');
+  ok(await p.locator('.atav').count() === 0, '이름 왼쪽 성 표시 없음');
   const tagOf = n => p.locator('.atp', { hasText: n }).locator('.attag').innerText();
   ok(await tagOf('주간가짜') === '9-7' && await tagOf('총무가짜') === '병가' && await tagOf('비번가짜') === '비', '오늘 상태 딱지 (9-7 · 병가 · 비)');
   ok(await tagOf('홍길동') === '출', '출근 딱지는 「출」 한 글자');
@@ -101,7 +102,7 @@ const AOA = () => { const a = aoa(); return { a, hid: a.hid }; };
   await p.locator('#imgShot .atimg').screenshot({ path: 'shot_att_image.png' });
   const it = await p.locator('#imgShot').innerText();
   ok(it.indexOf('잠실점 에비뉴엘 시설관리') !== -1 && it.indexOf('월드타워') === -1 && it.indexOf('만듦') === -1, '그림 글: 잠실점 에비뉴엘 시설관리 · 「만듦」 뺌');
-  ok(await p.evaluate(() => [...document.querySelectorAll('#imgShot .attag, #imgShot .atav')].every(e => { const r = e.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(e); const t = g.getBoundingClientRect(); return Math.abs((t.top + t.bottom) / 2 - (r.top + r.bottom) / 2) <= 1.5 && Math.abs((t.left + t.right) / 2 - (r.left + r.right) / 2) <= 1.5; })), '딱지·동그라미 글자 가운데 (위아래·좌우 1.5px 안)');
+  ok(await p.evaluate(() => [...document.querySelectorAll('#imgShot .attag')].every(e => { const r = e.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(e); const t = g.getBoundingClientRect(); return Math.abs((t.top + t.bottom) / 2 - (r.top + r.bottom) / 2) <= 1.5 && Math.abs((t.left + t.right) / 2 - (r.left + r.right) / 2) <= 1.5; })), '딱지 글자 가운데 (위아래·좌우 1.5px 안)');
   ok(await p.evaluate(() => [...document.querySelectorAll('#imgShot .atnm b, .wrap .atnm b')].every(b => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().right <= b.closest('.atp').querySelector('.attag').getBoundingClientRect().left + 1)), '이름이 잘리거나 딱지와 겹치지 않음 (화면·그림)');
   ok(await p.evaluate(() => [...document.querySelectorAll('#imgShot .atppl')].every(g => { const c = [...g.children]; const v = c.findIndex(x => x.classList.contains('vac')); return v === -1 || c.slice(v).every(x => x.classList.contains('vac')); })), '공석은 구역 맨 끝');
   // PC

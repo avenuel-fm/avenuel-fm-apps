@@ -50,6 +50,11 @@ const FAKE_XLSX = 'window.XLSX={read:()=>({SheetNames:' + JSON.stringify(Object.
   ok(/필증 출력 \(3\)/.test(await pc.locator('.ehph').innerText()), '매장을 옮겨도 고른 것 유지 (3)');
   ok(!(await overflow(pc)), 'PC 옆 넘침 없음');
   ok(!/매장명\s*:/.test(await pc.locator('.ehph').innerText()), '엑셀 칸 서식 「매장명 :」 빠짐');
+  const npc = await pc.locator('.ehtbl .c-bad').first().evaluate(e => { const s = getComputedStyle(e); return { bg: s.backgroundColor, c: s.color, navy: (d => { d.style.color = 'var(--navy)'; document.body.append(d); const v = getComputedStyle(d).color; d.remove(); return v; })(document.createElement('i')) }; });
+  ok(npc.bg === 'rgba(0, 0, 0, 0)' && npc.c === npc.navy, '필증 칸 「미출력」: 배경 없음 · 남색 글자 ' + JSON.stringify(npc));
+  const bad = await pc.evaluate(() => { const d = document.createElement('span'); d.className = 'chip c-bad'; document.body.append(d); const s = getComputedStyle(d), v = [s.color, s.backgroundColor]; d.remove(); return v; });
+  ok(bad[0] === 'rgb(255, 255, 255)' && bad[1] === 'rgb(30, 58, 95)', '공통 「문제」 표시: 남색 배경에 흰 글자 ' + bad);
+  await pc.locator('.ehtbl').screenshot({ path: 'shot_eh_chip.png' });
   await pc.screenshot({ path: 'shot_eh_pc.png' });
   // 여러 PC 해상도: 표·단추가 잘리지 않음 (긴 매장명). 1024보다 좁으면 매장 상자 화면
   for (const w of [1024, 1152, 1280, 1440, 1920]) {

@@ -37,11 +37,14 @@ const overflow = p => p.evaluate(() => document.documentElement.scrollWidth > in
     await p.locator('.nwrow').nth(i).locator('.f-place input').fill(pl);
     if (n) await p.locator('.nwrow').nth(i).locator('.f-note input').fill(n);
   }
-  ok(await p.locator('.nwrow.danger').count() === 1 && await p.locator('.nwrow').nth(5).evaluate(e => e.classList.contains('danger')), '「사다리」 줄만 빨간색');
+  ok(await p.locator('.nwrow.danger').count() === 1 && await p.locator('.nwrow').nth(5).evaluate(e => e.classList.contains('danger')), '「사다리」 줄만 위험 줄 표시');
   await p.locator('.nwrow').nth(1).locator('.f-note input').fill('용접');
-  ok(await p.locator('.nwrow').nth(1).evaluate(e => e.classList.contains('danger')), '비고에 「용접」 입력하면 바로 빨간색');
+  const noteColor = () => p.locator('.nwrow').nth(1).locator('.f-note input').evaluate(e => getComputedStyle(e).color);
+  ok(await noteColor() === 'rgb(180, 35, 24)', '비고에 「용접」 입력하면 비고 글자가 바로 빨간색');
+  ok(await p.locator('.nwrow').nth(1).locator('.f-work input').evaluate(e => getComputedStyle(e).color) !== 'rgb(180, 35, 24)', '작업 내용 글자는 빨갛게 안 됨');
+  ok(await p.locator('text=그 줄이 빨간색').count() === 0, '빨간색 안내 문구 없음');
   await p.locator('.nwrow').nth(1).locator('.f-note input').fill('');
-  ok(!(await p.locator('.nwrow').nth(1).evaluate(e => e.classList.contains('danger'))), '지우면 다시 검정');
+  ok(await noteColor() !== 'rgb(180, 35, 24)', '지우면 빨간색 풀림');
   const box = await p.locator('.nwrow .f-work input').first().evaluate(e => [getComputedStyle(e).fontSize, e.getBoundingClientRect().height]);
   ok(box[0] === '16px' && box[1] >= 44, '입력칸 16px · 높이 ' + box[1]);
   ok(!(await overflow(p)), '휴대폰 옆으로 넘침 없음');
