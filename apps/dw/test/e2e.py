@@ -55,6 +55,7 @@ async def main():
         check('오픈 예정일' in insp and '늦습니다' in insp, '날짜 검사: 공사 종료일이 오픈 예정일보다 늦음 경고')
         await page.fill('#f-periodEnd', '2026-11-19')
         check(await page.locator('#inspect .dwarn').count() == 0, '날짜가 맞으면 경고 사라짐')
+        await page.fill('#f-openDate', (TODAY + datetime.timedelta(days=60)).isoformat())  # 고정 날짜가 「7일 내 오픈」 집계에 들어가지 않게
 
         # 전화 하이픈 · 이메일 검사
         await page.fill('#f-ownerCompany', '발주 주식회사'); await page.fill('#f-ownerName', '김담당')
@@ -134,7 +135,7 @@ async def main():
         p1 = page.locator('#pages .page').nth(0)
         t1 = await p1.inner_text()
         check('3층 동측' in t1, '공사위치 "3 동측" → 출력 "3층 동측"')
-        check('작성중' in await p1.locator('.stamp').inner_text(), '컨펌 전 출력물에 "작성중" 표시')
+        check(await p1.locator('.stamp').count() == 0, '컨펌 전 출력물에 "작성중" 표시 없음')
         check('—' in t1, '빈칸은 "—"로 표시')
         check('미제출 시 준공 불가' in t1, '출력물 제출서류 줄에 준공 불가 표시')
         check('해당없음' in t1, '주방 없음 항목이 출력물에 해당없음')
