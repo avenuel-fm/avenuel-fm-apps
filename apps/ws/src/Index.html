@@ -772,7 +772,7 @@ function renderMain() {
   const u = S.user;
   const today = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
   const c = S.fire ? S.fire.counts : null;
-  const soon = () => '<button class="tile soon" disabled><span class="ico">' + ICON.soon + '</span><b>작업중</b><small>준비 중</small></button>';
+  const soon = (b = '작업중', sm = '준비 중') => '<button class="tile soon" disabled><span class="ico">' + ICON.soon + '</span><b>' + b + '</b><small>' + sm + '</small></button>';
   // 환경설정에서 끈 칸: 직원에게는 「작업중」 칸, 소장·관리자·옵저버에게는 평소 칸 (결정 148)
   const t = (key, label, sub, ico) => menuOff(key) && !menuCanOpen() ? soon() : '<button class="tile" onclick="tile(\'' + key + '\')"><span class="ico">' + ico + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
   return topbar('잠실점 에비뉴엘 · ' + today, '업무지원') + '<div class="wrap" style="display:flex;flex-direction:column;gap:var(--sp-3)">' +
@@ -782,7 +782,7 @@ function renderMain() {
     soon() +
     t('inspect', '점검', c ? '소화기 ' + (c.ok + c.bad) + ' / ' + c.total + '대' : '소화기 점검', ICON.inspect) +
     t('spec', '시방서 검색', '도면협의 지침 찾기', ICON.search) +
-    soon() +
+    soon('자재현황', '준비중') +   // 자재현황 자리 (결정 168, WS_자재현황.md)
     t('map', '지도', '에비뉴엘 도면', ICON.map) +
     '</div>' +
     '<div class="mainfoot"><button class="btn theme-btn" onclick="toggleTheme()">' + themeLabel() + '</button>' +

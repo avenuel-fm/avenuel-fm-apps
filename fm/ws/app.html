@@ -10,9 +10,9 @@
 <title>업무지원 · 에비뉴엘 시설팀</title>
 <meta name="robots" content="noindex">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=0.19.5"></script>
-<script>window.WS_VERSION = '0.19.5';</script>
-<script src="ws-api.js?v=0.19.5"></script>
+<script src="config.js?v=0.19.6"></script>
+<script>window.WS_VERSION = '0.19.6';</script>
+<script src="ws-api.js?v=0.19.6"></script>
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -646,7 +646,7 @@ select.lgin{text-align:center;padding:0}
 const EXEC_URL = '';
 const FLOORS = ['B1','1F','2F','3F','4F','5F','6F'];
 const CAN_PRINT = window.matchMedia('(hover: hover) and (pointer: fine)').matches && window.innerWidth >= 900;
-const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: '0.19.5' || store('ws_ver') || '' };
+const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: '0.19.6' || store('ws_ver') || '' };
 
 /* ── 도우미 ── */
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
@@ -891,7 +891,7 @@ function renderMain() {
   const u = S.user;
   const today = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
   const c = S.fire ? S.fire.counts : null;
-  const soon = () => '<button class="tile soon" disabled><span class="ico">' + ICON.soon + '</span><b>작업중</b><small>준비 중</small></button>';
+  const soon = (b = '작업중', sm = '준비 중') => '<button class="tile soon" disabled><span class="ico">' + ICON.soon + '</span><b>' + b + '</b><small>' + sm + '</small></button>';
   // 환경설정에서 끈 칸: 직원에게는 「작업중」 칸, 소장·관리자·옵저버에게는 평소 칸 (결정 148)
   const t = (key, label, sub, ico) => menuOff(key) && !menuCanOpen() ? soon() : '<button class="tile" onclick="tile(\'' + key + '\')"><span class="ico">' + ico + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
   return topbar('잠실점 에비뉴엘 · ' + today, '업무지원') + '<div class="wrap" style="display:flex;flex-direction:column;gap:var(--sp-3)">' +
@@ -901,7 +901,7 @@ function renderMain() {
     soon() +
     t('inspect', '점검', c ? '소화기 ' + (c.ok + c.bad) + ' / ' + c.total + '대' : '소화기 점검', ICON.inspect) +
     t('spec', '시방서 검색', '도면협의 지침 찾기', ICON.search) +
-    soon() +
+    soon('자재현황', '준비중') +   // 자재현황 자리 (결정 168, WS_자재현황.md)
     t('map', '지도', '에비뉴엘 도면', ICON.map) +
     '</div>' +
     '<div class="mainfoot"><button class="btn theme-btn" onclick="toggleTheme()">' + themeLabel() + '</button>' +
