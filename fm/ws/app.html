@@ -1531,7 +1531,7 @@ async function tbmMakePdf() {
 }
 
 /* ── 명일 작업 예정 (WS_서류작업 9장, 결정 62·68) ── */
-const NW_WORDS = ['고소작업', '사다리', '용접', '페인트'];   // 비고에 있으면 비고 글자만 빨간색 (결정 154)
+const NW_WORDS = ['고소작업', '사다리', '용접', '페인트'];   // 비고에 있으면 비고 글자만 빨간색 (결정 158)
 const NW_DEPTS = ['전방파트', '기건파트'];
 function nwHot(t) { return NW_WORDS.some(w => String(t || '').indexOf(w) !== -1); }
 function nwDanger(r) { return nwHot(r.work) || nwHot(r.note); }
