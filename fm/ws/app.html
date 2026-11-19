@@ -10,9 +10,9 @@
 <title>업무지원 · 에비뉴엘 시설팀</title>
 <meta name="robots" content="noindex">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=0.19.4"></script>
-<script>window.WS_VERSION = '0.19.4';</script>
-<script src="ws-api.js?v=0.19.4"></script>
+<script src="config.js?v=0.19.5"></script>
+<script>window.WS_VERSION = '0.19.5';</script>
+<script src="ws-api.js?v=0.19.5"></script>
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -168,6 +168,9 @@ function themeLabel() { return themeDark() ? '밝게' : '어둡게'; }
 @media(max-width:760px){.sp{padding:var(--sp-3)}.spg{grid-template-columns:minmax(0,1fr)}.spside,.pcon{display:none}.spf{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}.spf .old{margin-left:0}
   .spsheet{align-items:flex-end;padding:0}.spsheet .sppv{height:90vh;border-radius:var(--radius) var(--radius) 0 0}}
 .mapframe{display:block;width:100%;height:calc(100dvh - 150px);min-height:420px;border:0}
+.mapview{display:flex;flex-direction:column;height:100dvh}.mapview .mapframe{flex:1;height:auto;min-height:0}
+.mapback{position:fixed;left:var(--sp-3);bottom:calc(var(--sp-3) + env(safe-area-inset-bottom));z-index:15;gap:var(--sp-1)}
+body.mapfull .mapview .mapframe{position:fixed;inset:0;width:100%;height:100dvh;z-index:100}
 .top,.top .ttl,.top .ttl small,.top .ttl b{color:var(--white)}
 .top .btn.pri{background:var(--white);border-color:var(--white);color:var(--navy)}
 .top{background:var(--navy);border-bottom:1px solid var(--navy);position:sticky;top:0;z-index:20}
@@ -643,7 +646,7 @@ select.lgin{text-align:center;padding:0}
 const EXEC_URL = '';
 const FLOORS = ['B1','1F','2F','3F','4F','5F','6F'];
 const CAN_PRINT = window.matchMedia('(hover: hover) and (pointer: fine)').matches && window.innerWidth >= 900;
-const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: '0.19.4' || store('ws_ver') || '' };
+const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: '0.19.5' || store('ws_ver') || '' };
 
 /* ── 도우미 ── */
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
@@ -729,7 +732,7 @@ function go(view, push) {
 }
 async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; S.fireAt = Date.now(); if (S.view === 'fire') render(); } catch (e) {} }
 try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
-const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', hyd: 'fire', status: 'fire', floor: 'status', docs: 'main', set: 'main', risk: 'set', map: 'main', spec: 'main', tbm: 'docs', nw: 'docs', log: 'docs', ahu: 'docs', att: 'docs', attup: 'att' };
+const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', thermal: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', status: 'fire', floor: 'status', docs: 'main', set: 'main', risk: 'set', map: 'main', spec: 'main', tbm: 'docs', nw: 'docs', log: 'docs', ahu: 'docs', att: 'docs', attup: 'att' };
 function back() { if (S.view === 'pdf') return go((S.pdf && S.pdf.from) || 'main'); if (S.view === 'csck') return csLeave(); if (S.view === 'risk' && S.rk && S.rk.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'log' && !lgLeaveOk()) return; if (S.view === 'ahu' && !ahuLeaveOk()) return; if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
 
 function topbar(sub, title) {
@@ -907,9 +910,25 @@ function renderMain() {
 }
 /* ── 지도 (결정 130): 도면 앱(fm/map)을 이 화면 안에 띄움 → 주소창은 업무지원 그대로. 자료는 PIN 로그인 표로만 (supabase/13_map.sql) ── */
 function renderMap() {
-  return topbar('업무지원 ›', '지도') + '<iframe class="mapframe" src="../map/index.html" title="에비뉴엘 도면"></iframe>';
+  return '<div class="mapview">' + topbar('업무지원 ›', '지도') + '<iframe class="mapframe" src="../map/index.html" title="에비뉴엘 도면" allow="fullscreen"></iframe>' +
+    '<button class="btn mapback" onclick="back()">' + ICON.back + '뒤로</button></div>';   // 뒤로는 왼쪽 아래 작은 버튼 (결정 160)
 }
-window.WS_MAP = { load: () => call('mapLoad'), save: (k, v, ver) => call('mapSave', k, v, ver), base: (k, v) => call('mapBase', k, v),
+/** 지도 전체화면: 지도 칸을 화면 가득 + 되면 기기 전체화면 (아이폰은 기기 전체화면이 없어 화면 가득만) */
+function mapFull(on) {
+  document.body.classList.toggle('mapfull', !!on);
+  const d = document;
+  try {
+    if (on && !d.fullscreenElement && d.documentElement.requestFullscreen) d.documentElement.requestFullscreen().catch(() => {});
+    if (!on && d.fullscreenElement) d.exitFullscreen().catch(() => {});
+  } catch (e) { /* 전체화면을 못 해도 화면 가득은 됨 */ }
+}
+document.addEventListener('fullscreenchange', () => {   // 기기 뒤로 가기로 전체화면이 풀리면 지도 단추도 되돌림
+  if (document.fullscreenElement || !document.body.classList.contains('mapfull')) return;
+  const fr = document.querySelector('iframe.mapframe');
+  if (fr && fr.contentWindow && fr.contentWindow.toggleMapFullscreen) fr.contentWindow.toggleMapFullscreen(false);
+  else mapFull(false);
+});
+window.WS_MAP = { full: on => mapFull(on), load: () => call('mapLoad'), save: (k, v, ver) => call('mapSave', k, v, ver), base: (k, v) => call('mapBase', k, v),
   days: () => call('mapDays'), at: at => call('mapAt', at), restore: day => call('mapRestore', day) };   // 기록·되돌리기 (결정 132)
 /* ── 시방서 검색 (결정 140, WS_시방서검색.md): 도면협의 지침 검색 자료를 읽기만. 검색 방식은 fm/dw/app.html searchGuide 와 같음 ── */
 const SP_KW = ['방화구획', '방화셔터', '감지기', '방염', '분전반', '스프링클러', '제연'];
@@ -1122,7 +1141,7 @@ function spPvHtml(x, big) {
 // PC 마우스 오른쪽 버튼 막기 (휴대폰 길게 누르기는 그대로)
 if (window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches) document.addEventListener('contextmenu', e => e.preventDefault());
 /* ── 메인 메뉴 켜기·끄기 (결정 148): 설정 표 「메인메뉴끄기」, 소장·관리자·옵저버는 꺼진 칸도 엶 ── */
-const MENU = [['docs', '서류작업', 'TBM · 명일 작업 · 종합업무일지 …'], ['inspect', '점검', '소화기 · 전열필증 · 공사장 점검'], ['spec', '시방서 검색', '도면협의 지침 찾기'], ['map', '지도', '에비뉴엘 도면']];
+const MENU = [['docs', '서류작업', 'TBM · 명일 작업 · 종합업무일지 …'], ['inspect', '점검', '소화기 · 전열필증 · 열화상 · 공사장 점검'], ['spec', '시방서 검색', '도면협의 지침 찾기'], ['map', '지도', '에비뉴엘 도면']];
 const menuOff = k => (S.menuOff || []).indexOf(k) !== -1;
 const menuCanOpen = () => !!S.user && ['소장', '관리자', '옵저버'].indexOf(S.user.role) !== -1;
 async function setMenu(k, on) {
@@ -2267,7 +2286,21 @@ function renderInspect() {
   return topbar('업무지원 ›', '점검') + '<div class="wrap list">' +
     '<button class="row" onclick="go(\'fire\')"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:600">소</span><span class="fname"><b style="font-size:var(--size-m)">소화기 점검</b><small>QR 관리·인쇄 · 월별 점검 현황</small></span>' + ICON.chev + '</button>' +
     '<button class="row" onclick="openEh()"><span class="ico" style="background:var(--orange-bg);color:var(--orange);font-weight:600">전</span><span class="fname"><b style="font-size:var(--size-m)">전열필증</b><small>층·매장별 전열기기 관리 · 신고필증' + (CAN_PRINT ? ' 출력' : ' (출력은 PC에서)') + '</small></span>' + ICON.chev + '</button>' +
+    (thCanOpen()
+      ? '<button class="row" onclick="go(\'thermal\')"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:600">열</span><span class="fname"><b style="font-size:var(--size-m)">열화상점검</b><small>FLIR 열화상 사진 → 점검 보고서(.atr) · PC 전용</small></span>' + ICON.chev + '</button>'
+      : '<button class="row" disabled style="opacity:.5;cursor:default"><span class="ico" style="background:var(--blue-bg);color:var(--blue);font-weight:600">열</span><span class="fname"><b style="font-size:var(--size-m)">열화상점검</b></span></button>') +
     '<button class="row" onclick="openCs()"><span class="ico" style="background:var(--green-bg);color:var(--green);font-weight:600">공</span><span class="fname"><b style="font-size:var(--size-m)">공사장 점검</b><small>공사 현장 안전 순찰 · 사진 · 날짜별 현장별 PDF</small></span>' + ICON.chev + '</button>' +
+    '</div>';
+}
+
+/* ── 열화상점검 (결정 166): 직원은 이름만(눌리지 않음), 소장·부소장·관리자·옵저버만 엶. 앱은 PC 프로그램이라 안내만 ── */
+const thCanOpen = () => !!S.user && ['소장', '부소장', '관리자', '옵저버'].indexOf(S.user.role) !== -1;
+function renderThermal() {
+  if (!thCanOpen()) return renderInspect();
+  return topbar('점검 ›', '열화상점검') + '<div class="wrap list">' +
+    '<div class="banner b-gray">준비 중입니다. 지금은 사무실 PC에서만 씁니다.</div>' +
+    '<div class="card" style="padding:var(--sp-4)"><h3 style="margin:0 0 var(--sp-2);font-size:var(--size-m)">할 수 있는 일</h3><div style="line-height:1.7">FLIR 열화상 사진(.jpg)을 넣으면 점 3개(R·S·T상) 온도와 상간 온도차를 계산해 FLIR Thermal Studio 보고서(.atr)로 만듭니다.</div></div>' +
+    '<div class="card" style="padding:var(--sp-4)"><h3 style="margin:0 0 var(--sp-2);font-size:var(--size-m)">쓰는 방법 (PC)</h3><div style="line-height:1.7">FLIR Thermal Studio가 깔린 PC에서 <b>run.bat</b>을 두 번 누르면 화면이 열립니다. 사진 이름은 <b>1층1번_일반.jpg</b>처럼 붙입니다.</div></div>' +
     '</div>';
 }
 
@@ -3187,6 +3220,7 @@ function render() {
   else if (S.view === 'att') html = renderAtt();
   else if (S.view === 'attup') html = renderAttUp();
   else if (S.view === 'inspect') html = renderInspect();
+  else if (S.view === 'thermal') html = renderThermal();
   else if (S.view === 'fire') html = renderFire();
   else if (S.view === 'qr') html = renderQr();
   else if (S.view === 'hyd') html = renderHyd();
@@ -3198,7 +3232,8 @@ function render() {
   else if (S.view === 'set' && isBoss()) html = renderSet();
   else if (S.view === 'risk' && isBoss()) html = renderRisk();
   else html = renderMain();
-  if (PARENT[S.view] && S.token && S.user) {   // 아래 뒤로 버튼 (위 < 는 뺌, 결정 102). 저장 줄이 있으면 그 줄 맨 왼쪽에 (WS-25)
+  if (S.view !== 'map') document.body.classList.remove('mapfull');
+  if (PARENT[S.view] && S.token && S.user && S.view !== 'map') {   // 아래 뒤로 버튼 (위 < 는 뺌, 결정 102). 저장 줄이 있으면 그 줄 맨 왼쪽에 (WS-25)
     const h2 = withBack(html);
     html = h2 !== html ? h2 : html + '<div class="wrap backbar"><button class="btn big" onclick="back()">' + ICON.back + '뒤로</button></div>';
   }

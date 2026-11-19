@@ -156,7 +156,7 @@ async function openMap(p) {
   ok(await f.evaluate(() => currentBuildingId === 'castle' && FLOORS.length === 3 && /타점 · 캐슬플라자/.test(document.getElementById('btn-other-bld').innerText)), '14-4) 타점 › 캐슬플라자 3개 층');
   await fl.locator('.mainboard-building-tab[data-building="avenuel"]').click(); await p.waitForTimeout(800);
   ok(await f.evaluate(() => currentBuildingId === 'avenuel' && document.getElementById('other-tab-label').textContent === '타점'), '14-5) 에비뉴엘로 돌아오면 탭 글자 「타점」');
-  await p.click('.backbar button'); await p.locator('.grid6').waitFor();
+  await p.click('.mapback'); await p.locator('.grid6').waitFor();
   ok(!p.errs.length, '15) 화면 오류 없음 (소장)' + (p.errs.length ? ': ' + p.errs.join(' / ') : ''));
 
   // ── 직원 · 아이패드(터치) ──
