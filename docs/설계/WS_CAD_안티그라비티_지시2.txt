@@ -22,7 +22,7 @@ DWG 저장을 외부 변환 서비스(CloudConvert)로 하면 변환 한도(크�
 [업로드 규격 초안 — 서버는 업무지원 쪽에서 나중에 만든다. 이름을 바꾸지 말고, 모르는 점은 질문으로 남길 것]
 - login(pin) → { ok, token, name, role }
 - upload({ token, name, floor, memo, dxfBlob, jsonInfo }) → { ok, id } 또는 { ok:false, error }  (파일은 구글 드라이브 「CAD 변환파일」 폴더, 목록은 표 cad_file)
-- 올리는 권한: 소장·부소장·관리자. 보는 권한: 전 직원.
+- 올리는 권한·보는 권한: 전 직원(PIN 로그인한 직원 누구나). 서버가 크기 상한·횟수 제한을 걸 수 있으니 error 문구를 그대로 화면에 보여 줄 것.
 
 [만들 것 2: 온라인 뷰어 fm/cad/ (업무지원 화면 안 창, 열화상·지도와 같은 방식)]
 - 완성본은 c:\avenuel\avenuel-fm-apps\fm\cad\ 에 둔다(index.html + js·css). 만들기 단계 없는 정적 파일. 그 밖의 폴더는 읽기만(apps/ws, apps/design, fm/ws, fm/map 등).
