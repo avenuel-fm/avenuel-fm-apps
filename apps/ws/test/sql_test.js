@@ -690,6 +690,12 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const tr = await call('ws_thermal_report', [tk, JSON.stringify({ title: '2026년 4분기 EPS 1층', inspector: '홍길동', date: '2026-11-20', path: 'thermal/2026-11/r.atr', url: 'https://b/r.atr', pages: 3, max_dt: '4.2' })]);
   const tb1 = await call('ws_thermal_boot', [tk]);
   ok(tr.ok && tr.id > 0 && tb1.reports.length === 1 && tb1.reports[0].pages === 3 && Number(tb1.reports[0].max_dt) === 4.2 && !('editor' in tb1.reports[0]), '열화상: 보고서 기록 → 목록에 (만든 사람 이름은 안 내보냄)');
+  const tp = await call('ws_thermal_report', [tk, JSON.stringify({ title: 'PDF만', date: '2026-11-20', pdf_path: 'thermal/2026-11/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'https://drive.google.com/file/d/x/view', pages: 2 })]);
+  const tb2 = await call('ws_thermal_boot', [tk]);
+  ok(tp.ok && tb2.reports[0].pdf_url === 'https://b/a.pdf' && tb2.reports[0].drive_url.startsWith('https://drive.google.com') && tb2.reports[0].path === '', '열화상: PDF만 있는 기록(.atr 없이) · PDF·드라이브 주소가 목록에');
+  ok((await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'tbm_pdf/a.pdf', pdf_url: 'https://b/a.pdf' })])).ok === false && (await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'thermal/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'http://x' })])).ok === false, '열화상: PDF 경로가 thermal/ 밖 · 드라이브 주소가 https 아님 → 막음');
+  await db.exec(SQL('16_thermal.sql'));   // 이미 쓰던 표에 다시 실행해도 기록이 남음 (칸 더하기)
+  ok((await call('ws_thermal_boot', [tk])).reports.length === 2, '열화상: 16_thermal.sql 다시 실행해도 기록 유지');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

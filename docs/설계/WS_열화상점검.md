@@ -43,8 +43,8 @@
 | `saveModel(model)` | 점 위치 학습 값 저장 (JSON) | `{ ok }` |
 | `saveTemplate(t)` | 양식 .atr 바꾸기: `upload()` 결과에 `name`을 붙여 넘김 `{ path, url, name }` | `{ ok }` |
 | `upload(blob, name)` | 사진·양식·보고서 파일 올리기 (Storage `ws-files/thermal/…`). **줄이지 않고 원본 그대로** (줄이면 온도 자료가 사라짐), 확장자는 `name`에서 | `{ path, url }` |
-| `saveReport(r)` | 만든 보고서 기록 `{ title, inspector, date, path, pages, max_dt }` | `{ ok, id }` |
-| `toDrive(path, name)` | 2단계: 구글 드라이브로 옮기기 | `{ ok, url }` |
+| `saveReport(r)` | 만든 보고서 기록 `{ title, inspector, date, path, pdf_path, pdf_url, drive_url, pages, max_dt }` — `.atr`(path·url) 또는 PDF(pdf_path·pdf_url) 중 하나는 있어야 함 | `{ ok, id }` |
+| `toDrive(path, name)` | 서버에 올린 PDF를 구글 드라이브 `시설팀 통합업무/20_업무지원/열화상점검/연-월`로 복사 (구글 웹앱 `?api=thermaldrive`, 결정 182). 같은 PDF는 한 파일, 「링크가 있는 사람 보기」 | `{ ok, url }` |
 | `full(on)` | 화면 가득 켜기·끄기 | — |
 
 **업무지원 쪽 준비 — 11-19 만들어 둠 (결정 168, 갈래 `claude/thermal-menu`, 아직 배포 안 함)**
@@ -60,6 +60,12 @@
 - 양식 `master_template.atr`(약 6.9MB, 건물 설비 사진 포함)은 **공개 저장소에 올리지 않음** (`.gitignore`). 소장이 처음 한 번 올리면 Supabase `thermal_kv.template`에 저장, 이후 `boot().template_url`로 받음. 못 받으면 「양식 파일 선택」 안내.
 - 시험(11-20): 업무지원 창(iframe)에 넣고 가짜 통로로 — 양식 없음 안내 → 양식 올리기(`upload`+`saveTemplate`) → 사진 3장 → .atr 다운로드 + `upload`·`saveReport`(3쪽, 최대 ΔT) 호출 확인. 만든 .atr: 사진 칸 3개, 측정자·날짜 들어가고 옛 이름·옛 날짜 없음, zip 이상 없음.
 - 온도 비교(옛 FlirTool vs 브라우저, 같은 위치): 2장은 소수 첫째 자리까지 같음, **1장은 0.6℃ 낮게 나옴**(28.9 ↔ 28.3 — 방사율·반사온도·거리 값 적용 차이로 추정). 사진에 점이 없던 5장은 위치가 달라 비교 못 함. → 4장 남은 일.
+
+## 3-2. PDF 저장·드라이브 백업·뒤로 버튼 (11-20, 결정 182, 업무지원 v0.20.4)
+- 작성기 버튼은 「PDF 저장」(저장되면 「PDF 보기」로 바뀜) · 「내려받기」(.atr) 두 개. PDF는 서버(`ws-files/thermal/…`)에 올린 뒤 `toDrive`로 드라이브에 백업. 작성기 수정은 안티그라비티 지시 3 (`WS_열화상점검_안티그라비티_지시3.txt`).
+- 구글 웹앱 `?api=thermaldrive&path=…&name=…`: `thermal/연-월/<32자>.pdf` 모양만 받고(PDF 머리글 확인, 20MB 제한), Supabase에서 서비스 열쇠로 받아 드라이브에 복사. 이름의 특수문자는 정리. 같은 파일을 다시 누르면 새로 만들지 않음. 키 없이 열려 있지만 업무지원 PDF 보기(`?api=pdf`)와 같은 방식(이미 공개 주소인 파일만).
+- `thermal_report`에 `pdf_path`·`pdf_url`·`drive_url` 칸 추가, `.atr` 없이 PDF만 있는 기록 허용 (`16_thermal.sql` 다시 실행하면 칸이 더해짐, 기록은 그대로).
+- 뒤로 버튼: 작은 것(지도식)과 아래 긴 것이 둘 다 나오던 것을 아래 긴 것 하나로. 작성기 창은 긴 뒤로 줄 위에 맞춰져 가려지지 않음.
 
 ## 4. 남은 일
 - 양식 칸 8개 고정: 사진이 8장보다 적으면 옛 사진이 남고, 많으면 9장째부터 빠짐.
