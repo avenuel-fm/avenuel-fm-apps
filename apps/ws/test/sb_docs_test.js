@@ -320,7 +320,8 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.fill('input.lgin[data-u="7F-39"][data-t="16"]', '23,5℃');
   ok(/저장 안 함/.test(await p.locator('#ahuState').innerText()) && await p.locator('input.lgin.bad').count() === 0, 'A10) 「23,5℃」는 숫자로 봐 줌 → 빨간 표시 사라짐');
   await p.click('#ahuSave');
-  ok(await toast('저장했습니다') && last('ws_ahu_save').a.p_c.temps['7F-39']['16'] === '23.5', 'A11) 쉼표·℃는 「23.5」로 고쳐 보냄 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
+  ok(await toast('저장하고 PDF도 만들었습니다') && last('ws_ahu_save').a.p_c.temps['7F-39']['16'] === '23.5', 'A11) 쉼표·℃는 「23.5」로 고쳐 보냄 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
+  await p.waitForFunction(() => !S.ahu.busy && !S.ahu.pdfBusy);   // 저장 뒤 PDF 만드는 동안은 값을 넣어도 먼저 저장하지 않음
   await p.fill('input.lgin[data-u="7F-39"][data-t="12"]', '22.9'); const nb = count('ws_ahu_save');
   await p.click('button:has-text("인쇄 (B4)")');
   ok(await called('ws_ahu_save', nb) && last('ws_ahu_save').a.p_c.temps['7F-39']['12'] === '22.9', 'A12) 저장 안 한 값이 있으면 인쇄 전에 먼저 저장');

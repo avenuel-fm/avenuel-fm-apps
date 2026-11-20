@@ -169,6 +169,33 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   ok(!(await overflow(p)), '공사 완료·아코디언 · 휴대폰 가로 넘침 없음');
   await p.screenshot({ path: __dirname + '/shot_cs_done.png', fullPage: true });
 
+  // 지난 점검 년도(여러 해 체크) · 월 탭 (결정 180) — 가짜 기록으로 달·해 나눔 시험
+  await p.evaluate(() => {
+    const mk = (date, site, name, bad) => [1, 2].map(round => ({ date, site, name, work: '', co: '', round, bad: round === 2 ? bad : 0, pdf: null }));
+    S.cs.day = '2026-11-20'; S.cs.today = []; S.csYears = null; S.csMon = null; S.csOpen = {}; S.csQ = '';
+    S.cs.past = [].concat(mk('2026-11-18', 's1', '5F 리모와', 1), mk('2026-10-30', 's1', '5F 리모와', 0), mk('2026-10-02', 's2', '3F 메종키츠네', 0), mk('2026-09-15', 's1', '5F 리모와', 0), mk('2025-12-20', 's1', '5F 리모와', 0), mk('2025-03-04', 's2', '3F 메종키츠네', 0));
+    render();
+  });
+  const yrs = () => p.locator('.csyr input:checked').evaluateAll(l => l.map(x => x.nextSibling.textContent));
+  const tabs = () => p.locator('.csmon').allInnerTexts();
+  const days = () => p.locator('.csacc b').allInnerTexts();
+  ok(await p.locator('.csyr').count() === 2 && (await yrs()).join() === '2026년', '년도 체크 2개(2026·2025), 처음엔 올해만');
+  ok((await days())[0] === '11월 18일 (수)' && (await tabs()).join() === '10월,9월' && (await p.locator('.csmon.on').innerText()) === '10월', '이번 달은 날짜 아코디언, 지난달은 탭(10월 · 9월), 처음엔 가장 최근 달');
+  ok((await days()).join('|') === '11월 18일 (수)|10월 30일 (금)|10월 2일 (금)', '10월 탭: 30일 · 2일 (9월 것은 안 보임)');
+  await p.click('.csmon:text-is("9월")'); ok((await days()).join('|') === '11월 18일 (수)|9월 15일 (화)' && await p.locator('.csmon.on').innerText() === '9월', '9월 탭 누르면 9월 날짜만');
+  await p.locator('.csyr:has-text("2025년") input').check();
+  ok((await yrs()).join() === '2026년,2025년' || (await yrs()).join() === '2025년,2026년', '여러 해 동시에 체크');
+  ok((await tabs()).join() === '26년 10월,26년 9월,25년 12월,25년 3월', '두 해 이상이면 탭에 「26년 10월」처럼 년도 붙음');
+  await p.locator('.csyr:has-text("2026년") input').uncheck();
+  ok((await tabs()).join() === '12월,3월' && await p.locator('.cssub:has-text("이번 달")').count() === 0 && (await days()).join('|') === '12월 20일 (토)', '2025만 체크: 12월 · 3월 탭, 이번 달 없음');
+  await p.locator('.csyr:has-text("2025년") input').click();
+  ok(await p.locator('.csyr input:checked').count() === 1, '마지막 하나는 못 끔');
+  await p.fill('#csQ', '리모와'); await p.waitForFunction(() => !document.querySelector('.csyr'));
+  ok(await p.locator('.csmon').count() === 0 && await p.locator('.csacc').count() === 4 && await p.locator('.csacc.on').count() === 4, '검색하면 년도·탭 없이 전체 해에서 찾고 모두 펼침 (4일)');
+  await p.fill('#csQ', ''); await p.waitForSelector('.csyr');
+  ok(!(await overflow(p)), '년도·월 탭 · 휴대폰 가로 넘침 없음');
+  await p.screenshot({ path: __dirname + '/shot_cs_year.png', fullPage: true });
+
   // 소장(홍길동)은 단추 있음, 직원(김철수)은 없음
   const z = await open('1234');
   ok(await z.locator('button:has-text("기본 항목 고치기")').count() === 1, '소장도 기본 항목 단추 있음');
