@@ -498,13 +498,14 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 권한: ws_ 함수는 모두 막고, 화면이 부르는 것만 로그인 기기(authenticated)에 엶 (02의 4개 포함)
+-- 권한: 02·03의 ws_ 함수만 막고, 화면이 부르는 것만 로그인 기기(authenticated)에 엶 (02의 4개 포함)
+--   ※ 11-20: 예전에는 ws_ 함수 전부를 막아서, 다시 실행하면 04~16번 함수 권한이 지워져 앱이 멈췄음 → 이 파일 함수만 막도록 고침
 --   Supabase는 새 함수를 anon·authenticated 도 부를 수 있게 만들므로 하나씩 막아야 함
 -- ---------------------------------------------------------------------------
 do $$
 declare f regprocedure;
 begin
-  for f in select p.oid::regprocedure from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname like 'ws\_%' loop
+  for f in select p.oid::regprocedure from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = any (array['ws_add_file', 'ws_at_value', 'ws_auth', 'ws_bootstrap', 'ws_clean', 'ws_date', 'ws_file_url', 'ws_fire_summary', 'ws_log', 'ws_log_data', 'ws_log_day', 'ws_log_get', 'ws_log_out', 'ws_log_save', 'ws_log_save_', 'ws_log_save_pdf', 'ws_log_signs', 'ws_log_sum', 'ws_log_tbm', 'ws_log_vals', 'ws_login', 'ws_login_mode', 'ws_logout', 'ws_n3', 'ws_next_work_get', 'ws_next_work_save', 'ws_next_work_start', 'ws_num', 'ws_nw_data', 'ws_risk_list', 'ws_save_sign', 'ws_setting', 'ws_sign_today', 'ws_tbm_day', 'ws_tbm_get', 'ws_tbm_save', 'ws_tbm_save_', 'ws_tbm_save_pdf', 'ws_ver', 'ws_work_day']) loop
     execute 'revoke all on function ' || f || ' from public, anon, authenticated';
   end loop;
 end $$;
