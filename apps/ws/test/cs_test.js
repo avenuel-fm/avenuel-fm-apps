@@ -50,7 +50,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
     await q('없는현장'); ok(await p.locator('.csrow').count() === 0 && await p.locator('text=없는현장」 없음').count() === 1, '없는 말 → 「없음」 안내');
     await q(''); ok(await p.locator('.csrow').count() === 2, '검색 지우면 다시 2곳');
   }
-  ok(await p.locator('.csbtns button:has-text("새 공사 현장 추가") + button:has-text("기본 항목 고치기 (2 / 9)")').count() === 1, '[기본 항목 고치기 (2 / 9)]는 [새 공사 현장 추가] 옆');
+  ok(await p.locator('.csbtns button:has-text("새 공사 현장 추가") + button:has-text("공사 완료")').count() === 1 && await p.locator('.csbtns button:has-text("기본 항목 고치기 (2 / 9)")').count() === 1, '[새 공사 현장 추가] 옆에 [공사 완료], 아래 줄에 [기본 항목 고치기 (2 / 9)]');
   // 처음엔 「점검에 넣기」 2개만: 오후점검은 1. 정리정돈·통로 · 2. 안전수칙 위반 (나가도 줄 안 생김)
   await p.click('.csrow:has-text("5F 리모와") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit').count() === 2 && /^1\. 정리정돈·통로/.test(await p.locator('.csit h3').first().innerText()) && /^2\. 안전수칙 위반/.test(await p.locator('.csit h3').nth(1).innerText()), '오후점검 = 정리정돈·통로 · 안전수칙 위반 → 1·2번');
@@ -103,8 +103,8 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.evaluate(() => window.scrollTo(0, 0)); await p.screenshot({ path: __dirname + '/shot_cs_check.png' });
 
   // PDF
-  await p.click('.csbar button:has-text("점검 끝 · PDF")');
-  await p.waitForSelector('.csbar a:has-text("PDF 열기")', { timeout: 15000 });
+  await p.click('.csbar button:has-text("점검 끝")');
+  await p.waitForSelector('.csbar a:has-text("PDF 보기")', { timeout: 15000 });
   const pdf = await p.evaluate(() => window.__pdfEl || '');
   ok((pdf.match(/class="pc"/g) || []).length === 10 && /5F 리모와/.test(pdf) && /공사관리/.test(pdf) && /오후점검/.test(pdf), 'PDF 화면: 항목 10칸 · 현장 · 점검자 · 오후점검');
   const pp = await b.newPage({ viewport: { width: 794, height: 1123 } });
@@ -130,9 +130,9 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.locator('.csrtabs button').first().click();
   await p.waitForFunction(() => /오후점검/.test((document.querySelector('.csrtabs .on') || {}).textContent || '') && document.querySelectorAll('.csit').length === 10);
   ok(await p.locator('.csit').nth(3).locator('img').count() === 2 && /감지기 덮개/.test(await p.locator('.csit').nth(3).locator('textarea').inputValue()), '오후점검 칸 → 사진·메모·추가 항목 그대로');
-  ok(!/PDF 열기/.test(await p.locator('.csbar').innerText()) && /점검 끝 · PDF/.test(await p.locator('.csbar').innerText()), '퇴실점검을 더했으니 옛 PDF 대신 「점검 끝 · PDF」');
-  await p.evaluate(() => { window.__pdfEl = ''; }); await p.click('.csbar button:has-text("점검 끝 · PDF")');
-  await p.waitForSelector('.csbar button:has-text("PDF 다시")', { timeout: 15000 });
+  ok(!/PDF 보기/.test(await p.locator('.csbar').innerText()) && /점검 끝/.test(await p.locator('.csbar').innerText()), '퇴실점검을 더했으니 옛 PDF 대신 「점검 끝」');
+  await p.evaluate(() => { window.__pdfEl = ''; }); await p.click('.csbar button:has-text("점검 끝")');
+  await p.waitForSelector('.csbar a:has-text("PDF 보기")', { timeout: 15000 });
   const pdf2 = await p.evaluate(() => window.__pdfEl || '');
   ok((pdf2.match(/class="cspdf"/g) || []).length === 2 && /오후점검[\s\S]*퇴실점검/.test(pdf2) && /page-break-before/.test(pdf2) && (pdf2.match(/class="pc"/g) || []).length === 19, 'PDF 한 파일: 오후점검(10칸) → 새 쪽 퇴실점검(9칸)');
   await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와") .csrd .ok:text-is("퇴실점검 양호")');
@@ -148,6 +148,53 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   await p.click('#ciSb'); await p.waitForSelector('button:has-text("기본 항목 고치기 (9 / 9)")');
   await p.click('.csrow:has-text("3F 메종키츠네") .csgo'); await p.waitForSelector('.csit');
   ok(await p.locator('.csit h3:has-text("양중 작업")').count() === 1 && await p.locator('.csit h3:has-text("고소·사다리")').count() === 0, '새 점검은 고친 기본 항목으로');
+
+  // 공사 완료 (결정 174): 골라서 뺌 → 오늘 목록에서 빠지고, 점검 기록은 지난 점검(날짜 아코디언)에 남아 검색됨
+  await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와")');
+  await p.click('.csbtns .csdone'); await p.waitForSelector('.csdl');
+  ok(await p.locator('.csdl').count() === 2 && await p.locator('#csDb').isDisabled(), '공사 완료 창: 현장 2곳, 고르기 전엔 단추 꺼짐');
+  await p.locator('.csdl:has-text("5F 리모와") input').check();
+  ok(/선택한 1곳 공사 완료/.test(await p.locator('#csDb').innerText()), '고르면 「선택한 1곳 공사 완료」');
+  await p.click('#csDb'); await p.waitForFunction(() => !document.querySelector('.csdl'));
+  await p.waitForFunction(() => document.querySelectorAll('#csRes > .cslist:first-child .csrow').length === 1);
+  ok(await p.locator('#csRes > .cslist:first-child .csrow:has-text("5F 리모와")').count() === 0 && await p.locator('#csRes > .cslist:first-child .csrow:has-text("3F 메종키츠네")').count() === 1, '오늘 점검할 현장에서 5F 리모와 빠짐');
+  ok(/현장 1곳/.test(await p.locator('.cshd').innerText()), '머리 칸: 현장 1곳');
+  ok(await p.locator('.csacc').count() === 1 && await p.locator('.csacc').getAttribute('aria-expanded') === 'true' && await p.locator('.csacc ~ .csrow:has-text("5F 리모와")').count() === 1 && await p.locator('.csacc ~ .csrow:has-text("5F 리모와") a:has-text("PDF")').count() === 1, '지난 점검: 오늘 날짜 아코디언(펼침)에 5F 리모와 기록·PDF 남음');
+  await p.click('.csacc'); ok(await p.locator('.csacc').getAttribute('aria-expanded') === 'false' && await p.locator('.csacc ~ .csrow').count() === 0, '아코디언 누르면 접힘');
+  await p.fill('#csQ', '리모와'); await p.waitForFunction(() => /없음/.test(document.querySelector('#csRes').innerText));
+  ok(await p.locator('.csacc').count() === 1 && await p.locator('.csacc').getAttribute('aria-expanded') === 'true' && await p.locator('.csacc ~ .csrow:has-text("5F 리모와")').count() === 1, '검색: 완료한 현장도 찾아지고 찾은 날은 펼쳐짐');
+  await p.fill('#csQ', '');
+  await p.click('.csrow:has-text("3F 메종키츠네") .ehmore'); await p.click('button:has-text("공사 완료") >> nth=-1'); await p.waitForFunction(() => !document.querySelector('.csrow .ehmore'));
+  ok(await p.locator('.csbtns .csdone').isDisabled() && await p.locator('.csacc ~ .csrow').count() === 1, '⋯ 메뉴의 [공사 완료]로도 빠짐 · 현장 없으면 [공사 완료] 꺼짐');
+  ok(!(await overflow(p)), '공사 완료·아코디언 · 휴대폰 가로 넘침 없음');
+  await p.screenshot({ path: __dirname + '/shot_cs_done.png', fullPage: true });
+
+  // 지난 점검 년도(여러 해 체크) · 월 탭 (결정 180) — 가짜 기록으로 달·해 나눔 시험
+  await p.evaluate(() => {
+    const mk = (date, site, name, bad) => [1, 2].map(round => ({ date, site, name, work: '', co: '', round, bad: round === 2 ? bad : 0, pdf: null }));
+    S.cs.day = '2026-11-20'; S.cs.today = []; S.csYears = null; S.csMon = null; S.csOpen = {}; S.csQ = '';
+    S.cs.past = [].concat(mk('2026-11-18', 's1', '5F 리모와', 1), mk('2026-10-30', 's1', '5F 리모와', 0), mk('2026-10-02', 's2', '3F 메종키츠네', 0), mk('2026-09-15', 's1', '5F 리모와', 0), mk('2025-12-20', 's1', '5F 리모와', 0), mk('2025-03-04', 's2', '3F 메종키츠네', 0));
+    render();
+  });
+  const yrs = () => p.locator('.csyr input:checked').evaluateAll(l => l.map(x => x.nextSibling.textContent));
+  const tabs = () => p.locator('.csmon').allInnerTexts();
+  const days = () => p.locator('.csacc b').allInnerTexts();
+  ok(await p.locator('.csyr').count() === 2 && (await yrs()).join() === '2026년', '년도 체크 2개(2026·2025), 처음엔 올해만');
+  ok((await days())[0] === '11월 18일 (수)' && (await tabs()).join() === '10월,9월' && (await p.locator('.csmon.on').innerText()) === '10월', '이번 달은 날짜 아코디언, 지난달은 탭(10월 · 9월), 처음엔 가장 최근 달');
+  ok((await days()).join('|') === '11월 18일 (수)|10월 30일 (금)|10월 2일 (금)', '10월 탭: 30일 · 2일 (9월 것은 안 보임)');
+  await p.click('.csmon:text-is("9월")'); ok((await days()).join('|') === '11월 18일 (수)|9월 15일 (화)' && await p.locator('.csmon.on').innerText() === '9월', '9월 탭 누르면 9월 날짜만');
+  await p.locator('.csyr:has-text("2025년") input').check();
+  ok((await yrs()).join() === '2026년,2025년' || (await yrs()).join() === '2025년,2026년', '여러 해 동시에 체크');
+  ok((await tabs()).join() === '26년 10월,26년 9월,25년 12월,25년 3월', '두 해 이상이면 탭에 「26년 10월」처럼 년도 붙음');
+  await p.locator('.csyr:has-text("2026년") input').uncheck();
+  ok((await tabs()).join() === '12월,3월' && await p.locator('.cssub:has-text("이번 달")').count() === 0 && (await days()).join('|') === '12월 20일 (토)', '2025만 체크: 12월 · 3월 탭, 이번 달 없음');
+  await p.locator('.csyr:has-text("2025년") input').click();
+  ok(await p.locator('.csyr input:checked').count() === 1, '마지막 하나는 못 끔');
+  await p.fill('#csQ', '리모와'); await p.waitForFunction(() => !document.querySelector('.csyr'));
+  ok(await p.locator('.csmon').count() === 0 && await p.locator('.csacc').count() === 4 && await p.locator('.csacc.on').count() === 4, '검색하면 년도·탭 없이 전체 해에서 찾고 모두 펼침 (4일)');
+  await p.fill('#csQ', ''); await p.waitForSelector('.csyr');
+  ok(!(await overflow(p)), '년도·월 탭 · 휴대폰 가로 넘침 없음');
+  await p.screenshot({ path: __dirname + '/shot_cs_year.png', fullPage: true });
 
   // 소장(홍길동)은 단추 있음, 직원(김철수)은 없음
   const z = await open('1234');

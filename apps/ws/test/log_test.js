@@ -89,11 +89,14 @@ async function open(b, opt) {
   await p.screenshot({ path: 'shot_log_print.png' });
   await p.emulateMedia({ media: 'screen' });
   // PDF
-  await p.click('#lgPdf'); await p.waitForFunction(() => S.lg && !S.lg.busy && S.lg.pdf);
+  await p.locator('.lgin[data-k="중수"]').fill('62.5'); await p.click('#lgSave'); await p.waitForFunction(() => S.lg && !S.lg.busy && !S.lg.dirty && S.lg.pdf);
   const ps = await p.evaluate(() => [window.__pdfSet.jsPDF.format.join('x'), window.__pdfEl.querySelectorAll('input').length, window.__pdfEl.offsetWidth === 0]);
   g = await run('logGet', tk, day);
   ok(ps[0] === '364x257' && ps[1] === 0 && g.pdf && g.pdf.id, 'PDF: B4 크기 · 입력칸 없음 · 드라이브 저장');
-  ok(await p.locator('#lgBar a:has-text("PDF 열기")').count() === 1, 'PDF 저장 뒤 [PDF 열기]');
+  ok(await p.locator('#lgBar a:has-text("PDF 보기")').count() === 1 && await p.locator('#lgBar button.pri').count() === 0, '저장 뒤 [저장] 자리가 [PDF 보기]');
+  await p.locator('.lgin[data-k="중수"]').fill('64');
+  ok(await p.locator('#lgBar a:has-text("PDF 보기")').count() === 0 && await p.locator('#lgSave').innerText() === '저장', '고치면 다시 [저장] (남색은 저장 하나)');
+  await p.click('#lgSave'); await p.waitForFunction(() => S.lg && !S.lg.busy && !S.lg.dirty && S.lg.pdf);
   // 지난 날짜 · 앞날 막힘
   await p.click('.nwdate');
   ok(await p.locator('.dialog .atcal button:disabled').count() > 0 || day.slice(8) >= '28', '달력: 앞날은 못 고름');

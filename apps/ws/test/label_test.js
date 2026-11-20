@@ -10,7 +10,11 @@ const QRLIB = fs.readFileSync(require.resolve('qrcodejs2/qrcode.min.js'), 'utf8'
   await p.goto('http://localhost:8123/index');
   for (const k of '1234') await p.click(`.key:text-is("${k}")`);
   await p.waitForSelector('.grid6'); await p.click('.tile:has(b:text-is("점검"))'); await p.click('text=소화기 점검');
-  await p.click('text=① 소화기 QR 관리'); await p.waitForSelector('.qrmini >> nth=0'); await p.waitForTimeout(400);
+  // ③ 소화전·공기호흡기는 양식 전까지 「수정중」 화면 (결정 170)
+  await p.click('text=③ 층별 소화전, 공기호흡기 점검 현황'); await p.waitForSelector('text=수정중입니다');
+  await p.screenshot({ path: 'shot_hyd.png' }); await p.click('button:has-text("뒤로")');
+  await p.screenshot({ path: 'shot_fire_menu.png' });
+  await p.click('text=① 소화기, 소화전, 공기호흡기 QR 관리'); await p.waitForSelector('.qrmini >> nth=0'); await p.waitForTimeout(400);
   await p.click('button:has-text("+ 등록")'); await p.fill('#aStore', '샤넬'); await p.selectOption('#aFloor', '1F'); await p.click('#aBtn');
   await p.waitForSelector('text=샤넬-소화기1');
   await p.click('button:has-text("+ 등록")'); await p.fill('#aStore', '루이비통 메종 에비뉴엘'); await p.selectOption('#aFloor', '1F'); await p.click('#aBtn');
