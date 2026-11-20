@@ -712,8 +712,23 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(c2.ok && c2.id === c1.id && cl.items.length === 1 && cl.items[0].size === 2000 && cl.items[0].by && cl.items[0].date, 'CAD: 같은 이름은 새 파일로 바꿈(한 줄) · 목록에 이름·층·올린 사람·날짜·크기');
   ok(/소장만/.test(await err("select ws_cad_delete('emp', " + Number(c1.id) + ')')), 'CAD: 직원은 못 지움');
   ok((await call('ws_cad_delete', [tk, Number(c1.id)])).ok && (await call('ws_cad_list', [tk])).items.length === 0, 'CAD: 소장은 지움');
+  const cl0 = await call('ws_cad_list', ['emp']);
+  ok(cl0.cats.map(c => c.name).join() === '공조,소방,전기,건축' && cl0.can_del_cat === false && (await call('ws_cad_list', [tk])).can_del_cat === true, 'CAD 분류: 처음 공조·소방·전기·건축 · 지우기 권한은 소장급만');
+  const ca = await call('ws_cad_cat_add', ['emp', ' 통신 ']);
+  ok(ca.ok && (await call('ws_cad_cat_add', ['emp', '통신'])).ok === false && (await call('ws_cad_cat_add', ['emp', ''])).ok === false, 'CAD 분류: 직원도 만듦 · 같은 이름·빈 이름은 막음');
+  const cx = await call('ws_cad_save', ['emp', JSON.stringify({ name: '분류 시험', path: cp, url: cu, size: 10, cat_id: String(ca.id) })]);
+  const cl1 = await call('ws_cad_list', [tk]);
+  ok(cx.ok && cl1.items.find(i => i.name === '분류 시험').cat === '통신' && cl1.cats.find(c => c.name === '통신').n === 1, 'CAD 분류: 올릴 때 분류 · 목록에 분류 이름 · 분류별 개수');
+  ok((await call('ws_cad_set_cat', ['emp', Number(cx.id), null])).ok && (await call('ws_cad_list', [tk])).items.find(i => i.name === '분류 시험').cat === '', 'CAD 분류: 바꾸기 → 분류 없음(미분류)');
+  await call('ws_cad_set_cat', ['emp', Number(cx.id), Number(ca.id)]);
+  ok((await call('ws_cad_cat_del', ['emp', Number(ca.id)])).ok === false, 'CAD 분류: 직원은 못 지움');
+  const cd = await call('ws_cad_cat_del', [tk, Number(ca.id)]);
+  const cl2 = await call('ws_cad_list', [tk]);
+  ok(cd.ok && cd.moved === 1 && cl2.items.find(i => i.name === '분류 시험').cat === '' && !cl2.cats.find(c => c.name === '통신'), 'CAD 분류: 소장이 지우면 도면은 남고 미분류로');
+  await db.exec(SQL('18_cad.sql'));
+  ok((await call('ws_cad_list', [tk])).cats.length === 4, 'CAD: 18_cad.sql 다시 실행해도 분류 유지');
   let lim = 0; for (let i = 0; i < 31; i++) { if ((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'L' + i, path: cp, url: cu })])).ok) lim++; }
-  ok(lim === 30, 'CAD: 한 사람 하루 30개까지 (' + lim + ')');
+  ok(lim === 29, 'CAD: 한 사람 하루 30개까지 (앞서 1개 올림 + ' + lim + ')');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

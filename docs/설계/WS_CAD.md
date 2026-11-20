@@ -90,3 +90,11 @@
 - 시험: `sql_test.js`에 CAD 12개, `cad_test.js`(뷰어 6개), `test:all` 통과.
 - **붙이는 날**: ① Supabase에서 `18_cad.sql` Run ② Apps Script에 `Code.gs` 올려 기존 배포 갱신(`caddrive` 길) ③ 바로가기 저장소에 `fm/cad/`·`fm/ws/app.html`·`fm/ws/ws-api.js` ④ 업무지원 CAD › 도면 올리기로 시험.
 - **아직 안 한 것**: 환경설정 켜기·끄기 목록에 CAD(서버가 키를 거름 → `15_menu.sql`·`MENU_KEYS_`·화면 한 번에), 소장 「삭제」 단추(함수는 있음), PC 변환기 업로드 단추 정리, 도면 보관 기간.
+
+## 9. 도면 분류 (11-20, 결정 190, v0.21.4)
+- 분류 표 `cad_cat`(처음 공조·소방·전기·건축, 18_cad.sql에서 비어 있을 때만 채움), 도면 `cad_file.cat_id`(없음 = 미분류, 분류를 지우면 자동으로 비워짐).
+- 함수: `ws_cad_list`(items에 `cat_id`·`cat`, `cats[{id,name,n}]`, `can_del_cat`) · `ws_cad_save`(`cat_id`) · `ws_cad_cat_add`(전 직원, 1~20자, 30개, 같은 이름 불가) · `ws_cad_cat_del`(소장·부소장·관리자) · `ws_cad_set_cat`(전 직원).
+- 통로 `WS_CAD` 추가: `cats()` · `catAdd(name)` · `catDel(id)` · `setCat(id, catId)`, `upload({… cat_id})`.
+- 화면(`fm/cad`): 분류 칩 · 「분류 관리」 창(삭제는 확인 문구) · 올리기 분류 선택 · 도면 화면 위 분류 바꾸기.
+- 시험: `sql_test.js` 분류 8개, `cad_test.js` 분류 6개.
+- 남은 것: 분류 이름 바꾸기, 분류 순서 바꾸기, 환경설정 켜기·끄기 목록에 CAD, 소장 도면 삭제 단추.
