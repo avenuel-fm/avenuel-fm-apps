@@ -625,7 +625,7 @@ function go(view, push) {
 }
 async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; S.fireAt = Date.now(); if (S.view === 'fire') render(); } catch (e) {} }
 try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
-const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', thermal: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', hyd: 'fire', status: 'fire', floor: 'status', docs: 'main', set: 'main', risk: 'set', map: 'main', spec: 'main', tbm: 'docs', nw: 'docs', log: 'docs', ahu: 'docs', att: 'docs', attup: 'att' };
+const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', thermal: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', hyd: 'fire', status: 'fire', floor: 'status', docs: 'main', set: 'main', risk: 'set', map: 'main', cad: 'main', spec: 'main', tbm: 'docs', nw: 'docs', log: 'docs', ahu: 'docs', att: 'docs', attup: 'att' };
 function back() { if (S.view === 'pdf') return go((S.pdf && S.pdf.from) || 'main'); if (S.view === 'csck') return csLeave(); if (S.view === 'risk' && S.rk && S.rk.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'log' && !lgLeaveOk()) return; if (S.view === 'ahu' && !ahuLeaveOk()) return; if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
 
 function topbar(sub, title) {
@@ -786,6 +786,7 @@ function renderMain() {
   const c = S.fire ? S.fire.counts : null;
   const soon = (b = '작업중', sm = '준비 중') => '<button class="tile soon" disabled><span class="ico">' + ICON.soon + '</span><b>' + b + '</b><small>' + sm + '</small></button>';
   // 환경설정에서 끈 칸: 직원에게는 「작업중」 칸, 소장·관리자·옵저버에게는 평소 칸 (결정 148)
+  const t0 = (key, label, sub, ico) => '<button class="tile" onclick="tile(\'' + key + '\')"><span class="ico">' + ico + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
   const t = (key, label, sub, ico) => menuOff(key) && !menuCanOpen() ? soon() : '<button class="tile" onclick="tile(\'' + key + '\')"><span class="ico">' + ico + '</span><b>' + label + '</b><small>' + sub + '</small></button>';
   return topbar('잠실점 에비뉴엘 · ' + today, '업무지원') + '<div class="wrap" style="display:flex;flex-direction:column;gap:var(--sp-3)">' +
     '<div class="banner b-gray">이 버전은 테스트판 입니다.' + (S.ver ? ' <b>v' + h(S.ver) + '</b>' : '') + '</div>' +
@@ -796,7 +797,7 @@ function renderMain() {
     t('spec', '시방서 검색', '도면협의 지침 찾기', ICON.search) +
     soon('자재현황', '준비중') +   // 자재현황 자리 (결정 168, WS_자재현황.md)
     t('map', '지도', '에비뉴엘 도면', ICON.map) +
-    (cadCanOpen() ? '<button class="tile" onclick="cadInfo()"><span class="ico">' + ICON.cad + '</span><b>CAD</b><small>도면 보기 · 준비중</small></button>' : soon('CAD', '준비중')) +   // CAD 자리 (WS_CAD.md): 만들기 전에는 직원에게 눌리지 않는 칸, 소장·부소장·관리자·옵저버에게는 안내
+    t0('cad', 'CAD', '도면 보기 · 올리기', ICON.cad) +   // CAD (WS_CAD.md): 전 직원 열람·업로드. 환경설정 끄기 목록에는 아직 없음
     '</div>' +
     '<div class="mainfoot"><button class="btn theme-btn" onclick="toggleTheme()">' + themeLabel() + '</button>' +
     (isBoss() ? '<button class="btn" onclick="openSet()">환경설정</button>' : '') + '</div>' +
@@ -1043,12 +1044,10 @@ async function setMenu(k, on) {
   if (!r.ok) return toast(r.error);
   S.menuOff = r.off; render(); toast(MENU.find(m => m[0] === k)[1] + (on ? ' 켬' : ' 끔 (직원에게 안 열림)'));
 }
-function tile(k) { if (k === 'inspect') go('inspect'); else if (k === 'docs') go('docs'); else if (k === 'spec') { if (window.WS_API) openSpec(); else toast('시방서 검색은 바로가기 앱(Supabase)에서만 열립니다'); } else if (k === 'map') { if (window.WS_API) go('map'); else toast('지도는 바로가기 앱(Supabase)에서만 열립니다'); } }
+function tile(k) { if (k === 'inspect') go('inspect'); else if (k === 'docs') go('docs'); else if (k === 'spec') { if (window.WS_API) openSpec(); else toast('시방서 검색은 바로가기 앱(Supabase)에서만 열립니다'); } else if (k === 'cad') { if (window.WS_API) go('cad'); else toast('CAD는 바로가기 앱(Supabase)에서만 열립니다'); } else if (k === 'map') { if (window.WS_API) go('map'); else toast('지도는 바로가기 앱(Supabase)에서만 열립니다'); } }
 
 /* ── 환경설정 (소장만, 결정 102): 알림 시간, 직원 추가·편집·삭제·PIN ── */
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 파트 「관리」 고정 (결정 138)
-const cadCanOpen = () => !!S.user && ['소장', '부소장', '관리자', '옵저버'].indexOf(S.user.role) !== -1;
-function cadInfo() { dialog('<h3 style="margin:0 0 var(--sp-2)">CAD · 준비중</h3><p style="color:var(--sub);line-height:1.6;margin:0 0 var(--sp-3)">CAD 도면 보기·정리 프로그램을 만들고 있습니다.<br>완성되면 이 칸에서 바로 열립니다. (직원에게는 아직 닫혀 있음)</p><button class="btn pri" style="width:100%" onclick="closeDialog()">확인</button>'); }
 function isBoss() { return !!S.user && S.user.role === '소장'; }
 async function openSet() {
   S.set = null; go('set');
@@ -2252,6 +2251,38 @@ window.WS_THERMAL = {
   full: on => mapFull(on)
 };
 
+/* ── CAD (WS_CAD.md): 변환된 도면(DXF) 뷰어 fm/cad 를 화면 안 창으로. 자료는 18_cad.sql 함수만 · 파일은 ws-files/cad + 구글 드라이브 사본 ── */
+function renderCad() {
+  return '<div class="mapview">' + topbar('업무지원 ›', 'CAD') + '<iframe class="mapframe" src="../cad/index.html" title="CAD 도면" allow="fullscreen"></iframe>' +
+    '<button class="btn mapback" onclick="back()">' + ICON.back + '뒤로</button></div>';
+}
+const cadOk = r => { if (!r || !r.ok) throw new Error((r && r.error) || '처리하지 못했습니다'); return r; };
+window.WS_CAD = {
+  me: async () => ({ name: S.user ? S.user.name : '', role: S.user ? S.user.role : '' }),
+  list: async () => { const r = cadOk(await call('cadList')); S.cadItems = r.items; return r.items; },
+  open: async id => {   // 받은 파일은 이 기기 캐시에 보관 (주소가 올릴 때마다 새로 생겨 같은 주소 = 같은 파일)
+    const it = (S.cadItems || []).find(x => x.id === String(id));
+    if (!it) throw new Error('도면 목록에 없습니다. 목록을 다시 열어 주세요');
+    let c = null; try { c = await caches.open('ws-cad'); } catch (e) {}
+    let res = c ? await c.match(it.url) : null;
+    if (!res) { res = await fetch(it.url); if (!res.ok) throw new Error('도면 파일을 받지 못했습니다'); if (c) { try { await c.put(it.url, res.clone()); } catch (e) {} } }
+    return { name: it.name, dxfBlob: await res.blob() };
+  },
+  upload: async o => {   // 파일 → 서버(ws-files/cad) → 구글 드라이브 사본(실패해도 올림은 유지) → 목록 기록
+    const f = o.file;
+    if (!f || !/\.dxf$/i.test(f.name)) throw new Error('.dxf 파일만 올립니다');
+    if (f.size > 50 * 1048576) throw new Error('파일이 너무 큽니다 (50MB 넘음)');
+    const up = await WS_API.upload('cad', f, 'dxf');
+    let drive = '', C = window.WS_CONFIG || {};
+    try {
+      if (C.WS_GAS_URL) { const j = await (await fetch(C.WS_GAS_URL + '?api=caddrive&path=' + encodeURIComponent(up.path) + '&name=' + encodeURIComponent(o.name || f.name), { credentials: 'omit' })).json(); if (j.ok) drive = j.url; }
+    } catch (e) {}
+    const r = cadOk(await call('cadSave', { name: o.name, floor: o.floor || '', memo: o.memo || '', path: up.path, url: up.url, size: f.size, drive_url: drive }));
+    return { ok: true, id: r.id, drive: !!drive };
+  },
+  full: on => mapFull(on)
+};
+
 /* ── 개선 A: 입력 기간 안내 ── */
 function periodBanner(st, counts) {
   if (!st) return '';
@@ -3230,6 +3261,7 @@ function render() {
   else if (S.view === 'attup') html = renderAttUp();
   else if (S.view === 'inspect') html = renderInspect();
   else if (S.view === 'thermal') html = renderThermal();
+  else if (S.view === 'cad') html = renderCad();
   else if (S.view === 'fire') html = renderFire();
   else if (S.view === 'qr') html = renderQr();
   else if (S.view === 'hyd') html = renderHyd();

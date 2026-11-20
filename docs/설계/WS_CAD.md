@@ -78,3 +78,15 @@
 
 **정함(11-20)**: 올리는 사람 = 전 직원, 변환 부품(ODA File Converter)은 변환 PC에 설치하는 방식, 메인 칸은 뷰어 완성 때 전 직원에게 열기(그 전까지 직원은 「준비중」 유지).
 **남은 정할 것**: 드라이브 폴더 이름, 파일당 크기 상한, 보관 기간(전 직원 업로드라 남용 막기: 크기 상한·하루 횟수·소장 삭제), ODA 약관 확인.
+
+## 8. 연동 구현 (11-20, 사용자 「진행시켜」, 갈래 `claude/cad-menu`, 아직 배포 안 함)
+안티그라비티가 만든 것: PC 변환기 `C:venuel\cad-viewer\cad-converter\dist\CAD변환기\CAD변환기.exe`(ODA 우선·LibreDWG 대안, 일괄 변환), 온라인 뷰어 `fm/cad/`(DXF만, 목록·열기·레이어·분류색).
+**바꾼 점 — 올리는 길**: PC 변환기의 「업로드」(PIN 로그인)는 업무지원 로그인(기기 등록·근무일 서명) 규칙을 PC에서 지킬 수 없어 연결하지 않았다. 대신 **업무지원 CAD 화면의 「도면 올리기」**로 올린다(이미 로그인된 직원, 전 직원). 흐름: PC 변환기에서 DXF 저장 → 폰·PC 업무지원 CAD › 「도면 올리기」에서 파일 고름. (PC 변환기의 업로드 단추는 가짜 서버라 쓰지 않음 — 뒤에 정리)
+- `fm/cad/`: 뷰어 + 「도면 올리기」 창(.dxf만, 이름·층·메모, 50MB 이하), `tokens.css` 같은 폴더에 복사(바로가기 페이지에 `apps/`가 없어 상대 경로가 안 맞았음), `mock_bridge.js`에 `upload` 더함.
+- `apps/ws/supabase/18_cad.sql`(SQL Editor에서 Run): 표 `cad_file`(함수로만), `ws_cad_list`·`ws_cad_save`·`ws_cad_delete`. 전 직원 보기·올리기, 지우기 소장만. 파일 경로 `cad/YYYY-MM/<32자>.dxf`만, 50MB 이하, 한 사람 하루 30개, 같은 이름은 새 파일로 바꿈(한 줄).
+- `fm/ws/ws-api.js`: `cadList`·`cadSave`·`cadDelete`.
+- `Index.html`: 메인 「CAD」 칸(**전 직원**에게 열림, 아이콘은 삼각자+치수선), `go('cad')` → `../cad/index.html` 화면 안 창, `window.WS_CAD`(`me`·`list`·`open`(기기 캐시 `ws-cad`)·`upload`·`full`). 구글 웹앱에서는 안내만.
+- `Code.gs`: `?api=caddrive` → `cadDrive_` : 서버 파일을 `시설팀 통합업무/20_업무지원/CAD변환파일/YYYY-MM`에 복사(열화상 `thermalDrive_` 방식, 링크 보기 공유).
+- 시험: `sql_test.js`에 CAD 12개, `cad_test.js`(뷰어 6개), `test:all` 통과.
+- **붙이는 날**: ① Supabase에서 `18_cad.sql` Run ② Apps Script에 `Code.gs` 올려 기존 배포 갱신(`caddrive` 길) ③ 바로가기 저장소에 `fm/cad/`·`fm/ws/app.html`·`fm/ws/ws-api.js` ④ 업무지원 CAD › 도면 올리기로 시험.
+- **아직 안 한 것**: 환경설정 켜기·끄기 목록에 CAD(서버가 키를 거름 → `15_menu.sql`·`MENU_KEYS_`·화면 한 번에), 소장 「삭제」 단추(함수는 있음), PC 변환기 업로드 단추 정리, 도면 보관 기간.

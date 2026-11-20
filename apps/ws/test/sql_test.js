@@ -696,6 +696,24 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'tbm_pdf/a.pdf', pdf_url: 'https://b/a.pdf' })])).ok === false && (await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'thermal/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'http://x' })])).ok === false, '열화상: PDF 경로가 thermal/ 밖 · 드라이브 주소가 https 아님 → 막음');
   await db.exec(SQL('16_thermal.sql'));   // 이미 쓰던 표에 다시 실행해도 기록이 남음 (칸 더하기)
   ok((await call('ws_thermal_boot', [tk])).reports.length === 2, '열화상: 16_thermal.sql 다시 실행해도 기록 유지');
+  // ══ CAD 변환 도면 (18_cad.sql) — 전 직원이 보고 올림, 지우기는 소장만 ══
+  await db.exec(SQL('18_cad.sql')); await db.exec(SQL('18_cad.sql'));
+  ok(/permission denied/.test(await asErr('anon', "select ws_cad_list('x')")), 'CAD: 비로그인(anon)은 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', 'select * from cad_file')) || !(await as('authenticated', 'select * from cad_file')).length, 'CAD: 표는 직접 못 읽음');
+  const cp = 'cad/2026-11/' + 'a'.repeat(32) + '.dxf', cu = 'https://b/' + cp;
+  await q("update staff set role = '직원' where staff_id = 'S003'");
+  ok((await call('ws_cad_list', ['emp'])).items.length === 0, 'CAD: 직원도 목록을 엶 (처음엔 비어 있음)');
+  const c1 = await call('ws_cad_save', ['emp', JSON.stringify({ name: '1층 평면도', floor: '1F', memo: '시험', path: cp, url: cu, size: 1000, drive_url: 'https://drive.google.com/file/d/x/view' })]);
+  ok(c1.ok && c1.id, 'CAD: 직원도 올림');
+  ok((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'x', path: 'sign/a.dxf', url: cu })])).ok === false && (await call('ws_cad_save', ['emp', JSON.stringify({ name: '', path: cp, url: cu })])).ok === false, 'CAD: cad/ 밖 경로·빈 이름은 막음');
+  ok((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'big', path: cp, url: cu, size: 60 * 1048576 })])).ok === false && (await call('ws_cad_save', ['emp', JSON.stringify({ name: 'd', path: cp, url: cu, drive_url: 'http://x' })])).ok === false, 'CAD: 50MB 넘음·http 드라이브 주소는 막음');
+  const c2 = await call('ws_cad_save', ['emp', JSON.stringify({ name: '1층 평면도', floor: '1F', path: cp.replace('aaaa', 'bbbb'), url: cu, size: 2000 })]);
+  const cl = await call('ws_cad_list', [tk]);
+  ok(c2.ok && c2.id === c1.id && cl.items.length === 1 && cl.items[0].size === 2000 && cl.items[0].by && cl.items[0].date, 'CAD: 같은 이름은 새 파일로 바꿈(한 줄) · 목록에 이름·층·올린 사람·날짜·크기');
+  ok(/소장만/.test(await err("select ws_cad_delete('emp', " + Number(c1.id) + ')')), 'CAD: 직원은 못 지움');
+  ok((await call('ws_cad_delete', [tk, Number(c1.id)])).ok && (await call('ws_cad_list', [tk])).items.length === 0, 'CAD: 소장은 지움');
+  let lim = 0; for (let i = 0; i < 31; i++) { if ((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'L' + i, path: cp, url: cu })])).ok) lim++; }
+  ok(lim === 30, 'CAD: 한 사람 하루 30개까지 (' + lim + ')');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

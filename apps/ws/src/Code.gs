@@ -478,6 +478,9 @@ function api_(p) {
     } else if (p.api === 'thermaldrive') {
       // 열화상 작성기(fm/thermal) PDF 저장 → 서버(Supabase)에 올린 PDF를 드라이브로 복사 (결정 168). 올린 파일 이름 모양만 받음
       out = thermalDrive_(p.path, p.name);
+    } else if (p.api === 'caddrive') {
+      // CAD 변환 도면(DXF) 드라이브 사본: ws-files 의 cad/YYYY-MM/<32자>.dxf 만 → 시설팀 통합업무/20_업무지원/CAD변환파일/YYYY-MM
+      out = cadDrive_(p.path, p.name);
     } else if (p.api === 'pdf') {
       // Supabase 판 앱 안 PDF 보기: 드라이브로 옮긴 PDF를 대신 받아 줌 (브라우저는 드라이브에서 직접 못 받음). 키 없이 — 이미 「링크가 있는 사람 보기」인 PDF만
       out = pdfApi_(p.id);
@@ -505,6 +508,24 @@ function thermalDrive_(path, name) {
     if (bytes.length > 20 * 1024 * 1024) throw new Error('PDF가 너무 큽니다 (20MB 넘음)');
     if (bytes.length < 5 || bytes[0] !== 37 || bytes[1] !== 80 || bytes[2] !== 68 || bytes[3] !== 70) throw new Error('PDF 파일이 아닙니다');
     blob.setContentType('application/pdf');
+    id = saveBlob_(folder, blob, nm, tag);
+  }
+  DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { ok: true, id: id, name: nm, url: driveUrl_(id) };
+}
+
+/** CAD 변환 도면 드라이브 사본 (docs/설계/WS_CAD.md 7장). 같은 파일은 두 번 만들지 않음. 크기 50MB 이하 */
+function cadDrive_(path, name) {
+  const m = /^cad\/(\d{4}-\d{2})\/[0-9a-f]{32}\.dxf$/.exec(String(path || ''));
+  if (!m) throw new Error('도면 파일 경로가 맞지 않습니다');
+  const nm = (String(name || '').replace(/[\\/:*?"<>|]/g, ' ').replace(/[\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) || 'CAD도면').replace(/(\.dxf)?$/i, '.dxf');
+  const folder = folderPath_(['시설팀 통합업무', '20_업무지원', 'CAD변환파일', m[1]]);
+  const tag = 'cad:' + path;
+  let id = '';
+  for (const it = folder.getFilesByName(nm); !id && it.hasNext();) { const x = it.next(); if (x.getDescription() === tag) id = x.getId(); }
+  if (!id) {
+    const blob = sbReq_('get', '/storage/v1/object/ws-files/' + path).getBlob();
+    if (blob.getBytes().length > 50 * 1024 * 1024) throw new Error('도면이 너무 큽니다 (50MB 넘음)');
     id = saveBlob_(folder, blob, nm, tag);
   }
   DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
