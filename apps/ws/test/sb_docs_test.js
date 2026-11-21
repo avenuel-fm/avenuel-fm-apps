@@ -152,7 +152,7 @@ const srv = http.createServer((req, res) => {
       const fn = u.pathname.slice(5), a = JSON.parse(body || '{}');
       CALLS.push({ fn, a });
       if (a.p_token !== TK && !/^ws_(check_|eh_view)/.test(fn)) return j({ err: 'LOGIN' });   // QR 점검·필증 보기는 표 없이
-      if (fn === 'ws_log_ac') {   // 공조기·에어커튼 가동시간 (18_climate.sql, 결정 184) — 늦게 와도 일지가 먼저 보이는지
+      if (fn === 'ws_log_ac') {   // 공조기·에어커튼 가동시간 (19_climate.sql, 결정 194) — 늦게 와도 일지가 먼저 보이는지
         AC_N++; AC_ASKED = fn + ' ' + a.p_day + ' ' + a.p_prev;
         const k = n => ({ name: n, total: 2, entered: 1, off: 0, groups: [['1층', [3.5, null]]], c: { d: 3.5, m: 10, y: 100 }, p: { d: 2, m: 9, y: 90 } });
         return setTimeout(() => j({ data: { ok: true, day: a.p_day, ac: { hvac: k('공조기'), curtain: k('에어커튼') } } }), AC_DELAY);
@@ -322,8 +322,8 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(count('ws_ahu_save') === n9 && /고칠 칸 1개/.test(er) && /7F-39 16:00/.test(er) && await p.locator('input.lgin.bad[data-u="7F-39"][data-t="16"]').count() === 1, 'A9) 글자 넣고 저장 → 서버에 안 보냄 · 칸 빨간 표시 · 이유가 아래 줄에 남음 ' + er);
   await p.fill('input.lgin[data-u="7F-39"][data-t="16"]', '23,5℃');
   ok(/저장 안 함/.test(await p.locator('#ahuState').innerText()) && await p.locator('input.lgin.bad').count() === 0, 'A10) 「23,5℃」는 숫자로 봐 줌 → 빨간 표시 사라짐');
-  await p.click('#ahuSave');
-  ok(await toast('저장하고 PDF도 만들었습니다') && last('ws_ahu_save').a.p_c.temps['7F-39']['16'] === '23.5', 'A11) 쉼표·℃는 「23.5」로 고쳐 보냄 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
+  const n11 = count('ws_ahu_save'); await p.click('#ahuSave');
+  ok(await called('ws_ahu_save', n11) && await toast('저장하고 PDF도 만들었습니다') && last('ws_ahu_save').a.p_c.temps['7F-39']['16'] === '23.5', 'A11) 쉼표·℃는 「23.5」로 고쳐 보냄 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
   await p.waitForFunction(() => !S.ahu.busy && !S.ahu.pdfBusy);   // 저장 뒤 PDF 만드는 동안은 값을 넣어도 먼저 저장하지 않음
   await p.fill('input.lgin[data-u="7F-39"][data-t="12"]', '22.9'); const nb = count('ws_ahu_save');
   await p.click('button:has-text("인쇄 (B4)")');

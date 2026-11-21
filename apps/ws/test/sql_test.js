@@ -690,10 +690,49 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const tr = await call('ws_thermal_report', [tk, JSON.stringify({ title: '2026년 4분기 EPS 1층', inspector: '홍길동', date: '2026-11-20', path: 'thermal/2026-11/r.atr', url: 'https://b/r.atr', pages: 3, max_dt: '4.2' })]);
   const tb1 = await call('ws_thermal_boot', [tk]);
   ok(tr.ok && tr.id > 0 && tb1.reports.length === 1 && tb1.reports[0].pages === 3 && Number(tb1.reports[0].max_dt) === 4.2 && !('editor' in tb1.reports[0]), '열화상: 보고서 기록 → 목록에 (만든 사람 이름은 안 내보냄)');
-  // ══ 온습도/공조기/에어커튼 입력 (18_climate.sql, 결정 182·184·186) ══
-  await db.exec(SQL('18_climate.sql')); await db.exec(SQL('18_climate.sql'));
+  const tp = await call('ws_thermal_report', [tk, JSON.stringify({ title: 'PDF만', date: '2026-11-20', pdf_path: 'thermal/2026-11/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'https://drive.google.com/file/d/x/view', pages: 2 })]);
+  const tb2 = await call('ws_thermal_boot', [tk]);
+  ok(tp.ok && tb2.reports[0].pdf_url === 'https://b/a.pdf' && tb2.reports[0].drive_url.startsWith('https://drive.google.com') && tb2.reports[0].path === '', '열화상: PDF만 있는 기록(.atr 없이) · PDF·드라이브 주소가 목록에');
+  ok((await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'tbm_pdf/a.pdf', pdf_url: 'https://b/a.pdf' })])).ok === false && (await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'thermal/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'http://x' })])).ok === false, '열화상: PDF 경로가 thermal/ 밖 · 드라이브 주소가 https 아님 → 막음');
+  await db.exec(SQL('16_thermal.sql'));   // 이미 쓰던 표에 다시 실행해도 기록이 남음 (칸 더하기)
+  ok((await call('ws_thermal_boot', [tk])).reports.length === 2, '열화상: 16_thermal.sql 다시 실행해도 기록 유지');
+  // ══ CAD 변환 도면 (18_cad.sql) — 전 직원이 보고 올림, 지우기는 소장만 ══
+  await db.exec(SQL('18_cad.sql')); await db.exec(SQL('18_cad.sql'));
+  ok(/permission denied/.test(await asErr('anon', "select ws_cad_list('x')")), 'CAD: 비로그인(anon)은 못 부름');
+  ok(/permission denied/.test(await asErr('authenticated', 'select * from cad_file')) || !(await as('authenticated', 'select * from cad_file')).length, 'CAD: 표는 직접 못 읽음');
+  const cp = 'cad/2026-11/' + 'a'.repeat(32) + '.dxf', cu = 'https://b/' + cp;
+  await q("update staff set role = '직원' where staff_id = 'S003'");
+  ok((await call('ws_cad_list', ['emp'])).items.length === 0, 'CAD: 직원도 목록을 엶 (처음엔 비어 있음)');
+  const c1 = await call('ws_cad_save', ['emp', JSON.stringify({ name: '1층 평면도', floor: '1F', memo: '시험', path: cp, url: cu, size: 1000, drive_url: 'https://drive.google.com/file/d/x/view' })]);
+  ok(c1.ok && c1.id, 'CAD: 직원도 올림');
+  ok((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'x', path: 'sign/a.dxf', url: cu })])).ok === false && (await call('ws_cad_save', ['emp', JSON.stringify({ name: '', path: cp, url: cu })])).ok === false, 'CAD: cad/ 밖 경로·빈 이름은 막음');
+  ok((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'big', path: cp, url: cu, size: 60 * 1048576 })])).ok === false && (await call('ws_cad_save', ['emp', JSON.stringify({ name: 'd', path: cp, url: cu, drive_url: 'http://x' })])).ok === false, 'CAD: 50MB 넘음·http 드라이브 주소는 막음');
+  const c2 = await call('ws_cad_save', ['emp', JSON.stringify({ name: '1층 평면도', floor: '1F', path: cp.replace('aaaa', 'bbbb'), url: cu, size: 2000 })]);
+  const cl = await call('ws_cad_list', [tk]);
+  ok(c2.ok && c2.id === c1.id && cl.items.length === 1 && cl.items[0].size === 2000 && cl.items[0].by && cl.items[0].date, 'CAD: 같은 이름은 새 파일로 바꿈(한 줄) · 목록에 이름·층·올린 사람·날짜·크기');
+  ok(/소장만/.test(await err("select ws_cad_delete('emp', " + Number(c1.id) + ')')), 'CAD: 직원은 못 지움');
+  ok((await call('ws_cad_delete', [tk, Number(c1.id)])).ok && (await call('ws_cad_list', [tk])).items.length === 0, 'CAD: 소장은 지움');
+  const cl0 = await call('ws_cad_list', ['emp']);
+  ok(cl0.cats.map(c => c.name).join() === '공조,소방,전기,건축' && cl0.can_del_cat === false && (await call('ws_cad_list', [tk])).can_del_cat === true, 'CAD 분류: 처음 공조·소방·전기·건축 · 지우기 권한은 소장급만');
+  const ca = await call('ws_cad_cat_add', ['emp', ' 통신 ']);
+  ok(ca.ok && (await call('ws_cad_cat_add', ['emp', '통신'])).ok === false && (await call('ws_cad_cat_add', ['emp', ''])).ok === false, 'CAD 분류: 직원도 만듦 · 같은 이름·빈 이름은 막음');
+  const cx = await call('ws_cad_save', ['emp', JSON.stringify({ name: '분류 시험', path: cp, url: cu, size: 10, cat_id: String(ca.id) })]);
+  const cl1 = await call('ws_cad_list', [tk]);
+  ok(cx.ok && cl1.items.find(i => i.name === '분류 시험').cat === '통신' && cl1.cats.find(c => c.name === '통신').n === 1, 'CAD 분류: 올릴 때 분류 · 목록에 분류 이름 · 분류별 개수');
+  ok((await call('ws_cad_set_cat', ['emp', Number(cx.id), null])).ok && (await call('ws_cad_list', [tk])).items.find(i => i.name === '분류 시험').cat === '', 'CAD 분류: 바꾸기 → 분류 없음(미분류)');
+  await call('ws_cad_set_cat', ['emp', Number(cx.id), Number(ca.id)]);
+  ok((await call('ws_cad_cat_del', ['emp', Number(ca.id)])).ok === false, 'CAD 분류: 직원은 못 지움');
+  const cd = await call('ws_cad_cat_del', [tk, Number(ca.id)]);
+  const cl2 = await call('ws_cad_list', [tk]);
+  ok(cd.ok && cd.moved === 1 && cl2.items.find(i => i.name === '분류 시험').cat === '' && !cl2.cats.find(c => c.name === '통신'), 'CAD 분류: 소장이 지우면 도면은 남고 미분류로');
+  await db.exec(SQL('18_cad.sql'));
+  ok((await call('ws_cad_list', [tk])).cats.length === 4, 'CAD: 18_cad.sql 다시 실행해도 분류 유지');
+  let lim = 0; for (let i = 0; i < 31; i++) { if ((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'L' + i, path: cp, url: cu })])).ok) lim++; }
+  ok(lim === 29, 'CAD: 한 사람 하루 30개까지 (앞서 1개 올림 + ' + lim + ')');
+  // ══ 온습도/공조기/에어커튼 입력 (19_climate.sql, 결정 192·194·196) ══
+  await db.exec(SQL('19_climate.sql')); await db.exec(SQL('19_climate.sql'));
   const cnt = async t => (await one('select count(*)::int n from ' + t)).n;
-  ok(await cnt('curtain_unit') === 36 && await cnt('climate_zone') === 19 && await cnt('ahu_unit where active') === 38 && await cnt('ahu_unit where not active') === 3, '18_climate.sql 두 번 실행 · 에어커튼 36 · 구역 19 · 공조기 38 + 옛 3·37·38 (화면 밖)');
+  ok(await cnt('curtain_unit') === 36 && await cnt('climate_zone') === 19 && await cnt('ahu_unit where active') === 38 && await cnt('ahu_unit where not active') === 3, '19_climate.sql 두 번 실행 · 에어커튼 36 · 구역 19 · 공조기 38 + 옛 3·37·38 (화면 밖)');
   ok((await one('select count(*)::int n from ahu_unit where active and (use_floor is null or old_no is null)')).n === 0 && (await one("select old_no from ahu_unit where no = 'B3F-HVU1'")).old_no === 41 && (await one("select old_no from ahu_unit where no = '7F-39'")).old_no === 39, '공조기 번호 맞춤: 38대 모두 쓰는 층·옛 번호 · 41 → B3F-HVU1 · 39 → 7F-39');
   ok((await call('ws_ahu_get', [tk, D])).units.length === 38, '환기온도 목록은 그대로 38대 (옛 번호 줄은 안 보임)');
   ok(/permission denied/.test(await asErr('authenticated', 'select * from equip_usage')) && /permission denied/.test(await asErr('anon', "select ws_usage_get('x','hvac','')")) && /LOGIN/.test(await callErr('ws_usage_get', ['bad', 'hvac', ''])), '가동시간: 표는 못 읽음 · 비로그인·틀린 표 막음');
@@ -717,7 +756,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   let kw = await call('ws_equip_kw_save', [tk, J({ price: '130.5', hvac: { '7F-39': '7.5' }, curtain: { '1G1OUT-1': '1.2' } })]);
   ok(kw.ok && Number(kw.price) === 130.5 && Number(kw.hvac.find(u => u.u === '7F-39').kw) === 7.5 && Number(kw.curtain.find(u => u.u === '1G1OUT-1').kw) === 1.2 && kw.hvac.filter(u => u.kw == null).length === 37, 'kW·단가 저장 (나머지는 빈 칸)');
   ok(/0 ~ 1000/.test((await call('ws_equip_kw_save', [tk, J({ hvac: { '7F-39': 'abc' } })])).error) && /단가/.test((await call('ws_equip_kw_save', [tk, J({ price: '-1' })])).error), 'kW·단가: 글자·음수 → 안내');
-  await db.exec(SQL('18_climate.sql'));
+  await db.exec(SQL('19_climate.sql'));
   ok(Number((await call('ws_equip_kw_get', [tk])).hvac.find(u => u.u === '7F-39').kw) === 7.5, '18 다시 실행해도 kW는 그대로');
   kw = await call('ws_equip_kw_save', [tk, J({ hvac: { '7F-39': '' } })]);
   ok(kw.hvac.find(u => u.u === '7F-39').kw == null && Number(kw.price) === 130.5, 'kW 지우면 빈 칸 · 단가는 그대로');
@@ -728,12 +767,12 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(/온도는 -10/.test((await call('ws_climate_add', [tk, J([{ floor: '6F', zone: '1구역', t: '60', h: '50' }]), J({})])).error) && /위치/.test((await call('ws_climate_add', [tk, J([{ floor: 'B1F', zone: '2구역', t: '20', h: '50' }]), J({})])).error) && /실외습도/.test((await call('ws_climate_add', [tk, J([{ floor: '6F', zone: '1구역', t: '20', h: '50' }]), J({ h: '120' })])).error) && /없습니다/.test((await call('ws_climate_add', [tk, J([]), J({})])).error), '온습도 검사: 범위·B1F 2구역·실외습도·빈 저장 → 안내');
   const cr = await call('ws_climate_report', [tk, '', D]);
   ok(cr.ok && cr.rows.length === 2 && Number(cr.rows[0][6]) === 11.2 && cr.rows[0][1] === '6F', '온습도 리포트 자료 (실외 같이)');
-  // 종합업무일지 (구글 통로 대신, 결정 184)
+  // 종합업무일지 (구글 통로 대신, 결정 194)
   await call('ws_usage_save', [tk, 'hvac', D, J([{ u: '7F-39', s: 600, e: 1310 }, { u: '6F-36', off: true }])]);
   const la = await call('ws_log_ac', [tk, D, '']), hv = la.ac.hvac;
   ok(la.ok && hv.name === '공조기' && hv.total === 38 && hv.groups.length === 8 && hv.groups[0][0] === '6층' && hv.groups[6][0] === 'B1' && hv.groups[0][1].length === 5 && la.ac.curtain.groups.length === 9 && la.ac.curtain.groups[8][0] === '4·6 브릿지', '일지 가동: 옛 구글 통로와 같은 묶음 (공조기 8 · 에어커튼 9)');
   ok(hv.entered === 2 && hv.off === 1 && Number(hv.c.d) === 11.8 && Number(hv.c.m) >= 11.8 && hv.p.d === null && hv.groups[0][1].includes(11.8), '일지 가동: 그날 입력 2 · 미가동 1 · 합 11.8시간 · 전년 없음 ' + JSON.stringify(hv.c));
-  // ══ 옛 시트 옮기기 (tools/climate_csv.js → 19_climate_data.sql) ══
+  // ══ 옛 시트 옮기기 (tools/climate_csv.js → 20_climate_data.sql) ══
   {
     const M = require('../tools/climate_csv.js');
     const CLC = 'id,매장ID,측정시각,층,구역,실내온도,실내습도,불쾌지수,실외온도,실외습도,ts\n' +

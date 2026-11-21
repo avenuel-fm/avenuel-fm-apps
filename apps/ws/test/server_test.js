@@ -761,7 +761,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   g = logGet(lt4, '');
   assert(g.cur && g.cur['날씨'] === '흐림' && g.cur['미세먼지등급'] === '좋음' && g.cur['작성자'] === '네이버 날씨', '날씨: 예약이 빠졌어도 1시 뒤 처음 열 때 채움');
   assert(books[setting_('일지시트ID')].sheets['일지'].rows[0].slice(-1)[0] === '비고', '일지: 비고 열은 맨 끝');
-  // 공조기·에어커튼 가동 (결정 120 → 184): 기록이 Supabase 로 옮겨 가 구글 판 일지는 「Supabase 판에서 봅니다」만, 옛 앱은 안 부름
+  // 공조기·에어커튼 가동 (결정 120 → 194): 기록이 Supabase 로 옮겨 가 구글 판 일지는 「Supabase 판에서 봅니다」만, 옛 앱은 안 부름
   const a0 = AC.calls; g = logGet(lt4, '');
   assert(g.ok && g.cur && /Supabase/.test(g.ac.err) && AC.calls === a0, '가동: 구글 판 일지는 옛 온습도 앱을 부르지 않고 열림 (' + g.ac.err + ')');
   const la = JSON.parse(doGet({ parameter: { api: 'logac', day: '2026-11-16' } }).getContent());

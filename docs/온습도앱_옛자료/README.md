@@ -1,6 +1,6 @@
 # 옛 [구역별 온습도 확인] 앱 자료 (보관용 사본)
 
-- 원본: `C:\avenuel\mall-climate-pwa` · GitHub `avenuel-fm/mall-climate-pwa` (2026-11-21 복사). **원본은 이관·기능 확인 뒤 삭제 예정**이라 여기 남겨 둠 (결정 182·184).
+- 원본: `C:\avenuel\mall-climate-pwa` · GitHub `avenuel-fm/mall-climate-pwa` (2026-11-21 복사). **원본은 이관·기능 확인 뒤 삭제 예정**이라 여기 남겨 둠 (결정 192·194).
 - 이관 설계: `docs/설계/WS_온습도공조기.md`. 이 폴더는 **고치지 않는 참고 자료**입니다. 앱에 올리지 않습니다.
 - 대화 기록 전체: `C:\Users\Administrator\Downloads\session-export-1795223883778.zip` (원본 폴더와 별개)
 

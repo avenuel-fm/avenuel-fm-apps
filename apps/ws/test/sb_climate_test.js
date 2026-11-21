@@ -1,5 +1,5 @@
-// 온습도/공조기/에어커튼 입력 화면 시험 (WS_온습도공조기, 결정 182·184·186): 탭 4개 · 온습도 · 가동시간 · 리포트 · kW·단가 · 메인 미입력 알림
-// 진짜 Supabase 대신 가짜 — 화면 → 통로(ws-api.js) → DB 함수에 넘기는 값만 봄. DB 함수 자체는 sql_test.js (18_climate.sql)
+// 온습도/공조기/에어커튼 입력 화면 시험 (WS_온습도공조기, 결정 192·194·196): 탭 4개 · 온습도 · 가동시간 · 리포트 · kW·단가 · 메인 미입력 알림
+// 진짜 Supabase 대신 가짜 — 화면 → 통로(ws-api.js) → DB 함수에 넘기는 값만 봄. DB 함수 자체는 sql_test.js (19_climate.sql)
 // 먼저: python tools/build_fm.py   그다음: node test/sb_climate_test.js
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');

@@ -1,7 +1,7 @@
-// 옛 [구역별 온습도 확인] 시트 → Supabase 옮기기 SQL 만들기 (WS_온습도공조기 4장, 결정 182)
+// 옛 [구역별 온습도 확인] 시트 → Supabase 옮기기 SQL 만들기 (WS_온습도공조기 4장, 결정 192)
 // 쓰는 법: 구글 시트에서 탭 3개를 각각 「파일 › 다운로드 › CSV」로 받은 뒤
 //   node tools/climate_csv.js 기록.csv 공조기.csv 에어커튼.csv
-// → supabase/19_climate_data.sql 이 생김. Supabase SQL 편집기에 붙여 실행 (18_climate.sql 다음). 여러 번 실행해도 됨.
+// → supabase/20_climate_data.sql 이 생김. Supabase SQL 편집기에 붙여 실행 (19_climate.sql 다음). 여러 번 실행해도 됨.
 // 규칙: 처음 기록부터 전부 · 같은 날짜·장비가 두 번이면 수정시각이 늦은 것 · 공조기 옛 번호는 ahu_unit.old_no 로 (3·37·38 → OLD-*)
 //       이미 앱에서 넣은 기록이 더 새것이면 그대로 둠 · 끝에 「시트 숫자 = DB 숫자」 맞춰 보기 표
 const fs = require('fs'), path = require('path');
@@ -87,8 +87,8 @@ const runMin = r => r.off ? 0 : r.s == null ? null : Math.max(0, (r.e === 0 ? 14
 
 /** SQL 만들기. 끝의 맞춰 보기 표: 시트 숫자(이 도구가 센 것)와 DB 숫자가 같아야 함 */
 function buildSql(cl, hv, ct) {
-  const L = ['-- 19_climate_data.sql — tools/climate_csv.js 로 만듦 (' + new Date().toISOString().slice(0, 10) + '). 손으로 고치지 않음.',
-    '-- 옛 [구역별 온습도 확인] 시트 기록 → Supabase (결정 182). 18_climate.sql 다음에 실행. 여러 번 실행해도 됨.', 'begin;'];
+  const L = ['-- 20_climate_data.sql — tools/climate_csv.js 로 만듦 (' + new Date().toISOString().slice(0, 10) + '). 손으로 고치지 않음.',
+    '-- 옛 [구역별 온습도 확인] 시트 기록 → Supabase (결정 192). 19_climate.sql 다음에 실행. 여러 번 실행해도 됨.', 'begin;'];
   const chunk = (arr, f, head, tail) => { for (let i = 0; i < arr.length; i += 500) L.push(head + '\n' + arr.slice(i, i + 500).map(f).join(',\n') + '\n' + tail); };
   chunk(cl.rows, r => '(' + [q(r.id), q(r.at), q(r.floor), q(r.zone), r.t, r.h, r.di, r.ot == null ? 'null' : r.ot, r.oh == null ? 'null' : r.oh].join(',') + ')',
     'insert into public.climate_record (id, measured_at, log_date, floor, zone, t, h, di, out_t, out_h, author, src)\nselect v.id, (v.at || \':00+09\')::timestamptz, ((v.at || \':00\')::timestamp - interval \'6 hours\')::date, v.fl, v.zn, v.t::numeric, v.h::numeric, v.di::numeric, v.ot::numeric, v.oh::numeric, \'옛 앱\', \'sheet\'\nfrom (values',
@@ -124,7 +124,7 @@ if (require.main === module) {
   if (!a || !b || !c) { console.log('쓰는 법: node tools/climate_csv.js 기록.csv 공조기.csv 에어커튼.csv'); process.exit(1); }
   const rd = f => fs.readFileSync(f, 'utf8');
   const cl = climateRows(rd(a)), hv = usageRows(rd(b), 'hvac'), ct = usageRows(rd(c), 'curtain');
-  const out = path.join(__dirname, '..', 'supabase', '19_climate_data.sql');
+  const out = path.join(__dirname, '..', 'supabase', '20_climate_data.sql');
   fs.writeFileSync(out, buildSql(cl, hv, ct));
   const h = rs => (rs.reduce((x, r) => x + (runMin(r) || 0), 0) / 60).toFixed(1);
   console.log('온습도 ' + cl.rows.length + '건 · 공조기 ' + hv.rows.length + '건 ' + h(hv.rows) + '시간 · 에어커튼 ' + ct.rows.length + '건 ' + h(ct.rows) + '시간');

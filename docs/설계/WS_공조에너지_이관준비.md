@@ -1,7 +1,7 @@
 # WS 공조에너지 이관 준비 — [구역별 온습도 확인] 앱을 업무지원으로
 
 - 판: **v0.1 준비 문서** (2026-11-21, Claude Code, 온습도 앱 세션에서 작성)
-- ➜ **이어 쓰는 기능 문서: `WS_온습도공조기.md` (결정 182, 11-21)** — 이 문서는 원본 자료로만 둠
+- ➜ **이어 쓰는 기능 문서: `WS_온습도공조기.md` (결정 192, 11-21)** — 이 문서는 원본 자료로만 둠
 - 상태: **준비만 함. 앱 코드·DB는 아직 안 바꿈** (사용자 「진행시켜」 전)
 - 옮겨 올 앱: `C:\avenuel\mall-climate-pwa` (GitHub `avenuel-fm/mall-climate-pwa`, 주소 `https://avenuel-fm.github.io/mall-climate-pwa/`)
 - 그 앱의 대화 기록(전부): `C:\Users\Administrator\Downloads\session-export-1795223883778.zip` (11MB, 대화·결정 전체)
@@ -65,7 +65,7 @@
 
 ## 6. 합친 뒤 모습 (제안 — 확정 아님)
 - 업무지원 메뉴에 새 기능 **「공조 에너지」**(이름 미정): 온습도 입력 · 공조기 가동 · 에어커튼 가동 · 리포트.
-- Supabase 새 표 (번호는 이어서 `18_climate.sql` 등):
+- Supabase 새 표 (번호는 이어서 `19_climate.sql` 등):
   - `climate_record` — 온습도 측정 (`기록` 시트)
   - `equip_usage` — 하루 한 장비 한 줄 (kind = 공조기/에어커튼, log_date, unit, start_min, end_min, off, updated_at, editor). 기본키 (kind, log_date, unit)
   - `curtain_unit` — 에어커튼 36대 목록 (묶음키·번호·이름·기본 종료)

@@ -144,7 +144,7 @@ function curtain() {
     bar(dirty) + '</div>';
 }
 
-/* 5. 메인 화면 「오늘 미입력」 (결정 184) */
+/* 5. 메인 화면 「오늘 미입력」 (결정 194) */
 function main() {
   const tile = (b, sm, soon) => '<button class="tile' + (soon ? ' soon' : '') + '"><span class="ico">' + ico.cal + '</span><b>' + b + '</b><small>' + sm + '</small></button>';
   return '<header class="top"><div class="top-in"><div class="ttl"><small>잠실점 에비뉴엘 · 11월 21일 (토)</small><b>업무지원</b></div><span class="me">홍길동 · 기건파트</span><button class="btn sm">로그아웃</button></div></header>' +

@@ -31,7 +31,7 @@ async function open(b, opt) {
   ok(await p.locator('.lgmc').count() === 8 && await p.locator('.lgmh .lgin').count() === 8 && !(await p.locator('[data-bars="급탕"],[data-bars="실온수"]').count()), '에너지 막대 칸 8개 (급탕·환탕·급탕탱크·실온수 뺌)');
   ok(await p.locator('.lgwork li').count() === 20 && !(await p.locator('textarea[data-k="비고"]').count()), '금일작업 10줄씩 · 비고 칸 없음');
   const ac = await p.locator('.lgac .acerr').innerText();
-  ok(/불러오지 못했습니다/.test(ac) && !(await p.locator('.lgac .acb').count()), '공조기·에어커튼 가동: 구글 판은 「불러오지 못함」 (기록은 Supabase 로 옮김, 결정 184) — ' + ac);
+  ok(/불러오지 못했습니다/.test(ac) && !(await p.locator('.lgac .acb').count()), '공조기·에어커튼 가동: 구글 판은 「불러오지 못함」 (기록은 Supabase 로 옮김, 결정 194) — ' + ac);
   const ly = await p.evaluate(() => { const e = document.querySelector('.lgegrid'), a = document.querySelector('.lgac'), w = document.querySelector('.lgrow'); return e.getBoundingClientRect().bottom <= a.getBoundingClientRect().top && a.getBoundingClientRect().bottom <= w.getBoundingClientRect().top; });
   ok(ly, '가동 칸 = 에너지 사용량 아래, 금일작업 위');
   ok(!(await p.locator('.lgtools,.lgchip').count()), '종이 위 문구·TBM 줄 없음');

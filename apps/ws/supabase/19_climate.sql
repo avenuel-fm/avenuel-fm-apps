@@ -1,5 +1,5 @@
 -- ============================================================================
--- 업무지원(WS) 서류작업 › 온습도/공조기/에어커튼 입력 (결정 182·184·186) — 옛 [구역별 온습도 확인] 앱 이관
+-- 업무지원(WS) 서류작업 › 온습도/공조기/에어커튼 입력 (결정 192·194·196) — 옛 [구역별 온습도 확인] 앱 이관
 -- 실행: 12_ahu.sql 다음 아무 때나 SQL Editor 에 통째로 붙여 넣고 Run (여러 번 돌려도 안전)
 -- 설계: docs/설계/WS_온습도공조기.md · 옛 앱 자료: docs/온습도앱_옛자료/
 --
@@ -18,7 +18,7 @@ alter table public.ahu_unit add column if not exists zone text;           -- PC 
 alter table public.ahu_unit add column if not exists def_start int;       -- 기본 시작(분)
 alter table public.ahu_unit add column if not exists def_end int;         -- 기본 종료(분) 월~목
 alter table public.ahu_unit add column if not exists def_end_wkend int;   -- 기본 종료(분) 금·토·일
-alter table public.ahu_unit add column if not exists kw numeric;          -- 전력(kW), 빈 칸 = 환산에서 뺌 (결정 184)
+alter table public.ahu_unit add column if not exists kw numeric;          -- 전력(kW), 빈 칸 = 환산에서 뺌 (결정 194)
 
 insert into public.ahu_unit (seq, no, room, place, active) values
   (903, 'OLD-3', '', '옛 3번 (화면에서 뺌, 기록만)', false),
@@ -197,7 +197,7 @@ begin
   return public.ws_usage_data(p_kind, d);
 end $$;
 
--- 메인 「미입력」 (결정 184, Q6): 그날 기본 종료 시각(월~목 19:20, 금토일 20:20)이 지나면 오늘, 그 전에는 어제 남은 것
+-- 메인 「미입력」 (결정 194, Q6): 그날 기본 종료 시각(월~목 19:20, 금토일 20:20)이 지나면 오늘, 그 전에는 어제 남은 것
 create or replace function public.ws_usage_missing(p_kind text, d date)
 returns int language sql stable security definer set search_path = public as $$
   select count(*)::int from jsonb_array_elements(public.ws_equip_units(p_kind)) x
@@ -321,7 +321,7 @@ begin
   return public.ws_equip_kw_get(p_token);
 end $$;
 
--- ── 종합업무일지 「공조기 · 에어커튼 가동」 (결정 120 → 184): 구글 ?api=logac 와 같은 답 모양
+-- ── 종합업무일지 「공조기 · 에어커튼 가동」 (결정 120 → 194): 구글 ?api=logac 와 같은 답 모양
 --    { hvac|curtain: { name, total, entered, off, groups: [[묶음, [시간|null…]]], c: {d,m,y}, p: {d,m,y} } }
 create or replace function public.ws_log_ac_kind(p_kind text, d date, pd date)
 returns jsonb language sql stable security definer set search_path = public as $$
