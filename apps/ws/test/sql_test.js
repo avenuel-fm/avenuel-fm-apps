@@ -604,6 +604,16 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q("update staff set role = '직원' where staff_id = 'S003'");
   const em = await call('ws_map_load', ['emp']);
   ok(em.ok && em.canEdit === false && em.isBoss === false && /소장·부소장·파트장·옵저버만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
+  // ══ 지도 되돌리기 권한 (22_map_restore.sql, 결정 212): 소장·부소장·파트장 ══
+  await db.exec(SQL('22_map_restore.sql')); await db.exec(SQL('22_map_restore.sql'));
+  ok(/permission denied/.test(await asErr('authenticated', "select ws_map_can_restore('소장')")), '22_map_restore.sql 실행됨 (두 번) · 안쪽 도우미는 직접 못 부름');
+  for (const [role, can] of [['소장', true], ['부소장', true], ['파트장', true], ['옵저버', false], ['관리자', false], ['직원', false]]) {
+    await q(`update staff set role = '${role}' where staff_id = 'S003'`);
+    const ld = await call('ws_map_load', ['emp']);
+    const rs = await call('ws_map_restore', ['emp', td]);
+    ok(ld.canRestore === can && (can ? /지난 날짜/.test(rs.error || '') : /소장·부소장·파트장만/.test(rs.error)), '되돌리기 권한: ' + role + (can ? ' 가능' : ' 막음') + ' (load.canRestore · restore)');
+  }
+  await q("update staff set role = '직원' where staff_id = 'S003'");
   // ══ 메인 메뉴 켜기·끄기 (15_menu.sql, 결정 148) ══
   ok(/소장만/.test(await callErr('ws_admin_set_menu', ['emp', ['map']])) && (await call('ws_menu', ['emp'])).off.length === 0, '메뉴: 끄기는 소장만 · 처음엔 모두 켜짐');
   ok(JSON.stringify((await call('ws_admin_set_menu', [tk, ['map', 'x', 'map', 'docs']])).off) === '["docs","map"]' && JSON.stringify((await call('ws_menu', ['emp'])).off) === '["docs","map"]', '메뉴: 소장이 끄면 모두에게 (모르는 이름·겹침은 버림)');
@@ -627,7 +637,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(mat.kv.lotte_util_lines_1F === '[]' && !('lotte_symbols_B1' in mat.kv) && mat.kv.lotte_base_svg_1F === '<svg>v1</svg>', '오늘 모습: 바탕 도면 포함, 지운 칸 없음');
   ok((await call('ws_map_at', [tk, 'x'])).ok === false, '날짜 모양이 틀리면 안내');
   // 되돌리기 (소장만)
-  ok(/소장만/.test((await call('ws_map_restore', ['emp', yd])).error) && /지난 날짜/.test((await call('ws_map_restore', [tk, td])).error), '되돌리기: 직원 막음 · 오늘은 안 됨');
+  ok(/소장·부소장·파트장만/.test((await call('ws_map_restore', ['emp', yd])).error) && /지난 날짜/.test((await call('ws_map_restore', [tk, td])).error), '되돌리기: 직원 막음 · 오늘은 안 됨');
   const mrs = await call('ws_map_restore', [tk, yd]);
   mp = await call('ws_map_load', [tk]);
   ok(mrs.ok && mrs.n === 2 && mp.kv.lotte_symbols_B1 === '["old"]' && !('lotte_util_lines_1F' in mp.kv), '되돌리기: 어제 모습으로 (칸 2개 바뀜)');

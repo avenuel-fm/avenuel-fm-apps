@@ -10,8 +10,10 @@ const FM = path.join(__dirname, '..', '..', '..', 'fm');
 const PORT = 8133;
 
 const exp = Date.now() + 3600e3;
-const TOK = { boss: 'S001.' + exp + '.boss', emp: 'S003.' + exp + '.emp' };
-const USER = { [TOK.boss]: { staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, [TOK.emp]: { staff_id: 'S003', name: '이영희', part: '전방파트', role: '직원' } };
+const TOK = { boss: 'S001.' + exp + '.boss', emp: 'S003.' + exp + '.emp', deputy: 'S005.' + exp + '.deputy', part: 'S004.' + exp + '.part', obs: 'S006.' + exp + '.obs' };
+const USER = { [TOK.boss]: { staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, [TOK.emp]: { staff_id: 'S003', name: '이영희', part: '전방파트', role: '직원' },
+  [TOK.deputy]: { staff_id: 'S005', name: '김부장', part: '관리파트', role: '부소장' }, [TOK.part]: { staff_id: 'S004', name: '박민수', part: '기건파트', role: '파트장' }, [TOK.obs]: { staff_id: 'S006', name: '최옵저', part: '전방파트', role: '옵저버' } };
+const CAN_RESTORE = ['소장', '부소장', '파트장'];   // 결정 212
 const kst = d => new Date(Date.now() + 9 * 3600e3 - d * 864e5).toISOString().slice(0, 10);
 const TODAY = kst(0), YEST = kst(1);
 const LINE = { id: 'L1', subType: 'elec', subTypeLabel: '전기', className: 'util-line-eps', sourceName: '기능실A', targetName: '매장B', points: [{ x: 9500, y: 4100 }, { x: 9900, y: 4300 }] };
@@ -23,7 +25,7 @@ const RPC = {
   ws_bootstrap(a) { return { ok: true, user: me(a), toastSec: 2.6, needSign: false, docs: { signs: 0 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 } } }; },
   ws_map_load(a) {
     const u = me(a);
-    return { ok: true, kv: KV, vers: VERS, bases: {}, canEdit: u.role !== '직원', isBoss: u.role === '소장',
+    return { ok: true, kv: KV, vers: VERS, bases: {}, canEdit: u.role !== '직원', isBoss: u.role === '소장', canRestore: CAN_RESTORE.includes(u.role),
       urls: { avenuel: Object.fromEntries(['6F', '5F', '4F', '3F', '2F', '1F', 'B1'].map(f => [f, 'http://localhost:' + PORT + '/floor.svg'])),
         dept: Object.fromEntries(['12', '11', '10', '09', '08', '07', '06', '05', '04', '03', '02', '01', 'B1', 'B2', 'B3', 'B4'].map(f => [f, 'http://localhost:' + PORT + '/floor.svg'])),
         castle: Object.fromEntries(['02', '01', 'B1'].map(f => [f, 'http://localhost:' + PORT + '/floor.svg'])) } };
@@ -38,7 +40,7 @@ const RPC = {
   ws_map_base(a) { me(a); BASES.push(a.p_k); return { ok: true, sha: 'x' }; },
   ws_map_days(a) { me(a); return { ok: true, days: [{ day: YEST, keys: ['lotte_symbols_1F', 'lotte_facility_specs_1F'], by: ['옛사람'] }, { day: TODAY, keys: ['lotte_util_lines_1F'], by: ['홍길동'] }], restores: [] }; },
   ws_map_at(a) { me(a); return { ok: true, kv: { lotte_symbols_1F: '[]', lotte_base_svg_1F: OLD_SVG } }; },
-  ws_map_restore(a) { const u = me(a); RESTORES.push(a.p_day); return u.role === '소장' ? { ok: true, n: 1 } : { ok: false, error: '되돌리기는 소장만 할 수 있습니다' }; }
+  ws_map_restore(a) { const u = me(a); RESTORES.push(a.p_day); return CAN_RESTORE.includes(u.role) ? { ok: true, n: 1 } : { ok: false, error: '되돌리기는 소장·부소장·파트장만 할 수 있습니다' }; }
 };
 const FAKE = `window.supabase = { createClient() {
   const post = (u, b) => fetch(u, { method: 'POST', body: JSON.stringify(b) }).then(r => r.json());
@@ -179,6 +181,25 @@ async function openMap(p) {
   const ectx = await e.evaluate(() => !document.body.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
   ok(!ectx, '19) 터치 기기는 길게 누르기 메뉴 그대로 (오른쪽 버튼 막기는 PC만)');
   ok(!e.errs.length, '20) 화면 오류 없음 (직원·터치)' + (e.errs.length ? ': ' + e.errs.join(' / ') : ''));
+
+  // ── 되돌리기 권한 (결정 212): 부소장·파트장은 버튼이 보이고, 옵저버(고칠 수는 있음)는 안 보임 ──
+  for (const [key, can, label] of [['deputy', true, '부소장'], ['part', true, '파트장'], ['obs', false, '옵저버']]) {
+    const rp = await open(b, TOK[key], { viewport: { width: 1280, height: 800 } });
+    await openMap(rp);
+    const fl = rp.frameLocator('iframe.mapframe');
+    await fl.locator('#btn-hist').click();
+    await fl.locator('.hist-cal').waitFor();
+    if (YEST.slice(0, 7) !== TODAY.slice(0, 7)) await fl.locator('.hist-pop button[data-m="-1"]').click();
+    await fl.locator('.hist-pop button[data-d="' + YEST + '"]').click();
+    await fl.locator('.hist-bar').waitFor();
+    ok((await fl.locator('#hist-rest').count() === 1) === can, '20-1) ' + label + ': 「이 날로 되돌리기」 버튼 ' + (can ? '보임' : '없음'));
+    if (can) {
+      const before = RESTORES.length;
+      await fl.locator('#hist-rest').click(); await fl.locator('.hist-dlg .yes').click(); await rp.waitForTimeout(600);
+      ok(RESTORES.length === before + 1 && RESTORES[before] === YEST, '20-2) ' + label + ': 되돌리기 → 서버가 받아 줌');
+    }
+    await rp.close();
+  }
 
   const d = await (await b.newContext()).newPage(); await d.goto('http://localhost:' + PORT + '/map/index.html'); await d.waitForTimeout(500);
   ok(/업무지원 앱에서/.test(await d.locator('body').innerText()) && await d.locator('#map-container svg').count() === 0, '21) 지도 주소를 바로 열면 자료 없이 안내만');
