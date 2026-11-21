@@ -14,7 +14,8 @@ const ME = { staff_id: 'S001', name: '홍길동', part: '전방파트', role: '�
 const CALLS = [];
 const UNITS = {
   hvac: [{ u: '7F-39', name: '7F-39', sub: '', grp: '6층', tone: 'f6', zone: '1구역', s: 600, e: 1310, ew: 1310, kw: '7.5' }, { u: '6F-36', name: '6F-36', sub: '', grp: '6층', tone: 'f6', zone: '2구역', s: 600, e: 1310, ew: 1310, kw: null },
-    { u: '5F-27', name: '5F-27', sub: '', grp: '5층', tone: 'f5', zone: '1구역', s: 600, e: 1160, ew: 1220, kw: null }],
+    { u: '5F-27', name: '5F-27', sub: '', grp: '5층', tone: 'f5', zone: '1구역', s: 600, e: 1160, ew: 1220, kw: null },
+    { u: 'B3F-1', name: 'B3F-1', sub: '', grp: 'B3층', tone: 'b3', zone: null, s: 510, e: 1120, ew: 1120, kw: null }, { u: 'B3F-HVU1', name: 'B3F-HVU1', sub: '', grp: 'B3층', tone: 'b3', zone: null, s: 510, e: 1120, ew: 1120, kw: null }],
   curtain: [{ u: '1G1OUT-1', name: '1번', sub: '1G OUT', grp: '1G OUT', tone: 'f1out', zone: null, s: 600, e: 1200, ew: 1170, kw: '1.2' }, { u: '1G1IN-1', name: '1번', sub: '1G IN', grp: '1G IN', tone: 'f1in', zone: null, s: 600, e: 1200, ew: 1170, kw: null }]
 };
 const REC = { hvac: {}, curtain: {} }, CLIM = [];
@@ -98,7 +99,7 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(last('ws_usage_get').a.p_kind === 'hvac' && last('ws_usage_get').a.p_day === Y && await p.locator('.nwdate').getAttribute('data-date') === Y, 'C2) 알림 누르면 공조기 가동시간 · 어제 날짜로 열림');
   const tabs = await p.locator('.cltabs button').allInnerTexts();
   ok(tabs.join('|') === 'AHU 환기온도 점검일지|온습도|공조기 가동시간|에어커튼 가동시간' && /on/.test(await p.locator('.cltabs button').nth(2).getAttribute('class')), 'C3) 탭 4개 · 지금 탭 표시 (' + tabs.join('|') + ')');
-  ok(await p.locator('.flnav button').count() === 2 && await p.locator('.uc').count() === 2 && /6층/.test(await p.locator('.flhd').innerText()), 'C4) 휴대폰: 층 한 쪽씩 (6층 2대) · 층 고르기 2칸');
+  ok(await p.locator('.flnav button').count() === 3 && await p.locator('.uc').count() === 2 && /6층/.test(await p.locator('.flhd').innerText()), 'C4) 휴대폰: 층 한 쪽씩 (6층 2대) · 층 고르기 3칸');
   ok(await p.locator('.uc[data-card="7F-39"] select[data-f="eh"]').inputValue() === '9' && await p.locator('.uc[data-card="7F-39"] select[data-f="ea"]').inputValue() === 'pm' && /11시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()), 'C5) 기본 시각 채움 (6층 오후 9:50 · 11시간 50분)');
   await p.selectOption('.uc[data-card="7F-39"] select[data-f="eh"]', '8');
   ok(/10시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()) && /1대 저장 안 함/.test(await p.locator('#useState').innerText()), 'C6) 시각 바꾸면 가동시간 바로 다시 셈 · 「1대 저장 안 함」');
@@ -151,12 +152,16 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   // ── PC ──
   const q = await ctx(1280);
   await q.evaluate(() => openUse('hvac')); await q.locator('.ucpc').waitFor();
-  ok(await q.locator('.ucpc tbody tr').count() === 2 && await q.locator('.uc').count() === 3 && await q.locator('.flnav').count() === 0, 'C24) PC: 층 × 구역 표 한 장에 모두 (층 고르기 없음)');
+  ok(await q.locator('.ucpc tbody tr').count() === 3 && await q.locator('.uc').count() === 5 && await q.locator('.flnav').count() === 0, 'C24) PC: 층 × 구역 표 한 장에 모두 (층 고르기 없음)');
+  const wB3 = await q.evaluate(() => [...document.querySelectorAll('.uc')].map(e => [e.dataset.card, Math.round(e.getBoundingClientRect().width)]));
+  const w1 = wB3.find(x => x[0] === '5F-27')[1];
+  ok(wB3.filter(x => /^B3/.test(x[0])).every(x => Math.abs(x[1] - w1) <= 2), 'C24b) PC: B3층 칸도 다른 층 구역 칸과 같은 크기 ' + JSON.stringify(wB3));
+  ok(await q.locator('.nwbar .back-in').count() === 1 && await q.locator('.flname[style]').count() === 0, 'C24c) 아래 줄 뒤로 하나 (AHU 탭과 같음) · 층 색 없음');
   await q.screenshot({ path: path.join(__dirname, 'shot_cl_use_pc.png'), fullPage: true });
   await q.click('button:has-text("리포트")'); await q.locator('.kpis').first().waitFor();
   await q.waitForFunction(() => window.CHART_N > 0);
   const rt = await q.locator('#repBody').innerText();
-  ok(/오늘 미입력/.test(rt) && /2대 \/ 3대/.test(rt) && /단가 120원\/kWh/.test(rt) && /kW 미입력 2대/.test(rt) && /75\.0kWh/.test(rt) && /9,000원/.test(rt), 'C25) 공조기 리포트: 미입력 · 단가 · kW 미입력 2대 · 오늘 10시간×7.5kW = 75kWh · 9,000원');
+  ok(/오늘 미입력/.test(rt) && /4대 \/ 5대/.test(rt) && /단가 120원\/kWh/.test(rt) && /kW 미입력 4대/.test(rt) && /75\.0kWh/.test(rt) && /9,000원/.test(rt), 'C25) 공조기 리포트: 미입력 · 단가 · kW 미입력 4대 · 오늘 10시간×7.5kW = 75kWh · 9,000원');
   ok(!/OLD-3/.test(rt) && await q.evaluate(() => window.CHART_T) === 'bar:2', 'C26) 옛 3·37·38번은 통계에서 뺌 · 그래프 (막대 + 선)');
   const dl = q.waitForEvent('download'); await q.click('button:has-text("CSV")');
   const csvF = await (await dl).path(), csv = fs.readFileSync(csvF, 'utf8');
@@ -165,9 +170,15 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   await q.click('.nwbar button:has-text("뒤로")'); await q.locator('.ucpc').waitFor();
   ok(await q.evaluate(() => S.view) === 'use', 'C28) 리포트 [뒤로] → 공조기 가동시간');
   await q.evaluate(() => openClim()); await q.locator('.cltbl').waitFor();
+  const zb = await q.evaluate(() => { const r = document.querySelector('.cltbl input[aria-label="6층 1구역 실내온도"]').getBoundingClientRect(), c = document.querySelector('.cltbl tbody td.ctr').getBoundingClientRect(); return r.left > c.right && r.width > 60; });
+  ok(zb, 'C28b) PC 온습도 표: 입력 칸이 층 칸을 침범하지 않음');
+  await q.screenshot({ path: path.join(__dirname, 'shot_cl_clim_pc.png'), fullPage: true });
   await q.click('button:has-text("리포트")'); await q.locator('.kpis').waitFor();
   const ct = await q.locator('#repBody').innerText();
   ok(/측정 건수\s*2건/.test(ct) && /주의/.test(ct) && /온도가 높습니다/.test(ct), 'C29) 온습도 리포트: 건수 · 단계 · 조치 권고');
+  await q.waitForFunction(() => window.CHART_N > 1);
+  ok(await q.locator('.cladv details').count() === 1 && /6층\s*2건/.test(await q.locator('.cladv summary').innerText()) && await q.evaluate(() => window.CHART_T) === 'line:4', 'C29b) 조치 권고는 층별 접기 · 그래프에 쾌적 온도 띠 (선 2 + 범위 2) ' + await q.locator('.cladv').innerText() + ' ' + await q.evaluate(() => window.CHART_T));
+  await q.screenshot({ path: path.join(__dirname, 'shot_cl_rep_clim.png'), fullPage: true });
   // kW·단가 (소장)
   await q.evaluate(() => openKw()); await q.locator('input[aria-label="전력 단가"]').waitFor();
   ok(await q.locator('input[aria-label="전력 단가"]').inputValue() === '120' && await q.locator('input[aria-label="6F-36 전력"]').inputValue() === '', 'C30) 장비 전력·단가: 지금 값 · 모르는 칸은 빈 칸');
