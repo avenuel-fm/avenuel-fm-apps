@@ -98,3 +98,12 @@
 - 화면(`fm/cad`): 분류 칩 · 「분류 관리」 창(삭제는 확인 문구) · 올리기 분류 선택 · 도면 화면 위 분류 바꾸기.
 - 시험: `sql_test.js` 분류 8개, `cad_test.js` 분류 6개.
 - 남은 것: 분류 이름 바꾸기, 분류 순서 바꾸기, 환경설정 켜기·끄기 목록에 CAD, 소장 도면 삭제 단추.
+
+## 10. PC 변환기 업로드 — 직원 PIN 대조 (11-21, 결정 202, v0.23.1)
+- 문제: PC 변환기의 업로드 창이 가짜 서버(홍길동·직원)라 소장 PIN을 넣어도 홍길동(직원)으로 나왔다. 업무지원 로그인(기기 등록·근무일 서명)은 PC에서 못 지키므로 **PIN만 대조하는 길**을 따로 둔다.
+- 길: PC 프로그램(파이썬 백엔드) → 구글 웹앱 POST → (service_role로) Supabase 함수 → 맞는 직원 이름으로 기록. 화면(JS)은 구글에 직접 안 붙음(CORS).
+- 구글 웹앱 `doPost` 요청: `cadLogin {pin}` · `cadCats {pin}` · `cadPrepare {pin}`(서명된 올리기 주소 `uploadUrl`, PC가 파일을 PUT) · `cadFinish {pin, path, name, floor, memo, cat_id, size}`(드라이브 사본 + 목록 기록). 모든 요청이 PIN을 대조한다.
+- SQL(`18_cad.sql`): `ws_cad_pin_who_`(내부) · `ws_cad_pc_check` · `ws_cad_pc_save` — **service_role만 실행 가능**(일반 로그인으로는 못 부름). 틀린 PIN은 키 `cadpc`로 세고 5번에 5분 잠금(오류는 raise 대신 돌려줘서 횟수 기록이 남음). 저장 본문은 `ws_cad_save_`를 업무지원 화면 저장(`ws_cad_save`)과 같이 쓴다(50MB·하루 30개·같은 이름은 새 파일로).
+- 시험: `sql_test.js` PC 7개(함수 권한·PIN→이름·직원 이름으로 기록·5번 틀림 잠금·잠긴 동안 거부).
+- **확인 못 한 것**: 서명된 올리기 주소(`/storage/v1/object/upload/sign/…`)와 PUT은 실제 Supabase로 시험 못 함(이 PC에 키가 없음). 배포 뒤 PC 프로그램으로 처음 올릴 때 확인. 안 되면 `cadPc_`의 주소 조립을 고친다.
+- PC 프로그램 수정(PIN 대조 연결 · 분류 선택 · **레이어 이름 바꾸기**)은 `WS_CAD_안티그라비티_지시3.txt`.
