@@ -727,6 +727,21 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(cd.ok && cd.moved === 1 && cl2.items.find(i => i.name === '분류 시험').cat === '' && !cl2.cats.find(c => c.name === '통신'), 'CAD 분류: 소장이 지우면 도면은 남고 미분류로');
   await db.exec(SQL('18_cad.sql'));
   ok((await call('ws_cad_list', [tk])).cats.length === 4, 'CAD: 18_cad.sql 다시 실행해도 분류 유지');
+  // PC 변환기 업로드: PIN 대조 → 그 직원 이름으로 기록 (구글 서버만 부름)
+  ok(/permission denied/.test(await asErr('anon', "select ws_cad_pc_check('1234')")) && /permission denied/.test(await asErr('authenticated', "select ws_cad_pc_check('1234')")), 'CAD PC: 일반 로그인(anon·authenticated)은 PIN 대조 함수를 못 부름');
+  const pc1 = await as('service_role', "select ws_cad_pc_check('1234') r").then(r => r[0].r);
+  ok(pc1.ok && pc1.name === '홍길동' && pc1.role === '소장', 'CAD PC: 소장 PIN → 홍길동(소장)');
+  await q("update staff set active = true, role = '직원', pin_salt = 'sx', pin_hash = $1 where staff_id = 'S002'", [sha('sx5678')]);
+  const pcp = 'cad/2026-11/' + 'c'.repeat(32) + '.dxf';
+  const pc2 = await as('service_role', 'select ws_cad_pc_save($1, $2) r', ['5678', JSON.stringify({ name: 'PC 도면', floor: '2F', path: pcp, url: 'https://b/' + pcp, size: 5 })]).then(r => r[0].r);
+  ok(pc2.ok && (await call('ws_cad_list', [tk])).items.find(i => i.name === 'PC 도면').by === '김철수', 'CAD PC: 직원 PIN(5678) → 김철수가 올린 것으로 기록');
+  await q("delete from ws_pin_guard where key = 'cadpc'");
+  const pcw = []; for (let i = 0; i < 5; i++) pcw.push((await as('service_role', "select ws_cad_pc_check('9999') r").then(r => r[0].r)).error);
+  ok(/\(1\/5\)/.test(pcw[0]) && /5분 동안 막았/.test(pcw[4]), 'CAD PC: PIN 5번 틀리면 5분 잠금 (횟수 안내)');
+  ok(/5분 동안 막았/.test((await as('service_role', "select ws_cad_pc_check('1234') r").then(r => r[0].r)).error), 'CAD PC: 잠긴 동안은 맞는 PIN도 안 받음');
+  await q("delete from ws_pin_guard where key = 'cadpc'");
+  ok((await as('service_role', "select ws_cad_pc_save('0000', '{}') r").then(r => r[0].r)).ok === false, 'CAD PC: 없는 PIN은 기록 안 함');
+  await q("delete from ws_pin_guard where key = 'cadpc'");
   let lim = 0; for (let i = 0; i < 31; i++) { if ((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'L' + i, path: cp, url: cu })])).ok) lim++; }
   ok(lim === 29, 'CAD: 한 사람 하루 30개까지 (앞서 1개 올림 + ' + lim + ')');
   // ══ 온습도/공조기/에어커튼 입력 (19_climate.sql, 결정 192·194·196) ══

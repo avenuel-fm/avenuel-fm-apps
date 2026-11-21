@@ -5,6 +5,7 @@
 --  · 뷰어(fm/cad)는 Supabase 에 직접 붙지 않고 업무지원 창의 WS_CAD 통로 → 이 함수들 (PIN 로그인 표 ws_auth)
 --  · 보는 사람·올리는 사람: 전 직원 (사용자 11-20). 지우기는 소장만
 --  · 분류(11-20): cad_cat(공조·소방·전기·건축 처음 제공) — 만들기 전 직원, 지우기 소장·부소장·관리자(지우면 그 분류 도면은 「미분류」). 18을 다시 Run 해도 안전
+--  · PC 변환기 업로드(11-21): 업무지원 직원 PIN과 대조해 맞는 직원 이름으로 기록 — 구글 서버(service_role)만 부름. 틀리면 5번에 5분 잠금
 --  · 남용 막기: 파일 50MB 이하, 한 사람 하루 30건, 같은 이름은 새 파일로 바꿈(기록 한 줄 유지)
 -- ============================================================================
 create table if not exists public.cad_file (
@@ -53,9 +54,9 @@ begin
 end $$;
 
 -- 올린 도면 기록. 같은 이름이 있으면 그 줄을 새 파일로 바꿈
-create or replace function public.ws_cad_save(p_token text, p_r jsonb)
+create or replace function public.ws_cad_save_(me public.staff, p_r jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
-declare me public.staff := public.ws_auth(p_token); nid bigint; nm text := left(trim(coalesce(p_r->>'name', '')), 120); sz bigint; cid bigint;
+declare nid bigint; nm text := left(trim(coalesce(p_r->>'name', '')), 120); sz bigint; cid bigint;
 begin
   if nm = '' then return jsonb_build_object('ok', false, 'error', '도면 이름이 없습니다'); end if;
   if coalesce(p_r->>'path', '') !~ '^cad/[0-9]{4}-[0-9]{2}/[0-9a-f]{32}\.dxf$' or coalesce(p_r->>'url', '') !~ '^https://' then
@@ -73,6 +74,52 @@ begin
   returning id into nid;
   perform public.ws_log(me.name, 'CAD 도면 올림', nm, coalesce(p_r->>'floor', ''));
   return jsonb_build_object('ok', true, 'id', nid::text);
+end $$;
+
+create or replace function public.ws_cad_save(p_token text, p_r jsonb)
+returns jsonb language sql volatile security definer set search_path = public as $$
+  select public.ws_cad_save_(public.ws_auth(p_token), p_r);
+$$;
+
+-- PIN으로 직원 찾기 (PC 변환기용). 틀리면 5번에 5분 잠금. 오류는 raise 가 아니라 err 로 돌려줌(raise 하면 틀린 횟수 기록이 되돌려짐)
+create or replace function public.ws_cad_pin_who_(p_pin text, out me public.staff, out err text)
+language plpgsql volatile security definer set search_path = public, extensions as $$
+declare t timestamptz := now(); g public.ws_pin_guard; n int;
+begin
+  select * into g from public.ws_pin_guard where key = 'cadpc';
+  if g.lock_until > t then err := 'PIN을 5번 틀려 5분 동안 막았습니다. 잠시 뒤에 다시 해 주세요.'; return; end if;
+  if coalesce(p_pin, '') !~ '^[0-9]{4}$' then err := 'PIN 4자리를 넣어 주세요.'; return; end if;
+  select * into me from public.staff s
+   where s.active and s.pin_hash = encode(extensions.digest(coalesce(s.pin_salt, '') || p_pin, 'sha256'), 'hex') limit 1;
+  if found then delete from public.ws_pin_guard where key = 'cadpc'; return; end if;
+  insert into public.ws_pin_guard as x (key, n, n_until) values ('cadpc', 1, t + interval '5 minutes')
+  on conflict (key) do update set n = case when x.n_until > t then x.n + 1 else 1 end,
+    n_until = case when x.n_until > t then x.n_until else t + interval '5 minutes' end
+  returning x.n into n;
+  if n >= 5 then
+    update public.ws_pin_guard set n = 0, n_until = null, lock_until = t + interval '5 minutes' where key = 'cadpc';
+    err := 'PIN을 5번 틀려 5분 동안 막았습니다. 잠시 뒤에 다시 해 주세요.';
+  else err := 'PIN이 맞지 않습니다. (' || n || '/5)'; end if;
+end $$;
+
+-- PC 변환기: PIN 확인 → { ok, name, role }
+create or replace function public.ws_cad_pc_check(p_pin text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare w record;
+begin
+  select * into w from public.ws_cad_pin_who_(p_pin);
+  if w.err is not null then return jsonb_build_object('ok', false, 'error', w.err); end if;
+  return jsonb_build_object('ok', true, 'name', (w.me).name, 'role', (w.me).role);
+end $$;
+
+-- PC 변환기: PIN 확인 → 그 직원이 올린 것으로 기록 (파일은 먼저 Storage cad/ 에 올라가 있어야 함)
+create or replace function public.ws_cad_pc_save(p_pin text, p_r jsonb)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare w record;
+begin
+  select * into w from public.ws_cad_pin_who_(p_pin);
+  if w.err is not null then return jsonb_build_object('ok', false, 'error', w.err); end if;
+  return public.ws_cad_save_(w.me, p_r);
 end $$;
 
 -- 지우기 (소장만): 목록에서만 뺌. 파일은 Storage·드라이브에 남음
@@ -124,6 +171,8 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+revoke all on function public.ws_cad_save_(public.staff, jsonb), public.ws_cad_pin_who_(text), public.ws_cad_pc_check(text), public.ws_cad_pc_save(text, jsonb) from public, anon, authenticated;
+grant execute on function public.ws_cad_pc_check(text), public.ws_cad_pc_save(text, jsonb) to service_role;   -- 구글 서버만 (PIN 대조)
 revoke all on function public.ws_cad_list(text), public.ws_cad_save(text, jsonb), public.ws_cad_delete(text, bigint),
   public.ws_cad_cat_add(text, text), public.ws_cad_cat_del(text, bigint), public.ws_cad_set_cat(text, bigint, bigint) from public, anon, authenticated;
 grant execute on function public.ws_cad_list(text), public.ws_cad_save(text, jsonb), public.ws_cad_delete(text, bigint),
