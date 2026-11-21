@@ -2883,7 +2883,7 @@ function useSel(u, f, val, nm, part) {
   const p = val == null && part ? ['', part[0], part[1]] : f === 'e' && val >= 1440 ? ['pm', '24', String(val - 1440)] : useParts(val), ap = p[0] || (f === 's' ? 'am' : 'pm');
   const o = (k, opts) => '<select data-u="' + h(u.u) + '" data-f="' + f + k + '" aria-label="' + h(nm) + (k === 'h' ? ' 시' : ' 분') + '" onchange="useIn(this)">' + opts.map(x => '<option value="' + x[0] + '"' + (String(x[0]) === String(p[k === 'h' ? 1 : 2]) ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select>';
   const hrs = [['', '시']].concat(Array.from({ length: 12 }, (_, i) => [String(i + 1), (i + 1) + '시']), f === 'e' ? [['24', '12시(자정)']] : []), mins = [['', '분']].concat([0, 10, 20, 30, 40, 50].map(m => [String(m), String(m).padStart(2, '0') + '분']));
-  return '<span class="ap" data-f="' + f + 'a" data-ap="' + ap + '">' + (ap === 'am' ? '오전' : '오후') + '</span>' + o('h', hrs) + o('m', mins);   // 시작 오전 · 종료 오후 고정 (결정 202)
+  return '<span class="ap" data-f="' + f + 'a" data-ap="' + ap + '">' + (ap === 'am' ? '오전' : '오후') + '</span>' + o('h', hrs) + o('m', mins);   // 시작 오전 · 종료 오후 고정 (결정 204)
 }
 function useCard(u) {
   const g = S.use, v = g.v[u.u], p = useParse(v), nm = (u.sub ? u.sub + ' ' : '') + u.name;
