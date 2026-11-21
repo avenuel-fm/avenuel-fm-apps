@@ -103,11 +103,11 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(tabs.join('|') === 'AHU 환기온도 점검일지|온습도|공조기 가동시간|에어커튼 가동시간' && /on/.test(await p.locator('.cltabs button').nth(2).getAttribute('class')), 'C3) 탭 4개 · 지금 탭 표시 (' + tabs.join('|') + ')');
   const ord = await p.evaluate(() => [...document.querySelectorAll('.flhd .flname, .ucz, .uc')].map(e => e.dataset.card || e.innerText.trim()).join(','));
   ok(await p.locator('.flnav button').count() === 3 && await p.locator('.nextfl').count() === 0 && ord === '6층,1구역,7F-39,2구역,6F-36,5층,1구역,5F-27,B3층,B3F-1,B3F-HVU1', 'C4) 휴대폰: 층 → 구역 차례로 한 화면에 (넘기기 없음) ' + ord);
-  ok(await p.locator('.uc[data-card="7F-39"] select[data-f="eh"]').inputValue() === '9' && await p.locator('.uc[data-card="7F-39"] [data-f="ea"]').innerText() === '오후' && await p.locator('.uc[data-card="7F-39"] [data-f="sa"]').innerText() === '오전' && await p.locator('.uc[data-card="7F-39"] select[data-f="sa"]').count() === 0 && /11시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()), 'C5) 기본 시각 채움 (6층 오후 9:50 · 11시간 50분)');
+  ok(await p.locator('.uc[data-card="7F-39"] select[data-f="eh"]').inputValue() === '9' && await p.locator('.uc[data-card="7F-39"] [data-f="ea"]').innerText() === '오후' && await p.locator('.uc[data-card="7F-39"] [data-f="sa"]').innerText() === '오전' && await p.locator('.uc[data-card="7F-39"] select[data-f="sa"]').count() === 0 && !/가동|기본 시각/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()), 'C5) 기본 시각 채움 (6층 오후 9:50 · 11시간 50분)');
   await p.selectOption('.uc[data-card="7F-39"] select[data-f="eh"]', '8');
-  ok(/10시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()) && /1대 저장 안 함/.test(await p.locator('#useState').innerText()), 'C6) 시각 바꾸면 가동시간 바로 다시 셈 · 「1대 저장 안 함」');
+  ok(/저장 안 함/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()) && !/시간/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()) && /1대 저장 안 함/.test(await p.locator('#useState').innerText()), 'C6) 시각 바꾸면 가동시간 바로 다시 셈 · 「1대 저장 안 함」');
   await p.check('.uc[data-card="6F-36"] input[data-f="off"]');
-  ok(/미가동/.test(await p.locator('.uc[data-card="6F-36"] .f').innerText()) && /isoff/.test(await p.locator('.uc[data-card="6F-36"]').getAttribute('class')), 'C7) 미가동 체크 → 0시간 · 흐리게');
+  ok( /isoff/.test(await p.locator('.uc[data-card="6F-36"]').getAttribute('class')), 'C7) 미가동 체크 → 0시간 · 흐리게');
   let n0 = count('ws_usage_save'); await p.click('#useSave');
   ok(await called('ws_usage_save', n0) && await toastOf(p, '5대 저장했습니다'), 'C8) 저장 (화면의 아직 저장 안 한 장비도 기본 시각으로)');
   let sv = last('ws_usage_save').a;
@@ -123,6 +123,7 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   await p.screenshot({ path: path.join(__dirname, 'shot_cl_use.png'), fullPage: true });
   // 에어커튼 탭: 안 고친 쪽도 [저장] = 화면의 아직 저장 안 한 장비(기본 시각) 저장
   await p.click('.cltabs button:has-text("에어커튼")'); await p.locator('.uc[data-card="1G1OUT-1"]').waitFor();
+  ok(/가동 10시간/.test(await p.locator('.uc[data-card="1G1OUT-1"] .f').innerText()) && !/기본 시각/.test(await p.locator('.uc[data-card="1G1OUT-1"] .f').innerText()), 'C13b) 에어커튼: 가동시간은 보이고 「기본 시각」 글자 없음 (결정 206)');
   ok(/1번/.test(await p.locator('.uc .flname').first().innerText()) && /1G OUT/.test(await p.locator('.uc .flname').first().innerText()) && await p.locator('.uc[data-card="1G1OUT-1"] select[data-f="eh"]').inputValue() === '8', 'C13) 에어커튼: 「1G OUT 1번」 · 기본 오후 8:00');
   n0 = count('ws_usage_save'); await p.click('#useSave'); await called('ws_usage_save', n0);
   ok(last('ws_usage_save').a.p_kind === 'curtain' && JSON.stringify(last('ws_usage_save').a.p_rows) === '[{"u":"1G1OUT-1","s":600,"e":1200,"off":false},{"u":"1G1IN-1","s":600,"e":1200,"off":false}]', 'C14) 고친 것 없이 [저장] = 화면의 아직 저장 안 한 장비를 기본 시각으로');
