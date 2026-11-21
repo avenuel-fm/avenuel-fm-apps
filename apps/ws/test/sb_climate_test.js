@@ -41,7 +41,9 @@ const RPC = {
   ws_equip_kw_get: () => ({ ok: true, price: PRICE, hvac: UNITS.hvac.map(u => Object.assign({}, u, { kw: KW[u.u] || null })), curtain: UNITS.curtain.map(u => Object.assign({}, u, { kw: KW[u.u] || null })) }),
   ws_equip_kw_save: a => { if (a.p_d.price != null) PRICE = a.p_d.price; Object.assign(KW, a.p_d.hvac, a.p_d.curtain); return RPC.ws_equip_kw_get(); },
   ws_ahu_get: a => ({ ok: true, day: a.p_day || D, workDay: D, units: [{ no: '7F-39', room: '공조실-4', place: '6층' }], rec: null, wx: {}, signs: { boss: null, part: null } }),
-  ws_menu: () => ({ ok: true, off: [] })
+  ws_menu: () => ({ ok: true, off: [] }),
+  ws_equip_hours_get: a => ({ ok: true, kind: a.p_kind, groups: [...new Set(UNITS[a.p_kind].map(u => u.grp))].map(g => ({ g, days: [0, 1, 2, 3, 4, 5, 6].map(w => [600, w < 4 ? 1310 : 1220, false]) })) }),
+  ws_equip_hours_save: a => RPC.ws_equip_hours_get(a)
 };
 const FAKE = `window.supabase = { createClient() {
   const post = (u, b) => fetch(u, { method: 'POST', body: JSON.stringify(b) }).then(r => r.json());
@@ -99,18 +101,19 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(last('ws_usage_get').a.p_kind === 'hvac' && last('ws_usage_get').a.p_day === Y && await p.locator('.nwdate').getAttribute('data-date') === Y, 'C2) 알림 누르면 공조기 가동시간 · 어제 날짜로 열림');
   const tabs = await p.locator('.cltabs button').allInnerTexts();
   ok(tabs.join('|') === 'AHU 환기온도 점검일지|온습도|공조기 가동시간|에어커튼 가동시간' && /on/.test(await p.locator('.cltabs button').nth(2).getAttribute('class')), 'C3) 탭 4개 · 지금 탭 표시 (' + tabs.join('|') + ')');
-  ok(await p.locator('.flnav button').count() === 3 && await p.locator('.uc').count() === 2 && /6층/.test(await p.locator('.flhd').innerText()), 'C4) 휴대폰: 층 한 쪽씩 (6층 2대) · 층 고르기 3칸');
+  const ord = await p.evaluate(() => [...document.querySelectorAll('.flhd .flname, .ucz, .uc')].map(e => e.dataset.card || e.innerText.trim()).join(','));
+  ok(await p.locator('.flnav button').count() === 3 && await p.locator('.nextfl').count() === 0 && ord === '6층,1구역,7F-39,2구역,6F-36,5층,1구역,5F-27,B3층,B3F-1,B3F-HVU1', 'C4) 휴대폰: 층 → 구역 차례로 한 화면에 (넘기기 없음) ' + ord);
   ok(await p.locator('.uc[data-card="7F-39"] select[data-f="eh"]').inputValue() === '9' && await p.locator('.uc[data-card="7F-39"] select[data-f="ea"]').inputValue() === 'pm' && /11시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()), 'C5) 기본 시각 채움 (6층 오후 9:50 · 11시간 50분)');
   await p.selectOption('.uc[data-card="7F-39"] select[data-f="eh"]', '8');
   ok(/10시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()) && /1대 저장 안 함/.test(await p.locator('#useState').innerText()), 'C6) 시각 바꾸면 가동시간 바로 다시 셈 · 「1대 저장 안 함」');
   await p.check('.uc[data-card="6F-36"] input[data-f="off"]');
   ok(/미가동/.test(await p.locator('.uc[data-card="6F-36"] .f').innerText()) && /isoff/.test(await p.locator('.uc[data-card="6F-36"]').getAttribute('class')), 'C7) 미가동 체크 → 0시간 · 흐리게');
   let n0 = count('ws_usage_save'); await p.click('#useSave');
-  ok(await called('ws_usage_save', n0) && await toastOf(p, '2대 저장했습니다'), 'C8) 저장');
+  ok(await called('ws_usage_save', n0) && await toastOf(p, '5대 저장했습니다'), 'C8) 저장 (화면의 아직 저장 안 한 장비도 기본 시각으로)');
   let sv = last('ws_usage_save').a;
-  ok(sv.p_kind === 'hvac' && sv.p_day === Y && JSON.stringify(sv.p_rows) === '[{"u":"7F-39","s":600,"e":1250,"off":false},{"u":"6F-36","s":null,"e":null,"off":true}]', 'C9) DB 함수에 날짜·장비별 분 (오후 8:50 = 1250) · 미가동 ' + JSON.stringify(sv.p_rows));
-  await p.click('.nextfl button:has-text("다음")');
-  ok(/5층/.test(await p.locator('.flhd').innerText()) && await p.locator('.uc').count() === 1, 'C10) [다음] → 5층');
+  ok(sv.p_kind === 'hvac' && sv.p_day === Y && JSON.stringify(sv.p_rows) === '[{"u":"7F-39","s":600,"e":1250,"off":false},{"u":"6F-36","s":null,"e":null,"off":true},{"u":"5F-27","s":600,"e":1160,"off":false},{"u":"B3F-1","s":510,"e":1120,"off":false},{"u":"B3F-HVU1","s":510,"e":1120,"off":false}]', 'C9) DB 함수에 날짜·장비별 분 (오후 8:50 = 1250) · 미가동 ' + JSON.stringify(sv.p_rows));
+  await p.click('.flnav button:has-text("5층")');
+  ok(await p.evaluate(() => S.use.pg) === 1 && /on/.test(await p.locator('.flnav button').nth(1).getAttribute('class')), 'C10) 층 버튼 → 그 층으로 이동');
   await p.selectOption('.uc[data-card="5F-27"] select[data-f="ea"]', 'am'); await p.selectOption('.uc[data-card="5F-27"] select[data-f="eh"]', '9');
   await p.click('#useSave');
   ok(await toastOf(p, '종료가 시작보다 빠릅니다') && /종료가 시작보다/.test(await p.locator('#useState').innerText()), 'C11) 종료가 시작보다 빠르면 저장 안 하고 아래 줄에 이유');
@@ -122,7 +125,7 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   await p.click('.cltabs button:has-text("에어커튼")'); await p.locator('.uc[data-card="1G1OUT-1"]').waitFor();
   ok(/1번/.test(await p.locator('.uc .flname').first().innerText()) && /1G OUT/.test(await p.locator('.uc .flname').first().innerText()) && await p.locator('.uc[data-card="1G1OUT-1"] select[data-f="eh"]').inputValue() === '8', 'C13) 에어커튼: 「1G OUT 1번」 · 기본 오후 8:00');
   n0 = count('ws_usage_save'); await p.click('#useSave'); await called('ws_usage_save', n0);
-  ok(last('ws_usage_save').a.p_kind === 'curtain' && JSON.stringify(last('ws_usage_save').a.p_rows) === '[{"u":"1G1OUT-1","s":600,"e":1200,"off":false}]', 'C14) 고친 것 없이 [저장] = 이 쪽의 아직 저장 안 한 장비를 기본 시각으로');
+  ok(last('ws_usage_save').a.p_kind === 'curtain' && JSON.stringify(last('ws_usage_save').a.p_rows) === '[{"u":"1G1OUT-1","s":600,"e":1200,"off":false},{"u":"1G1IN-1","s":600,"e":1200,"off":false}]', 'C14) 고친 것 없이 [저장] = 화면의 아직 저장 안 한 장비를 기본 시각으로');
 
   // 온습도 탭
   await p.click('.cltabs button:has-text("온습도")'); await p.locator('.zr').first().waitFor();
@@ -157,6 +160,22 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   const w1 = wB3.find(x => x[0] === '5F-27')[1];
   ok(wB3.filter(x => /^B3/.test(x[0])).every(x => Math.abs(x[1] - w1) <= 2), 'C24b) PC: B3층 칸도 다른 층 구역 칸과 같은 크기 ' + JSON.stringify(wB3));
   ok(await q.locator('.nwbar .back-in').count() === 1 && await q.locator('.flname[style]').count() === 0, 'C24c) 아래 줄 뒤로 하나 (AHU 탭과 같음) · 층 색 없음');
+  const one = await q.evaluate(() => { const c = document.querySelector('.uc[data-card="5F-27"]'), sel = [...c.querySelectorAll('select')].map(e => Math.round(e.getBoundingClientRect().top)); return [Math.round(c.getBoundingClientRect().height), new Set(sel).size]; });
+  ok(one[0] <= 40 && one[1] === 1, 'C24d) PC: 장비 한 칸이 한 줄 (높이 ' + one[0] + 'px)');
+  // 가동시간 설정 (결정 200): 리포트 왼쪽 버튼
+  ok(await q.evaluate(() => { const a = document.getElementById('uhrBtn'), b = [...document.querySelectorAll('.hdbtns button')].pop(); return !!a && /리포트/.test(b.innerText) && a.getBoundingClientRect().right <= b.getBoundingClientRect().left; }), 'C24e) [가동시간 설정] 버튼이 [리포트] 왼쪽');
+  await q.click('#uhrBtn'); await q.locator('.uhg').first().waitFor();
+  ok(last('ws_equip_hours_get').a.p_kind === 'hvac' && await q.locator('.uhg').count() === 3 && await q.locator('.uhg').first().locator('input').count() === 14 && await q.locator('input[aria-label="6층 금요일 종료"]').inputValue() === '20:20', 'C24f) 설정 화면: 층 3 × 요일 7 (시작·종료) · 지금 값');
+  await q.fill('input[aria-label="5층 월요일 종료"]', '23:00'); await q.locator('input[aria-label="5층 월요일 종료"]').dispatchEvent('change');
+  await q.fill('input[aria-label="5층 화요일 종료"]', '09:00'); await q.locator('input[aria-label="5층 화요일 종료"]').dispatchEvent('change');
+  n0 = count('ws_equip_hours_save'); await q.click('#uhSave');
+  ok(await toastOf(q, '종료가 시작보다 늦게') && count('ws_equip_hours_save') === n0, 'C24g) 종료가 시작보다 빠르면 저장 안 함');
+  await q.fill('input[aria-label="5층 화요일 종료"]', '00:00'); await q.locator('input[aria-label="5층 화요일 종료"]').dispatchEvent('change');
+  await q.click('#uhSave'); await called('ws_equip_hours_save', n0);
+  ok(JSON.stringify(last('ws_equip_hours_save').a.p_rows) === '[{"g":"5층","w":1,"s":600,"e":1380},{"g":"5층","w":2,"s":600,"e":1440}]' && await toastOf(q, '2칸 저장했습니다'), 'C24h) 고친 칸만 저장 (00:00 = 자정 1440) ' + JSON.stringify(last('ws_equip_hours_save').a.p_rows));
+  await q.screenshot({ path: path.join(__dirname, 'shot_cl_hours_pc.png'), fullPage: true });
+  n0 = count('ws_usage_get'); await q.click('.nwbar button:has-text("뒤로")'); await q.locator('.ucpc').waitFor();
+  ok(await called('ws_usage_get', n0) && await q.evaluate(() => S.view) === 'use', 'C24i) 설정 [뒤로] → 가동시간 입력 (기본 시각 다시 읽음)');
   await q.screenshot({ path: path.join(__dirname, 'shot_cl_use_pc.png'), fullPage: true });
   await q.click('button:has-text("리포트")'); await q.locator('.kpis').first().waitFor();
   await q.waitForFunction(() => window.CHART_N > 0);

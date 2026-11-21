@@ -772,6 +772,20 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const la = await call('ws_log_ac', [tk, D, '']), hv = la.ac.hvac;
   ok(la.ok && hv.name === '공조기' && hv.total === 38 && hv.groups.length === 8 && hv.groups[0][0] === '6층' && hv.groups[6][0] === 'B1' && hv.groups[0][1].length === 5 && la.ac.curtain.groups.length === 9 && la.ac.curtain.groups[8][0] === '4·6 브릿지', '일지 가동: 옛 구글 통로와 같은 묶음 (공조기 8 · 에어커튼 9)');
   ok(hv.entered === 2 && hv.off === 1 && Number(hv.c.d) === 11.8 && Number(hv.c.m) >= 11.8 && hv.p.d === null && hv.groups[0][1].includes(11.8), '일지 가동: 그날 입력 2 · 미가동 1 · 합 11.8시간 · 전년 없음 ' + JSON.stringify(hv.c));
+  // ══ 가동시간 설정 (21_equip_hours.sql, 결정 200) ══
+  await db.exec(SQL('21_equip_hours.sql')); await db.exec(SQL('21_equip_hours.sql'));
+  ok(/소장만/.test(await callErr('ws_equip_hours_get', ['emp', 'hvac'])) && /소장만/.test(await callErr('ws_equip_hours_save', ['emp', 'hvac', '[]'])) && /permission denied/.test(await asErr('authenticated', 'select * from equip_hours')), '가동시간 설정: 소장만 · 표 직접 못 봄');
+  let hr = await call('ws_equip_hours_get', [tk, 'hvac']);
+  ok(hr.ok && hr.groups.length === 8 && hr.groups[0].g === '6층' && hr.groups[0].days.length === 7 && hr.groups[0].days[0][1] === 1310 && hr.groups[1].days[0][1] === 1160 && hr.groups[1].days[4][1] === 1220 && hr.groups[7].days[6][0] === 510 && hr.groups[0].days[0][2] === false, '설정: 처음엔 예전 기본값 (5층 월~목 19:20 · 금토일 20:20 · B3 08:30)');
+  ok((await call('ws_equip_hours_get', [tk, 'curtain'])).groups.length === 10, '설정: 에어커튼 10묶음');
+  const dw = (await one("select extract(isodow from '" + D + "'::date)::int w")).w;
+  hr = await call('ws_equip_hours_save', [tk, 'hvac', J([{ g: '5층', w: dw, s: 540, e: 1440 }])]);
+  ok(hr.ok && hr.groups[1].days[dw - 1][0] === 540 && hr.groups[1].days[dw - 1][2] === true, '설정 저장 (자정 종료 1440)');
+  ug = await call('ws_usage_get', [tk, 'hvac', D]);
+  ok(ug.units.find(u => u.u === '5F-27').s === 540 && ug.units.find(u => u.u === '5F-27').e === 1440 && ug.units.find(u => u.u === '5F-27').ew === 1440 && ug.units.find(u => u.u === '7F-39').s === 600, '가동 입력 기본 시각이 그 요일 설정을 따름 (다른 층은 그대로)');
+  ok(/목록에 없/.test((await call('ws_equip_hours_save', [tk, 'hvac', J([{ g: '9층', w: 1, s: 600, e: 700 }])])).error) && /늦어야/.test((await call('ws_equip_hours_save', [tk, 'hvac', J([{ g: '5층', w: 1, s: 700, e: 600 }])])).error) && /10분/.test((await call('ws_equip_hours_save', [tk, 'hvac', J([{ g: '5층', w: 1, s: 605, e: 700 }])])).error) && /모두/.test((await call('ws_equip_hours_save', [tk, 'hvac', J([{ g: '5층', w: 8, s: 600, e: 700 }])])).error), '설정: 없는 층 · 거꾸로 · 10분 아닌 값 · 틀린 요일 막음');
+  await db.exec(SQL('21_equip_hours.sql'));
+  ok((await call('ws_equip_hours_get', [tk, 'hvac'])).groups[1].days[dw - 1][0] === 540, '21 다시 실행해도 설정 그대로');
   // ══ 옛 시트 옮기기 (tools/climate_csv.js → 20_climate_data.sql) ══
   {
     const M = require('../tools/climate_csv.js');
