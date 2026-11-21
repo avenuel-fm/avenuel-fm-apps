@@ -103,7 +103,7 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(tabs.join('|') === 'AHU 환기온도 점검일지|온습도|공조기 가동시간|에어커튼 가동시간' && /on/.test(await p.locator('.cltabs button').nth(2).getAttribute('class')), 'C3) 탭 4개 · 지금 탭 표시 (' + tabs.join('|') + ')');
   const ord = await p.evaluate(() => [...document.querySelectorAll('.flhd .flname, .ucz, .uc')].map(e => e.dataset.card || e.innerText.trim()).join(','));
   ok(await p.locator('.flnav button').count() === 3 && await p.locator('.nextfl').count() === 0 && ord === '6층,1구역,7F-39,2구역,6F-36,5층,1구역,5F-27,B3층,B3F-1,B3F-HVU1', 'C4) 휴대폰: 층 → 구역 차례로 한 화면에 (넘기기 없음) ' + ord);
-  ok(await p.locator('.uc[data-card="7F-39"] select[data-f="eh"]').inputValue() === '9' && await p.locator('.uc[data-card="7F-39"] select[data-f="ea"]').inputValue() === 'pm' && /11시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()), 'C5) 기본 시각 채움 (6층 오후 9:50 · 11시간 50분)');
+  ok(await p.locator('.uc[data-card="7F-39"] select[data-f="eh"]').inputValue() === '9' && await p.locator('.uc[data-card="7F-39"] [data-f="ea"]').innerText() === '오후' && await p.locator('.uc[data-card="7F-39"] [data-f="sa"]').innerText() === '오전' && await p.locator('.uc[data-card="7F-39"] select[data-f="sa"]').count() === 0 && /11시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()), 'C5) 기본 시각 채움 (6층 오후 9:50 · 11시간 50분)');
   await p.selectOption('.uc[data-card="7F-39"] select[data-f="eh"]', '8');
   ok(/10시간 50분/.test(await p.locator('.uc[data-card="7F-39"] .f').innerText()) && /1대 저장 안 함/.test(await p.locator('#useState').innerText()), 'C6) 시각 바꾸면 가동시간 바로 다시 셈 · 「1대 저장 안 함」');
   await p.check('.uc[data-card="6F-36"] input[data-f="off"]');
@@ -114,10 +114,10 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(sv.p_kind === 'hvac' && sv.p_day === Y && JSON.stringify(sv.p_rows) === '[{"u":"7F-39","s":600,"e":1250,"off":false},{"u":"6F-36","s":null,"e":null,"off":true},{"u":"5F-27","s":600,"e":1160,"off":false},{"u":"B3F-1","s":510,"e":1120,"off":false},{"u":"B3F-HVU1","s":510,"e":1120,"off":false}]', 'C9) DB 함수에 날짜·장비별 분 (오후 8:50 = 1250) · 미가동 ' + JSON.stringify(sv.p_rows));
   await p.click('.flnav button:has-text("5층")');
   ok(await p.evaluate(() => S.use.pg) === 1 && /on/.test(await p.locator('.flnav button').nth(1).getAttribute('class')), 'C10) 층 버튼 → 그 층으로 이동');
-  await p.selectOption('.uc[data-card="5F-27"] select[data-f="ea"]', 'am'); await p.selectOption('.uc[data-card="5F-27"] select[data-f="eh"]', '9');
+  await p.selectOption('.uc[data-card="5F-27"] select[data-f="eh"]', '');
   await p.click('#useSave');
-  ok(await toastOf(p, '종료가 시작보다 빠릅니다') && /종료가 시작보다/.test(await p.locator('#useState').innerText()), 'C11) 종료가 시작보다 빠르면 저장 안 하고 아래 줄에 이유');
-  await p.selectOption('.uc[data-card="5F-27"] select[data-f="ea"]', 'pm');
+  ok(await toastOf(p, '시·분을 모두 고르세요') && /시·분을 모두/.test(await p.locator('#useState').innerText()), 'C11) 시를 비우면 저장 안 하고 아래 줄에 이유');
+  await p.selectOption('.uc[data-card="5F-27"] select[data-f="eh"]', '9'); await p.selectOption('.uc[data-card="5F-27"] select[data-f="em"]', '20');
   n0 = count('ws_usage_save'); await p.click('#useSave'); await called('ws_usage_save', n0);
   ok(JSON.stringify(last('ws_usage_save').a.p_rows) === '[{"u":"5F-27","s":600,"e":1280,"off":false}]', 'C12) 고친 것만 다시 저장 ' + JSON.stringify(last('ws_usage_save').a.p_rows));
   await p.screenshot({ path: path.join(__dirname, 'shot_cl_use.png'), fullPage: true });
@@ -162,6 +162,8 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(await q.locator('.nwbar .back-in').count() === 1 && await q.locator('.flname[style]').count() === 0, 'C24c) 아래 줄 뒤로 하나 (AHU 탭과 같음) · 층 색 없음');
   const one = await q.evaluate(() => { const c = document.querySelector('.uc[data-card="5F-27"]'), sel = [...c.querySelectorAll('select')].map(e => Math.round(e.getBoundingClientRect().top)); return [Math.round(c.getBoundingClientRect().height), new Set(sel).size]; });
   ok(one[0] <= 40 && one[1] === 1, 'C24d) PC: 장비 한 칸이 한 줄 (높이 ' + one[0] + 'px)');
+  const sq = await q.evaluate(() => { const r = document.querySelector('.ucpc td.ctr .flname').getBoundingClientRect(), w = Math.min(...[...document.querySelectorAll('.ucpc select')].map(e => e.getBoundingClientRect().width)); return [Math.round(r.width), Math.round(r.height), Math.round(w), document.querySelectorAll('.ucpc select[data-f$="a"]').length]; });
+  ok(sq[0] === sq[1] && sq[0] <= 48 && sq[2] >= 52 && sq[3] === 0, 'C24j) PC: 층 칸 정사각형 · 시·분 칸 52px 이상 · 오전/오후 고르기 없음 ' + JSON.stringify(sq));
   // 가동시간 설정 (결정 200): 리포트 왼쪽 버튼
   ok(await q.evaluate(() => { const a = document.getElementById('uhrBtn'), b = [...document.querySelectorAll('.hdbtns button')].pop(); return !!a && /리포트/.test(b.innerText) && a.getBoundingClientRect().right <= b.getBoundingClientRect().left; }), 'C24e) [가동시간 설정] 버튼이 [리포트] 왼쪽');
   await q.click('#uhrBtn'); await q.locator('.uhg').first().waitFor();
