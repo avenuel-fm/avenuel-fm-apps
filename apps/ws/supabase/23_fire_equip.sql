@@ -2,7 +2,7 @@
 -- 05_fire.sql · 06_eh.sql 다음에 SQL Editor 에 통째로 붙여 넣고 Run (두 번 돌려도 안전)
 -- 설계: docs/설계/WS_소화전공기호흡기.md
 --
---  · 장비 표 fire_equip (소화전 hyd · 공기호흡기 air): 층 + 위치 이름을 직접 적어 등록 (지도 고유번호에는 걸지 않음)
+--  · 장비 표 fire_equip (소화전 hyd · 공기호흡기 air): 층 + 위치를 직접 적고 대수만큼 등록 — 이름 「위치-소화전1」 (소화기 「위치-소화기1」과 같은 규칙, 결정 228). 지도 고유번호에는 걸지 않음
 --  · 점검 표 fire_equip_checks: 월 1회, 소화기와 같은 입력 기간(점검시작일~점검마감일) · 기한 후 표시 · 한 장비 한 달 1건
 --  · 점검 항목 (사진 필수, 정상/이상 + 이상 내용 한 줄):
 --      소화전      외관 · 누수 여부 · 청소 상태
@@ -23,6 +23,16 @@ create table if not exists public.fire_equip (
   created_by text,
   deleted_at timestamptz
 );
+
+-- v2 (결정 228): 번호 + 라벨 인쇄 표시 열. 두 번째 실행부터는 이미 있으면 그대로
+alter table public.fire_equip add column if not exists no int;
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fire_equip' and column_name = 'printed_at') then
+    alter table public.fire_equip add column printed_at timestamptz;
+    update public.fire_equip set printed_at = coalesce(created_at, now()) where printed_at is null;   -- 지금까지 등록한 것은 이미 인쇄한 것으로
+  end if;
+end $$;
 
 create table if not exists public.fire_equip_checks (
   check_id        text primary key,             -- WS-EC-YYYYMMDD-###
@@ -81,14 +91,20 @@ returns text language sql immutable set search_path = public as $$
               else left(p, 1) || repeat('*', char_length(p) - 2) || right(p, 1) end;
 $$;
 
+-- 옛 이름 「3F 동측 계단 앞 소화전」(번호 없음) → 「동측 계단 앞-소화전1」 (v2 규칙). 한 번만 바뀜, 점검 기록의 이름도 현재 이름으로 맞춤
+with n as (select eq_id, row_number() over (partition by kind, place order by created_at, eq_id) rn from public.fire_equip where no is null)
+update public.fire_equip e set no = n.rn, name = e.place || '-' || public.ws_eq_kind_name(e.kind) || n.rn from n where e.eq_id = n.eq_id;
+update public.fire_equip_checks c set eq_name = e.name from public.fire_equip e where c.eq_id = e.eq_id and c.eq_name is distinct from e.name;
+
 -- ---------------------------------------------------------------------------
 -- 장비 등록·삭제·목록 (QR 관리 · 소화전/공기호흡기 탭)
 -- ---------------------------------------------------------------------------
 create or replace function public.ws_eq_list_(p_kind text)
 returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object('ok', true, 'kind', p_kind,
-    'items', coalesce((select jsonb_agg(jsonb_build_object('id', eq_id, 'floor', floor, 'place', place, 'name', name, 'token', qr_token, 'created', public.ws_kst(created_at))
-                       order by public.ws_floor_no(floor), place collate "C", eq_id)
+    'items', coalesce((select jsonb_agg(jsonb_build_object('id', eq_id, 'floor', floor, 'place', place, 'no', coalesce(no, 0), 'name', name, 'token', qr_token,
+                         'created', public.ws_kst(created_at), 'printed', printed_at is not null)
+                       order by public.ws_floor_no(floor), place collate "C", coalesce(no, 0), eq_id)
                        from public.fire_equip where active and kind = p_kind), '[]'::jsonb),
     'execUrl', coalesce(regexp_replace(nullif(btrim(public.ws_setting('바로가기주소')), ''), '[?#].*$', ''), ''),
     'label', jsonb_build_object('w', public.ws_set_num('라벨가로mm', 50), 'h', public.ws_set_num('라벨세로mm', 50), 'dpi', public.ws_set_num('프린터dpi', 203)));
@@ -108,31 +124,37 @@ declare
   v_kind text := coalesce(p_d->>'kind', '');
   v_floor text := coalesce(p_d->>'floor', '');
   v_place text := public.ws_clean(p_d->>'place', 30);
-  v_name text;
+  n int;
+  max_no int;
   seq int;
   day_key text := to_char(now() at time zone 'Asia/Seoul', 'YYYYMMDD');
   tok text;
   b bytea;
+  v_name text;
+  added text[] := '{}';
 begin
   if v_kind not in ('hyd', 'air') then return jsonb_build_object('ok', false, 'error', '종류를 골라 주세요.'); end if;
-  if v_floor not in ('B1', '1F', '2F', '3F', '4F', '5F', '6F') then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
+  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
   if v_place = '' then return jsonb_build_object('ok', false, 'error', '위치를 적어 주세요. (예: 동측 계단 앞)'); end if;
-  v_name := v_floor || ' ' || v_place || ' ' || public.ws_eq_kind_name(v_kind);
+  -- 대수 1~20 (소화기와 같음)
+  n := least(greatest(coalesce(nullif(case when coalesce(p_d->>'count', '') ~ '^\s*\d+(\.\d+)?\s*$' then floor((p_d->>'count')::numeric)::int end, 0), 1), 1), 20);
   perform pg_advisory_xact_lock(hashtext('ws_eq'));
-  if exists (select 1 from public.fire_equip where active and kind = v_kind and name = v_name) then
-    return jsonb_build_object('ok', false, 'error', '이미 등록된 위치입니다: ' || v_name);
-  end if;
+  select coalesce(max(no), 0) into max_no from public.fire_equip where kind = v_kind and place = v_place;   -- 번호는 지운 것까지 세어 이어서 (겹침 없음)
   select coalesce(max(substring(eq_id from '-(\d+)$')::int), 0) into seq from public.fire_equip where eq_id like 'WS-EQ-' || day_key || '-%';
-  loop   -- 12자리 고유번호 (소화기·전열필증 고유번호와도 겹치지 않게)
-    b := gen_random_bytes(12);
-    tok := (select string_agg(substr('23456789abcdefghijkmnpqrstuvwxyz', (get_byte(b, k) & 31) + 1, 1), '' order by k) from generate_series(0, 11) k);
-    exit when not exists (select 1 from public.fire_equip where qr_token = tok) and not exists (select 1 from public.fire_ext where qr_token = tok)
-          and not exists (select 1 from public.eh_devices where qr_token = tok);
+  for i in 1..n loop
+    loop   -- 12자리 고유번호 (소화기·전열필증 고유번호와도 겹치지 않게)
+      b := gen_random_bytes(12);
+      tok := (select string_agg(substr('23456789abcdefghijkmnpqrstuvwxyz', (get_byte(b, k) & 31) + 1, 1), '' order by k) from generate_series(0, 11) k);
+      exit when not exists (select 1 from public.fire_equip where qr_token = tok) and not exists (select 1 from public.fire_ext where qr_token = tok)
+            and not exists (select 1 from public.eh_devices where qr_token = tok);
+    end loop;
+    v_name := v_place || '-' || public.ws_eq_kind_name(v_kind) || (max_no + i);
+    insert into public.fire_equip (eq_id, kind, floor, place, no, name, qr_token, active, created_at, created_by)
+    values ('WS-EQ-' || day_key || '-' || lpad((seq + i)::text, 3, '0'), v_kind, v_floor, v_place, max_no + i, v_name, tok, true, clock_timestamp(), me.name);
+    added := added || v_name;
   end loop;
-  insert into public.fire_equip (eq_id, kind, floor, place, name, qr_token, active, created_at, created_by)
-  values ('WS-EQ-' || day_key || '-' || lpad((seq + 1)::text, 3, '0'), v_kind, v_floor, v_place, v_name, tok, true, clock_timestamp(), me.name);
-  perform public.ws_log(me.name, public.ws_eq_kind_name(v_kind) || ' 등록', '', v_name);
-  return public.ws_eq_list_(v_kind) || jsonb_build_object('added', v_name);
+  perform public.ws_log(me.name, public.ws_eq_kind_name(v_kind) || ' 등록', '', v_floor || ' · ' || array_to_string(added, ', '));
+  return public.ws_eq_list_(v_kind) || jsonb_build_object('added', to_jsonb(added));
 end $$;
 
 create or replace function public.ws_eq_delete(p_token text, p_ids jsonb, p_kind text)
@@ -171,7 +193,7 @@ begin
       'state', case when c.check_id is not null then case when c.state = '이상있음' then 'bad' else 'ok' end
                     when p_ym > cur_ym then 'wait' when p_ym = cur_ym and v_day <= w_end then 'wait' else 'miss' end,
       'checkId', coalesce(c.check_id, ''), 'at', public.ws_kst(c.entered_at), 'late', coalesce(c.late, false), 'by', coalesce(c.checker, ''))
-    order by public.ws_floor_no(e.floor), e.kind desc, e.place collate "C", e.eq_id), '[]'::jsonb) into items
+    order by public.ws_floor_no(e.floor), e.kind desc, e.place collate "C", coalesce(e.no, 0), e.eq_id), '[]'::jsonb) into items
   from public.fire_equip e
   left join lateral (select * from public.fire_equip_checks x where x.eq_id = e.eq_id and x.ym = p_ym and not x.deleted order by x.entered_at desc limit 1) c on true
   where coalesce(e.created_at, '-infinity') < m_next
@@ -335,12 +357,68 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- QR 관리 v2 (결정 228): 위치 이름 고치기(QR은 그대로) · 라벨 인쇄 표시 — 소화기(fe)·소화전(hyd)·공기호흡기(air) 공통
+-- ---------------------------------------------------------------------------
+create or replace function public.ws_qr_rename(p_token text, p_kind text, p_floor text, p_old text, p_new text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare
+  me public.staff := public.ws_auth(p_token);
+  v_kind text := coalesce(p_kind, '');
+  v_new text := public.ws_clean(p_new, 30);
+  n int := 0;
+begin
+  if v_kind not in ('fe', 'hyd', 'air') then return jsonb_build_object('ok', false, 'error', '종류를 골라 주세요.'); end if;
+  if v_new = '' then return jsonb_build_object('ok', false, 'error', '위치를 적어 주세요.'); end if;
+  perform pg_advisory_xact_lock(hashtext(case when v_kind = 'fe' then 'ws_fe' else 'ws_eq' end));
+  if v_kind = 'fe' then
+    if v_new <> p_old and exists (select 1 from public.fire_ext where active and store_name = v_new) then
+      return jsonb_build_object('ok', false, 'error', '같은 이름의 위치가 이미 있습니다. 다른 이름으로 해 주세요.');
+    end if;
+    with u as (update public.fire_ext set store_name = v_new, name = v_new || '-소화기' || no where active and floor = p_floor and store_name = p_old returning fe_id)
+    select count(*) into n from u;
+    if n = 0 then return jsonb_build_object('ok', false, 'error', '고칠 것을 찾지 못했습니다. 화면을 새로 고쳐 주세요.'); end if;
+    update public.fire_checks c set store_name = f.store_name, fe_name = f.name from public.fire_ext f where c.fe_id = f.fe_id and f.floor = p_floor and f.store_name = v_new;
+    perform public.ws_log(me.name, '소화기 위치 이름 고침', '', p_floor || ' · ' || p_old || ' → ' || v_new);
+    return public.ws_fe_list_() || jsonb_build_object('count', n);
+  end if;
+  if v_new <> p_old and exists (select 1 from public.fire_equip where active and kind = v_kind and place = v_new) then
+    return jsonb_build_object('ok', false, 'error', '같은 이름의 위치가 이미 있습니다. 다른 이름으로 해 주세요.');
+  end if;
+  with u as (update public.fire_equip set place = v_new, name = v_new || '-' || public.ws_eq_kind_name(v_kind) || coalesce(no, 0)
+             where active and kind = v_kind and floor = p_floor and place = p_old returning eq_id)
+  select count(*) into n from u;
+  if n = 0 then return jsonb_build_object('ok', false, 'error', '고칠 것을 찾지 못했습니다. 화면을 새로 고쳐 주세요.'); end if;
+  update public.fire_equip_checks c set eq_name = e.name from public.fire_equip e where c.eq_id = e.eq_id and e.kind = v_kind and e.floor = p_floor and e.place = v_new;
+  perform public.ws_log(me.name, public.ws_eq_kind_name(v_kind) || ' 위치 이름 고침', '', p_floor || ' · ' || p_old || ' → ' || v_new);
+  return public.ws_eq_list_(v_kind) || jsonb_build_object('count', n);
+end $$;
+
+-- 라벨을 인쇄했다고 표시 (처음 한 번만 기록, 화면의 「미인쇄」 딱지가 사라짐)
+create or replace function public.ws_qr_printed(p_token text, p_kind text, p_ids jsonb)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare
+  me public.staff := public.ws_auth(p_token);
+  v_kind text := coalesce(p_kind, '');
+  ids text[] := array(select jsonb_array_elements_text(case when jsonb_typeof(p_ids) = 'array' then p_ids else '[]'::jsonb end));
+begin
+  if v_kind not in ('fe', 'hyd', 'air') then return jsonb_build_object('ok', false, 'error', '종류를 골라 주세요.'); end if;
+  if v_kind = 'fe' then
+    update public.fire_ext set printed_at = clock_timestamp() where fe_id = any(ids) and active and printed_at is null;
+    return public.ws_fe_list_();
+  end if;
+  update public.fire_equip set printed_at = clock_timestamp() where eq_id = any(ids) and active and kind = v_kind and printed_at is null;
+  return public.ws_eq_list_(v_kind);
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- 권한: 도우미는 막음 · 로그인 기기용 · 로그인 안 한 QR 표(ws_eq_pub)만 비로그인도
 -- ---------------------------------------------------------------------------
 revoke all on function public.ws_eq_kind_name(text), public.ws_eq_spec(text), public.ws_eq_by_qr(text), public.ws_mask_name(text), public.ws_eq_list_(text),
   public.ws_eq_list(text, text), public.ws_eq_add(text, jsonb), public.ws_eq_delete(text, jsonb, text), public.ws_eq_status_(text), public.ws_eq_status(text, text),
-  public.ws_eq_detail(text, text), public.ws_eq_open(text, text), public.ws_eq_pub(text), public.ws_eq_file(text, jsonb), public.ws_eq_submit(text, text, jsonb, jsonb)
+  public.ws_eq_detail(text, text), public.ws_eq_open(text, text), public.ws_eq_pub(text), public.ws_eq_file(text, jsonb), public.ws_eq_submit(text, text, jsonb, jsonb),
+  public.ws_qr_rename(text, text, text, text, text), public.ws_qr_printed(text, text, jsonb)
   from public, anon, authenticated;
 grant execute on function public.ws_eq_list(text, text), public.ws_eq_add(text, jsonb), public.ws_eq_delete(text, jsonb, text), public.ws_eq_status(text, text),
-  public.ws_eq_detail(text, text), public.ws_eq_open(text, text), public.ws_eq_submit(text, text, jsonb, jsonb) to authenticated;
+  public.ws_eq_detail(text, text), public.ws_eq_open(text, text), public.ws_eq_submit(text, text, jsonb, jsonb),
+  public.ws_qr_rename(text, text, text, text, text), public.ws_qr_printed(text, text, jsonb) to authenticated;
 grant execute on function public.ws_eq_pub(text) to anon, authenticated;

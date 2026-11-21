@@ -301,8 +301,8 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(/permission denied/.test(await asErr('anon', "select ws_fe_list('x')")), '비로그인: 소화기 목록 못 부름');
   ok(/permission denied/.test(await asErr('authenticated', "select ws_fe_status_('2026-11')")), '로그인 기기: 도우미(ws_fe_status_) 못 부름');
   ok(/permission denied/.test(await asErr('anon', 'select * from fire_ext')), '비로그인: 소화기 표는 여전히 못 읽음');
-  ok((await call('ws_fe_add', [tk, J({ floor: '7F', store: 'x' })])).error === '층을 골라 주세요.', '소화기 등록: 없는 층 → 안내');
-  ok((await call('ws_fe_add', [tk, J({ floor: '1F', store: '  ' })])).error === '매장명을 넣어 주세요.', '소화기 등록: 매장명 없음 → 안내');
+  ok((await call('ws_fe_add', [tk, J({ floor: '11F', store: 'x' })])).error === '층을 골라 주세요.', '소화기 등록: 없는 층 → 안내');
+  ok((await call('ws_fe_add', [tk, J({ floor: '1F', store: '  ' })])).error === '위치를 적어 주세요.', '소화기 등록: 매장명 없음 → 안내');
   let fl = await call('ws_fe_add', [tk, J({ floor: '1F', store: '1층 카페(A)', count: '3' })]);
   const mine = fl.items.filter(x => x.store === '1층 카페(A)');
   ok(fl.ok && fl.added.join() === '1층 카페(A)-소화기1,1층 카페(A)-소화기2,1층 카페(A)-소화기3' && mine.length === 3 && mine.every(x => /^[2-9a-km-np-z]{12}$/.test(x.token)), '소화기 3대 등록: 이름·12자리 QR');

@@ -12,28 +12,54 @@ const ME = { staff_id: 'S001', name: '홍길동', part: '전방파트', role: '�
 const D = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), YM = D.slice(0, 7);
 const T1 = 'abcdefghjkmn', T2 = 'bcdefghjkmnp';
 const EQ = [
-  { id: 'WS-EQ-1', kind: 'hyd', floor: '3F', place: '동측 계단 앞', name: '3F 동측 계단 앞 소화전', token: T1 },
-  { id: 'WS-EQ-2', kind: 'air', floor: '2F', place: '방재실 1', name: '2F 방재실 1 공기호흡기', token: T2 }
+  { id: 'WS-EQ-1', kind: 'hyd', floor: '3F', place: '동측 계단 앞', no: 1, name: '동측 계단 앞-소화전1', token: T1, printed: false },
+  { id: 'WS-EQ-2', kind: 'air', floor: '2F', place: '방재실 1', no: 1, name: '방재실 1-공기호흡기1', token: T2, printed: true }
 ];
+const FE = [{ id: 'WS-FE-1', floor: '1F', store: '카페', no: 1, name: '카페-소화기1', token: 'cdefghjkmnpq', created: '', printed: true }];
+const FLS = ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'];
+const KN = { hyd: '소화전', air: '공기호흡기' };
+const norm = s => String(s || '').replace(/\s+/g, ' ').trim();   // DB 함수 ws_clean 처럼 빈칸 정리
 const SPEC = { hyd: [{ k: 'ext', label: '외관', ok: '정상', bad: '이상', hint: '사진 찍기' }, { k: 'leak', label: '누수 여부', ok: '누수 없음', bad: '누수 있음', hint: '사진 찍기' }, { k: 'clean', label: '청소 상태', ok: '양호', bad: '불량', hint: '사진 찍기' }],
   air: [{ k: 'charge', label: '충전량', ok: '정상', bad: '이상', gauge: true, hint: '압력계 사진 찍기' }, { k: 'reg', label: '압력조절기', ok: '정상', bad: '이상', gauge: true, hint: '압력계 사진 찍기' }, { k: 'ext', label: '외관', ok: '정상', bad: '이상', hint: '전체 사진 찍기' }] };
 const CALLS = [], UPLOADS = [];
 const DONE = {};   // 토큰 → 이번 달 점검 {checkId, state}
 const photoUrl = k => '/storage/v1/object/public/ws-files/equip/' + T1 + '/' + YM + '/' + k + '.jpg';
-const list = kind => ({ ok: true, kind, items: EQ.filter(e => e.kind === kind), execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
+const byFloor = (a, b) => FLS.indexOf(a.floor) - FLS.indexOf(b.floor) || String(a.place || a.store).localeCompare(String(b.place || b.store)) || a.no - b.no;
+const feList = () => ({ ok: true, items: FE.slice().sort(byFloor), execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
+const list = kind => ({ ok: true, kind, items: EQ.filter(e => e.kind === kind).sort(byFloor), execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const stItems = () => EQ.map(e => { const c = DONE[e.token]; return Object.assign({}, e, { state: c ? (c.state === '이상있음' ? 'bad' : 'ok') : 'miss', checkId: c ? c.checkId : '', at: c ? D + ' 10:24:00' : '', late: !!c, by: c ? '홍길동' : '' }); });
 const status = () => { const items = stItems(), n = s => items.filter(i => i.state === s).length; return { ok: true, ym: YM, curYm: YM, day: 14, window: { start: 1, end: 5 }, isCurrent: true, months: [YM], items, counts: { ok: n('ok'), bad: n('bad'), wait: 0, miss: n('miss'), total: items.length } }; };
 const RPC = {
   ws_bootstrap: () => ({ ok: true, user: ME, toastSec: 1, needSign: false, docs: { day: D, signs: 1 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 }, window: { start: 1, end: 5 }, day: 14, ym: YM } }),
-  ws_fe_list: () => ({ ok: true, items: [{ id: 'WS-FE-1', floor: '1F', store: '카페', no: 1, name: '카페-소화기1', token: 'cdefghjkmnpq', created: '' }], execUrl: '', label: { w: 50, h: 50, dpi: 203 } }),
+  ws_fe_list: () => feList(),
+  ws_fe_add: a => {
+    const d = a.p_d, store = norm(d.store), n = Math.max(1, Math.min(20, Math.floor(Number(d.count)) || 1)), names = [];
+    if (!store) return { ok: false, error: '위치를 적어 주세요.' };
+    const m = FE.filter(x => x.store === store).reduce((x, y) => Math.max(x, y.no), 0);
+    for (let i = 1; i <= n; i++) { const name = store + '-소화기' + (m + i); FE.push({ id: 'WS-FE-' + (FE.length + 1), floor: d.floor, store, no: m + i, name, token: 'fe' + String(FE.length + 1).padStart(10, 'x'), created: '', printed: false }); names.push(name); }
+    return Object.assign(feList(), { added: names });
+  },
   ws_eq_list: a => list(a.p_kind),
   ws_eq_add: a => {
-    const d = a.p_d, place = String(d.place).replace(/\s+/g, ' ').trim(), name = d.floor + ' ' + place + ' ' + (d.kind === 'hyd' ? '소화전' : '공기호흡기');   // DB 함수 ws_clean 처럼 빈칸 정리
-    if (EQ.some(e => e.name === name)) return { ok: false, error: '이미 등록된 위치입니다: ' + name };
-    EQ.push({ id: 'WS-EQ-' + (EQ.length + 1), kind: d.kind, floor: d.floor, place, name, token: 'dddddddddddd'.slice(0, 11) + EQ.length });
-    return Object.assign(list(d.kind), { added: name });
+    const d = a.p_d, place = norm(d.place), n = Math.max(1, Math.min(20, Math.floor(Number(d.count)) || 1)), names = [];
+    if (place === '오류시험') return { ok: false, error: '시험용 오류입니다.' };
+    if (!place) return { ok: false, error: '위치를 적어 주세요. (예: 동측 계단 앞)' };
+    const m = EQ.filter(x => x.kind === d.kind && x.place === place).reduce((x, y) => Math.max(x, y.no), 0);
+    for (let i = 1; i <= n; i++) { const name = place + '-' + KN[d.kind] + (m + i); EQ.push({ id: 'WS-EQ-' + (EQ.length + 1), kind: d.kind, floor: d.floor, place, no: m + i, name, token: 'q' + String(EQ.length + 1).padStart(11, 'z'), printed: false }); names.push(name); }
+    return Object.assign(list(d.kind), { added: names });
   },
   ws_eq_delete: a => { const n = EQ.length; for (const id of a.p_ids) { const i = EQ.findIndex(e => e.id === id); if (i >= 0) EQ.splice(i, 1); } return Object.assign(list(a.p_kind), { count: n - EQ.length }); },
+  ws_qr_rename: a => {
+    const nv = norm(a.p_new), fe = a.p_kind === 'fe';
+    if (!nv) return { ok: false, error: '위치를 적어 주세요.' };
+    if (nv === '중복') return { ok: false, error: '같은 이름의 위치가 이미 있습니다. 다른 이름으로 해 주세요.' };
+    let n = 0;
+    (fe ? FE : EQ.filter(e => e.kind === a.p_kind)).forEach(e => {
+      if (e.floor === a.p_floor && (fe ? e.store : e.place) === a.p_old) { n++; if (fe) { e.store = nv; e.name = nv + '-소화기' + e.no; } else { e.place = nv; e.name = nv + '-' + KN[a.p_kind] + e.no; } }
+    });
+    return n ? Object.assign(fe ? feList() : list(a.p_kind), { count: n }) : { ok: false, error: '고칠 것을 찾지 못했습니다. 화면을 새로 고쳐 주세요.' };
+  },
+  ws_qr_printed: a => { (a.p_kind === 'fe' ? FE : EQ.filter(e => e.kind === a.p_kind)).forEach(e => { if (a.p_ids.indexOf(e.id) !== -1) e.printed = true; }); return a.p_kind === 'fe' ? feList() : list(a.p_kind); },
   ws_eq_status: () => status(),
   ws_eq_detail: a => ({ ok: true, name: '3F 동측 계단 앞 소화전', floor: '3F', kind: 'hyd', kindName: '소화전', ym: YM, state: '이상있음', at: D + ' 10:24:00', late: true, by: '홍길동',
     items: [{ k: 'ext', label: '외관', bad: false, text: '정상', memo: '', photo: photoUrl('p1') }, { k: 'leak', label: '누수 여부', bad: true, text: '누수 있음', memo: '배관 이음부 물방울', photo: photoUrl('p2') }, { k: 'clean', label: '청소 상태', bad: false, text: '양호', memo: '', photo: photoUrl('p3') }] }),
@@ -120,42 +146,115 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   await p.locator('text=소화전·공기호흡기 기한 지남').waitFor();
   ok(/이번 달 소화전·공기호흡기[\s\S]*0 \/ 2곳/.test(await p.locator('.wrap.list').innerText()) && /미입력 2곳/.test(await p.locator('.wrap.list').innerText()), '1-2) 메뉴 맨 위: 소화전·공기호흡기 이번 달 0 / 2곳 + 미입력 알림');
   await shot(p, 'a_menu');
-  // ── ① QR 관리 탭 ──
+  // ── ① QR 관리 v2 (결정 228): 탭 · 층→위치 아코디언 (모두 접힘으로 시작) ──
   await p.click('text=① 소화기, 소화전, 공기호흡기 QR 관리');
-  await p.locator('.fe').first().waitFor();
-  ok(await p.locator('.seg button').allInnerTexts().then(t => t.join() === '소화기,소화전,공기호흡기'), '2) QR 관리: 소화기 / 소화전 / 공기호흡기 탭');
+  await p.locator('.ac-h').first().waitFor();
+  ok(await p.locator('.seg button').allInnerTexts().then(t => t.join() === '소화기,소화전,공기호흡기') && await p.locator('.seg button.on').innerText() === '소화기', '2) QR 관리: 소화기 / 소화전 / 공기호흡기 탭, 처음은 소화기');
+  ok(await p.locator('.fe').count() === 0 && /1F[\s\S]*위치 1곳 · 소화기 1대/.test(await p.locator('.ac-h').first().innerText()), '2-2) 처음은 모두 접힘: 층 줄만 보임 (「1F 위치 1곳 · 소화기 1대」)');
   let n0 = count('ws_eq_list');
-  await p.click('.seg button:text-is("소화전")'); await p.locator('.fe b:text-is("3F 동측 계단 앞 소화전")').waitFor();
-  ok(last('ws_eq_list').a.p_kind === 'hyd' && count('ws_eq_list') === n0 + 1, '3) 소화전 탭: 소화전 목록만 받아 층 아래에 바로 보임');
-  ok(await p.evaluate(() => qrUrl('abcdefghjkmn')).then(u => /\?eq=abcdefghjkmn$/.test(u)) && !(await p.locator('.store-h').count()), '4) 소화전 QR 주소는 ?eq= · 매장 묶음 없음');
+  await p.click('.seg button:text-is("소화전")'); await p.locator('.ac-h:has-text("3F")').waitFor();
+  ok(last('ws_eq_list').a.p_kind === 'hyd' && count('ws_eq_list') === n0 + 1 && await p.locator('.fe').count() === 0, '3) 소화전 탭: 소화전만 받아 층 아코디언(접힘)으로 보임');
+  ok(/3F[\s\S]*위치 1곳 · 소화전 1개/.test(await p.locator('.ac-h').first().innerText()) && /미인쇄 1/.test(await p.locator('.ac-h').first().innerText()), '3-2) 층 줄에 위치 수·개수 + 미인쇄 개수');
+  await p.click('.ac-t:has-text("3F")'); await p.locator('.ac-t:has-text("동측 계단 앞")').waitFor();
+  ok(await p.locator('.fe').count() === 0, '3-3) 층을 펼치면 위치 줄이 나옴 (위치는 아직 접힘)');
+  await p.click('.ac-t:has-text("동측 계단 앞")'); await p.locator('.fe b:text-is("동측 계단 앞-소화전1")').waitFor();
+  ok(await p.locator('.fe .chip:text-is("미인쇄")').count() === 1 && await p.locator('.ac-act button').allInnerTexts().then(t => t.join() === '+ 1개 추가,이름 고치기'), '3-4) 위치를 펼치면 [+ 1개 추가] [이름 고치기] 와 항목 · 「미인쇄」 딱지');
+  ok(await p.evaluate(() => qrUrl('abcdefghjkmn')).then(u => /\?eq=abcdefghjkmn$/.test(u)), '4) 소화전 QR 주소는 ?eq=');
   await shot(p, 'b_qr_tab');
-  await p.click('button:has-text("+ 등록")');
-  await p.selectOption('#aFloor', '2F'); await p.fill('#aPlace', ' 서측 복도 '); await p.click('#aBtn');
-  await p.locator('.fe b:text-is("2F 서측 복도 소화전")').waitFor();
-  ok(JSON.stringify(last('ws_eq_add').a.p_d) === JSON.stringify({ kind: 'hyd', floor: '2F', place: ' 서측 복도 ' }), '5) 등록: 종류·층·위치(직접 적은 글)를 DB 함수에 넘김');
-  await p.click('button:has-text("+ 등록")'); await p.selectOption('#aFloor', '2F'); await p.fill('#aPlace', '서측 복도'); await p.click('#aBtn');
-  await p.locator('#aMsg:has-text("이미 등록된 위치입니다")').waitFor();
-  ok(true, '6) 같은 위치 다시 등록 → 안내가 창 안에 뜸');
-  await p.click('button:has-text("취소")');
-  // 공기호흡기 탭 + 소화기 탭으로 돌아가면 ?fe=
-  n0 = count('ws_eq_list');
-  await p.click('.seg button:text-is("공기호흡기")'); await p.locator('.fe b:text-is("2F 방재실 1 공기호흡기")').waitFor();
-  ok(last('ws_eq_list').a.p_kind === 'air' && !(await p.locator('.fe b:text-is("3F 동측 계단 앞 소화전")').count()), '7) 공기호흡기 탭: 따로 목록');
-  await p.click('.seg button:text-is("소화기")'); await p.locator('.fe b:text-is("카페-소화기1")').waitFor();
-  ok(await p.evaluate(() => qrUrl('x')).then(u => /\?fe=x$/.test(u)), '8) 소화기 탭으로 돌아오면 QR 주소는 ?fe=');
-  // 출력 미리보기: 이름 통째로
-  await p.click('.seg button:text-is("소화전")'); await p.locator('.fe b:text-is("3F 동측 계단 앞 소화전")').waitFor();
-  await p.locator('.fe:has(b:text-is("3F 동측 계단 앞 소화전")) input[type=checkbox]').check();
+  // 등록 창: 종류 체크박스 · 층 B3~10F · 위치
+  await p.click('button:has-text("+ 등록")'); await p.locator('#aPre').waitFor();
+  ok(await p.locator('.ckl').count() === 3 && await p.locator('#ak_hyd').isChecked() && !(await p.locator('#ak_fe').isChecked()) && !(await p.locator('#ak_air').isChecked()), '5) 등록 창: 종류 체크 3개, 지금 탭(소화전)만 미리 체크');
+  const opts = await p.locator('#aFloor option').allInnerTexts();
+  ok(opts.length === 13 && opts[0] === 'B3' && opts[12] === '10F', '5-2) 층 선택 B3 ~ 10F (13개)');
+  ok(await p.locator('label:has-text("위치")').count() >= 1 && !(await p.locator('text=매장명').count()), '5-3) 「매장명」 대신 「위치」');
+  await p.selectOption('#aFloor', '10F'); await p.fill('#aStore', ' 옥상  기계실 '); await p.fill('#aCount', '2');
+  ok(/동측|옥상 기계실-소화전1 ~ 옥상 기계실-소화전2/.test(await p.locator('#aPre').innerText()) && !/소화기/.test(await p.locator('#aPre').innerText()), '5-4) 만들어지는 이름 미리보기 「옥상 기계실-소화전1 ~ 옥상 기계실-소화전2」');
+  await p.check('#ak_fe');
+  ok(/옥상 기계실-소화기1 ~ 옥상 기계실-소화기2/.test(await p.locator('#aPre').innerText()) && /소화전1/.test(await p.locator('#aPre').innerText()), '5-5) 소화기도 체크하면 미리보기에 두 종류');
+  await shot(p, 'b2_reg');
+  await p.uncheck('#ak_fe'); await p.uncheck('#ak_hyd');
+  await p.click('#aBtn');
+  ok(/종류를 하나 이상/.test(await p.locator('#aMsg').innerText()), '5-6) 종류를 하나도 안 고르면 안내');
+  // 일부만 실패: 소화기 성공 → 소화전 실패
+  await p.check('#ak_fe'); await p.check('#ak_hyd'); await p.fill('#aStore', '오류시험');
+  await p.click('#aBtn'); await p.locator('#aMsg:has-text("시험용 오류")').waitFor();
+  ok(/소화기은\(는\) 등록했습니다\. 소화전: 시험용 오류입니다\./.test(await p.locator('#aMsg').innerText()) && !(await p.locator('#ak_fe').isChecked()) && await p.locator('#ak_hyd').isChecked(), '6) 일부만 실패: 된 종류(소화기)는 체크 풀리고 실패 이유를 알려 줌 · 창은 그대로');
+  ok(FE.some(x => x.store === '오류시험'), '6-2) 앞 종류는 실제로 등록됨');
+  const f0 = count('ws_fe_add'), e0 = count('ws_eq_add');
+  await p.fill('#aStore', ' 옥상  기계실 ');
+  await p.check('#ak_air'); await p.uncheck('#ak_hyd');
+  await p.click('#aBtn'); await p.locator('.fe b:text-is("옥상 기계실-공기호흡기1")').waitFor();
+  ok(count('ws_eq_add') === e0 + 1 && count('ws_fe_add') === f0 && JSON.stringify(last('ws_eq_add').a.p_d) === JSON.stringify({ kind: 'air', floor: '10F', place: ' 옥상  기계실 ', count: '2' }), '7) 등록: 고른 종류의 DB 함수만 부름 (종류·층·위치·대수)');
+  ok(await p.locator('.seg button.on').innerText() === '공기호흡기' && await p.locator('.fe input:checked').count() === 2 && /출력 \(2\)/.test(await p.locator('.tools').innerText()), '8) 등록 뒤: 그 종류 탭으로, 층·위치가 펼쳐지고 방금 만든 2개가 미리 체크됨 → 바로 [출력 (2)]');
+  ok(await p.locator('.fe .chip:text-is("미인쇄")').count() === 2, '8-2) 방금 만든 것은 「미인쇄」');
+  // 소화기+소화전 한꺼번에
+  await p.click('button:has-text("+ 등록")'); await p.selectOption('#aFloor', 'B3'); await p.fill('#aStore', '주차장 A'); await p.fill('#aCount', '1');
+  await p.check('#ak_fe'); await p.check('#ak_hyd'); await p.uncheck('#ak_air');
+  const fa = count('ws_fe_add'), ea = count('ws_eq_add');
+  await p.click('#aBtn'); await p.locator('.toast', { hasText: '소화기 1대 · 소화전 1개 등록' }).waitFor();
+  ok(count('ws_fe_add') === fa + 1 && count('ws_eq_add') === ea + 1 && FE.some(x => x.name === '주차장 A-소화기1') && EQ.some(x => x.name === '주차장 A-소화전1'), '9) 두 종류 체크 → 소화기·소화전이 같은 위치로 한꺼번에 등록 (알림에 종류별 개수)');
+  ok(await p.locator('.seg button.on').innerText() === '소화기', '9-2) 지금 탭(공기호흡기)이 체크에 없으면 방금 만든 첫 종류 탭(소화기)으로 옮김');
+  await p.click('.seg button:text-is("소화전")'); await p.locator('.ac-h:has-text("B3")').waitFor();
+  await p.click('button:has-text("모두 펼치기")'); await p.locator('.fe b:text-is("동측 계단 앞-소화전1")').waitFor();
+  // [+ 1개 추가]
+  const e1 = count('ws_eq_add');
+  await p.locator('.ac:has(> .ac-h .ac-n:text-is("동측 계단 앞")) > .ac-b .ac-act button:has-text("+ 1개 추가")').click();
+  await p.locator('.fe b:text-is("동측 계단 앞-소화전2")').waitFor();
+  ok(count('ws_eq_add') === e1 + 1 && JSON.stringify(last('ws_eq_add').a.p_d) === JSON.stringify({ kind: 'hyd', floor: '3F', place: '동측 계단 앞', count: 1 }) && await p.locator('.fe:has(b:text-is("동측 계단 앞-소화전2")) input').isChecked(), '10) [+ 1개 추가]: 같은 층·위치에 번호 이어서 한 개 더 · 방금 만든 것 체크됨');
+  // 이름 고치기
+  await p.locator('.ac:has(> .ac-h .ac-n:text-is("동측 계단 앞")) > .ac-b .ac-act button:has-text("이름 고치기")').click(); await p.locator('#rnNew').waitFor();
+  ok(await p.locator('#rnNew').inputValue() === '동측 계단 앞' && /한꺼번에 바뀝니다/.test(await p.locator('.dialog').innerText()), '11) 이름 고치기 창: 지금 이름이 채워져 있고 안내');
+  await p.fill('#rnNew', '중복'); await p.click('#rnBtn'); await p.locator('#rnMsg:has-text("같은 이름의 위치가 이미 있습니다")').waitFor();
+  ok(true, '11-2) 겹치는 이름이면 창 안에 안내');
+  await p.fill('#rnNew', ' 동측  출입구 '); await p.click('#rnBtn');
+  await p.locator('.ac-t:has-text("동측 출입구")').waitFor();
+  const rn = last('ws_qr_rename').a;
+  ok(rn.p_kind === 'hyd' && rn.p_floor === '3F' && rn.p_old === '동측 계단 앞' && rn.p_new === ' 동측  출입구 ' && EQ.filter(e => e.place === '동측 출입구').length === 2, '12) 이름 고치기: 종류·층·옛이름·새이름을 넘기고 위치 안 모두 새 이름으로');
+  ok(await p.locator('.fe b:text-is("동측 출입구-소화전1")').count() === 1 && await p.locator('.fe b:text-is("동측 출입구-소화전2")').count() === 1 && await p.locator('.ac-t[aria-expanded="true"]:has-text("동측 출입구")').count() === 1, '12-2) 새 이름으로 바뀌고 펼친 상태 그대로');
+  // 검색 → 자동 펼침
+  await p.click('button:has-text("모두 접기")'); await p.waitForTimeout(80);
+  ok(await p.locator('.fe').count() === 0, '13) [모두 접기] → 전부 접힘');
+  await p.fill('input[type=search]', '출입구'); await p.locator('.fe b:text-is("동측 출입구-소화전1")').waitFor();
+  ok(await p.locator('.ac-h').count() === 2 && !(await p.locator('.ac-h:has-text("B3")').count()), '14) 검색: 맞는 층·위치만 남고 자동으로 펼쳐져 항목이 바로 보임');
+  await p.fill('input[type=search]', ''); await p.waitForTimeout(80);
+  ok(await p.locator('.fe').count() === 0, '14-2) 검색을 지우면 다시 접힌 모습');
+  await p.click('button:has-text("모두 펼치기")'); await p.locator('.fe').first().waitFor();
+  ok(await p.locator('.fe').count() === EQ.filter(e => e.kind === 'hyd').length, '15) [모두 펼치기] → 소화전 전부 보임');
+  // 선택: 층 체크 = 그 층 전부, 일부만이면 가운데 표시
+  await p.locator('.fe:has(b:text-is("동측 출입구-소화전1")) input').check();
+  ok(await p.locator('.ac-h > input[data-part]').count() >= 1 && await p.evaluate(() => document.querySelector('.ac-h > input[data-part]').indeterminate), '16) 일부만 고르면 층·위치 체크칸이 「일부 선택」 모양');
+  await p.locator('.ac-h:has-text("B3") > input').check();
+  ok(await p.locator('.ac-h:has-text("B3") > input').isChecked() && /출력 \(2\)/.test(await p.locator('.tools').innerText()), '17) 층 체크칸 = 그 층 전부 고르기');
+  await p.locator('.ac-h:has-text("B3") > input').uncheck();
+  // 라벨 미리보기 + 인쇄하면 「미인쇄」 사라짐
+  await p.locator('.ac-h:has-text("3F") > input').check();
   await p.click('button:has-text("출력")'); await p.locator('.pvbox .label').first().waitFor();
-  ok(await p.locator('.pvbox .label b').first().innerText() === '3F 동측 계단 앞 소화전' && !!(await p.locator('.pvbox .label img').first().getAttribute('src')), '9) 라벨 미리보기: 「3F 동측 계단 앞 소화전」 이름 + QR 그림');
-  await p.click('.back[aria-label="닫기"]');
-  // 삭제 (앞에서 고른 칸은 먼저 풀고, 새로 등록한 것만)
-  await p.locator('.fe:has(b:text-is("3F 동측 계단 앞 소화전")) input[type=checkbox]').uncheck();
-  await p.locator('.fe:has(b:text-is("2F 서측 복도 소화전")) input[type=checkbox]').check();
+  ok(await p.locator('.pvbox .label b').first().innerText() === '동측 출입구-소화전1' && !!(await p.locator('.pvbox .label img').first().getAttribute('src')), '18) 라벨 미리보기: 「동측 출입구-소화전1」 이름 + QR 그림');
+  await p.evaluate(() => { window.print = () => { window.__printed = true; }; });
+  await p.click('button:has-text("1장 시험 인쇄")'); await p.waitForTimeout(400);
+  ok(count('ws_qr_printed') === 0, '19) 1장 시험 인쇄는 「인쇄함」으로 치지 않음');
+  await p.locator('.ac-h:has-text("3F") > input').check().catch(() => {});
+  await p.click('button:has-text("출력")'); await p.locator('.pvbox .label').first().waitFor();
+  await p.click('#pvGo'); await called('ws_qr_printed', 0);
+  const pr = last('ws_qr_printed').a;
+  ok(pr.p_kind === 'hyd' && pr.p_ids.length === 2 && EQ.filter(e => e.printed && e.place === '동측 출입구').length === 2, '20) [인쇄] → 서버에 「인쇄함」 기록 (종류·번호들)');
+  ok(await p.locator('.fe:has(b:text-is("동측 출입구-소화전1")) .chip:text-is("미인쇄")').count() === 0, '20-2) 인쇄한 것은 「미인쇄」 딱지가 사라짐');
+  // 소화기 탭: 층 → 위치, ?fe=
+  await p.click('.seg button:text-is("소화기")'); await p.locator('.ac-h:has-text("1F")').waitFor();
+  ok(await p.evaluate(() => qrUrl('x')).then(u => /\?fe=x$/.test(u)) && last('ws_fe_list'), '21) 소화기 탭으로 돌아오면 QR 주소는 ?fe=');
+  await shot(p, 'b3_fe_tab');
+  // 삭제: 새로 만든 소화전 전부 지우기
+  await p.click('.seg button:text-is("소화전")'); await p.locator('.ac-h:has-text("B3")').waitFor();
+  await p.click('button:has-text("모두 펼치기")'); await p.locator('.fe').first().waitFor();
+  for (const nm of ['동측 출입구-소화전2', '주차장 A-소화전1']) await p.locator('.fe:has(b:text-is("' + nm + '")) input').check();
   await p.click('button.warn:has-text("삭제")'); await p.click('#dBtn');
-  await p.locator('.fe b:text-is("2F 서측 복도 소화전")').waitFor({ state: 'detached' });
+  await p.locator('.fe b:text-is("주차장 A-소화전1")').waitFor({ state: 'detached' });
   const del = last('ws_eq_delete').a;
-  ok(del.p_ids.join() === 'WS-EQ-3' && del.p_kind === 'hyd', '10) 삭제: 고른 번호와 종류를 넘기고 목록에서 빠짐');
+  ok(del.p_ids.length === 2 && del.p_kind === 'hyd' && !EQ.some(e => e.name === '주차장 A-소화전1'), '22) 삭제: 고른 번호와 종류를 넘기고 목록에서 빠짐');
+  // 뒷 시험(③ 현황 등)이 쓰는 자료로 되돌림: 소화전 1·공기호흡기 1
+  for (let i = EQ.length - 1; i >= 0; i--) if (![T1, T2].includes(EQ[i].token)) EQ.splice(i, 1);
+  EQ[0].place = '동측 계단 앞'; EQ[0].name = '동측 계단 앞-소화전1';
+  await p.evaluate(() => { S.qrKind = 'fe'; });
 
   // ── ③ 층별 현황 ──
   await p.evaluate(() => openHyd());
@@ -188,7 +287,7 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   await p.setViewportSize({ width: 390, height: 844 });
   await p.locator('#send').waitFor();
   const hd = await p.locator('.fp').innerText();
-  ok(/3F 동측 계단 앞 소화전/.test(hd) && /점검자 홍길동/.test(hd) && /로그인한 직원 홍길동 님으로 열렸습니다/.test(hd) && /기한 후 입력/.test(hd) && await p.locator('.seg').count() === 3 && await p.locator('.shot').count() === 3, '17) 로그인 상태: PIN 없이 열림 · 점검자 = 내 이름 · 기한 후 안내 · 항목 3개');
+  ok(/동측 계단 앞-소화전1/.test(hd) && /3F · 이번 달/.test(hd) && /점검자 홍길동/.test(hd) && /로그인한 직원 홍길동 님으로 열렸습니다/.test(hd) && /기한 후 입력/.test(hd) && await p.locator('.seg').count() === 3 && await p.locator('.shot').count() === 3, '17) 로그인 상태: PIN 없이 열림 · 점검자 = 내 이름 · 기한 후 안내 · 항목 3개');
   ok(await p.locator('#send').isDisabled() && /외관, 누수 여부, 청소 상태 사진을 찍어 주세요/.test(await p.locator('#miss').innerText()), '18) 사진 3장이 없으면 [저장하기] 꺼짐 + 빠진 항목 안내');
   const shoot = async k => {
     await p.evaluate(kk => openCamera(kk), k); await p.locator('#shutter').waitFor();

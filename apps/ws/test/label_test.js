@@ -11,11 +11,12 @@ const QRLIB = fs.readFileSync(require.resolve('qrcodejs2/qrcode.min.js'), 'utf8'
   for (const k of '1234') await p.click(`.key:text-is("${k}")`);
   await p.waitForSelector('.grid6'); await p.click('.tile:has(b:text-is("점검"))'); await p.click('text=소화기 점검');
   await p.screenshot({ path: 'shot_fire_menu.png' });   // ③ 소화전·공기호흡기 현황·④⑤ 입력은 sb_equip_test.js 가 시험 (결정 224)
-  await p.click('text=① 소화기, 소화전, 공기호흡기 QR 관리'); await p.waitForSelector('.qrmini >> nth=0'); await p.waitForTimeout(400);
+  await p.click('text=① 소화기, 소화전, 공기호흡기 QR 관리'); await p.waitForSelector('.ac-h'); await p.waitForTimeout(400);   // 층 줄(모두 접힘) — 등록하면 그 층·위치가 펼쳐짐 (결정 224)
   await p.click('button:has-text("+ 등록")'); await p.fill('#aStore', '샤넬'); await p.selectOption('#aFloor', '1F'); await p.click('#aBtn');
   await p.waitForSelector('text=샤넬-소화기1');
   await p.click('button:has-text("+ 등록")'); await p.fill('#aStore', '루이비통 메종 에비뉴엘'); await p.selectOption('#aFloor', '1F'); await p.click('#aBtn');
   await p.waitForTimeout(500);
+  await p.click('button:has-text("모두 펼치기")'); await p.waitForTimeout(300);
   const boxes = p.locator('.fe input[type=checkbox]'); const n = await boxes.count();
   for (let i = 0; i < n; i++) await boxes.nth(i).check();
   await p.evaluate(() => { window.print = () => { window.__printed = true; }; });
