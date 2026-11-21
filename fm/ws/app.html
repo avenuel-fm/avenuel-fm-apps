@@ -1015,7 +1015,7 @@ function renderMain() {
     t('spec', '시방서 검색', '도면협의 지침 찾기', ICON.search) +
     soon('자재현황', '준비중', ICON.box) +   // 자재현황 자리 (결정 168, WS_자재현황.md)
     t('map', '지도', '에비뉴엘 도면', ICON.map) +
-    t('cad', 'CAD', '도면 보기 · 올리기', ICON.cad) +   // CAD (WS_CAD.md): 전 직원 열람·업로드. 환경설정에서 끄기 가능 (결정 208)
+    t('cad', 'CAD', '도면 보기 · 올리기', ICON.cad) +   // CAD (WS_CAD.md): 전 직원 열람·업로드. 환경설정에서 끄기 가능 (결정 210)
     '</div>' + mainTodo() +
     '<div class="mainfoot"><button class="btn theme-btn" onclick="toggleTheme()">' + themeLabel() + '</button>' +
     (isBoss() ? '<button class="btn" onclick="openSet()">환경설정</button>' : '') + '</div>' +
@@ -1260,7 +1260,7 @@ const MENU = [
   ['spec', '시방서 검색', null], ['mat', '자재현황', null], ['map', '지도', null], ['cad', 'CAD', null]];   // 자재현황은 준비중이라 켜고 끄기 없음
 const menuOff = k => (S.menuOff || []).indexOf(k) !== -1;
 const menuCanOpen = () => !!S.user && ['소장', '관리자', '옵저버'].indexOf(S.user.role) !== -1;
-/** 하위 메뉴 한 줄: 꺼졌거나(직원) 윗 메뉴가 꺼졌으면 이름만 흐리게 · 눌리지 않음 (결정 208). dis = 이 줄만 따로 막을 때 */
+/** 하위 메뉴 한 줄: 꺼졌거나(직원) 윗 메뉴가 꺼졌으면 이름만 흐리게 · 눌리지 않음 (결정 210). dis = 이 줄만 따로 막을 때 */
 function subRow(key, fn, bg, col, ico, name, sm, dis) {
   const st = 'background:' + bg + ';color:' + col;
   const off = dis || (!menuCanOpen() && (menuOff(key) || menuOff(key.split('.')[0])));

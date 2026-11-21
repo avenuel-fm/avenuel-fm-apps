@@ -213,7 +213,7 @@ const texts = (p, sel) => p.locator(sel).allInnerTexts();
   await e3.locator('.menuacc:has-text("점검")').click();
   ok(await e3.locator('.menusub .menuseg').count() === 4, 'M8) 점검 펼침: 하위 메뉴 4개 켜기·끄기');
   await e3.locator('.menusub:has-text("열화상점검") .menuseg button:has-text("꺼짐")').click();
-  await e3.waitForFunction(() => /끔/.test((document.querySelector('.toast') || {}).textContent || ''));
+  await e3.waitForFunction(() => /열화상점검 끔/.test((document.querySelector('.toast') || {}).textContent || ''));
   ok(JSON.stringify(MENU_OFF) === '["map","spec","inspect.thermal"]' && /3개 켜짐/.test(await e3.locator('.menuacc:has-text("점검")').innerText()), 'M9) 열화상점검 꺼짐 저장 · 점검 「하위 4개 중 3개 켜짐」');
   ROLE = '직원'; const e4 = await open(b); await e4.evaluate(() => go('inspect'));
   ok(await e4.locator('.row:has-text("열화상점검")').isDisabled() && await e4.locator('.row:has-text("소화기 점검")').isEnabled(), 'M10) 직원: 꺼진 하위 메뉴만 막힘');
