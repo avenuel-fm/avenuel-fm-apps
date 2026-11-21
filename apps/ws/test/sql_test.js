@@ -606,6 +606,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(em.ok && em.canEdit === false && em.isBoss === false && /소장·부소장·파트장·옵저버만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
   // ══ 메인 메뉴 켜기·끄기 (15_menu.sql, 결정 148) ══
   ok(/소장만/.test(await callErr('ws_admin_set_menu', ['emp', ['map']])) && (await call('ws_menu', ['emp'])).off.length === 0, '메뉴: 끄기는 소장만 · 처음엔 모두 켜짐');
+  ok(JSON.stringify((await call('ws_admin_set_menu', [tk, ['inspect.thermal', 'inspect.x', 'cad']])).off) === '["cad","inspect.thermal"]', '메뉴: 하위·CAD 이름 저장');
   ok(JSON.stringify((await call('ws_admin_set_menu', [tk, ['map', 'x', 'map', 'docs']])).off) === '["docs","map"]' && JSON.stringify((await call('ws_menu', ['emp'])).off) === '["docs","map"]', '메뉴: 소장이 끄면 모두에게 (모르는 이름·겹침은 버림)');
   ok(/사용 중지/.test(await callErr('ws_map_load', ['emp'])) && (await call('ws_map_load', [tk])).ok, '메뉴: 꺼진 지도는 직원에게 서버에서도 막힘 · 소장은 엶');
   await q("update staff set role = '옵저버' where staff_id = 'S003'"); const mo = await call('ws_map_load', ['emp']);

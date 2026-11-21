@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.23.3', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.24.0', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -336,7 +336,7 @@ function adminStaff(token) {
   bossOnly_(token);
   return { ok: true, staff: staffOut_(), toastSec: toastSec_() };
 }
-const MENU_KEYS_ = ['docs', 'inspect', 'spec', 'map'];   // 메인 메뉴 켜기·끄기 (결정 148) — 설정 시트 「메인메뉴끄기」
+const MENU_KEYS_ = ['docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs'];   // 메인 메뉴 켜기·끄기 (결정 148) — 설정 시트 「메인메뉴끄기」
 function menuOff_() { return String(setting_('메인메뉴끄기') || '').split(',').filter(function (k) { return MENU_KEYS_.indexOf(k) !== -1; }); }
 function adminSetMenu(token, off) {
   const me = bossOnly_(token);
