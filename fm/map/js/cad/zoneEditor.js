@@ -94,7 +94,7 @@ function bringZoneLayersToFront() {
         svgEl.querySelector('#cad-floor-grid-rect'), svgEl.querySelector('#utility-lines-layer'), svgEl.querySelector('#safety-zones-layer'),
         infoLayer, svgEl.querySelector('#map-symbols-layer'), svgEl.querySelector('#eraser-layer'),
         svgEl.querySelector('#temp-zone-drawing-layer'), svgEl.querySelector('#temp-drawing-layer')
-    ].forEach(el => { if (el && el.parentElement === svgEl) svgEl.appendChild(el); });
+    ].forEach(el => { if (el && (el.parentElement === svgEl || el === infoLayer)) svgEl.appendChild(el); });   // 인포는 처음 만들 때 아직 도면에 안 붙어 있음
     rebuildEraserMask(svgEl);
 }
 
