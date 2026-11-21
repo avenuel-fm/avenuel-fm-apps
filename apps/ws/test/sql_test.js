@@ -806,7 +806,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(hv.entered === 2 && hv.off === 1 && Number(hv.c.d) === 11.8 && Number(hv.c.m) >= 11.8 && hv.p.d === null && hv.groups[0][1].includes(11.8), '일지 가동: 그날 입력 2 · 미가동 1 · 합 11.8시간 · 전년 없음 ' + JSON.stringify(hv.c));
   // ══ 가동시간 설정 (21_equip_hours.sql, 결정 200) ══
   await db.exec(SQL('21_equip_hours.sql')); await db.exec(SQL('21_equip_hours.sql'));
-  ok(/소장만/.test(await callErr('ws_equip_hours_get', ['emp', 'hvac'])) && /소장만/.test(await callErr('ws_equip_hours_save', ['emp', 'hvac', '[]'])) && /permission denied/.test(await asErr('authenticated', 'select * from equip_hours')), '가동시간 설정: 소장만 · 표 직접 못 봄');
+  ok((await call('ws_equip_hours_get', ['emp', 'hvac'])).ok === true && /저장할 내용이 없습니다/.test((await call('ws_equip_hours_save', ['emp', 'hvac', '[]'])).error) && (await callErr('ws_equip_hours_get', ['nope', 'hvac'])) !== '' && /permission denied/.test(await asErr('authenticated', 'select * from equip_hours')), '가동시간 설정: 전 직원 보기·고치기 (결정 218) · 로그인 안 하면 안 됨 · 표 직접 못 봄');
   let hr = await call('ws_equip_hours_get', [tk, 'hvac']);
   ok(hr.ok && hr.groups.length === 8 && hr.groups[0].g === '6층' && hr.groups[0].days.length === 7 && hr.groups[0].days[0][1] === 1310 && hr.groups[1].days[0][1] === 1160 && hr.groups[1].days[4][1] === 1220 && hr.groups[7].days[6][0] === 510 && hr.groups[0].days[0][2] === false, '설정: 처음엔 예전 기본값 (5층 월~목 19:20 · 금토일 20:20 · B3 08:30)');
   ok((await call('ws_equip_hours_get', [tk, 'curtain'])).groups.length === 10, '설정: 에어커튼 10묶음');

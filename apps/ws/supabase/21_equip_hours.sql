@@ -3,6 +3,7 @@
 --  · equip_hours = 층(공조기)·묶음(에어커튼)마다 요일(1 월 ~ 7 일) 기본 시작·종료(분)
 --  · 줄이 없으면 예전 기본값 (장비 표 def_start · def_end 월~목 · def_end_wkend 금토일)
 --  · 가동시간 입력 화면의 「기본 시각」만 바뀜. 이미 저장한 기록은 그대로
+--  · v0.24.3 (결정 218): 보기·고치기 모두 로그인한 전 직원 (전: 소장만). 이미 실행했어도 다시 실행하면 바뀜
 
 create table if not exists public.equip_hours (
   kind       text not null check (kind in ('hvac', 'curtain')),
@@ -49,7 +50,7 @@ $$;
 create or replace function public.ws_equip_hours_get(p_token text, p_kind text)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
 begin
-  perform public.ws_boss(p_token);
+  perform public.ws_auth(p_token);   -- 전 직원 (결정 218)
   if p_kind not in ('hvac', 'curtain') then return jsonb_build_object('ok', false, 'error', '종류가 맞지 않습니다'); end if;
   return public.ws_equip_hours_data(p_kind);
 end $$;
@@ -58,7 +59,7 @@ end $$;
 create or replace function public.ws_equip_hours_save(p_token text, p_kind text, p_rows jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare
-  me public.staff := public.ws_boss(p_token);
+  me public.staff := public.ws_auth(p_token);   -- 전 직원 (결정 218)
   r jsonb; g text; w int; s int; e int; n int := 0;
 begin
   if p_kind not in ('hvac', 'curtain') then return jsonb_build_object('ok', false, 'error', '종류가 맞지 않습니다'); end if;
