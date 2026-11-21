@@ -75,7 +75,7 @@ const shot = (p, name) => p.screenshot({ path: path.join(process.env.SHOT_DIR ||
   ok(JSON.stringify(book().items[AG].details) === '{}', '4) 지어낸 기본값(3P 50A)은 넣지 않음');
 
   await edit('아그라');
-  ok(await fl.locator('#edit-store-id').innerText() === AG && await fl.locator('#store-detail-form input').count() === 6, '5) 수정 창: 고유번호 표시 · 항목 6칸 (from 만, to 없음)');
+  ok(await fl.locator('#edit-store-id').innerText() === AG && await fl.locator('#store-detail-form input').count() === 7, '5) 수정 창: 고유번호 표시 · 항목 7칸 (차단기 일반·일반 from·비상·비상 from + 급수·배수·가스)');
   await p.waitForTimeout(400);
   ok(await f.evaluate(() => { const r = document.getElementById('edit-modal').getBoundingClientRect(); return document.getElementById('edit-modal').contains(document.elementFromPoint(r.left + r.width / 2, r.top + 6)); }), '5-1) 수정 창 맨 위가 윗줄에 가리지 않음');
   await shot(p, 'shot_book_edit.png');
@@ -116,13 +116,13 @@ const shot = (p, name) => p.screenshot({ path: path.join(process.env.SHOT_DIR ||
   const [dl] = await Promise.all([p.waitForEvent('download'), f.evaluate(() => { downloadStoreExcel(); })]);
   const b64 = fs.readFileSync(await dl.path()).toString('base64');
   const got = await f.evaluate(s => { const wb = XLSX.read(s, { type: 'base64' }); return { names: wb.SheetNames, rows: XLSX.utils.sheet_to_json(wb.Sheets['1층'], { header: 1, defval: '' }) }; }, b64);
-  ok(dl.suggestedFilename() === '에비뉴엘 매장.xlsx' && got.names[0] === 'B1층' && got.names.length === 7 && got.rows[0].join() === '순번,매장명,차단기,,,급수,배수,가스' && got.rows[1].join() === ',,일반,비상,from,,,', '14) 엑셀 받기: 층마다 시트 · 올려 주신 양식과 같은 머리글');
+  ok(dl.suggestedFilename() === '에비뉴엘 매장.xlsx' && got.names[0] === 'B1층' && got.names.length === 7 && got.rows[0].join() === '순번,매장명,차단기,,,,급수,배수,가스' && got.rows[1].join() === ',,일반,from,비상,from,,,', '14) 엑셀 받기: 층마다 시트 · 올려 주신 양식과 같은 머리글');
   ok(!got.rows.slice(2).some(r => r[1] === '이름 없음' || r[1] === ''), '15) 이름 없는 도형은 엑셀에서 뺌');
 
   // 엑셀 올리기
   const up = await f.evaluate(() => {
-    const ws = XLSX.utils.aoa_to_sheet([['순번', '매장명', '차단기', '', '', '급수', '배수', '가스', '통신'], ['', '', '일반', '비상', 'from', '', '', '', ''], [1, '샤넬', 100, 30, '1번 EPS', '', '', 6, 'LAN'], [2, '없는매장', 1, '', '', '', '', '', ''], [3, '<b>나쁜글</b>', 1, '', '', '', '', '', '']]);
-    ws['!merges'] = [{ s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }];
+    const ws = XLSX.utils.aoa_to_sheet([['순번', '매장명', '차단기', '', '', '', '급수', '배수', '가스', '통신'], ['', '', '일반', 'from', '비상', 'from', '', '', '', ''], [1, '샤넬', 100, '1번 EPS', 30, '2번 EPS', '', '', 6, 'LAN'], [2, '없는매장', 1, '', '', '', '', '', '', ''], [3, '<b>나쁜글</b>', 1, '', '', '', '', '', '', '']]);
+    ws['!merges'] = [{ s: { r: 0, c: 2 }, e: { r: 0, c: 5 } }];
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '1층');
     return XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
   });
@@ -135,7 +135,7 @@ const shot = (p, name) => p.screenshot({ path: path.join(process.env.SHOT_DIR ||
   ok(/<b>나쁜글<\/b>/.test(dlg), '17) 엑셀 글자는 그대로 글자로만 표시');
   await fl.locator('#xl-save').click(); await fl.locator('.xl-box').waitFor({ state: 'detached' }); await p.waitForTimeout(500);
   const d = book().items[CH].details;
-  ok(d['차단기|일반'] === '100' && d['차단기|from'] === '1번 EPS' && d.가스 === '6' && d.통신 === 'LAN', '18) 저장: 값 반영 · 더한 열 「통신」도 저장');
+  ok(d['차단기|일반'] === '100' && d['차단기|일반 from'] === '1번 EPS' && d['차단기|비상 from'] === '2번 EPS' && d.가스 === '6' && d.통신 === 'LAN', '18) 저장: 값 반영 · 더한 열 「통신」도 저장');
   ok(!Object.values(book().items).some(x => x.name === '없는매장'), '19) 도면에 없는 이름은 저장 안 함');
   await edit('샤넬');
   ok(await fl.locator('[data-detail-key="통신"]').inputValue() === 'LAN', '20) 더한 항목이 수정 창에 나옴');

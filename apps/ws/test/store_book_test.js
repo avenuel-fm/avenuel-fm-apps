@@ -6,8 +6,8 @@ const t = (name, f) => { f(); n++; console.log('ok   ' + name); };
 const shape = (id, name, x = 100, extra) => Object.assign({ shape: id, name, type: 'store', x, y: 100, w: 50, h: 40 }, extra);
 const rec = (book, shapes) => B.reconcile(book, shapes, 'avenuel', '1F', true);
 const floors = [{ code: '1F', name: '1F' }, { code: 'B1', name: 'B1' }];
-const HEAD = [['순번', '매장명', '차단기', '', '', '급수', '배수', '가스'], ['', '', '일반', '비상', 'from', '', '', '']];
-const MERGES = [{ s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }];
+const HEAD = [['순번', '매장명', '차단기', '', '', '', '급수', '배수', '가스'], ['', '', '일반', 'from', '비상', 'from', '', '', '']];
+const MERGES = [{ s: { r: 0, c: 2 }, e: { r: 0, c: 5 } }];
 const sheet = (rows, name = '1층', head = HEAD) => ({ name, merges: MERGES, rows: head.concat(rows) });
 
 t('1) 도형마다 번호 AV-1F-0001 · 층마다 늘어남', () => {
@@ -58,9 +58,10 @@ t('7) 예전 상세 값 옮기기 (빈 값·- 는 뺌)', () => {
   assert.deepStrictEqual(r.book.items['AV-1F-0001'].details, { '차단기|일반': '3P 75A', 급수: '25A', 비고: '메모' });
 });
 t('8) 엑셀 머리글 2줄·병합 읽기, 순번은 안 읽음', () => {
-  const p = B.parseSheet(sheet([[1, '아그라', 50, 30, '1번 EPS', 50, 50, 6]]).rows, MERGES);
-  assert.deepStrictEqual(p.columns.map(B.keyOf), ['차단기|일반', '차단기|비상', '차단기|from', '급수', '배수', '가스']);
-  assert.strictEqual(p.rows[0].cells['차단기|from'], '1번 EPS');
+  const p = B.parseSheet(sheet([[1, '아그라', 50, '1번 EPS', 30, '2번 EPS', 50, 50, 6]]).rows, MERGES);
+  assert.deepStrictEqual(p.columns.map(B.keyOf), ['차단기|일반', '차단기|일반 from', '차단기|비상', '차단기|비상 from', '급수', '배수', '가스']);
+  assert.strictEqual(p.rows[0].cells['차단기|일반 from'], '1번 EPS');
+  assert.strictEqual(p.rows[0].cells['차단기|비상 from'], '2번 EPS');
   assert.strictEqual(p.rows[0].cells.가스, '6');
 });
 t('9) 머리글 1줄 파일도 읽음 · 매장명 칸이 없으면 오류', () => {
@@ -71,7 +72,7 @@ t('9) 머리글 1줄 파일도 읽음 · 매장명 칸이 없으면 오류', () 
 const twoStores = () => { const b = rec(B.emptyBook(), [shape('a', '아그라'), shape('b', '샤넬', 300)]).book; b.items['AV-1F-0002'].details = { 급수: '20' }; return b; };
 t('10) 값 저장 · 빈 칸은 지움 · 엑셀에 없는 매장은 그대로 · 저장 전 원본은 안 바뀜', () => {
   const book = twoStores(); book.items['AV-1F-0001'].details = { 가스: '9' };
-  const plan = B.planUpload([sheet([[1, '아그라', 50, '', '', '', '', '']])], floors, { '1F': book }, B.DEFAULT_ITEMS);
+  const plan = B.planUpload([sheet([[1, '아그라', 50, '', '', '', '', '', '']])], floors, { '1F': book }, B.DEFAULT_ITEMS);
   const it = plan.books['1F'].items;
   assert.deepStrictEqual(it['AV-1F-0001'].details, { '차단기|일반': '50' });
   assert.deepStrictEqual(it['AV-1F-0002'].details, { 급수: '20' });
@@ -80,17 +81,17 @@ t('10) 값 저장 · 빈 칸은 지움 · 엑셀에 없는 매장은 그대로 �
   assert.ok(plan.changes.some(c => c.label === '가스' && c.from === '9' && c.to === ''));
 });
 t('11) 도면에 없는 이름은 저장 안 하고 목록에', () => {
-  const plan = B.planUpload([sheet([[1, '없는 매장', 50, '', '', '', '', '']])], floors, { '1F': twoStores() }, B.DEFAULT_ITEMS);
+  const plan = B.planUpload([sheet([[1, '없는 매장', 50, '', '', '', '', '', '']])], floors, { '1F': twoStores() }, B.DEFAULT_ITEMS);
   assert.deepStrictEqual(plan.missing, [{ floor: '1F', name: '없는 매장' }]);
   assert.strictEqual(plan.changed, 0);
   assert.deepStrictEqual(plan.books, {});
 });
 t('12) 같은 이름 도형: 1줄은 모두에, 여러 줄은 번호 순서대로, 넘치는 줄은 목록에', () => {
   const mk = () => rec(B.emptyBook(), [shape('a', '화장실'), shape('b', '화장실', 300)]).book;
-  let it = B.planUpload([sheet([[1, '화장실', 10, '', '', '', '', '']])], floors, { '1F': mk() }, B.DEFAULT_ITEMS).books['1F'].items;
+  let it = B.planUpload([sheet([[1, '화장실', 10, '', '', '', '', '', '']])], floors, { '1F': mk() }, B.DEFAULT_ITEMS).books['1F'].items;
   assert.strictEqual(it['AV-1F-0001'].details['차단기|일반'], '10');
   assert.strictEqual(it['AV-1F-0002'].details['차단기|일반'], '10');
-  const plan = B.planUpload([sheet([[1, '화장실', 10, '', '', '', '', ''], [2, '화장실', 20, '', '', '', '', ''], [3, '화장실', 30, '', '', '', '', '']])], floors, { '1F': mk() }, B.DEFAULT_ITEMS);
+  const plan = B.planUpload([sheet([[1, '화장실', 10, '', '', '', '', '', ''], [2, '화장실', 20, '', '', '', '', '', ''], [3, '화장실', 30, '', '', '', '', '', '']])], floors, { '1F': mk() }, B.DEFAULT_ITEMS);
   it = plan.books['1F'].items;
   assert.strictEqual(it['AV-1F-0001'].details['차단기|일반'], '10');
   assert.strictEqual(it['AV-1F-0002'].details['차단기|일반'], '20');
@@ -113,19 +114,28 @@ t('14) 시트 이름 1층·1F·B1층 찾기 · 없는 층은 알림', () => {
 });
 t('15) 못 찾은 도형은 엑셀 이름과 맞추지 않음', () => {
   const book = twoStores(); book.items['AV-1F-0001'].lost = true;
-  const plan = B.planUpload([sheet([[1, '아그라', 50, '', '', '', '', '']])], floors, { '1F': book }, B.DEFAULT_ITEMS);
+  const plan = B.planUpload([sheet([[1, '아그라', 50, '', '', '', '', '', '']])], floors, { '1F': book }, B.DEFAULT_ITEMS);
   assert.strictEqual(plan.missing.length, 1);
 });
 t('16) 엑셀 받기 → 그대로 다시 올리면 바뀌는 것 없음 (이름 없는 도형은 뺌)', () => {
-  const book = twoStores(); book.items['AV-1F-0001'].details = { '차단기|일반': '50', '차단기|from': '1번 EPS' };
+  const book = twoStores(); book.items['AV-1F-0001'].details = { '차단기|일반': '50', '차단기|일반 from': '1번 EPS', '차단기|비상 from': '2번 EPS' };
   book.items['AV-1F-0003'] = { shape: 'c', name: '', details: {} };
   const s = B.buildSheet(B.DEFAULT_ITEMS, book);
-  assert.deepStrictEqual(s.aoa[0], ['순번', '매장명', '차단기', '', '', '급수', '배수', '가스']);
-  assert.deepStrictEqual(s.aoa[1], ['', '', '일반', '비상', 'from', '', '', '']);
+  assert.deepStrictEqual(s.aoa[0], ['순번', '매장명', '차단기', '', '', '', '급수', '배수', '가스']);
+  assert.deepStrictEqual(s.aoa[1], ['', '', '일반', 'from', '비상', 'from', '', '', '']);
+  assert.deepStrictEqual(s.merges.find(m => m.s.r === 0 && m.e.r === 0), { s: { r: 0, c: 2 }, e: { r: 0, c: 5 } });
   assert.strictEqual(s.aoa.length, 4);
   const plan = B.planUpload([{ name: '1층', merges: s.merges, rows: s.aoa }], floors, { '1F': book }, B.DEFAULT_ITEMS);
   assert.strictEqual(plan.changed, 0);
   assert.strictEqual(plan.same, 2);
   assert.deepStrictEqual(plan.added, []);
+});
+t('17) 예전 「차단기 from」 한 칸 → 일반 from · 저장된 항목 목록도 새 모양으로', () => {
+  const b = B.parseBook(JSON.stringify({ next: 3, items: { 'AV-1F-0001': { shape: 'a', details: { '차단기|일반': '50', '차단기|from': '1번 EPS' } }, 'AV-1F-0002': { shape: 'b', details: { '차단기|from': '' } } }, deleted: [] }));
+  assert.deepStrictEqual(b.items['AV-1F-0001'].details, { '차단기|일반': '50', '차단기|일반 from': '1번 EPS' });
+  assert.deepStrictEqual(b.items['AV-1F-0002'].details, {});
+  const old = [{ g: '차단기', l: '일반' }, { g: '차단기', l: '비상' }, { g: '차단기', l: 'from' }, { g: '', l: '급수' }, { g: '', l: '통신' }];
+  assert.deepStrictEqual(B.fixItems(old).map(B.keyOf), ['차단기|일반', '차단기|일반 from', '차단기|비상', '차단기|비상 from', '급수', '통신']);
+  assert.strictEqual(B.fixItems(B.DEFAULT_ITEMS), B.DEFAULT_ITEMS);
 });
 console.log(`\n매장 대장 규칙 시험 통과 (${n}개)`);
