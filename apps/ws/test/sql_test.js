@@ -676,12 +676,18 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(/permission denied/.test(await asErr('authenticated', 'select * from thermal_kv')) || !(await as('authenticated', 'select * from thermal_kv')).length, '16_thermal.sql 두 번 실행 · 표는 직접 못 읽음');
   ok(/permission denied/.test(await asErr('anon', "select ws_thermal_boot('x')")), '열화상: 비로그인(anon)은 못 부름');
   await q("update staff set role = '직원' where staff_id = 'S003'");
-  ok((await call('ws_thermal_boot', ['emp'])).ok === false && /소장·부소장·관리자·옵저버만/.test((await call('ws_thermal_set', ['emp', 'model', '{}'])).error), '열화상: 직원은 못 엶·못 씀 (결정 166)');
-  for (const role of ['부소장', '관리자', '옵저버']) {
+  const tpl = JSON.stringify({ path: 'thermal/2026-11/s.atr', url: 'https://b/s.atr', name: 's.atr' });
+  for (const role of ['직원', '파트장', '부소장', '관리자', '옵저버']) {
     await q("update staff set role = $1 where staff_id = 'S003'", [role]);
-    ok((await call('ws_thermal_boot', ['emp'])).ok === true, '열화상: ' + role + '도 엶');
+    const bo = await call('ws_thermal_boot', ['emp']), boss = role !== '직원' && role !== '파트장';
+    ok(bo.ok === true && bo.me.role === role && (await call('ws_thermal_set', ['emp', 'model', '{"a":1}'])).ok === true, '열화상(결정 212): ' + role + '도 열고 학습 값을 저장함');
+    const ts = await call('ws_thermal_set', ['emp', 'template', tpl]);
+    ok(ts.ok === boss && (boss || /양식 파일은 소장·부소장·관리자·옵저버만/.test(ts.error)), '열화상(결정 212): 양식 바꾸기는 ' + role + (boss ? '은 됨' : '은 막힘'));
+    if (boss) await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'thermal/2026-11/zz.atr', url: 'https://b/z', name: 'z' })]);
   }
+  await call('ws_thermal_set', [tk, 'model', 'null']);
   await q("update staff set role = '직원' where staff_id = 'S003'");
+  await q("delete from thermal_kv where k in ('model', 'template')");
   const tb0 = await call('ws_thermal_boot', [tk]);
   ok(tb0.ok && tb0.me.role === '소장' && tb0.model === null && tb0.template === null && tb0.reports.length === 0, '열화상: 처음엔 학습 값·양식·보고서 없음 · 나(이름·역할)');
   ok((await call('ws_thermal_set', [tk, 'model', JSON.stringify({ avg_y: 125, samples: [] })])).ok && (await call('ws_thermal_boot', [tk])).model.avg_y === 125, '열화상: 학습 값 저장·읽기');
@@ -745,7 +751,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q("delete from ws_pin_guard where key = 'cadpc'");
   let lim = 0; for (let i = 0; i < 31; i++) { if ((await call('ws_cad_save', ['emp', JSON.stringify({ name: 'L' + i, path: cp, url: cu })])).ok) lim++; }
   ok(lim === 29, 'CAD: 한 사람 하루 30개까지 (앞서 1개 올림 + ' + lim + ')');
-  // ══ 온습도/공조기/에어커튼 입력 (19_climate.sql, 결정 192·194·196) ══
+  // ══ 온습도/공조기/에어커튼 입력 (19_climate.sql, 결정 212·194·196) ══
   await db.exec(SQL('19_climate.sql')); await db.exec(SQL('19_climate.sql'));
   const cnt = async t => (await one('select count(*)::int n from ' + t)).n;
   ok(await cnt('curtain_unit') === 36 && await cnt('climate_zone') === 19 && await cnt('ahu_unit where active') === 38 && await cnt('ahu_unit where not active') === 3, '19_climate.sql 두 번 실행 · 에어커튼 36 · 구역 19 · 공조기 38 + 옛 3·37·38 (화면 밖)');
