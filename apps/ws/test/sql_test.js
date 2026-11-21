@@ -604,7 +604,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q("update staff set role = '직원' where staff_id = 'S003'");
   const em = await call('ws_map_load', ['emp']);
   ok(em.ok && em.canEdit === false && em.isBoss === false && /소장·부소장·파트장·옵저버만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
-  // ══ 지도 되돌리기 권한 (22_map_restore.sql, 결정 212): 소장·부소장·파트장 ══
+  // ══ 지도 되돌리기 권한 (22_map_restore.sql, 결정 214): 소장·부소장·파트장 ══
   await db.exec(SQL('22_map_restore.sql')); await db.exec(SQL('22_map_restore.sql'));
   ok(/permission denied/.test(await asErr('authenticated', "select ws_map_can_restore('소장')")), '22_map_restore.sql 실행됨 (두 번) · 안쪽 도우미는 직접 못 부름');
   for (const [role, can] of [['소장', true], ['부소장', true], ['파트장', true], ['옵저버', false], ['관리자', false], ['직원', false]]) {

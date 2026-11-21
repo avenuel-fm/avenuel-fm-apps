@@ -515,7 +515,7 @@ var storeFilterMode = 'all'; // 'all' | 'store' | 'utility'
             });
 
             // 삭제된 커스텀 도형들(바닥 색상 흰색 #ffffff 처리, 경계선 없음) 렌더링
-            // 흰 바닥은 매장·기능실 아래 「바닥」 층에 (결정 214). 예전에 도면 맨 끝에 붙어 저장된 것은 지움
+            // 흰 바닥은 매장·기능실 아래 「바닥」 층에 (결정 216). 예전에 도면 맨 끝에 붙어 저장된 것은 지움
             const floorVacant = ensureFloorLayer(svgEl).querySelector('#floor-vacant');
             floorVacant.textContent = '';
             Array.from(svgEl.children).filter(c => c.classList && c.classList.contains('vacant-floor-polygon')).forEach(c => c.remove());

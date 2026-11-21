@@ -13,7 +13,7 @@ var zoneFilterState = {
     fire: true,
     smoke: true,
     wall: true,
-    floor: false   // 바닥은 평소 흰색이라 안 보임. 켜면 검은 점선 (결정 214)
+    floor: false   // 바닥은 평소 흰색이라 안 보임. 켜면 검은 점선 (결정 216)
 };
 
 function onZoneCheckboxChange(category, isChecked) {
@@ -36,7 +36,7 @@ function ensureSvgLayer(svgEl, id) {
     if (!g) { g = document.createElementNS(NS_SVG, 'g'); g.setAttribute('id', id); svgEl.appendChild(g); }
     return g;
 }
-/** 바닥 층: 삭제한 매장 자리의 흰 바닥(#floor-vacant) + 직접 그린 바닥(#floor-user). 매장·기능실보다 늘 아래 (결정 214) */
+/** 바닥 층: 삭제한 매장 자리의 흰 바닥(#floor-vacant) + 직접 그린 바닥(#floor-user). 매장·기능실보다 늘 아래 (결정 216) */
 function ensureFloorLayer(svgEl) {
     const layer = ensureSvgLayer(svgEl, 'floor-layer');
     ['floor-vacant', 'floor-user'].forEach(id => {
@@ -89,7 +89,7 @@ function bringZoneLayersToFront() {
     ensureSvgLayer(svgEl, 'eraser-layer');
     // 인포 레이어 (엘리베이터·화장실 등 업체 도면 그림): 직접 그린 매장보다 위 (결정 160)
     const infoLayer = typeof collectInfoLayer === 'function' ? collectInfoLayer(svgEl) : null;
-    // 아래 → 위. 바닥 < 매장·기능실 < 격자 < 배관 < 구역 < 인포 < 심벌 < 지우개 < 그리는 중 (결정 214)
+    // 아래 → 위. 바닥 < 매장·기능실 < 격자 < 배관 < 구역 < 인포 < 심벌 < 지우개 < 그리는 중 (결정 216)
     [svgEl.querySelector('#floor-layer'), svgEl.querySelector('#vendor-stores-layer'), svgEl.querySelector('#custom-stores-top-layer'),
         svgEl.querySelector('#cad-floor-grid-rect'), svgEl.querySelector('#utility-lines-layer'), svgEl.querySelector('#safety-zones-layer'),
         infoLayer, svgEl.querySelector('#map-symbols-layer'), svgEl.querySelector('#eraser-layer'),
@@ -123,7 +123,7 @@ function bringZoneLayersToFront() {
             updateZoneDrawingPreview();
         }
 
-        // 지우개 켜기/끄기 (결정 214): 켜면 구역 종류는 잠기고 면으로 그려 바닥색으로 칠함
+        // 지우개 켜기/끄기 (결정 216): 켜면 구역 종류는 잠기고 면으로 그려 바닥색으로 칠함
         function toggleEraserMode() {
             if (!isZoneDrawingMode) return;
             if (currentZoneCategory === 'erase') {
@@ -750,7 +750,7 @@ function bringZoneLayersToFront() {
             const eraserLayer = ensureSvgLayer(svgEl, 'eraser-layer');
             Array.from(eraserLayer.querySelectorAll('polygon')).forEach(e => e.remove());
             zones.forEach(zone => {
-                if (zone.category === 'floor' || zone.category === 'erase') {   // 바닥·지우개는 자기 층에 (결정 214)
+                if (zone.category === 'floor' || zone.category === 'erase') {   // 바닥·지우개는 자기 층에 (결정 216)
                     renderPaintZone(zone, floorUser, eraserLayer);
                     return;
                 }

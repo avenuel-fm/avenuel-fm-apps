@@ -734,7 +734,7 @@
         .sc .scale-preset-chip:hover { border-color: var(--navy); background: var(--white); }
         .sc .scale-preset-chip.on { background: var(--tint); border-color: var(--navy); }
 
-        /* 바닥 · 지우개 · 직각 체크 (결정 214) */
+        /* 바닥 · 지우개 · 직각 체크 (결정 216) */
         .user-floor, .user-eraser { stroke: none; pointer-events: none; }
         .show-floor-outline .user-floor, body.zone-drawing-mode .user-floor {
             stroke: #000000; stroke-width: 1.5px; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke;

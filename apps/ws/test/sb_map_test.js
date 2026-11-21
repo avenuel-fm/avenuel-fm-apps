@@ -13,7 +13,7 @@ const exp = Date.now() + 3600e3;
 const TOK = { boss: 'S001.' + exp + '.boss', emp: 'S003.' + exp + '.emp', deputy: 'S005.' + exp + '.deputy', part: 'S004.' + exp + '.part', obs: 'S006.' + exp + '.obs' };
 const USER = { [TOK.boss]: { staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, [TOK.emp]: { staff_id: 'S003', name: '이영희', part: '전방파트', role: '직원' },
   [TOK.deputy]: { staff_id: 'S005', name: '김부장', part: '관리파트', role: '부소장' }, [TOK.part]: { staff_id: 'S004', name: '박민수', part: '기건파트', role: '파트장' }, [TOK.obs]: { staff_id: 'S006', name: '최옵저', part: '전방파트', role: '옵저버' } };
-const CAN_RESTORE = ['소장', '부소장', '파트장'];   // 결정 212
+const CAN_RESTORE = ['소장', '부소장', '파트장'];   // 결정 214
 const kst = d => new Date(Date.now() + 9 * 3600e3 - d * 864e5).toISOString().slice(0, 10);
 const TODAY = kst(0), YEST = kst(1);
 const LINE = { id: 'L1', subType: 'elec', subTypeLabel: '전기', className: 'util-line-eps', sourceName: '기능실A', targetName: '매장B', points: [{ x: 9500, y: 4100 }, { x: 9900, y: 4300 }] };
@@ -182,7 +182,7 @@ async function openMap(p) {
   ok(!ectx, '19) 터치 기기는 길게 누르기 메뉴 그대로 (오른쪽 버튼 막기는 PC만)');
   ok(!e.errs.length, '20) 화면 오류 없음 (직원·터치)' + (e.errs.length ? ': ' + e.errs.join(' / ') : ''));
 
-  // ── 되돌리기 권한 (결정 212): 부소장·파트장은 버튼이 보이고, 옵저버(고칠 수는 있음)는 안 보임 ──
+  // ── 되돌리기 권한 (결정 214): 부소장·파트장은 버튼이 보이고, 옵저버(고칠 수는 있음)는 안 보임 ──
   for (const [key, can, label] of [['deputy', true, '부소장'], ['part', true, '파트장'], ['obs', false, '옵저버']]) {
     const rp = await open(b, TOK[key], { viewport: { width: 1280, height: 800 } });
     await openMap(rp);

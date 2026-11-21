@@ -33,7 +33,7 @@ var mapStore = (function () {
         live = Object.assign({}, r.kv || {}); cache = Object.assign({}, live);
         Object.assign(vers, r.vers || {}); Object.assign(bases, r.bases || {});
         canEdit = !!r.canEdit; isBoss = !!r.isBoss;
-        canRestore = r.canRestore === undefined ? isBoss : !!r.canRestore;   // 서버가 아직 옛 판이면 소장만 (결정 212)
+        canRestore = r.canRestore === undefined ? isBoss : !!r.canRestore;   // 서버가 아직 옛 판이면 소장만 (결정 214)
         Object.keys(BUILDINGS).forEach(b => BUILDINGS[b].floors.forEach(f => { f.svgUrl = (r.urls[b] || {})[f.code] || ''; }));
     }) : Promise.reject(new Error('업무지원 앱에서 [지도]를 눌러 열어 주세요.'));
 
