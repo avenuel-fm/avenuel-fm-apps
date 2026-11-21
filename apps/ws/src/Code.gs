@@ -411,6 +411,7 @@ function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (body.action === 'checkSubmit') out = checkSubmit(body.qr, body.d);
+    else if (/^cad(Login|Cats|Prepare|Finish)$/.test(body.action)) out = cadPc_(body);   // PC 변환기 업로드 (WS_CAD.md 10장): PIN 대조
     else throw new Error('알 수 없는 요청');
   } catch (err) {
     out = { ok: false, error: String(err.message || err) };
@@ -512,6 +513,34 @@ function thermalDrive_(path, name) {
   }
   DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return { ok: true, id: id, name: nm, url: driveUrl_(id) };
+}
+
+/** PC 변환기(CAD변환기.exe)의 업로드 — 업무지원 직원 PIN과 대조 (docs/설계/WS_CAD.md 10장, supabase/18_cad.sql)
+ *  cadLogin {pin} → {ok,name,role} · cadCats {pin} → {ok,cats[{id,name}]} · cadPrepare {pin} → {ok,path,uploadUrl} (PC가 파일을 이 주소에 PUT) · cadFinish {pin,path,name,floor,memo,cat_id,size} → 드라이브 사본 + 목록 기록(그 직원 이름으로) */
+function cadPc_(b) {
+  const who = sbReq_('post', '/rest/v1/rpc/ws_cad_pc_check', { p_pin: String(b.pin || '') }).getContentText();
+  const me = JSON.parse(who);
+  if (!me.ok || b.action === 'cadLogin') return me;
+  if (b.action === 'cadCats') return { ok: true, cats: JSON.parse(sbReq_('get', '/rest/v1/cad_cat?select=id,name&order=id').getContentText()) };   // 올릴 때 고를 분류
+  const base = migrateConf_().url;
+  if (b.action === 'cadPrepare') {
+    const ym = Utilities.formatDate(new Date(), TZ, 'yyyy-MM');
+    const path = 'cad/' + ym + '/' + Utilities.getUuid().replace(/-/g, '') + '.dxf';
+    const r = JSON.parse(sbReq_('post', '/storage/v1/object/upload/sign/ws-files/' + path, {}).getContentText());
+    const rel = String(r.url || '');
+    if (!rel) throw new Error('올릴 주소를 받지 못했습니다');
+    return { ok: true, path: path, uploadUrl: /^https:/.test(rel) ? rel : base + '/storage/v1' + (rel.charAt(0) === '/' ? '' : '/') + rel };
+  }
+  const path = String(b.path || '');
+  if (!/^cad\/\d{4}-\d{2}\/[0-9a-f]{32}\.dxf$/.test(path)) throw new Error('도면 파일 경로가 맞지 않습니다');
+  const name = String(b.name || '').trim();
+  if (!name) throw new Error('도면 이름이 없습니다');
+  let drive = '';
+  try { drive = cadDrive_(path, name).url; } catch (e) { if (/없|404|not found/i.test(String(e.message))) throw new Error('올린 파일을 서버에서 찾지 못했습니다. 다시 올려 주세요'); }
+  const r = JSON.parse(sbReq_('post', '/rest/v1/rpc/ws_cad_pc_save', { p_pin: String(b.pin), p_r: { name: name, floor: b.floor || '', memo: b.memo || '', cat_id: b.cat_id || '', path: path, url: base + '/storage/v1/object/public/ws-files/' + path, size: Number(b.size) || 0, drive_url: drive } }).getContentText());
+  if (r.ok) r.name = me.name;
+  r.drive = !!drive;
+  return r;
 }
 
 /** CAD 변환 도면 드라이브 사본 (docs/설계/WS_CAD.md 7장). 같은 파일은 두 번 만들지 않음. 크기 50MB 이하 */
