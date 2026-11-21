@@ -197,6 +197,19 @@ alter default privileges in schema public grant all on tables to anon, authentic
   ok(/permission denied/.test((await as('authenticated', 'select ws_check_setup()')).message), 'ws_check_setup: 앱 화면은 못 부름');
   await db.close();
 
+  // 열화상 PDF 드라이브 백업 (Code.gs thermalDrive_, 결정 168): thermal/ 의 PDF만, 두 번 눌러도 파일은 하나
+  const TP = 'thermal/2026-11/' + 'a'.repeat(32) + '.pdf';
+  const thErr = (p, n) => { try { thermalDrive_(p, n); return ''; } catch (e) { return e.message; } };
+  ok(/경로가 맞지 않/.test(thErr('tbm_pdf/2026-11/' + 'a'.repeat(32) + '.pdf')) && /경로가 맞지 않/.test(thErr('thermal/../sign/x.pdf')) && /경로가 맞지 않/.test(thErr('')), '열화상 드라이브: thermal/ 밖·이상한 경로는 거절');
+  const nb0 = Utilities.newBlob; Utilities.newBlob = (b, t) => Object.assign(nb0(b, t), { setContentType(t2) { this.type = t2; return this; } });   // 진짜 Blob 에는 있는 함수
+  S.obj[TP] = { data: [37, 80, 68, 70, 45, 49], type: 'application/pdf' };
+  const t1 = thermalDrive_(TP, '2026-11-20_열화상점검-EPS/1층?.pdf');
+  ok(t1.ok && t1.name === '2026-11-20_열화상점검-EPS 1층 .pdf' && /drive\.google\.com\/file\/d\//.test(t1.url) && D.files[t1.id].path === '시설팀 통합업무/20_업무지원/열화상점검/2026-11' && D.files[t1.id].sharing === 'ANYONE_WITH_LINK:VIEW', '열화상 드라이브: 폴더(열화상점검/연-월)·이름 정리·링크 보기 공유');
+  const nBefore = Object.keys(D.files).length, t2 = thermalDrive_(TP, '2026-11-20_열화상점검-EPS/1층?.pdf');
+  ok(t2.id === t1.id && Object.keys(D.files).length === nBefore, '열화상 드라이브: 같은 PDF를 다시 백업해도 파일은 하나');
+  S.obj['thermal/2026-11/' + 'b'.repeat(32) + '.pdf'] = { data: [1, 2, 3, 4, 5], type: 'application/pdf' };
+  ok(/PDF 파일이 아닙니다/.test(thErr('thermal/2026-11/' + 'b'.repeat(32) + '.pdf', 'x')), '열화상 드라이브: PDF 모양이 아니면 거절');
+
   console.log(fail ? '\n드라이브 옮기기 시험 실패 ' + fail + '개' : '\n드라이브 옮기기 시험 통과');
   process.exit(fail ? 1 : 0);
 })().catch(x => { console.log('ERR ' + x.message + '\n' + x.stack); process.exit(1); });

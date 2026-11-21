@@ -4,7 +4,7 @@
 -- 설계: docs/설계/WS_공조기환기온도.md
 --
 --  · ahu_unit  = 공조기 목록 38대 (엑셀 「공조기 운영 및 온도일지」 순서). 매장이 바뀌면 이 표만 고침
---  · ahu_temp  = 하루 한 줄: 외기온도·습도·냉수공급온도 × 12:00·16:00 + 공조기 환기온도(temps)
+--  · ahu_temp  = 하루 한 줄: 외기온도·습도·냉수공급온도 × 11:00·16:00 (칸 이름 「12」 = 첫 회차 11:00, 결정 196) + 공조기 환기온도(temps)
 --  · 저장은 **고친 칸만** 받아 합침 → 12:00(휴대폰)과 16:00(PC)을 다른 사람이 넣어도 서로 안 지움
 --  · 날씨·최저·최고·습도는 같은 날 종합업무일지(daily_log)에서 읽기만. 습도 칸(humidity)은 여기서 더함 (11_cutover.sql ws_log_weather 가 채움)
 -- ============================================================================
@@ -150,7 +150,7 @@ begin
     if raw = '' then v := v || jsonb_build_object(k, null); continue; end if;
     rg := public.ws_ahu_range(k);
     if raw !~ '^-?\d+(\.\d+)?$' or raw::numeric < rg[1] or raw::numeric > rg[2] then
-      return jsonb_build_object('ok', false, 'error', (nm->>left(k, 5)) || ' ' || right(k, 2) || ':00 칸은 ' || rg[1] || ' ~ ' || rg[2] || ' 숫자로 넣어 주세요');
+      return jsonb_build_object('ok', false, 'error', (nm->>left(k, 5)) || ' ' || case right(k, 2) when '12' then '11' else right(k, 2) end || ':00 칸은 ' || rg[1] || ' ~ ' || rg[2] || ' 숫자로 넣어 주세요');
     end if;
     v := v || jsonb_build_object(k, round(raw::numeric, 1));
   end loop;
@@ -159,12 +159,12 @@ begin
       if not exists (select 1 from public.ahu_unit where no = u and active) then return jsonb_build_object('ok', false, 'error', '공조기 ' || u || '은(는) 목록에 없습니다'); end if;
       if jsonb_typeof(c->'temps'->u) <> 'object' then continue; end if;
       for h, raw in select key, value from jsonb_each_text(c->'temps'->u) loop
-        if h not in ('12', '16') then return jsonb_build_object('ok', false, 'error', '점검 시각은 12:00·16:00만 됩니다'); end if;
+        if h not in ('12', '16') then return jsonb_build_object('ok', false, 'error', '점검 시각은 11:00·16:00만 됩니다'); end if;
         raw := btrim(coalesce(raw, ''));
         n := null;
         if raw <> '' then
           if raw !~ '^-?\d+(\.\d+)?$' or raw::numeric < -10 or raw::numeric > 50 then
-            return jsonb_build_object('ok', false, 'error', u || ' ' || h || ':00 환기온도는 -10 ~ 50 숫자로 넣어 주세요');
+            return jsonb_build_object('ok', false, 'error', u || ' ' || case h when '12' then '11' else h end || ':00 환기온도는 -10 ~ 50 숫자로 넣어 주세요');
           end if;
           n := round(raw::numeric, 1);
         end if;

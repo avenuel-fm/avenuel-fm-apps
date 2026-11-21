@@ -89,7 +89,7 @@ async function openMap(p) {
   // ── 소장 · PC ──
   const p = await open(b, TOK.boss);
   const tiles = await p.locator('.grid6 .tile').allInnerTexts();
-  ok(tiles.length === 6 && /지도/.test(tiles[5]) && tiles.filter(t => /작업중/.test(t)).length === 1 && /시방서 검색/.test(tiles[3]) && /자재현황/.test(tiles[4]) && /준비중/.test(tiles[4]), '1) 메인 6번째(환경설정 위) 칸이 「지도」, 4번째 「시방서 검색」(결정 140), 5번째 「자재현황 · 준비중」(결정 168), 작업중 1칸');
+  ok(tiles.length === 7 && /지도/.test(tiles[5]) && /CAD/.test(tiles[6]) && tiles.filter(t => /작업중/.test(t)).length === 1 && /시방서 검색/.test(tiles[3]) && /자재현황/.test(tiles[4]) && /준비중/.test(tiles[4]), '1) 메인 6번째 칸이 「지도」, 7번째(환경설정 위) 칸이 「CAD」(결정 184), 4번째 「시방서 검색」(결정 140), 5번째 「자재현황 · 준비중」(결정 168), 작업중 1칸');
   let f = await openMap(p);
   ok(new URL(p.url()).pathname === '/ws/app.html' && await f.evaluate(() => !!document.querySelector('#map-container svg rect')), '2) 업무지원 화면 안에서 열림 · 로그인 표로 받은 주소로 그림');
   ok(!fs.readFileSync(path.join(FM, 'map', 'js', 'config', 'floors.js'), 'utf8').includes('amazonaws'), '3) 공개 코드(floors.js)에 도면 주소 없음');

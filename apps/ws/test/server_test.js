@@ -761,20 +761,10 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   g = logGet(lt4, '');
   assert(g.cur && g.cur['날씨'] === '흐림' && g.cur['미세먼지등급'] === '좋음' && g.cur['작성자'] === '네이버 날씨', '날씨: 예약이 빠졌어도 1시 뒤 처음 열 때 채움');
   assert(books[setting_('일지시트ID')].sheets['일지'].rows[0].slice(-1)[0] === '비고', '일지: 비고 열은 맨 끝');
-  // 공조기·에어커튼 가동 (결정 120): 온습도 앱 읽기 주소
-  const ur = (date, unit, s, e, off) => ({ site: 'mall-001', date, unit, startMin: s, endMin: e, off: !!off });
-  AC.hvac = [ur('2026-11-16', 28, 600, 1220), ur('2026-11-16', 12, null, null, 1), ur('2026-11-16', 3, 600, 1200), ur('2026-11-01', 28, 600, 1200), ur('2026-10-31', 28, 600, 1200), ur('2025-11-16', 28, 600, 1200)];
-  AC.curtain = [ur('2026-11-16', 'B1G24-1', 600, 1170), ur('2026-11-16', 'B1G24-2', 600, null)];
-  const cc = CacheService.getScriptCache(); cc.remove('lgac_2026-11-16');
-  g = logGet(lt4, '');
-  const hv = g.ac.hvac, ct = g.ac.curtain;
-  assert(hv.total === 38 && hv.entered === 2 && hv.off === 1 && hv.c.d === 10.3 && hv.c.m === 20.3 && hv.c.y === 30.3 && hv.p.d === 10 && hv.p.m === 10, '가동: 공조기 그날·월·년 합 · 전년 · 입력·미가동 대수 (3번 뺌) ' + JSON.stringify([hv.c, hv.p, hv.entered, hv.off]));
-  assert(hv.groups[0][0] === '6층' && hv.groups[0][1][0] === 10.3 && hv.groups[4][1][3] === 0 && hv.groups[4][1][0] === null, '가동: 층별 장비 막대 값 (미가동 0, 안 쓴 장비 빈칸)');
-  assert(ct.total === 36 && ct.entered === 1 && ct.c.d === 9.5 && ct.p.d === null && ct.groups[0][1][1] === null, '가동: 에어커튼 · 종료 시각 없으면 아직 입력 안 함 · 전년 없으면 빈칸');
-  const a0 = AC.calls; logGet(lt4, ''); assert(AC.calls === a0, '가동: 10분 동안은 다시 읽지 않음');
-  AC.fail = true; cc.remove('lgac_2026-11-16');
-  g = logGet(lt4, '');
-  assert(g.ok && g.ac.err && g.cur, '가동: 온습도 앱을 못 읽어도 일지는 열림 (' + g.ac.err + ')');
-  AC.fail = false;
+  // 공조기·에어커튼 가동 (결정 120 → 194): 기록이 Supabase 로 옮겨 가 구글 판 일지는 「Supabase 판에서 봅니다」만, 옛 앱은 안 부름
+  const a0 = AC.calls; g = logGet(lt4, '');
+  assert(g.ok && g.cur && /Supabase/.test(g.ac.err) && AC.calls === a0, '가동: 구글 판 일지는 옛 온습도 앱을 부르지 않고 열림 (' + g.ac.err + ')');
+  const la = JSON.parse(doGet({ parameter: { api: 'logac', day: '2026-11-16' } }).getContent());
+  assert(la.ok && la.day === '2026-11-16' && !la.ac && AC.calls === a0, '가동: ?api=logac 는 날씨 채우기만 (가동 자료 없음)');
   void s2;
 }

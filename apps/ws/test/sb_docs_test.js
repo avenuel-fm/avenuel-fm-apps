@@ -143,7 +143,7 @@ const FAKE = `window.supabase = { createClient() {
 const H2P = "window.html2pdf=function(){const o={set(){return o},from(){return o},outputPdf(){return Promise.resolve('data:application/pdf;filename=generated.pdf;base64,'+btoa('%PDF-1.4 '+'x'.repeat(300)))}};return o};";
 // 앱 안 PDF 보기 시험용 pdf.js 흉내: %PDF 로 시작하는 자료면 2쪽, 아니면 읽기 실패
 const PDFJS_FAKE = "window.pdfjsLib={GlobalWorkerOptions:{},getDocument(src){window.PV_SRC=src;const ok=src.data&&src.data[0]===37&&src.data[1]===80;return{promise:ok?Promise.resolve({numPages:2,getPage:async i=>({getViewport:({scale})=>({width:842*scale,height:595*scale}),render:({canvasContext})=>{canvasContext.fillRect(0,0,20,20);window.PV_DRAWN=(window.PV_DRAWN||0)+1;return{promise:Promise.resolve()}}})}):Promise.reject(new Error('Invalid PDF structure'))}}};";
-let AC_ASKED = '', AC_N = 0, AC_DELAY = 0, GAS_PDF = [];
+let AC_ASKED = '', WX_ASKED = '', AC_N = 0, AC_DELAY = 0, GAS_PDF = [];
 const srv = http.createServer((req, res) => {
   let body = ''; req.on('data', d => body += d); req.on('end', () => {
     const u = new URL(req.url, 'http://x');
@@ -152,6 +152,11 @@ const srv = http.createServer((req, res) => {
       const fn = u.pathname.slice(5), a = JSON.parse(body || '{}');
       CALLS.push({ fn, a });
       if (a.p_token !== TK && !/^ws_(check_|eh_view)/.test(fn)) return j({ err: 'LOGIN' });   // QR 점검·필증 보기는 표 없이
+      if (fn === 'ws_log_ac') {   // 공조기·에어커튼 가동시간 (19_climate.sql, 결정 194) — 늦게 와도 일지가 먼저 보이는지
+        AC_N++; AC_ASKED = fn + ' ' + a.p_day + ' ' + a.p_prev;
+        const k = n => ({ name: n, total: 2, entered: 1, off: 0, groups: [['1층', [3.5, null]]], c: { d: 3.5, m: 10, y: 100 }, p: { d: 2, m: 9, y: 90 } });
+        return setTimeout(() => j({ data: { ok: true, day: a.p_day, ac: { hvac: k('공조기'), curtain: k('에어커튼') } } }), AC_DELAY);
+      }
       try { return j({ data: RPC[fn](a) }); } catch (e) { return j({ err: e.message }); }
     }
     if (u.pathname === '/upload') { UPLOADS.push(JSON.parse(body)); return j({}); }
@@ -176,17 +181,15 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await c.route('https://cdn.jsdelivr.net/npm/@supabase/**', r => r.fulfill({ contentType: 'application/javascript', body: FAKE }));
   await c.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
   await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().indexOf('html2pdf') !== -1 ? H2P : /pdf\.js\/[\d.]+\/pdf\.min\.js$/.test(r.request().url()) ? PDFJS_FAKE : '' }));
-  await c.route('https://script.google.com/**', r => {   // 구글 웹앱 ?api=logac (공조기 가동시간)
+  await c.route('https://script.google.com/**', r => {   // 구글 웹앱 ?api=logac (날씨 채우기) · ?api=pdf
     const u = new URL(r.request().url());
     if (u.searchParams.get('api') === 'pdf') {   // 드라이브로 옮긴 PDF 대신 받기
       GAS_PDF.push(u.searchParams.get('id'));
       const good = /^DRIVE/.test(u.searchParams.get('id'));
       return r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(good ? { ok: true, name: 'a.pdf', b64: Buffer.from('%PDF-1.4 drive').toString('base64') } : { ok: false, error: '볼 수 없는 파일입니다' }) });
     }
-    AC_N++; AC_ASKED = u.searchParams.get('api') + ' ' + u.searchParams.get('day');
-    const k = n => ({ name: n, total: 2, entered: 1, off: 0, groups: [['1층', [3.5, null]]], c: { d: 3.5, m: 10, y: 100 }, p: { d: 2, m: 9, y: 90 } });
-    const go = () => r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, day: u.searchParams.get('day'), ac: { hvac: k('공조기'), curtain: k('에어커튼') } }) });
-    if (AC_DELAY) setTimeout(go, AC_DELAY); else go();   // 실제는 처음 받는 날 6~9초
+    WX_ASKED = u.searchParams.get('api') + ' ' + u.searchParams.get('day');   // ?api=logac = 날씨 빠진 날 채우기만 (기다리지 않음)
+    r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, day: u.searchParams.get('day') }) });
   });
   await c.addInitScript(tk => { try { localStorage.setItem('ws_token', tk); localStorage.setItem('ws_dev_at', '2026-11-14'); } catch (e) {} }, TK);
   const p = await c.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
@@ -214,18 +217,17 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.locator('.tbph').first().locator('input[type=file]').nth(1).setInputFiles(path.join(__dirname, 'gauge.jpg'));
   await p.waitForFunction(() => S.tbm && S.tbm.up.meet);
   await p.click('.nwbar button:text-is("저장")');
-  ok(await toast('저장했습니다'), '7) TBM 저장');
-  const up = UPLOADS.find(x => /^tbm_meet\//.test(x.p)), ts = last('ws_tbm_save').a;
+  ok(await toast('저장하고 PDF도 만들었습니다'), '7) TBM 저장 (PDF도 같이, 결정 176)');
+  const up = UPLOADS.find(x => /^tbm_meet\//.test(x.p)), ts = last('ws_tbm_save_pdf').a;
   ok(up && /^tbm_meet\/\d{4}-\d{2}\/[a-z0-9]+\.jpg$/.test(up.p) && up.type === 'image/jpeg', '8) 회의 사진을 버킷 tbm_meet/ 아래 JPEG로 올림 ' + (up && up.p));
   ok(ts.p_files.meet && ts.p_files.meet.path === up.p && !('meet' in ts.p_d) && ts.p_d.works.length === 1, '9) DB 함수에는 사진 주소만 (사진 내용은 안 보냄)');
-  await p.click('.nwbar button:text-is("PDF로 저장")');
-  ok(await toast('PDF로 저장했습니다'), '10) TBM PDF로 저장');
+  ok(ts.p_files.pdf && await p.locator('.nwbar button.pri').count() === 0, '10) 저장 하나로 PDF까지 · 남색 저장 버튼은 [PDF 보기]로 바뀜');
   const pu = UPLOADS.find(x => /^tbm_pdf\//.test(x.p)), tp = last('ws_tbm_save_pdf').a;
   ok(pu && pu.type === 'application/pdf' && /\.pdf$/.test(pu.p) && tp.p_files.pdf.path === pu.p && tp.p_sign_ids.join() === 'SG1', '11) PDF를 버킷 tbm_pdf/ 에 올리고 서명 번호 넘김');
-  ok(await p.locator('a.btn.pri', { hasText: 'PDF 열기' }).getAttribute('href') === tp.p_files.pdf.url, '12) [PDF 열기] = 버킷 공개 주소');
+  ok(await p.locator('a.btn', { hasText: 'PDF 보기' }).first().getAttribute('href') === tp.p_files.pdf.url, '12) [PDF 보기] = 버킷 공개 주소');
   // ── 앱 안 PDF 보기 (계정 선택 창 없이) ──
   const pages0 = c.pages().length;
-  await p.click('a.btn.pri:has-text("PDF 열기")');
+  await p.click('.nwbar a.btn:has-text("PDF 보기")');
   await p.locator('#pvPages canvas').nth(1).waitFor();
   await p.waitForFunction(() => window.PV_DRAWN >= 2);
   ok(c.pages().length === pages0 && await p.evaluate(() => S.view) === 'pdf' && /PDF 보기/.test(await p.locator('.top').innerText()), 'PV1) [PDF 열기] → 새 창 없이 앱 안 「PDF 보기」');
@@ -243,7 +245,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.click('.pv-bar button:has-text("공유")');
   ok(await p.evaluate(() => window.SHARED && window.SHARED.url) === tp.p_files.pdf.url, 'PV6) 공유 = PDF 링크 (받는 사람은 로그인 없이 봄)');
   await p.click('.pv-bar button:has-text("뒤로")');
-  ok(await p.evaluate(() => S.view) === 'tbm' && await p.locator('a.btn.pri:has-text("PDF 열기")').count() === 1, 'PV7) 뒤로 → TBM 화면 그대로');
+  ok(await p.evaluate(() => S.view) === 'tbm' && await p.locator('.nwbar a.btn:has-text("PDF 보기")').count() === 1, 'PV7) 뒤로 → TBM 화면 그대로');
   const openPv = async (url, name) => { await p.evaluate(([u, n]) => { const a = document.createElement('a'); a.href = u; a.dataset.pv = JSON.stringify({ name: n, sub: '시험 ›' }); pdfOpen(a); }, [url, name]); };
   await openPv('https://drive.google.com/file/d/DRIVE_abcdefghijklmnop123/view', 'old.pdf');
   await p.locator('#pvPages canvas').nth(1).waitFor();
@@ -258,7 +260,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(await p.evaluate(() => S.view) === 'tbm', 'PV11) 실패 화면에서도 뒤로 → TBM');
   // 「PDF 저장됨 …」 안내 줄 링크 — PDF 뒤 서명이 늘면 아래 버튼이 [PDF로 저장]이 되어 이 링크만 남음 (11-14 휴대폰에서 계정 창)
   const pages1 = c.pages().length;
-  await p.click('.banner a:has-text("PDF 열기")');
+  await p.click('.banner a:has-text("PDF 보기")');
   await p.locator('#pvPages canvas').nth(1).waitFor();
   ok(c.pages().length === pages1 && await p.evaluate(() => S.view) === 'pdf' && new RegExp(D + "_TBM\.pdf").test(await p.locator('.pv-tool').innerText()), 'PV12) 안내 줄 [PDF 열기]도 새 창 없이 앱 안에서');
   await p.click('.pv-bar button:has-text("뒤로")');
@@ -272,21 +274,19 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(t1 < 2500 && /불러오는 중/.test(wait), '14-1) 일지: 공조기를 기다리지 않고 먼저 보임 (' + t1 + 'ms · ' + wait + ')');
   await p.locator('.acb[data-ac="공조기"]').waitFor({ timeout: 8000 }); AC_DELAY = 0;
   ok(await p.locator('.lgac .acerr').count() === 0, '14-2) 도착하면 그 칸만 채움');
-  ok(AC_ASKED === 'logac ' + D && await p.locator('.acb[data-ac="공조기"]').count() === 1, '14) 일지: 공조기 가동시간은 구글 ?api=logac 에서 (' + AC_ASKED + ')');
+  ok(AC_ASKED === 'ws_log_ac ' + D + ' ' + (Number(D.slice(0, 4)) - 1) + D.slice(4) && WX_ASKED === 'logac ' + D && await p.locator('.acb[data-ac="공조기"]').count() === 1, '14) 일지: 공조기 가동시간은 Supabase ws_log_ac 에서 · 구글은 날씨 채우기만 (' + AC_ASKED + ' / ' + WX_ASKED + ')');
   const lsg = await p.locator('#lgSheet .lgsign td').evaluateAll(t => t.map(x => { const i = x.querySelector('img'); return i ? i.alt : ''; }).join(','));
   ok(lsg === ',,홍길동 서명,홍길동 서명', '14-3) 일지 서명란: 서버가 고른 서명 그림 (부소장·소장 칸) ' + lsg);
   await p.locator('#lgSheet .lghead').screenshot({ path: path.join(__dirname, 'shot_sb_log_sign.png') });
   await p.fill('input.lgin[data-k="전기"]', '1234');
-  await p.click('#lgSave');
-  ok(await toast('저장했습니다'), '15) 일지 저장');
-  const ls = last('ws_log_save').a;
-  ok(ls.p_day === D && ls.p_ver === '' && ls.p_d['전기'] === '1234' && ls.p_d.works['전기방재'][0] === '1층 등 교체' && JSON.stringify(ls.p_files) === '{}', '16) DB 함수에 숫자·금일작업(TBM에서) 넘김');
+  const n15 = count('ws_log_save_pdf'); await p.click('#lgSave');
+  ok(await called('ws_log_save_pdf', n15) && await toast('저장하고 PDF도 만들었습니다'), '15) 일지 저장 = 저장 + PDF 한 번에 (결정 176)');
+  const ls = last('ws_log_save_pdf').a;
+  ok(ls.p_day === D && ls.p_ver === '' && ls.p_d['전기'] === '1234' && ls.p_d.works['전기방재'][0] === '1층 등 교체' && Object.keys(ls.p_files).join() === 'pdf', '16) DB 함수에 숫자·금일작업(TBM에서) 넘김');
   ok(AC_N === 1, '17) 저장 뒤 공조기는 10분 기억 (구글 다시 안 부름)');
-  const n18 = count('ws_log_save_pdf'); await p.click('#lgPdf');
-  ok(await called('ws_log_save_pdf', n18) && await toast('PDF로 저장했습니다'), '18) 일지 PDF로 저장');
-  const lp = last('ws_log_save_pdf').a, lu = UPLOADS.find(x => /^log_pdf\//.test(x.p));
-  ok(lu && lp.p_files.pdf.path === lu.p && lp.p_d === null && lp.p_ver === LOG[D].ver, '19) 고친 것 없으면 PDF만 (저장 안 함, ver 넘김)');
-  ok(await p.locator('#lgBar a', { hasText: 'PDF 열기' }).getAttribute('href') === lp.p_files.pdf.url, '20) 일지 [PDF 열기] = 버킷 주소');
+  const lp = ls, lu = UPLOADS.find(x => /^log_pdf\//.test(x.p));
+  ok(lu && lp.p_files.pdf.path === lu.p && await p.locator('#lgBar button.pri').count() === 0, '18-19) PDF는 버킷 log_pdf/ 에, 저장 자리는 [PDF 보기]로');
+  ok(await p.locator('#lgBar a', { hasText: 'PDF 보기' }).getAttribute('href') === lp.p_files.pdf.url, '20) 일지 [PDF 보기] = 버킷 주소');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_log.png') });
 
   // ── 공조기 환기온도 (결정 128): PC = 종이 위에 바로 ──
@@ -297,23 +297,40 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.locator('.hvsh').screenshot({ path: path.join(__dirname, 'shot_sb_ahu_sign.png') });
   await p.fill('input.lgin[data-u="7F-39"][data-t="12"]', '22.3'); await p.fill('input.lgin[data-k="out_t12"]', '9.8');
   ok(/저장 안 함/.test(await p.locator('#ahuState').innerText()), 'A2) 고치면 「저장 안 함」');
-  await p.click('#ahuSave');
-  ok(await toast('저장했습니다') && JSON.stringify(last('ws_ahu_save').a.p_c) === '{"temps":{"7F-39":{"12":"22.3"}},"out_t12":"9.8"}' && last('ws_ahu_save').a.p_day === D, 'A3) 저장: 고친 칸만 넘김 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
-  const na = count('ws_ahu_save_pdf'); await p.click('#ahuPdf');
-  ok(await called('ws_ahu_save_pdf', na) && await toast('PDF로 저장했습니다'), 'A4) 공조기 PDF 만들기');
+  const na = count('ws_ahu_save_pdf'), nsv = count('ws_ahu_save'); await p.click('#ahuSave');
+  ok(await called('ws_ahu_save', nsv) && await toast('저장하고 PDF도 만들었습니다') && JSON.stringify(last('ws_ahu_save').a.p_c) === '{"temps":{"7F-39":{"12":"22.3"}},"out_t12":"9.8"}' && last('ws_ahu_save').a.p_day === D, 'A3) 저장: 고친 칸만 넘김 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
+  ok(await called('ws_ahu_save_pdf', na), 'A4) 공조기 저장 = 저장 + PDF (결정 176)');
   const au = UPLOADS.find(x => /^ahu_pdf\//.test(x.p));
-  ok(au && last('ws_ahu_save_pdf').a.p_file.path === au.p && await p.locator('#ahuBar a', { hasText: 'PDF 열기' }).getAttribute('href') === last('ws_ahu_save_pdf').a.p_file.url, 'A5) PDF는 버킷 ahu_pdf/ 에, [PDF 열기] = 그 주소');
+  ok(au && last('ws_ahu_save_pdf').a.p_file.path === au.p && await p.locator('#ahuBar a', { hasText: 'PDF 보기' }).getAttribute('href') === last('ws_ahu_save_pdf').a.p_file.url, 'A5) PDF는 버킷 ahu_pdf/ 에, [PDF 보기] = 그 주소');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_ahu_pc.png') });
-  // 휴대폰 = 12:00·16:00 골라 한 대씩
+  // 휴대폰 = 11:00·16:00 골라 한 대씩
   await p.setViewportSize({ width: 390, height: 800 });
   await p.evaluate(() => { S.ahu.slot = '16'; render(); });
-  ok(await p.locator('.hvr').count() === 3 && /12:00 · 22\.3℃/.test(await p.locator('.hvr').first().innerText()) && /입력 1\/3/.test(await p.locator('#ahuCnt12').innerText()), 'A6) 휴대폰: 16:00 고르면 줄마다 12:00 값 회색, 입력 수');
+  ok(await p.locator('.hvr').count() === 3 && /11:00 · 22\.3℃/.test(await p.locator('.hvr').first().innerText()) && /입력 1\/3/.test(await p.locator('#ahuCnt12').innerText()), 'A6) 휴대폰: 16:00 고르면 줄마다 12:00 값 회색, 입력 수');
   await p.fill('.hvr input[data-u="6F-36"]', '23.5'); await p.fill('input.inp[data-k="cw_t16"]', '7.4');
   ok(/입력 1\/3/.test(await p.locator('#ahuCnt16').innerText()), 'A7) 넣는 동안 입력 수 바뀜 (16:00 1/3)');
-  await p.click('#ahuSave');
-  ok(await toast('저장했습니다') && JSON.stringify(last('ws_ahu_save').a.p_c) === '{"temps":{"6F-36":{"16":"23.5"}},"cw_t16":"7.4"}' && AHU[D].temps['7F-39']['12'] === 22.3, 'A8) 휴대폰 저장도 고친 칸만 (12:00 값 그대로)');
+  const ns2 = count('ws_ahu_save'); await p.click('#ahuSave');
+  ok(await called('ws_ahu_save', ns2) && JSON.stringify(last('ws_ahu_save').a.p_c) === '{"temps":{"6F-36":{"16":"23.5"}},"cw_t16":"7.4"}' && AHU[D].temps['7F-39']['12'] === 22.3, 'A8) 휴대폰 저장도 고친 칸만 (12:00 값 그대로)');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_ahu_m.png'), fullPage: true });
   await p.setViewportSize({ width: 1280, height: 900 });
+  // 칸 검사 (김종우 PC 「저장 안 함」 11-20): 숫자 아닌 글자 → 서버에 안 보내고 그 칸 빨갛게 + 이유를 아래 줄에
+  await p.evaluate(() => { window.print = () => {}; render(); });
+  const n9 = count('ws_ahu_save');
+  await p.fill('input.lgin[data-u="7F-39"][data-t="16"]', '정지'); await p.click('#ahuSave');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_ahu_bad.png') });
+  const er = await p.locator('#ahuState').innerText();
+  ok(count('ws_ahu_save') === n9 && /고칠 칸 1개/.test(er) && /7F-39 16:00/.test(er) && await p.locator('input.lgin.bad[data-u="7F-39"][data-t="16"]').count() === 1, 'A9) 글자 넣고 저장 → 서버에 안 보냄 · 칸 빨간 표시 · 이유가 아래 줄에 남음 ' + er);
+  await p.fill('input.lgin[data-u="7F-39"][data-t="16"]', '23,5℃');
+  ok(/저장 안 함/.test(await p.locator('#ahuState').innerText()) && await p.locator('input.lgin.bad').count() === 0, 'A10) 「23,5℃」는 숫자로 봐 줌 → 빨간 표시 사라짐');
+  const n11 = count('ws_ahu_save'); await p.click('#ahuSave');
+  ok(await called('ws_ahu_save', n11) && await toast('저장하고 PDF도 만들었습니다') && last('ws_ahu_save').a.p_c.temps['7F-39']['16'] === '23.5', 'A11) 쉼표·℃는 「23.5」로 고쳐 보냄 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
+  await p.waitForFunction(() => !S.ahu.busy && !S.ahu.pdfBusy);   // 저장 뒤 PDF 만드는 동안은 값을 넣어도 먼저 저장하지 않음
+  await p.fill('input.lgin[data-u="7F-39"][data-t="12"]', '22.9'); const nb = count('ws_ahu_save');
+  await p.click('button:has-text("인쇄 (B4)")');
+  ok(await called('ws_ahu_save', nb) && last('ws_ahu_save').a.p_c.temps['7F-39']['12'] === '22.9', 'A12) 저장 안 한 값이 있으면 인쇄 전에 먼저 저장');
+  await p.locator('#ahuState', { hasText: '저장됨' }).waitFor();
+  const sv = await p.evaluate(() => { const g = S.ahu; return ahuLate({ temps: { '7F-39': { 16: '30' } }, out_t12: '8' }, { temps: { '7F-39': { 16: '29' } }, out_t12: '8' }) || [g.v.temps['7F-39'][16], JSON.stringify(g.ch)]; });
+  ok(sv[0] === '30' && sv[1] === '{"temps":{"7F-39":{"16":"30"}}}', 'A13) 저장하는 사이 더 넣은 값은 다시 「저장 안 함」으로 남김 ' + sv);
 
   // ── 출근현황 (3-3) ──
   await p.setViewportSize({ width: 390, height: 800 });

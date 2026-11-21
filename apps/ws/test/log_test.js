@@ -30,8 +30,8 @@ async function open(b, opt) {
   ok(await p.locator('.lgs h1').innerText() === '에비뉴엘 종합업무일지' && await p.locator('.lgsign th').count() === 4, '제목 · 서명란 4칸');
   ok(await p.locator('.lgmc').count() === 8 && await p.locator('.lgmh .lgin').count() === 8 && !(await p.locator('[data-bars="급탕"],[data-bars="실온수"]').count()), '에너지 막대 칸 8개 (급탕·환탕·급탕탱크·실온수 뺌)');
   ok(await p.locator('.lgwork li').count() === 20 && !(await p.locator('textarea[data-k="비고"]').count()), '금일작업 10줄씩 · 비고 칸 없음');
-  const ac = await p.evaluate(() => [...document.querySelectorAll('.lgac .acb')].map(e => e.querySelector('.ach span').innerText + '|' + e.querySelector('.acs em').innerText + '|' + e.querySelectorAll('.bb i').length + '|' + e.querySelectorAll('.bb i.off').length));
-  ok(ac.join(' / ') === '입력 2/38대 · 미가동 1대|10.3|38|1 / 입력 1/36대 · 미가동 0대|9.5|36|0', '공조기·에어커튼 가동: 대수·일일 합·장비 막대 (3번 뺌) ' + ac.join(' / '));
+  const ac = await p.locator('.lgac .acerr').innerText();
+  ok(/불러오지 못했습니다/.test(ac) && !(await p.locator('.lgac .acb').count()), '공조기·에어커튼 가동: 구글 판은 「불러오지 못함」 (기록은 Supabase 로 옮김, 결정 194) — ' + ac);
   const ly = await p.evaluate(() => { const e = document.querySelector('.lgegrid'), a = document.querySelector('.lgac'), w = document.querySelector('.lgrow'); return e.getBoundingClientRect().bottom <= a.getBoundingClientRect().top && a.getBoundingClientRect().bottom <= w.getBoundingClientRect().top; });
   ok(ly, '가동 칸 = 에너지 사용량 아래, 금일작업 위');
   ok(!(await p.locator('.lgtools,.lgchip').count()), '종이 위 문구·TBM 줄 없음');
@@ -82,18 +82,21 @@ async function open(b, opt) {
   await p.evaluate(() => { window.print = () => { window.__printed = true; }; });
   await p.click('#lgBar button:has-text("인쇄")'); await p.waitForFunction(() => window.__printed);
   const pr = await p.evaluate(() => ({ css: $('print').innerHTML.indexOf('size:364mm 257mm') !== -1, inputs: $('print').querySelectorAll('input,button,.lgchip').length, v: $('print').innerText.indexOf('102') !== -1, img: $('print').querySelectorAll('.lgnight img').length, ac: $('print').querySelectorAll('.lgac .acb').length }));
-  ok(pr.css && pr.inputs === 0 && pr.v && pr.img === 1 && pr.ac === 2, '인쇄: B4 가로(364×257mm) · 입력칸·버튼 없이 값·가동 칸·야간 그림만');
+  ok(pr.css && pr.inputs === 0 && pr.v && pr.img === 1 && pr.ac === 0, '인쇄: B4 가로(364×257mm) · 입력칸·버튼 없이 값·가동 칸·야간 그림만');
   await p.emulateMedia({ media: 'print' });
   const sz = await p.evaluate(() => { const r = $('print').querySelector('.lgs').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
   ok(Math.abs(sz[0] - 1376) <= 2 && sz[1] <= 972, '인쇄 크기 ' + sz.join('×') + 'px = 364×257mm 안');
   await p.screenshot({ path: 'shot_log_print.png' });
   await p.emulateMedia({ media: 'screen' });
   // PDF
-  await p.click('#lgPdf'); await p.waitForFunction(() => S.lg && !S.lg.busy && S.lg.pdf);
+  await p.locator('.lgin[data-k="중수"]').fill('62.5'); await p.click('#lgSave'); await p.waitForFunction(() => S.lg && !S.lg.busy && !S.lg.dirty && S.lg.pdf);
   const ps = await p.evaluate(() => [window.__pdfSet.jsPDF.format.join('x'), window.__pdfEl.querySelectorAll('input').length, window.__pdfEl.offsetWidth === 0]);
   g = await run('logGet', tk, day);
   ok(ps[0] === '364x257' && ps[1] === 0 && g.pdf && g.pdf.id, 'PDF: B4 크기 · 입력칸 없음 · 드라이브 저장');
-  ok(await p.locator('#lgBar a:has-text("PDF 열기")').count() === 1, 'PDF 저장 뒤 [PDF 열기]');
+  ok(await p.locator('#lgBar a:has-text("PDF 보기")').count() === 1 && await p.locator('#lgBar button.pri').count() === 0, '저장 뒤 [저장] 자리가 [PDF 보기]');
+  await p.locator('.lgin[data-k="중수"]').fill('64');
+  ok(await p.locator('#lgBar a:has-text("PDF 보기")').count() === 0 && await p.locator('#lgSave').innerText() === '저장', '고치면 다시 [저장] (남색은 저장 하나)');
+  await p.click('#lgSave'); await p.waitForFunction(() => S.lg && !S.lg.busy && !S.lg.dirty && S.lg.pdf);
   // 지난 날짜 · 앞날 막힘
   await p.click('.nwdate');
   ok(await p.locator('.dialog .atcal button:disabled').count() > 0 || day.slice(8) >= '28', '달력: 앞날은 못 고름');

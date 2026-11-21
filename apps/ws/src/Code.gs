@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.19.8', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.23.3', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -411,6 +411,7 @@ function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (body.action === 'checkSubmit') out = checkSubmit(body.qr, body.d);
+    else if (/^cad(Login|Cats|Prepare|Finish)$/.test(body.action)) out = cadPc_(body);   // PC 변환기 업로드 (WS_CAD.md 10장): PIN 대조
     else throw new Error('알 수 없는 요청');
   } catch (err) {
     out = { ok: false, error: String(err.message || err) };
@@ -471,10 +472,16 @@ function api_(p) {
       if (!p.key || p.key !== PropertiesService.getScriptProperties().getProperty('LINK_KEY')) throw new Error('키가 맞지 않습니다');
       out = summary_();
     } else if (p.api === 'logac') {
-      // Supabase 판 종합업무일지용 공조기·에어커튼 가동시간 (온습도 앱 기록, 결정 120) — 장비 가동시간만이라 키 없이
+      // Supabase 판 종합업무일지가 열릴 때 부름: 날씨가 빠진 날 채우기 (가동시간은 결정 194 로 Supabase 직접) — 키 없이
       const day = logDay_(p.day);
-      if (sbLive_()) logWeatherMaybe_(day);   // 예약이 빠진 날: Supabase 화면이 일지를 열 때 날씨 채움 (구글 판 logGet 과 같음)
-      out = { ok: true, day: day, ac: logAc_(day) };
+      if (sbLive_()) logWeatherMaybe_(day, p.wx === '1');   // 예약이 빠진 날: Supabase 화면이 일지를 열 때 날씨 채움 (구글 판 logGet 과 같음). wx=1 = 공조기 화면: 오후 1시 전에도, 날씨만
+      out = { ok: true, day: day };   // 가동시간은 Supabase ws_log_ac 로 옮김 (결정 192) — 이 통로는 날씨 채우기만
+    } else if (p.api === 'thermaldrive') {
+      // 열화상 작성기(fm/thermal) PDF 저장 → 서버(Supabase)에 올린 PDF를 드라이브로 복사 (결정 168). 올린 파일 이름 모양만 받음
+      out = thermalDrive_(p.path, p.name);
+    } else if (p.api === 'caddrive') {
+      // CAD 변환 도면(DXF) 드라이브 사본: ws-files 의 cad/YYYY-MM/<32자>.dxf 만 → 시설팀 통합업무/20_업무지원/CAD변환파일/YYYY-MM
+      out = cadDrive_(p.path, p.name);
     } else if (p.api === 'pdf') {
       // Supabase 판 앱 안 PDF 보기: 드라이브로 옮긴 PDF를 대신 받아 줌 (브라우저는 드라이브에서 직접 못 받음). 키 없이 — 이미 「링크가 있는 사람 보기」인 PDF만
       out = pdfApi_(p.id);
@@ -485,6 +492,73 @@ function api_(p) {
     out = { ok: false, error: String(err.message || err) };
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** 열화상 PDF 드라이브 백업: Supabase ws-files 의 thermal/YYYY-MM/<32자>.pdf 만 → 시설팀 통합업무/20_업무지원/열화상점검/YYYY-MM. 같은 파일은 두 번 만들지 않음 */
+function thermalDrive_(path, name) {
+  const m = /^thermal\/(\d{4}-\d{2})\/[0-9a-f]{32}\.pdf$/.exec(String(path || ''));
+  if (!m) throw new Error('보고서 PDF 경로가 맞지 않습니다');
+  const nm = (String(name || '').replace(/[\\\/:*?"<>|]/g, ' ').replace(/[\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) || '열화상점검').replace(/(\.pdf)?$/i, '.pdf');
+  const folder = folderPath_(['시설팀 통합업무', '20_업무지원', '열화상점검', m[1]]);
+  const tag = 'thermal:' + path;
+  let id = '';
+  for (const it = folder.getFilesByName(nm); !id && it.hasNext();) { const x = it.next(); if (x.getDescription() === tag) id = x.getId(); }
+  if (!id) {
+    const blob = sbReq_('get', '/storage/v1/object/ws-files/' + path).getBlob();
+    const bytes = blob.getBytes();
+    if (bytes.length > 20 * 1024 * 1024) throw new Error('PDF가 너무 큽니다 (20MB 넘음)');
+    if (bytes.length < 5 || bytes[0] !== 37 || bytes[1] !== 80 || bytes[2] !== 68 || bytes[3] !== 70) throw new Error('PDF 파일이 아닙니다');
+    blob.setContentType('application/pdf');
+    id = saveBlob_(folder, blob, nm, tag);
+  }
+  DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { ok: true, id: id, name: nm, url: driveUrl_(id) };
+}
+
+/** PC 변환기(CAD변환기.exe)의 업로드 — 업무지원 직원 PIN과 대조 (docs/설계/WS_CAD.md 10장, supabase/18_cad.sql)
+ *  cadLogin {pin} → {ok,name,role} · cadCats {pin} → {ok,cats[{id,name}]} · cadPrepare {pin} → {ok,path,uploadUrl} (PC가 파일을 이 주소에 PUT) · cadFinish {pin,path,name,floor,memo,cat_id,size} → 드라이브 사본 + 목록 기록(그 직원 이름으로) */
+function cadPc_(b) {
+  const who = sbReq_('post', '/rest/v1/rpc/ws_cad_pc_check', { p_pin: String(b.pin || '') }).getContentText();
+  const me = JSON.parse(who);
+  if (!me.ok || b.action === 'cadLogin') return me;
+  if (b.action === 'cadCats') return { ok: true, cats: JSON.parse(sbReq_('get', '/rest/v1/cad_cat?select=id,name&order=id').getContentText()) };   // 올릴 때 고를 분류
+  const base = migrateConf_().url;
+  if (b.action === 'cadPrepare') {
+    const ym = Utilities.formatDate(new Date(), TZ, 'yyyy-MM');
+    const path = 'cad/' + ym + '/' + Utilities.getUuid().replace(/-/g, '') + '.dxf';
+    const r = JSON.parse(sbReq_('post', '/storage/v1/object/upload/sign/ws-files/' + path, {}).getContentText());
+    const rel = String(r.url || '');
+    if (!rel) throw new Error('올릴 주소를 받지 못했습니다');
+    return { ok: true, path: path, uploadUrl: /^https:/.test(rel) ? rel : base + '/storage/v1' + (rel.charAt(0) === '/' ? '' : '/') + rel };
+  }
+  const path = String(b.path || '');
+  if (!/^cad\/\d{4}-\d{2}\/[0-9a-f]{32}\.dxf$/.test(path)) throw new Error('도면 파일 경로가 맞지 않습니다');
+  const name = String(b.name || '').trim();
+  if (!name) throw new Error('도면 이름이 없습니다');
+  let drive = '';
+  try { drive = cadDrive_(path, name).url; } catch (e) { if (/없|404|not found/i.test(String(e.message))) throw new Error('올린 파일을 서버에서 찾지 못했습니다. 다시 올려 주세요'); }
+  const r = JSON.parse(sbReq_('post', '/rest/v1/rpc/ws_cad_pc_save', { p_pin: String(b.pin), p_r: { name: name, floor: b.floor || '', memo: b.memo || '', cat_id: b.cat_id || '', path: path, url: base + '/storage/v1/object/public/ws-files/' + path, size: Number(b.size) || 0, drive_url: drive } }).getContentText());
+  if (r.ok) r.name = me.name;
+  r.drive = !!drive;
+  return r;
+}
+
+/** CAD 변환 도면 드라이브 사본 (docs/설계/WS_CAD.md 7장). 같은 파일은 두 번 만들지 않음. 크기 50MB 이하 */
+function cadDrive_(path, name) {
+  const m = /^cad\/(\d{4}-\d{2})\/[0-9a-f]{32}\.dxf$/.exec(String(path || ''));
+  if (!m) throw new Error('도면 파일 경로가 맞지 않습니다');
+  const nm = (String(name || '').replace(/[\\/:*?"<>|]/g, ' ').replace(/[\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) || 'CAD도면').replace(/(\.dxf)?$/i, '.dxf');
+  const folder = folderPath_(['시설팀 통합업무', '20_업무지원', 'CAD변환파일', m[1]]);
+  const tag = 'cad:' + path;
+  let id = '';
+  for (const it = folder.getFilesByName(nm); !id && it.hasNext();) { const x = it.next(); if (x.getDescription() === tag) id = x.getId(); }
+  if (!id) {
+    const blob = sbReq_('get', '/storage/v1/object/ws-files/' + path).getBlob();
+    if (blob.getBytes().length > 50 * 1024 * 1024) throw new Error('도면이 너무 큽니다 (50MB 넘음)');
+    id = saveBlob_(folder, blob, nm, tag);
+  }
+  DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { ok: true, id: id, name: nm, url: driveUrl_(id) };
 }
 
 /** 개선 A: HUB 할 일용 요약 (4일부터 마감 임박, 마감 뒤 미입력) */
@@ -1230,9 +1304,9 @@ function logWeatherFill_(day) {
 /** 예약 작업 (매일 오후 1시) */
 function logWeatherJob_() { logWeatherFill_(workDay_(Date.now())); }
 /** 예약이 빠졌을 때: 오늘 일지를 오후 1시 뒤에 열었는데 날씨가 비었으면 한 번 읽음 (실패하면 30분 동안 다시 안 함) */
-function logWeatherMaybe_(day) {
+function logWeatherMaybe_(day, early) {
   const now = new Date();
-  if (day !== workDay_(now.getTime()) || Number(Utilities.formatDate(now, TZ, 'HH')) < 13) return;
+  if (day !== workDay_(now.getTime()) || (!early && Number(Utilities.formatDate(now, TZ, 'HH')) < 13)) return;
   const cache = CacheService.getScriptCache(), key = 'lgwx_' + day;
   if (cache.get(key)) return;
   try {
@@ -1251,67 +1325,9 @@ function logWeatherMenu_() {
     (w ? '지금 읽어 본 값: ' + LOG_WX.map(function (k) { return k + ' ' + (w[k] || '-'); }).join(' · ') : '지금은 네이버 날씨를 읽지 못했습니다. 화면에서 직접 입력해 주세요.'));
 }
 
-/* 공조기·에어커튼 가동 (결정 120): 같은 계정의 [구역별 온습도 확인] 앱 기록을 그 앱 읽기 주소(listUsage)로 받아 그날·월·년 가동시간 합.
-   그 앱은 고치지 않음. 장비마다 「종료 − 시작」, 미가동 = 0시간, 시작·종료가 빈 장비 = 아직 입력 안 함.
-   shortcut: 주소·키·장비 목록은 온습도 앱 config.json(hvac.floorGroups · curtain.groups)을 옮겨 적음 — 그 앱에서 장비를 더하거나 주소가 바뀌면 여기도 고침 */
-const LOG_AC_URL = 'https://script.google.com/macros/s/AKfycbyCzSYO4rJY989K-PdRWYeWGMxA4imOJx5vDzlsRATmBHJU2Ar4GugtkvFWAmxFEFMT/exec';
-const LOG_AC_TOKEN = 'avenuel02', LOG_AC_SITE = 'mall-001';
-function logAcKeys_(key, n) { const a = []; for (let i = 1; i <= n; i++) a.push(key + '-' + i); return a; }
-const LOG_AC = {   // 목록에 없는 번호(공조기 3·37·38번)는 온습도 앱처럼 뺌
-  hvac: { name: '공조기', groups: [['6층', [28, 32, 34, 36, 39]], ['5층', [27, 29, 30, 31, 33, 35]], ['4층', [21, 22, 23, 24, 25, 26]], ['3층', [15, 16, 17, 18, 19, 20]],
-    ['2층', [9, 10, 11, 12, 13, 14]], ['1층', [4, 5, 6, 7, 8]], ['B1', [1, 2]], ['B3', [40, 41]]] },
-  curtain: { name: '에어커튼', groups: [['B1 24G', logAcKeys_('B1G24', 2)], ['1G OUT', logAcKeys_('1G1OUT', 7)], ['1G IN', logAcKeys_('1G1IN', 5)], ['2G OUT', logAcKeys_('1G2OUT', 3)],
-    ['2G IN', logAcKeys_('1G2IN', 3)], ['6G OUT', logAcKeys_('1G6OUT', 3)], ['6G IN', logAcKeys_('1G6IN', 3)], ['후방 도어', logAcKeys_('1REAR', 8)], ['4·6 브릿지', ['4BR-1', '6BR-1']]] }
-};
-/** 공조기·에어커튼 기록을 동시에 받음 (차례로 받으면 4초씩 두 번) → { hvac: [...], curtain: [...] } */
-function logAcFetch_(days) {
-  const kinds = Object.keys(LOG_AC);
-  const rs = UrlFetchApp.fetchAll(kinds.map(function (kind) {
-    return { url: LOG_AC_URL + '?action=listUsage&kind=' + kind + '&site=' + LOG_AC_SITE + '&days=' + days + '&token=' + LOG_AC_TOKEN, muteHttpExceptions: true, followRedirects: true };
-  }));
-  const out = {};
-  kinds.forEach(function (kind, i) {
-    const r = rs[i], j = r.getResponseCode() === 200 ? jsonOr_(r.getContentText(), null) : null;
-    if (!j || !j.ok || !Array.isArray(j.records)) throw new Error(j && j.error ? j.error : '응답 ' + r.getResponseCode());
-    out[kind] = j.records;
-  });
-  return out;
-}
-/** 그날 장비별 시간 + 올해·전년 일일·월누계·년누계. 못 읽으면 { err } (화면에 「불러오기 실패」) */
-function logAc_(day) {
-  const cache = CacheService.getScriptCache(), key = 'lgac_' + day, hit = cache.get(key);
-  if (hit) return jsonOr_(hit, null);
-  const prev = logPrevYear_(day), from = prev.slice(0, 5) + '01-01';
-  const days = Math.round((Date.parse(workDay_(Date.now()) + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / DAY_MS) + 1;
-  const r1 = function (x) { return Math.round(x * 10) / 10; };
-  let out;
-  try {
-    out = {};
-    const recs = logAcFetch_(days);
-    Object.keys(LOG_AC).forEach(function (kind) {
-      const K = LOG_AC[kind], keys = {}, h = {};   // h[날짜][장비] = 시간
-      K.groups.forEach(function (g) { g[1].forEach(function (u) { keys[String(u)] = 1; }); });
-      recs[kind].forEach(function (r) {
-        const u = String(r.unit), hr = r.off ? 0 : r.startMin != null && r.endMin != null ? Math.max(0, r.endMin - r.startMin) / 60 : null;
-        if (keys[u] && hr != null && r.date >= from && r.date <= day) (h[r.date] = h[r.date] || {})[u] = hr;
-      });
-      const sum = function (a, b) {
-        let s = 0, any = false;
-        Object.keys(h).forEach(function (d) { if (d >= a && d <= b) Object.keys(h[d]).forEach(function (u) { s += h[d][u]; any = true; }); });
-        return any ? r1(s) : null;
-      };
-      const dh = h[day] || {}, set = function (d) { return { d: sum(d, d), m: sum(d.slice(0, 8) + '01', d), y: sum(d.slice(0, 5) + '01-01', d) }; };
-      out[kind] = { name: K.name, total: Object.keys(keys).length, entered: Object.keys(dh).length,
-        off: Object.keys(dh).filter(function (u) { return dh[u] === 0; }).length,
-        groups: K.groups.map(function (g) { return [g[0], g[1].map(function (u) { const v = dh[String(u)]; return v == null ? null : r1(v); })]; }),
-        c: set(day), p: set(prev) };
-    });
-  } catch (e) {
-    out = { err: String(e && e.message || e).slice(0, 100) };
-  }
-  cache.put(key, JSON.stringify(out), out.err ? 300 : day < workDay_(Date.now()) ? 21600 : 600);   // 오늘은 10분마다 새로 (직원이 계속 입력함)
-  return out;
-}
+/* 공조기·에어커튼 가동 (결정 120 → 194): 기록이 Supabase(19_climate.sql)로 옮겨 감 → Supabase 화면이 ws_log_ac 로 직접 읽음.
+   구글 판 일지(logGet)는 더 이상 가동시간을 못 보여 줌 (Supabase 로 바꿔 탄 뒤라 구글 판은 안 씀). */
+function logAc_(day) { return { err: '가동시간은 Supabase 판에서 봅니다' }; }
 
 /* ───────────────────────── 출근현황 (WS_출근현황 15.3.19, 결정 88) ───────────────────────── */
 
