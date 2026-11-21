@@ -1,0 +1,58 @@
+<!doctype html><meta charset="utf-8"><style>
+:root{--navy:#1E3A5F;--sub:#5F6B7A;--line:#D8DDE5;--tint:#F1F4F8;--err:#B42318}
+*{box-sizing:border-box}body{margin:0;background:#E9EDF2;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:var(--navy);padding:28px}
+h1{font-size:18px;margin:0 0 4px}p.s{margin:0 0 18px;color:var(--sub);font-size:13px}
+.row{display:flex;gap:22px;align-items:flex-start}
+.col{width:300px}.cap{font-size:13px;font-weight:600;margin:0 0 8px}.cap small{display:block;font-weight:400;color:var(--sub)}
+.ph{width:300px;height:560px;background:#fff;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.bar{background:var(--navy);color:#fff;height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:15px;font-weight:600;flex:none}
+.chip{border:1px solid #fff;border-radius:2px;font-size:12px;padding:3px 8px;font-weight:500}
+.main{padding:14px;display:flex;flex-direction:column;gap:12px;flex:1;overflow:hidden}
+.sec{font-size:13px;color:var(--sub);border-bottom:1px solid var(--line);padding-bottom:4px}
+.f{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);padding:10px;font-size:14px}
+.f b{font-weight:600}.f small{color:var(--sub);font-size:12px;display:block}
+.btn{height:44px;display:flex;align-items:center;justify-content:center;border:1px solid var(--navy);background:var(--navy);color:#fff;font-size:15px;font-weight:600;border-radius:2px}
+.btn.o{background:#fff;color:var(--navy)}.btn.s{height:32px;font-size:13px;padding:0 10px}
+.note{background:var(--tint);border-left:3px solid var(--navy);padding:10px;font-size:13px;line-height:1.55}
+.err{color:var(--err);font-weight:600}.sub{color:var(--sub)}
+.toast{position:absolute;left:12px;right:12px;bottom:14px;background:var(--navy);color:#fff;font-size:13px;padding:11px 12px;border-radius:2px}
+.dim{opacity:.55}
+.job{border:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.job .t{display:flex;justify-content:space-between}.job .a{display:flex;gap:6px}
+.st{font-size:12px;border:1px solid var(--line);padding:1px 6px;color:var(--sub)}
+.st.e{border-color:var(--err);color:var(--err)}
+.ck{width:56px;height:56px;border:2px solid var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;margin:20px auto 4px}
+</style>
+<h1>오프라인 임시 저장 — 화면 시안 (설계안, 아직 코드 아님)</h1><p class="s">색은 남색·회색·오류 빨강만, 버튼 44px (공통 디자인 결정 150)</p>
+<div class="row">
+<div class="col"><p class="cap">① 직원 화면 — 공조기 입력 후 신호 없음<small>위 막대에 대기 칩, 저장 직후 안내</small></p>
+<div class="ph"><div class="bar"><span>‹ 공조기 환기온도</span><span class="chip">저장 대기 1건</span></div>
+<div class="main"><div class="sec">B4 · 12:00</div>
+<div class="f"><span><b>AHU-B4-01</b><small>환기온도</small></span><span>23.5 ℃</span></div>
+<div class="f"><span><b>AHU-B4-02</b><small>환기온도</small></span><span>24.0 ℃</span></div>
+<div class="f"><span><b>AHU-B4-03</b><small>환기온도</small></span><span>23.8 ℃</span></div>
+<div class="btn">저장</div></div>
+<div class="toast">이 기기에 저장했습니다.<br>신호가 잡히면 자동으로 보냅니다.</div></div></div>
+
+<div class="col"><p class="cap">② 저장 대기 목록<small>환경설정 또는 칩을 누르면</small></p>
+<div class="ph"><div class="bar"><span>‹ 저장 대기 (3건)</span></div>
+<div class="main"><div class="note">신호가 잡히는 곳에서 앱을 열어 두면 자동으로 보냅니다. 앱을 닫으면 멈춥니다.</div>
+<div class="job"><div class="t"><b>공조기 B4 12:00</b><span class="st">전송 대기</span></div><span class="sub" style="font-size:12px">11월 21일 12:04 입력</span><div class="a"><div class="btn o s">지금 보내기</div><div class="btn o s">버리기</div></div></div>
+<div class="job"><div class="t"><b>소화기 · 오뜨 소화기1</b><span class="st e">확인 필요</span></div><span class="err" style="font-size:12px">이번 달 입력이 이미 있습니다</span><div class="a"><div class="btn o s">덮어쓰기</div><div class="btn o s">버리기</div></div></div>
+<div class="job"><div class="t"><b>온습도 B2</b><span class="st e">로그인 필요</span></div><span class="sub" style="font-size:12px">홍길동 입력 — 본인이 로그인하면 전송</span></div></div></div></div>
+
+<div class="col"><p class="cap">③ QR 소화기 점검 — 전송 못 함<small>매장 직원(로그인 없음). 「저장되었습니다」는 쓰지 않음</small></p>
+<div class="ph"><div class="bar"><span>잠실점 에비뉴엘 · 소화기 월 점검</span></div>
+<div class="main" style="align-items:center;text-align:center;gap:10px"><div class="ck">⏳</div><b style="font-size:18px">이 기기에 저장했습니다</b>
+<span style="font-size:14px;line-height:1.6">11월 점검 입력은 아직 <b>전송되지 않았습니다.</b></span>
+<div class="note" style="text-align:left">신호가 잡히는 곳에서 이 화면을 다시 열면 자동으로 보냅니다.<br>그 전에는 <b>이 페이지를 지우거나 시크릿 모드로 열지 마세요.</b></div>
+<div class="btn" style="width:100%">지금 다시 보내기</div></div></div></div>
+
+<div class="col"><p class="cap">④ 신호가 돌아온 뒤<small>알림(토스트) + 실패는 빨간 글자</small></p>
+<div class="ph"><div class="bar"><span>‹ 점검</span></div>
+<div class="main"><div class="sec">소화기 점검 현황</div>
+<div class="f"><span><b>오뜨 소화기1</b><small>11월 · 이상 없음</small></span><span class="sub">전송 완료</span></div>
+<div class="f"><span><b>오뜨 소화기2</b><small>11월</small></span><span class="err">전송 실패</span></div>
+<div class="note"><span class="err">오뜨 소화기2</span>: 서버가 받지 못했습니다. 대기 목록에서 다시 보내거나 버릴 수 있습니다.</div></div>
+<div class="toast">대기 중이던 2건을 전송했습니다.</div></div></div>
+</div>
