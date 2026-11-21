@@ -537,8 +537,8 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ah = await call('ws_ahu_save', [tk, D, J({ out_h12: '', temps: { 'B3F-HVU1': { 12: '' } } })]);
   ok(ah.rec.out_h12 === null && !('B3F-HVU1' in ah.rec.temps) && ah.rec.authors.length === 1, '공조기: 빈칸으로 지움, 다 비면 그 공조기 뺌, 점검자 한 번만');
   ok(/-10 ~ 50/.test((await call('ws_ahu_save', [tk, D, J({ temps: { '6F-36': { 12: '60' } } })])).error), '공조기: 환기온도 범위 밖 → 안내');
-  ok(/습도 12:00/.test((await call('ws_ahu_save', [tk, D, J({ out_h12: 'abc' })])).error), '공조기: 외기 칸 글자 → 안내');
-  ok(/목록에 없/.test((await call('ws_ahu_save', [tk, D, J({ temps: { 'X-1': { 12: '20' } } })])).error) && /12:00·16:00/.test((await call('ws_ahu_save', [tk, D, J({ temps: { '6F-36': { 19: '20' } } })])).error), '공조기: 없는 번호·19시 → 안내');
+  ok(/습도 11:00/.test((await call('ws_ahu_save', [tk, D, J({ out_h12: 'abc' })])).error), '공조기: 외기 칸 글자 → 안내');
+  ok(/목록에 없/.test((await call('ws_ahu_save', [tk, D, J({ temps: { 'X-1': { 12: '20' } } })])).error) && /11:00·16:00/.test((await call('ws_ahu_save', [tk, D, J({ temps: { '6F-36': { 19: '20' } } })])).error), '공조기: 없는 번호·19시 → 안내');
   ok((await call('ws_ahu_save_pdf', [tk, yest, J(F('ahu_pdf', 'a0', 'pdf'))])).error === '먼저 [저장]을 눌러 주세요', '공조기 PDF: 저장 안 한 날 → 안내');
   ah = await call('ws_ahu_save_pdf', [tk, D, J(F('ahu_pdf', 'a1', 'pdf'))]);
   ok(ah.ok && /a1\.pdf$/.test(ah.rec.pdf.url) && (await one("select file_name, drive_folder from files where kind = 'ahu_pdf'")).file_name === D + '_공조기환기온도.pdf', '공조기 PDF 저장 · 파일 이름');
@@ -690,6 +690,83 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const tr = await call('ws_thermal_report', [tk, JSON.stringify({ title: '2026년 4분기 EPS 1층', inspector: '홍길동', date: '2026-11-20', path: 'thermal/2026-11/r.atr', url: 'https://b/r.atr', pages: 3, max_dt: '4.2' })]);
   const tb1 = await call('ws_thermal_boot', [tk]);
   ok(tr.ok && tr.id > 0 && tb1.reports.length === 1 && tb1.reports[0].pages === 3 && Number(tb1.reports[0].max_dt) === 4.2 && !('editor' in tb1.reports[0]), '열화상: 보고서 기록 → 목록에 (만든 사람 이름은 안 내보냄)');
+  // ══ 온습도/공조기/에어커튼 입력 (18_climate.sql, 결정 182·184·186) ══
+  await db.exec(SQL('18_climate.sql')); await db.exec(SQL('18_climate.sql'));
+  const cnt = async t => (await one('select count(*)::int n from ' + t)).n;
+  ok(await cnt('curtain_unit') === 36 && await cnt('climate_zone') === 19 && await cnt('ahu_unit where active') === 38 && await cnt('ahu_unit where not active') === 3, '18_climate.sql 두 번 실행 · 에어커튼 36 · 구역 19 · 공조기 38 + 옛 3·37·38 (화면 밖)');
+  ok((await one('select count(*)::int n from ahu_unit where active and (use_floor is null or old_no is null)')).n === 0 && (await one("select old_no from ahu_unit where no = 'B3F-HVU1'")).old_no === 41 && (await one("select old_no from ahu_unit where no = '7F-39'")).old_no === 39, '공조기 번호 맞춤: 38대 모두 쓰는 층·옛 번호 · 41 → B3F-HVU1 · 39 → 7F-39');
+  ok((await call('ws_ahu_get', [tk, D])).units.length === 38, '환기온도 목록은 그대로 38대 (옛 번호 줄은 안 보임)');
+  ok(/permission denied/.test(await asErr('authenticated', 'select * from equip_usage')) && /permission denied/.test(await asErr('anon', "select ws_usage_get('x','hvac','')")) && /LOGIN/.test(await callErr('ws_usage_get', ['bad', 'hvac', ''])), '가동시간: 표는 못 읽음 · 비로그인·틀린 표 막음');
+  let ug = await call('ws_usage_get', [tk, 'hvac', '']);
+  ok(ug.ok && ug.units.length === 38 && ug.units[0].grp === '6층' && ug.units[0].tone === 'f6' && ug.units.find(u => u.u === '7F-39').e === 1310 && ug.units.find(u => u.u === 'B3F-1').s === 510 && ug.units.find(u => u.u === '5F-27').ew === 1220, '공조기 가동: 6층부터 · 층 색 · 6층 21:50 · B3층 08:30 · 금토일 20:20');
+  const ucu = await call('ws_usage_get', [tk, 'curtain', '']);
+  ok(ucu.units.length === 36 && ucu.units[2].name === '1번' && ucu.units[2].tone === 'f1out' && ucu.units.find(u => u.u === '4BR-1').name === '4층 브릿지' && ucu.units[0].e === 1200 && ucu.units[0].ew === 1170, '에어커튼: 36대 · OUT 주황 · 브릿지는 번호 없이 · 기본 20:00 / 금토일 19:30');
+  const td0 = await call('ws_usage_todo', [tk]);
+  ok(td0.ok && td0.hvac === 38 && td0.curtain === 36 && /오늘|어제/.test(td0.when), '미입력: 처음엔 공조기 38 · 에어커튼 36 (' + td0.when + ')');
+  ug = await call('ws_usage_save', [tk, 'hvac', td0.day, J([{ u: '7F-39', s: 600, e: 1310 }, { u: '6F-36', off: true }, { u: '6F-34', s: 600, e: 1160 }])]);
+  ok(ug.ok && ug.recs['7F-39'].e === 1310 && ug.recs['6F-36'].off === true && ug.recs['7F-39'].by === '홍길동', '가동 저장 · 미가동');
+  ok((await call('ws_usage_todo', [tk])).hvac === 35, '미입력: 미가동도 입력으로 셈 (35대)');
+  ok(/둘 다/.test((await call('ws_usage_save', [tk, 'hvac', D, J([{ u: '6F-32', s: 600 }])])).error) && /늦어야/.test((await call('ws_usage_save', [tk, 'hvac', D, J([{ u: '6F-32', s: 700, e: 600 }])])).error) && /10분/.test((await call('ws_usage_save', [tk, 'hvac', D, J([{ u: '6F-32', s: 605, e: 700 }])])).error) && /목록에 없/.test((await call('ws_usage_save', [tk, 'hvac', D, J([{ u: 'OLD-3', s: 600, e: 700 }])])).error), '가동 검사: 한쪽만·거꾸로·10분 아님·옛 번호 → 안내');
+  ok(/31일/.test((await call('ws_usage_save', [tk, 'hvac', '2020-01-01', J([{ u: '6F-32', s: 600, e: 700 }])])).error), '가동: 31일 넘은 날은 못 고침');
+  await call('ws_usage_save', [tk, 'hvac', td0.day, J([{ u: '6F-34', s: '', e: '' }])]);
+  ok((await one("select count(*)::int n from equip_usage where unit = '6F-34'")).n === 1 && (await call('ws_usage_todo', [tk])).hvac === 36, '가동: 칸을 비우면 미입력으로 (줄은 지우지 않음)');
+  await call('ws_usage_save', [tk, 'curtain', td0.day, J([{ u: '1G1OUT-1', s: 600, e: 1170 }, { u: '4BR-1', off: true }])]);
+  const rp = await call('ws_usage_report', [tk, 'hvac', '', D]);
+  ok(rp.ok && rp.rows.length === 2 && rp.rows.find(r => r[1] === '7F-39')[2] === 710 && rp.rows.find(r => r[1] === '6F-36')[2] === 0 && rp.price === null, '리포트 자료: 입력한 장비만 분(미가동 0, 빈 칸 뺌) · 단가 없음');
+  ok(/소장만/.test(await callErr('ws_equip_kw_get', ['emp'])) && /소장만/.test(await callErr('ws_equip_kw_save', ['emp', J({ price: '100' })])), 'kW·단가: 소장만');
+  let kw = await call('ws_equip_kw_save', [tk, J({ price: '130.5', hvac: { '7F-39': '7.5' }, curtain: { '1G1OUT-1': '1.2' } })]);
+  ok(kw.ok && Number(kw.price) === 130.5 && Number(kw.hvac.find(u => u.u === '7F-39').kw) === 7.5 && Number(kw.curtain.find(u => u.u === '1G1OUT-1').kw) === 1.2 && kw.hvac.filter(u => u.kw == null).length === 37, 'kW·단가 저장 (나머지는 빈 칸)');
+  ok(/0 ~ 1000/.test((await call('ws_equip_kw_save', [tk, J({ hvac: { '7F-39': 'abc' } })])).error) && /단가/.test((await call('ws_equip_kw_save', [tk, J({ price: '-1' })])).error), 'kW·단가: 글자·음수 → 안내');
+  await db.exec(SQL('18_climate.sql'));
+  ok(Number((await call('ws_equip_kw_get', [tk])).hvac.find(u => u.u === '7F-39').kw) === 7.5, '18 다시 실행해도 kW는 그대로');
+  kw = await call('ws_equip_kw_save', [tk, J({ hvac: { '7F-39': '' } })]);
+  ok(kw.hvac.find(u => u.u === '7F-39').kw == null && Number(kw.price) === 130.5, 'kW 지우면 빈 칸 · 단가는 그대로');
+  // 온습도
+  ok(/permission denied/.test(await asErr('anon', "select ws_climate_get('x')")) && /LOGIN/.test(await callErr('ws_climate_add', ['bad', '[]', '{}'])), '온습도: 비로그인·틀린 표 막음');
+  const clg = await call('ws_climate_add', [tk, J([{ floor: '6F', zone: '1구역', t: '24.1', h: '52' }, { floor: '6F', zone: '2구역', t: '26.4', h: '62' }]), J({ t: '11.2', h: '48' })]);
+  ok(clg.ok && clg.recs.length === 2 && Number(clg.recs[0].di) === 70.8 && Number(clg.recs[1].di) === 75 && clg.zones.length === 19, '온습도 저장 · 불쾌지수 서버 계산 (70.8 · 75.0) ' + JSON.stringify(clg.recs && clg.recs.map(r => r.di)));
+  ok(/온도는 -10/.test((await call('ws_climate_add', [tk, J([{ floor: '6F', zone: '1구역', t: '60', h: '50' }]), J({})])).error) && /위치/.test((await call('ws_climate_add', [tk, J([{ floor: 'B1F', zone: '2구역', t: '20', h: '50' }]), J({})])).error) && /실외습도/.test((await call('ws_climate_add', [tk, J([{ floor: '6F', zone: '1구역', t: '20', h: '50' }]), J({ h: '120' })])).error) && /없습니다/.test((await call('ws_climate_add', [tk, J([]), J({})])).error), '온습도 검사: 범위·B1F 2구역·실외습도·빈 저장 → 안내');
+  const cr = await call('ws_climate_report', [tk, '', D]);
+  ok(cr.ok && cr.rows.length === 2 && Number(cr.rows[0][6]) === 11.2 && cr.rows[0][1] === '6F', '온습도 리포트 자료 (실외 같이)');
+  // 종합업무일지 (구글 통로 대신, 결정 184)
+  await call('ws_usage_save', [tk, 'hvac', D, J([{ u: '7F-39', s: 600, e: 1310 }, { u: '6F-36', off: true }])]);
+  const la = await call('ws_log_ac', [tk, D, '']), hv = la.ac.hvac;
+  ok(la.ok && hv.name === '공조기' && hv.total === 38 && hv.groups.length === 8 && hv.groups[0][0] === '6층' && hv.groups[6][0] === 'B1' && hv.groups[0][1].length === 5 && la.ac.curtain.groups.length === 9 && la.ac.curtain.groups[8][0] === '4·6 브릿지', '일지 가동: 옛 구글 통로와 같은 묶음 (공조기 8 · 에어커튼 9)');
+  ok(hv.entered === 2 && hv.off === 1 && Number(hv.c.d) === 11.8 && Number(hv.c.m) >= 11.8 && hv.p.d === null && hv.groups[0][1].includes(11.8), '일지 가동: 그날 입력 2 · 미가동 1 · 합 11.8시간 · 전년 없음 ' + JSON.stringify(hv.c));
+  // ══ 옛 시트 옮기기 (tools/climate_csv.js → 19_climate_data.sql) ══
+  {
+    const M = require('../tools/climate_csv.js');
+    const CLC = 'id,매장ID,측정시각,층,구역,실내온도,실내습도,불쾌지수,실외온도,실외습도,ts\n' +
+      'r1,mall-001,2025-05-01 14:05,6F,1구역,24.1,52,70.8,11.2,48,1746075900000\n' +
+      'r1,mall-001,2025-05-01 14:05,6F,1구역,24.1,52,70.8,11.2,48,1746075900000\n' +   // 같은 id 두 번
+      'r2,mall-001,"2025. 5. 2 오전 3:10:00",B1F,1구역,22.5,40,,,,\n' +              // ts 없음 · 불쾌지수 빈 칸
+      'r3,mall-001,,6F,2구역,24,50,70,,,\n';                                           // 시각 없음 → 못 읽음
+    const HVC = 'id,매장ID,날짜,공조기번호,가동시작,가동종료,가동시간(시간),급기온도,배기온도,수정시각,startMin,endMin,미가동,구분\n' +
+      'a,mall-001,2025-05-01,39,오전 10:00,오후 9:50,11.83,,,100,600,1310,,\n' +
+      'b,mall-001,2025-05-01,39,오전 10:00,오후 8:50,10.83,,,200,600,1250,,\n' +         // 같은 날·장비 → 늦은 수정시각
+      'c,mall-001,2025-05-01,41,오전 8:30,오후 6:40,,,,50,,,,\n' +                        // startMin 없는 옛 줄 → 글로 읽음
+      'd,mall-001,2025-05-01,3,오전 10:00,오후 8:00,,,,50,600,1200,,\n' +                  // 옛 3번 → OLD-3
+      'e,mall-001,2025-05-01,12,,,0,,,50,,,Y,\n' +
+      'f,mall-001,2025-05-01,99,오전 10:00,오후 8:00,,,,50,600,1200,,\n';                  // 없는 번호
+    const CTC = 'id,매장ID,날짜,에어커튼번호,가동시작,가동종료,가동시간(시간),급기온도,배기온도,수정시각,startMin,endMin,미가동,구분\n' +
+      'x,mall-001,2025-05-01,1G1OUT-1,오전 10:00,오전 12:00 (24시),14,,,10,600,1440,,\n';
+    ok(M.minOf('오후 9:50') === 1310 && M.minOf('오전 12:00 (24시)') === 1440 && M.minOf('오전 12:10') === 10 && M.dateOf('2025. 5. 2 오후 3:10:00').hm === '15:10', '옮기기 도구: 옛 시각 글 읽기');
+    const cl = M.climateRows(CLC), hv = M.usageRows(HVC, 'hvac'), ct = M.usageRows(CTC, 'curtain');
+    ok(cl.rows.length === 2 && cl.bad.length === 1 && cl.rows[1].t === 22.5 && cl.rows[1].di > 60 && hv.rows.length === 5 && hv.rows.find(r => r.unit === '39').e === 1250 && hv.rows.find(r => r.unit === '41').s === 510, '옮기기 도구: 같은 id 한 번 · 늦은 수정시각 · startMin 없으면 글로');
+    const sql = M.buildSql(cl, hv, ct);
+    const chk = async () => (await db.query(sql.slice(sql.indexOf('-- 맞춰 보기')).replace(/\ncommit;\s*$/, '').replace(/^--.*\n/, '').replace('from cl_old', 'from (select 1) z, cl_old'))).rows;
+    await db.exec(sql.replace(/\ncommit;\s*$/, '\n').replace(' on commit drop', '').replace(/^begin;$/m, ''));
+    const n = async w => (await one('select count(*)::int n from ' + w)).n;
+    ok(await n("climate_record where src = 'sheet'") === 2 && Number((await one("select log_date::text d from climate_record where id = 'r2'")).d === '2025-05-01'), '옮기기: 온습도 2건 · 새벽 3시 기록은 전날 근무일');
+    ok(await n("equip_usage where src = 'sheet' and kind = 'hvac'") === 4 && (await one("select end_min from equip_usage where unit = '7F-39' and log_date = '2025-05-01'")).end_min === 1250 &&
+      await n("equip_usage where unit = 'B3F-HVU1' and start_min = 510") === 1 && await n("equip_usage where unit = 'OLD-3'") === 1 && await n("equip_usage where unit = '3F-12' and off and log_date = '2025-05-01'") === 1, '옮기기: 공조기 4건 (39 → 7F-39 · 41 → B3F-HVU1 · 3 → OLD-3 · 12 → 3F-12 미가동) · 없는 99번은 뺌');
+    const v = await chk();
+    ok(Number(v[1].시트_시간) === Number(v[1].db_시간) + Number(v[3].시트_시간) && Number(v[3].시트_시간) === 10 && Number(v[2].db_시간) === 14 && /99/.test(v[3].종류) && Number(v[3].시트_건수) === 1, '옮기기: 맞춰 보기 표 (공조기 시트 = DB + 못 찾은 99번 10시간) ' + JSON.stringify(v));
+    await db.exec("update equip_usage set end_min = 1300, updated_at = now(), src = 'app' where unit = '7F-39' and log_date = '2025-05-01'; drop table cl_old;");
+    await db.exec(sql.replace(/\ncommit;\s*$/, '\n').replace(' on commit drop', '').replace(/^begin;$/m, ''));
+    ok((await one("select end_min from equip_usage where unit = '7F-39' and log_date = '2025-05-01'")).end_min === 1300 && await n("climate_record where src = 'sheet'") === 2, '옮기기: 다시 실행해도 그대로 · 앱에서 더 늦게 고친 것은 안 덮음');
+    await db.exec('drop table cl_old;');
+  }
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
