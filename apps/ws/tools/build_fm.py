@@ -139,7 +139,7 @@ BOOT_SB = r"""<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.
   window.FM_CHECK = {
     init: function (q) { return rpc('ws_check_init', { p_qr: q }); },
     submit: function (q, d) {
-      // 사진·손글씨 올릴 경로는 입력할 때 한 번만 정함 → 끊겨도 같은 경로로 이어 올림 (결정 222)
+      // 사진·손글씨 올릴 경로는 입력할 때 한 번만 정함 → 끊겨도 같은 경로로 이어 올림 (결정 220)
       var OFF = window.WS_OFFLINE, ym = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7), files = [];
       [['photo', d.photo, 'jpg'], ['memo', d.signA, 'png'], ['name', d.signB, 'png']].forEach(function (x) {
         var b = blob(x[1]); if (b) files.push({ key: x[0], blob: b, path: 'fire/' + q + '/' + ym + '/' + rid() + '.' + x[2] });
@@ -211,3 +211,53 @@ EH_SB = r"""<!-- 자동 생성: tools/build_fm.py (Code.gs ehViewPage_ 의 Supab
 eh = EH_SB.replace('%STYLES%', styles)
 open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'eh-sb.html'), 'w', encoding='utf-8').write(eh)
 print('../../fm/ws/eh-sb.html', len(eh), 'bytes')
+
+# ── 소화전·공기호흡기 QR(?eq=) 화면 → fm/ws/eq.html (결정 224): 앱에 로그인한 상태면 점검 입력, 아니면 지난 점검 표 ──
+#    로그인 = 앱과 같은 기기 등록(ws_sb_auth) + 같은 사이트 저장소의 ws_token. 서버 함수는 supabase/23_fire_equip.sql
+BOOT_EQ = r"""<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  var C = window.WS_CONFIG || {}, BUCKET = C.SUPABASE_BUCKET_NAME || 'ws-files';
+  var sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ws_sb_auth' } });   // 앱과 같은 기기 등록을 이어받음
+  function rpc(fn, a) { return sb.rpc(fn, a).then(function (r) { if (r.error) throw new Error(r.error.message); return r.data; }); }
+  function blob(d) {
+    var x = /^data:([^;,]+)[^,]*;base64,(.*)$/.exec(String(d || '')); if (!x) return null;
+    var b = atob(x[2]), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i);
+    return new Blob([a], { type: x[1] });
+  }
+  function rid() { return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, ''); }
+  function up(qr, d, ym) {   // 사진은 화면이 이미 설정 크기(사진긴변px·사진품질)로 줄여 옴 → 그대로 올림
+    var b = blob(d); if (!b) return Promise.reject(new Error('사진 내용이 올바르지 않습니다'));
+    var path = 'equip/' + qr + '/' + ym + '/' + rid() + '.jpg';
+    return sb.storage.from(BUCKET).upload(path, b, { contentType: 'image/jpeg', upsert: false }).then(function (r) {
+      if (r.error) throw new Error('사진을 올리지 못했습니다: ' + r.error.message);
+      return { path: path, url: sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl };
+    });
+  }
+  window.EQ = {
+    rpc: rpc,
+    save: function (qr, token, d, photos, ym) {
+      var keys = Object.keys(photos);
+      // 이미 있는데 덮어쓰기를 안 골랐으면 사진을 올리기 전에 알림 (버킷에 쓸모없는 파일이 남지 않게)
+      var first = d.overwrite ? Promise.resolve(null) : rpc('ws_eq_open', { p_token: token, p_qr: qr });
+      return first.then(function (i) {
+        if (i && i.ok && i.exists) return { ok: false, exists: true, error: '이번 달 입력이 이미 있습니다.' };
+        return Promise.all(keys.map(function (k) { return up(qr, photos[k], ym); })).then(function (f) {
+          var files = {}; keys.forEach(function (k, n) { files[k] = f[n]; });
+          return rpc('ws_eq_submit', { p_token: token, p_qr: qr, p_d: d, p_files: files });
+        });
+      });
+    }
+  };
+})();
+</script>
+"""
+eqs = open(os.path.join(ROOT, 'src/Equip.html'), encoding='utf-8').read()
+assert eqs.count('<!--BOOT-->') == 1 and eqs.count("<?!= include('Styles'); ?>") == 1
+eq = eqs.replace('<meta charset="utf-8">\n', '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<meta name="theme-color" content="#FFFFFF">\n<title>소화전·공기호흡기 점검 · 에비뉴엘 시설팀</title>\n<meta name="robots" content="noindex">\n', 1)
+eq = eq.replace("<?!= include('Styles'); ?>", styles).replace('<!--BOOT-->', BOOT_EQ)
+eq = '<!-- 자동 생성: tools/build_fm.py (src/Equip.html). 직접 고치지 마세요. -->\n' + eq
+assert '<?' not in eq
+open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'eq.html'), 'w', encoding='utf-8').write(eq)
+print('../../fm/ws/eq.html', len(eq), 'bytes')

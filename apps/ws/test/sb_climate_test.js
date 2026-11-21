@@ -112,6 +112,9 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(await called('ws_usage_save', n0) && await toastOf(p, '5대 저장했습니다'), 'C8) 저장 (화면의 아직 저장 안 한 장비도 기본 시각으로)');
   let sv = last('ws_usage_save').a;
   ok(sv.p_kind === 'hvac' && sv.p_day === Y && JSON.stringify(sv.p_rows) === '[{"u":"7F-39","s":600,"e":1250,"off":false},{"u":"6F-36","s":null,"e":null,"off":true},{"u":"5F-27","s":600,"e":1160,"off":false},{"u":"B3F-1","s":510,"e":1120,"off":false},{"u":"B3F-HVU1","s":510,"e":1120,"off":false}]', 'C9) DB 함수에 날짜·장비별 분 (오후 8:50 = 1250) · 미가동 ' + JSON.stringify(sv.p_rows));
+  ok(/saved/.test(await p.locator('.uc[data-card="7F-39"]').getAttribute('class')) && !/saved/.test(await p.locator('.uc[data-card="6F-36"]').getAttribute('class')), 'C9b) 저장된 장비는 시각 칸 회색 (미가동은 흐리게 그대로, 결정 226)');
+  await p.selectOption('.uc[data-card="5F-27"] select[data-f="eh"]', '9');
+  ok(!/saved/.test(await p.locator('.uc[data-card="5F-27"]').getAttribute('class')), 'C9c) 고치면 회색 풀림');
   await p.click('.flnav button:has-text("5층")');
   ok(await p.evaluate(() => S.use.pg) === 1 && /on/.test(await p.locator('.flnav button').nth(1).getAttribute('class')), 'C10) 층 버튼 → 그 층으로 이동');
   await p.selectOption('.uc[data-card="5F-27"] select[data-f="eh"]', '');
@@ -143,7 +146,13 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   n0 = count('ws_climate_add'); await p.click('#climSave'); await called('ws_climate_add', n0);
   const ca = last('ws_climate_add').a;
   ok(JSON.stringify(ca.p_rows) === '[{"floor":"6F","zone":"1구역","t":"24.1","h":"52"},{"floor":"6F","zone":"2구역","t":"28","h":"70"}]' && JSON.stringify(ca.p_out) === '{"t":"11.2","h":"48"}' && await toastOf(p, '2곳 저장했습니다'), 'C19) 저장 → 구역 2곳 + 실외');
-  ok(/오늘 14:05 · 24\.1℃ 52%/.test(await p.locator('.zr').first().innerText()), 'C20) 저장 뒤 구역마다 오늘 마지막 기록');
+  const t1 = p.locator('input[aria-label="6층 1구역 실내온도"]');
+  ok(await t1.inputValue() === '24.1' && await p.locator('input[aria-label="6층 1구역 실내습도"]').inputValue() === '52' && /saved/.test(await t1.getAttribute('class')) && !/오늘/.test(await p.locator('.zr').first().innerText()) && /기록 없음|저장됨/.test(await p.locator('#climState').innerText()), 'C20) 저장 뒤 칸에 오늘 값(회색) · 아래 「오늘」 글자 없음 (결정 226)');
+  n0 = count('ws_climate_add'); await p.click('#climSave');
+  ok(await toastOf(p, '넣은 구역이 없습니다') && count('ws_climate_add') === n0, 'C20b) 저장값 그대로면 다시 안 보냄');
+  await t1.fill('25'); await t1.dispatchEvent('input');
+  ok(!/saved/.test(await t1.getAttribute('class')) && /저장 안 함/.test(await p.locator('#climState').innerText()), 'C20c) 고치면 회색 풀림 · 저장 안 함');
+  await t1.fill('24.1'); await t1.dispatchEvent('input');
   await p.screenshot({ path: path.join(__dirname, 'shot_cl_clim.png'), fullPage: true });
   // AHU 탭: 11:00
   await p.click('.cltabs button:has-text("AHU")'); await p.locator('.hvtime').waitFor();
