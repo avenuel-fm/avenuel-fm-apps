@@ -88,22 +88,23 @@ const runMin = r => r.off ? 0 : r.s == null ? null : Math.max(0, (r.e === 0 ? 14
 /** SQL 만들기. 끝의 맞춰 보기 표: 시트 숫자(이 도구가 센 것)와 DB 숫자가 같아야 함 */
 function buildSql(cl, hv, ct) {
   const L = ['-- 20_climate_data.sql — tools/climate_csv.js 로 만듦 (' + new Date().toISOString().slice(0, 10) + '). 손으로 고치지 않음.',
-    '-- 옛 [구역별 온습도 확인] 시트 기록 → Supabase (결정 192). 19_climate.sql 다음에 실행. 여러 번 실행해도 됨.', 'begin;'];
+    '-- 옛 [구역별 온습도 확인] 시트 기록 → Supabase (결정 192). 19_climate.sql 다음에 실행. 여러 번 실행해도 됨.'];
   const chunk = (arr, f, head, tail) => { for (let i = 0; i < arr.length; i += 500) L.push(head + '\n' + arr.slice(i, i + 500).map(f).join(',\n') + '\n' + tail); };
   chunk(cl.rows, r => '(' + [q(r.id), q(r.at), q(r.floor), q(r.zone), r.t, r.h, r.di, r.ot == null ? 'null' : r.ot, r.oh == null ? 'null' : r.oh].join(',') + ')',
     'insert into public.climate_record (id, measured_at, log_date, floor, zone, t, h, di, out_t, out_h, author, src)\nselect v.id, (v.at || \':00+09\')::timestamptz, ((v.at || \':00\')::timestamp - interval \'6 hours\')::date, v.fl, v.zn, v.t::numeric, v.h::numeric, v.di::numeric, v.ot::numeric, v.oh::numeric, \'옛 앱\', \'sheet\'\nfrom (values',
     ') v(id, at, fl, zn, t, h, di, ot, oh)\non conflict (id) do nothing;');
-  L.push('create temp table cl_old (kind text, d date, u text, s int, e int, off boolean, sup numeric, exh numeric, upd timestamptz) on commit drop;');
+  // 문장마다 자료를 품음 (with … values): Supabase SQL 편집기는 문장마다 연결이 바뀔 수 있어 임시 표가 사라짐 (11-21 「cl_old does not exist」)
   chunk(hv.rows.concat(ct.rows), r => '(' + [q(r.kind), q(r.d), q(r.unit), r.s == null ? 'null' : r.s, r.e == null ? 'null' : r.e, r.off, r.sup == null ? 'null' : r.sup, r.exh == null ? 'null' : r.exh, r.upd ? r.upd : 0].join(',') + ')',
-    'insert into cl_old select kind, d::date, u, s::int, e::int, off::boolean, sup::numeric, exh::numeric, to_timestamp(upd::numeric / 1000.0) from (values', ') v(kind, d, u, s, e, off, sup, exh, upd);');
-  L.push(`-- 공조기 옛 번호 → 지금 번호 (ahu_unit.old_no). 못 찾은 번호는 맨 아래 표에 나옴
+    `-- 공조기 옛 번호 → 지금 번호 (ahu_unit.old_no). 못 찾은 번호는 맨 아래 표에 나옴
+with v(kind, d, u, s, e, off, sup, exh, upd) as (values`, `), o as (select kind, d::date d, u, s::int s, e::int e, off::boolean off, sup::numeric sup, exh::numeric exh, to_timestamp(upd::numeric / 1000.0) upd from v)
 insert into public.equip_usage (kind, log_date, unit, start_min, end_min, off, supply_t, exhaust_t, updated_at, editor, src)
 select o.kind, o.d, coalesce(a.no, o.u), o.s, o.e, o.off, o.sup, o.exh, o.upd, '옛 앱', 'sheet'
-from cl_old o left join public.ahu_unit a on o.kind = 'hvac' and a.old_no::text = o.u
+from o left join public.ahu_unit a on o.kind = 'hvac' and a.old_no::text = o.u
 where o.kind = 'curtain' or a.no is not null
 on conflict (kind, log_date, unit) do update set start_min = excluded.start_min, end_min = excluded.end_min, off = excluded.off,
   supply_t = excluded.supply_t, exhaust_t = excluded.exhaust_t, updated_at = excluded.updated_at, editor = excluded.editor, src = excluded.src
 where public.equip_usage.src = 'sheet' or public.equip_usage.updated_at < excluded.updated_at;   -- 앱에서 더 늦게 고친 것은 그대로`);
+  const perU = rs => { const g = {}; rs.forEach(r => { const x = g[r.unit] = g[r.unit] || [0, 0]; x[0]++; x[1] += runMin(r) || 0; }); const k = Object.keys(g); return k.length ? k.map(u => '(' + q(u) + ', ' + g[u][0] + ', ' + g[u][1] + ')').join(', ') : "('0', 0, 0)"; };
   const sumMin = rs => rs.reduce((a, r) => a + (runMin(r) || 0), 0);
   L.push(`-- 맞춰 보기: 시트 = DB 이어야 함. 공조기는 시트 = DB + 「못 찾은 번호」 줄 (DB 시간이 다르면 앱에서 더 늦게 고친 같은 날 기록이 남은 것)
 select '온습도 기록' 종류, ${cl.rows.length} 시트_건수, (select count(*) from public.climate_record where src = 'sheet') db_건수, null::numeric 시트_시간, null::numeric db_시간
@@ -111,9 +112,8 @@ union all select '공조기', ${hv.rows.length}, (select count(*) from public.eq
   (select round(sum(public.ws_run_min(off, start_min, end_min)) / 60.0, 2) from public.equip_usage where kind = 'hvac' and src = 'sheet')
 union all select '에어커튼', ${ct.rows.length}, (select count(*) from public.equip_usage where kind = 'curtain' and src = 'sheet'), ${(sumMin(ct.rows) / 60).toFixed(2)},
   (select round(sum(public.ws_run_min(off, start_min, end_min)) / 60.0, 2) from public.equip_usage where kind = 'curtain' and src = 'sheet')
-union all select '못 찾은 공조기 번호: ' || coalesce(string_agg(distinct o.u, ', '), '없음'), count(*), 0, round(coalesce(sum(public.ws_run_min(o.off, o.s, o.e)), 0) / 60.0, 2), null
-  from cl_old o where o.kind = 'hvac' and not exists (select 1 from public.ahu_unit a where a.old_no::text = o.u);`);
-  L.push('commit;');
+union all select '못 찾은 공조기 번호: ' || coalesce(string_agg(x.u, ', ' order by x.u::int), '없음'), coalesce(sum(x.n), 0), 0, round(coalesce(sum(x.m), 0) / 60.0, 2), null
+  from (values ${perU(hv.rows)}) x(u, n, m) where not exists (select 1 from public.ahu_unit a where a.old_no::text = x.u);`);
   return L.join('\n\n') + '\n';
 }
 

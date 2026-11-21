@@ -793,7 +793,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
     const cl = M.climateRows(CLC), hv = M.usageRows(HVC, 'hvac'), ct = M.usageRows(CTC, 'curtain');
     ok(cl.rows.length === 2 && cl.bad.length === 1 && cl.rows[1].t === 22.5 && cl.rows[1].di > 60 && hv.rows.length === 5 && hv.rows.find(r => r.unit === '39').e === 1250 && hv.rows.find(r => r.unit === '41').s === 510, '옮기기 도구: 같은 id 한 번 · 늦은 수정시각 · startMin 없으면 글로');
     const sql = M.buildSql(cl, hv, ct);
-    const chk = async () => (await db.query(sql.slice(sql.indexOf('-- 맞춰 보기')).replace(/\ncommit;\s*$/, '').replace(/^--.*\n/, '').replace('from cl_old', 'from (select 1) z, cl_old'))).rows;
+    const chk = async () => (await db.query(sql.slice(sql.indexOf('-- 맞춰 보기')).replace(/\ncommit;\s*$/, '').replace(/^--.*\n/, ''))).rows;
     await db.exec(sql.replace(/\ncommit;\s*$/, '\n').replace(' on commit drop', '').replace(/^begin;$/m, ''));
     const n = async w => (await one('select count(*)::int n from ' + w)).n;
     ok(await n("climate_record where src = 'sheet'") === 2 && Number((await one("select log_date::text d from climate_record where id = 'r2'")).d === '2025-05-01'), '옮기기: 온습도 2건 · 새벽 3시 기록은 전날 근무일');
@@ -801,10 +801,10 @@ alter default privileges in schema public grant all on sequences to anon, authen
       await n("equip_usage where unit = 'B3F-HVU1' and start_min = 510") === 1 && await n("equip_usage where unit = 'OLD-3'") === 1 && await n("equip_usage where unit = '3F-12' and off and log_date = '2025-05-01'") === 1, '옮기기: 공조기 4건 (39 → 7F-39 · 41 → B3F-HVU1 · 3 → OLD-3 · 12 → 3F-12 미가동) · 없는 99번은 뺌');
     const v = await chk();
     ok(Number(v[1].시트_시간) === Number(v[1].db_시간) + Number(v[3].시트_시간) && Number(v[3].시트_시간) === 10 && Number(v[2].db_시간) === 14 && /99/.test(v[3].종류) && Number(v[3].시트_건수) === 1, '옮기기: 맞춰 보기 표 (공조기 시트 = DB + 못 찾은 99번 10시간) ' + JSON.stringify(v));
-    await db.exec("update equip_usage set end_min = 1300, updated_at = now(), src = 'app' where unit = '7F-39' and log_date = '2025-05-01'; drop table cl_old;");
+    await db.exec("update equip_usage set end_min = 1300, updated_at = now(), src = 'app' where unit = '7F-39' and log_date = '2025-05-01';");
     await db.exec(sql.replace(/\ncommit;\s*$/, '\n').replace(' on commit drop', '').replace(/^begin;$/m, ''));
     ok((await one("select end_min from equip_usage where unit = '7F-39' and log_date = '2025-05-01'")).end_min === 1300 && await n("climate_record where src = 'sheet'") === 2, '옮기기: 다시 실행해도 그대로 · 앱에서 더 늦게 고친 것은 안 덮음');
-    await db.exec('drop table cl_old;');
+    ok(!/cl_old|begin;|commit;|temp table/.test(sql), '옮기기 SQL: 임시 표·묶음 없이 문장마다 자료 (Supabase 편집기에서 연결이 바뀌어도 됨)');
   }
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
