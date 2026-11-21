@@ -35,6 +35,7 @@ create index if not exists thermal_report_at on public.thermal_report (created_a
 alter table public.thermal_kv enable row level security;       -- 정책 없음 = 표를 직접 못 읽음 (함수로만)
 alter table public.thermal_report enable row level security;
 
+-- 모든 직원이 열고 보고서를 만듦 (결정 212). 모두가 같이 쓰는 양식 파일 바꾸기만 이 역할로 제한
 create or replace function public.ws_thermal_can_(p_role text)
 returns boolean language sql immutable set search_path = public as $$
   select coalesce(p_role in ('소장', '부소장', '관리자', '옵저버'), false);
@@ -45,8 +46,7 @@ create or replace function public.ws_thermal_boot(p_token text)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare me public.staff := public.ws_auth(p_token);
 begin
-  if not public.ws_thermal_can_(me.role) then return jsonb_build_object('ok', false, 'error', '열화상점검은 소장·부소장·관리자·옵저버만 엽니다'); end if;
-  return jsonb_build_object('ok', true, 'me', jsonb_build_object('name', me.name, 'role', me.role),
+  return jsonb_build_object('ok', true, 'me', jsonb_build_object('name', me.name, 'role', me.role), 'canTemplate', public.ws_thermal_can_(me.role),
     'model', (select v from public.thermal_kv where k = 'model'),
     'template', (select v from public.thermal_kv where k = 'template'),
     'reports', (select coalesce(jsonb_agg(to_jsonb(r) - 'editor' order by r.created_at desc), '[]'::jsonb)
@@ -59,7 +59,7 @@ create or replace function public.ws_thermal_set(p_token text, p_k text, p_v jso
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare me public.staff := public.ws_auth(p_token);
 begin
-  if not public.ws_thermal_can_(me.role) then return jsonb_build_object('ok', false, 'error', '열화상점검은 소장·부소장·관리자·옵저버만 씁니다'); end if;
+  if p_k = 'template' and not public.ws_thermal_can_(me.role) then return jsonb_build_object('ok', false, 'error', '양식 파일은 소장·부소장·관리자·옵저버만 바꿀 수 있습니다'); end if;
   if p_k not in ('model', 'template') then return jsonb_build_object('ok', false, 'error', '저장 칸 이름이 맞지 않습니다'); end if;
   if p_v is null or length(p_v::text) > 2000000 then return jsonb_build_object('ok', false, 'error', '저장할 값이 비었거나 너무 큽니다 (2MB 넘음)'); end if;
   if p_k = 'template' and coalesce(p_v->>'path', '') !~ '^thermal/' then return jsonb_build_object('ok', false, 'error', '양식 파일 경로가 맞지 않습니다'); end if;
@@ -73,7 +73,6 @@ create or replace function public.ws_thermal_report(p_token text, p_r jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare me public.staff := public.ws_auth(p_token); nid bigint;
 begin
-  if not public.ws_thermal_can_(me.role) then return jsonb_build_object('ok', false, 'error', '열화상점검은 소장·부소장·관리자·옵저버만 씁니다'); end if;
   if coalesce(trim(p_r->>'title'), '') = '' then return jsonb_build_object('ok', false, 'error', '보고서 제목이 없습니다'); end if;
   -- .atr(path·url)이나 PDF(pdf_path·pdf_url) 중 하나는 있어야 함. 경로는 thermal/ 로 시작, 주소는 https
   if not ((coalesce(p_r->>'path', '') ~ '^thermal/' and coalesce(p_r->>'url', '') ~ '^https://')
