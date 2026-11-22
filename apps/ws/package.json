@@ -5,6 +5,7 @@
   "scripts": {
     "test": "node test/server_test.js",
     "test:all": "node test/run_all.js",
+    "build:index": "python tools/build_index.py",
     "build:fm": "python tools/build_fm.py",
     "test:sql": "node test/sql_test.js && node test/offline_sql_test.js && node test/equip_sql_test.js",
     "test:migrate": "node test/migrate_test.js && node test/archive_test.js",
