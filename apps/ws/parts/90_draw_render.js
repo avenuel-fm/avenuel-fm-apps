@@ -31,6 +31,7 @@ function render() {
   else if (S.view === 'eh') html = renderEh();
   else if (S.view === 'cs') html = renderCs();
   else if (S.view === 'csck') html = renderCsCk();
+  else if (S.view === 'rw') html = renderRw();
   else if (S.view === 'status') html = renderStatus();
   else if (S.view === 'floor') html = S.st ? renderFloor() : renderStatus();
   else if (S.view === 'set' && isBoss()) html = renderSet();

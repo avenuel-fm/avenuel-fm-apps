@@ -852,6 +852,27 @@ alter default privileges in schema public grant all on sequences to anon, authen
     ok((await one("select end_min from equip_usage where unit = '7F-39' and log_date = '2025-05-01'")).end_min === 1300 && await n("climate_record where src = 'sheet'") === 2, '옮기기: 다시 실행해도 그대로 · 앱에서 더 늦게 고친 것은 안 덮음');
     ok(!/cl_old|begin;|commit;|temp table/.test(sql), '옮기기 SQL: 임시 표·묶음 없이 문장마다 자료 (Supabase 편집기에서 연결이 바뀌어도 됨)');
   }
+
+  // ══ 위험작업신청서 (25_risk.sql, 결정 236) ══
+  await db.exec(SQL('25_risk.sql')); await db.exec(SQL('25_risk.sql'));
+  const RP = n => { const p = 'risk_photo/' + ym + '/' + n + '.jpg'; return { url: PUB + p, path: p }; };
+  ok(/permission denied/.test(await asErr('anon', "select ws_rw_list('x','','','')")) && /permission denied/.test(await asErr('authenticated', 'select ws_rw_floors()')), '위험작업: 비로그인·도우미 못 부름');
+  let rka = await call('ws_rw_add', [tk, '', ' OO인테리어 ', '3F', J(RP('r1')), 'cid00000001aa']);
+  ok(rka.ok && rka.item.co === 'OO인테리어' && rka.item.floor === '3F' && /^WS-RK-\d{8}-001$/.test(rka.item.id) && rka.item.src.endsWith('/r1.jpg'), '위험작업: 사진 저장 (업체명 다듬기 · 위치 · 번호)');
+  const rkb = await call('ws_rw_add', [tk, '', ' OO인테리어 ', '3F', J(RP('r1')), 'cid00000001aa']);
+  ok(rkb.ok && rkb.dup && rkb.item.id === rka.item.id && (await one('select count(*)::int n from rw_photos')).n === 1, '위험작업: 같은 고유 번호는 한 번만 저장');
+  const rkc = await call('ws_rw_add', [tk, '', '', '99F', J(RP('r2')), '']);
+  ok(rkc.ok && rkc.item.co === '' && rkc.item.floor === '' && /-002$/.test(rkc.item.id), '위험작업: 업체·위치 비워도 저장 · 없는 층은 비움');
+  ok(/파일 정보/.test(await callErr('ws_rw_add', [tk, '', '', '', J({ url: 'https://evil/x.jpg', path: 'risk_photo/2026-11/a.jpg' }), ''])), '위험작업: 버킷 밖 사진 주소 → 거부');
+  ok((await call('ws_rw_add', [tk, '2099-01-01', '', '', J(RP('r3')), ''])).ok === false, '위험작업: 먼 미래 날짜 → 거부');
+  let rkl = await call('ws_rw_list', [tk, '', '', '']);
+  ok(rkl.ok && rkl.admin && rkl.list.length === 2 && rkl.list[0].id === rka.item.id && rkl.floors.length === 11, '위험작업: 목록 (같은 날은 저장한 순서)');
+  ok((await call('ws_rw_list', [tk, '인테리어', '', ''])).list.length === 1 && (await call('ws_rw_list', [tk, '3f', '', ''])).list.length === 1 && (await call('ws_rw_list', [tk, 'zzz', '', ''])).list.length === 0, '위험작업: 업체명·위치 글자로 검색');
+  ok((await call('ws_rw_list', ['emp', '', '', ''])).admin === false, '위험작업: 직원은 삭제 권한 없음 표시');
+  ok((await call('ws_rw_delete', ['emp', rka.item.id])).ok === false, '위험작업: 직원은 지울 수 없음');
+  ok((await call('ws_admin_set_menu', [tk, ['docs.risk']])).ok && /사용 중지/.test(await callErr('ws_rw_list', ['emp', '', '', ''])) && (await call('ws_rw_list', [tk, '', '', ''])).ok, '위험작업: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
+  await call('ws_admin_set_menu', [tk, []]);
+  ok((await call('ws_rw_delete', [tk, rka.item.id])).ok && (await call('ws_rw_list', [tk, '', '', ''])).list.length === 1 && (await call('ws_rw_delete', [tk, rka.item.id])).ok === false, '위험작업: 소장은 지움 (숨김 처리) · 지운 것을 또 지우면 안내');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
