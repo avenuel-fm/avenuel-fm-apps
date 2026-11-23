@@ -8,3 +8,10 @@ Thumbs.db
 docs/양식/WS_출근현황_*
 *.xlsx
 fm/thermal/master_template.atr
+
+# 환경변수·비밀 키는 올리지 않음
+.env
+.env.*
+!.env.example
+*.pem
+*.key

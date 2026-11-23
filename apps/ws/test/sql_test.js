@@ -301,8 +301,8 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(/permission denied/.test(await asErr('anon', "select ws_fe_list('x')")), '비로그인: 소화기 목록 못 부름');
   ok(/permission denied/.test(await asErr('authenticated', "select ws_fe_status_('2026-11')")), '로그인 기기: 도우미(ws_fe_status_) 못 부름');
   ok(/permission denied/.test(await asErr('anon', 'select * from fire_ext')), '비로그인: 소화기 표는 여전히 못 읽음');
-  ok((await call('ws_fe_add', [tk, J({ floor: '7F', store: 'x' })])).error === '층을 골라 주세요.', '소화기 등록: 없는 층 → 안내');
-  ok((await call('ws_fe_add', [tk, J({ floor: '1F', store: '  ' })])).error === '매장명을 넣어 주세요.', '소화기 등록: 매장명 없음 → 안내');
+  ok((await call('ws_fe_add', [tk, J({ floor: '11F', store: 'x' })])).error === '층을 골라 주세요.', '소화기 등록: 없는 층 → 안내');
+  ok((await call('ws_fe_add', [tk, J({ floor: '1F', store: '  ' })])).error === '위치를 적어 주세요.', '소화기 등록: 매장명 없음 → 안내');
   let fl = await call('ws_fe_add', [tk, J({ floor: '1F', store: '1층 카페(A)', count: '3' })]);
   const mine = fl.items.filter(x => x.store === '1층 카페(A)');
   ok(fl.ok && fl.added.join() === '1층 카페(A)-소화기1,1층 카페(A)-소화기2,1층 카페(A)-소화기3' && mine.length === 3 && mine.every(x => /^[2-9a-km-np-z]{12}$/.test(x.token)), '소화기 3대 등록: 이름·12자리 QR');
@@ -604,6 +604,16 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q("update staff set role = '직원' where staff_id = 'S003'");
   const em = await call('ws_map_load', ['emp']);
   ok(em.ok && em.canEdit === false && em.isBoss === false && /소장·부소장·파트장·옵저버만/.test((await call('ws_map_save', ['emp', 'lotte_symbols_1F', '[]', ''])).error), '권한: 직원은 보기만 (저장 → 안내)');
+  // ══ 지도 되돌리기 권한 (22_map_restore.sql, 결정 214): 소장·부소장·파트장 ══
+  await db.exec(SQL('22_map_restore.sql')); await db.exec(SQL('22_map_restore.sql'));
+  ok(/permission denied/.test(await asErr('authenticated', "select ws_map_can_restore('소장')")), '22_map_restore.sql 실행됨 (두 번) · 안쪽 도우미는 직접 못 부름');
+  for (const [role, can] of [['소장', true], ['부소장', true], ['파트장', true], ['옵저버', false], ['관리자', false], ['직원', false]]) {
+    await q(`update staff set role = '${role}' where staff_id = 'S003'`);
+    const ld = await call('ws_map_load', ['emp']);
+    const rs = await call('ws_map_restore', ['emp', td]);
+    ok(ld.canRestore === can && (can ? /지난 날짜/.test(rs.error || '') : /소장·부소장·파트장만/.test(rs.error)), '되돌리기 권한: ' + role + (can ? ' 가능' : ' 막음') + ' (load.canRestore · restore)');
+  }
+  await q("update staff set role = '직원' where staff_id = 'S003'");
   // ══ 메인 메뉴 켜기·끄기 (15_menu.sql, 결정 148) ══
   ok(/소장만/.test(await callErr('ws_admin_set_menu', ['emp', ['map']])) && (await call('ws_menu', ['emp'])).off.length === 0, '메뉴: 끄기는 소장만 · 처음엔 모두 켜짐');
   ok(JSON.stringify((await call('ws_admin_set_menu', [tk, ['inspect.thermal', 'inspect.x', 'cad']])).off) === '["cad","inspect.thermal"]', '메뉴: 하위·CAD 이름 저장');
@@ -628,7 +638,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(mat.kv.lotte_util_lines_1F === '[]' && !('lotte_symbols_B1' in mat.kv) && mat.kv.lotte_base_svg_1F === '<svg>v1</svg>', '오늘 모습: 바탕 도면 포함, 지운 칸 없음');
   ok((await call('ws_map_at', [tk, 'x'])).ok === false, '날짜 모양이 틀리면 안내');
   // 되돌리기 (소장만)
-  ok(/소장만/.test((await call('ws_map_restore', ['emp', yd])).error) && /지난 날짜/.test((await call('ws_map_restore', [tk, td])).error), '되돌리기: 직원 막음 · 오늘은 안 됨');
+  ok(/소장·부소장·파트장만/.test((await call('ws_map_restore', ['emp', yd])).error) && /지난 날짜/.test((await call('ws_map_restore', [tk, td])).error), '되돌리기: 직원 막음 · 오늘은 안 됨');
   const mrs = await call('ws_map_restore', [tk, yd]);
   mp = await call('ws_map_load', [tk]);
   ok(mrs.ok && mrs.n === 2 && mp.kv.lotte_symbols_B1 === '["old"]' && !('lotte_util_lines_1F' in mp.kv), '되돌리기: 어제 모습으로 (칸 2개 바뀜)');
@@ -796,7 +806,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(hv.entered === 2 && hv.off === 1 && Number(hv.c.d) === 11.8 && Number(hv.c.m) >= 11.8 && hv.p.d === null && hv.groups[0][1].includes(11.8), '일지 가동: 그날 입력 2 · 미가동 1 · 합 11.8시간 · 전년 없음 ' + JSON.stringify(hv.c));
   // ══ 가동시간 설정 (21_equip_hours.sql, 결정 200) ══
   await db.exec(SQL('21_equip_hours.sql')); await db.exec(SQL('21_equip_hours.sql'));
-  ok(/소장만/.test(await callErr('ws_equip_hours_get', ['emp', 'hvac'])) && /소장만/.test(await callErr('ws_equip_hours_save', ['emp', 'hvac', '[]'])) && /permission denied/.test(await asErr('authenticated', 'select * from equip_hours')), '가동시간 설정: 소장만 · 표 직접 못 봄');
+  ok((await call('ws_equip_hours_get', ['emp', 'hvac'])).ok === true && /저장할 내용이 없습니다/.test((await call('ws_equip_hours_save', ['emp', 'hvac', '[]'])).error) && (await callErr('ws_equip_hours_get', ['nope', 'hvac'])) !== '' && /permission denied/.test(await asErr('authenticated', 'select * from equip_hours')), '가동시간 설정: 전 직원 보기·고치기 (결정 218) · 로그인 안 하면 안 됨 · 표 직접 못 봄');
   let hr = await call('ws_equip_hours_get', [tk, 'hvac']);
   ok(hr.ok && hr.groups.length === 8 && hr.groups[0].g === '6층' && hr.groups[0].days.length === 7 && hr.groups[0].days[0][1] === 1310 && hr.groups[1].days[0][1] === 1160 && hr.groups[1].days[4][1] === 1220 && hr.groups[7].days[6][0] === 510 && hr.groups[0].days[0][2] === false, '설정: 처음엔 예전 기본값 (5층 월~목 19:20 · 금토일 20:20 · B3 08:30)');
   ok((await call('ws_equip_hours_get', [tk, 'curtain'])).groups.length === 10, '설정: 에어커튼 10묶음');

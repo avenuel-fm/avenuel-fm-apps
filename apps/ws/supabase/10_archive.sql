@@ -13,7 +13,7 @@ declare
   r jsonb;
 begin
   if p_table is null or not (p_table = any (array['files', 'settings', 'staff', 'change_log', 'signs', 'next_work', 'tbm', 'risk_list', 'daily_log',
-      'roster', 'roster_changes', 'default_holidays', 'fire_ext', 'fire_checks', 'eh_stores', 'eh_devices', 'cs_sites', 'cs_items', 'cs_checks', 'ahu_unit', 'ahu_temp', 'map_kv', 'map_floor'])) then
+      'roster', 'roster_changes', 'default_holidays', 'fire_ext', 'fire_checks', 'eh_stores', 'eh_devices', 'cs_sites', 'cs_items', 'cs_checks', 'ahu_unit', 'ahu_temp', 'map_kv', 'map_floor', 'fire_equip', 'fire_equip_checks'])) then
     raise exception '백업할 수 없는 표: %', p_table;
   end if;
   execute format('select coalesce(jsonb_agg(t), ''[]''::jsonb) from public.%I t', p_table) into r;

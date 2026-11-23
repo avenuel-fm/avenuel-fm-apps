@@ -52,7 +52,7 @@ HEAD_SB = ('<meta name="viewport" content="width=device-width, initial-scale=1, 
            '<link rel="icon" href="../icon-192.png">\n<link rel="apple-touch-icon" href="../icon-192.png">\n'
            '<title>업무지원 · 에비뉴엘 시설팀</title>\n<meta name="robots" content="noindex">\n'
            '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>\n'
-           '<script src="config.js?v=' + ver + '"></script>\n<script>window.WS_VERSION = ' + repr(ver) + ';</script>\n<script src="ws-api.js?v=' + ver + '"></script>\n')   # ?v=판: 바로가기 페이지는 10분 캐시 → 새 화면에 옛 통로가 붙는 일 막음
+           '<script src="config.js?v=' + ver + '"></script>\n<script>window.WS_VERSION = ' + repr(ver) + ';</script>\n<script src="offline.js?v=' + ver + '"></script>\n<script src="ws-api.js?v=' + ver + '"></script>\n<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});</script>\n')   # ?v=판: 바로가기 페이지는 10분 캐시 → 새 화면에 옛 통로가 붙는 일 막음
 assert ix.count('<base target="_top">\n') == 1 and ix.count("<?!= include('Styles'); ?>") == 1
 app = ix.replace('<base target="_top">\n', HEAD_SB).replace("<?!= include('Styles'); ?>", styles)
 app = app.replace('<?!= JSON.stringify(execUrl) ?>', "''").replace('<?!= JSON.stringify(APP.version) ?>', repr(ver))
@@ -109,6 +109,8 @@ print('../../fm/ws/spec.html', len(pub), 'bytes')
 #    바꿔 타는 날 check.html 을 이것으로 바꿈. 그 전까지 지금 check.html(구글)은 그대로
 BOOT_SB = r"""<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="offline.js"></script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});</script>
 <script>
 /* QR 점검 입력 — Supabase (supabase/05_fire.sql ws_check_init · ws_check_submit, 비로그인도 됨). 파일은 버킷 fire/{QR}/ 아래 */
 (function () {
@@ -133,16 +135,22 @@ BOOT_SB = r"""<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.
       return { path: path, url: sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl };
     });
   }
+  var chip = document.createElement('button'); chip.className = 'btn sm offchip'; chip.style.cssText = 'display:none;position:fixed;top:6px;right:8px;z-index:5;background:transparent;color:#fff;border-color:#fff'; chip.onclick = function () { WS_OFFLINE.open(); }; document.addEventListener('DOMContentLoaded', function () { document.body.appendChild(chip); WS_OFFLINE.ready.then(function () { chip.textContent = '저장 대기 ' + WS_OFFLINE.count() + '건'; chip.style.display = WS_OFFLINE.count() ? '' : 'none'; }); });
   window.FM_CHECK = {
     init: function (q) { return rpc('ws_check_init', { p_qr: q }); },
     submit: function (q, d) {
-      // 이미 있는데 덮어쓰기를 안 골랐으면 사진을 올리기 전에 알림 (버킷에 쓸모없는 파일이 남지 않게)
-      var first = d.overwrite ? Promise.resolve(null) : rpc('ws_check_init', { p_qr: q });
+      // 사진·손글씨 올릴 경로는 입력할 때 한 번만 정함 → 끊겨도 같은 경로로 이어 올림 (결정 220)
+      var OFF = window.WS_OFFLINE, ym = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7), files = [];
+      [['photo', d.photo, 'jpg'], ['memo', d.signA, 'png'], ['name', d.signB, 'png']].forEach(function (x) {
+        var b = blob(x[1]); if (b) files.push({ key: x[0], blob: b, path: 'fire/' + q + '/' + ym + '/' + rid() + '.' + x[2] });
+      });
+      // 이미 있는데 덮어쓰기를 안 골랐으면 사진을 올리기 전에 알림 (신호가 없어 확인 못 하면 그냥 저장 대기로)
+      var first = d.overwrite ? Promise.resolve(null) : rpc('ws_check_init', { p_qr: q }).catch(function (e) { if (OFF.isNet(e)) return null; throw e; });
       return first.then(function (i) {
         if (i && i.ok && i.exists) return { ok: false, exists: true, error: '이번 달 입력이 이미 있습니다.' };
-        return Promise.all([up(q, d.photo, 'jpg'), up(q, d.signA, 'png'), up(q, d.signB, 'png')]).then(function (f) {
-          var files = {}; ['photo', 'memo', 'name'].forEach(function (k, n) { if (f[n]) files[k] = f[n]; });
-          return rpc('ws_check_submit', { p_qr: q, p_d: { state: d.state, overwrite: !!d.overwrite }, p_files: files });
+        return OFF.send({ kind: 'fire_check', label: '소화기 점검', args: { qr: q, state: d.state, overwrite: !!d.overwrite }, files: files }).then(function (res) {
+          if (res.status === 'queued') return { ok: true, queued: true, state: d.state };
+          return res.r;
         });
       });
     }
@@ -203,3 +211,53 @@ EH_SB = r"""<!-- 자동 생성: tools/build_fm.py (Code.gs ehViewPage_ 의 Supab
 eh = EH_SB.replace('%STYLES%', styles)
 open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'eh-sb.html'), 'w', encoding='utf-8').write(eh)
 print('../../fm/ws/eh-sb.html', len(eh), 'bytes')
+
+# ── 소화전·공기호흡기 QR(?eq=) 화면 → fm/ws/eq.html (결정 224): 앱에 로그인한 상태면 점검 입력, 아니면 지난 점검 표 ──
+#    로그인 = 앱과 같은 기기 등록(ws_sb_auth) + 같은 사이트 저장소의 ws_token. 서버 함수는 supabase/23_fire_equip.sql
+BOOT_EQ = r"""<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  var C = window.WS_CONFIG || {}, BUCKET = C.SUPABASE_BUCKET_NAME || 'ws-files';
+  var sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ws_sb_auth' } });   // 앱과 같은 기기 등록을 이어받음
+  function rpc(fn, a) { return sb.rpc(fn, a).then(function (r) { if (r.error) throw new Error(r.error.message); return r.data; }); }
+  function blob(d) {
+    var x = /^data:([^;,]+)[^,]*;base64,(.*)$/.exec(String(d || '')); if (!x) return null;
+    var b = atob(x[2]), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i);
+    return new Blob([a], { type: x[1] });
+  }
+  function rid() { return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, ''); }
+  function up(qr, d, ym) {   // 사진은 화면이 이미 설정 크기(사진긴변px·사진품질)로 줄여 옴 → 그대로 올림
+    var b = blob(d); if (!b) return Promise.reject(new Error('사진 내용이 올바르지 않습니다'));
+    var path = 'equip/' + qr + '/' + ym + '/' + rid() + '.jpg';
+    return sb.storage.from(BUCKET).upload(path, b, { contentType: 'image/jpeg', upsert: false }).then(function (r) {
+      if (r.error) throw new Error('사진을 올리지 못했습니다: ' + r.error.message);
+      return { path: path, url: sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl };
+    });
+  }
+  window.EQ = {
+    rpc: rpc,
+    save: function (qr, token, d, photos, ym) {
+      var keys = Object.keys(photos);
+      // 이미 있는데 덮어쓰기를 안 골랐으면 사진을 올리기 전에 알림 (버킷에 쓸모없는 파일이 남지 않게)
+      var first = d.overwrite ? Promise.resolve(null) : rpc('ws_eq_open', { p_token: token, p_qr: qr });
+      return first.then(function (i) {
+        if (i && i.ok && i.exists) return { ok: false, exists: true, error: '이번 달 입력이 이미 있습니다.' };
+        return Promise.all(keys.map(function (k) { return up(qr, photos[k], ym); })).then(function (f) {
+          var files = {}; keys.forEach(function (k, n) { files[k] = f[n]; });
+          return rpc('ws_eq_submit', { p_token: token, p_qr: qr, p_d: d, p_files: files });
+        });
+      });
+    }
+  };
+})();
+</script>
+"""
+eqs = open(os.path.join(ROOT, 'src/Equip.html'), encoding='utf-8').read()
+assert eqs.count('<!--BOOT-->') == 1 and eqs.count("<?!= include('Styles'); ?>") == 1
+eq = eqs.replace('<meta charset="utf-8">\n', '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<meta name="theme-color" content="#FFFFFF">\n<title>소화전·공기호흡기 점검 · 에비뉴엘 시설팀</title>\n<meta name="robots" content="noindex">\n', 1)
+eq = eq.replace("<?!= include('Styles'); ?>", styles).replace('<!--BOOT-->', BOOT_EQ)
+eq = '<!-- 자동 생성: tools/build_fm.py (src/Equip.html). 직접 고치지 마세요. -->\n' + eq
+assert '<?' not in eq
+open(os.path.join(ROOT, '..', '..', 'fm', 'ws', 'eq.html'), 'w', encoding='utf-8').write(eq)
+print('../../fm/ws/eq.html', len(eq), 'bytes')

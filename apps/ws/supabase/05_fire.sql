@@ -10,6 +10,15 @@
 --  · 다른 표·함수는 그대로 로그인 기기만
 -- ============================================================================
 
+-- QR 라벨 인쇄 표시 (결정 228): 아직 인쇄하지 않은 것에 「미인쇄」를 보여 주려고. 열을 처음 만들 때 지금까지 등록한 것은 이미 인쇄한 것으로 봄
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fire_ext' and column_name = 'printed_at') then
+    alter table public.fire_ext add column printed_at timestamptz;
+    update public.fire_ext set printed_at = coalesce(created_at, now()) where printed_at is null;
+  end if;
+end $$;
+
 -- 설정 숫자 (없거나 틀리면 기본값)
 create or replace function public.ws_set_num(p_key text, p_default numeric)
 returns numeric language sql stable security definer set search_path = public as $$
@@ -48,7 +57,7 @@ $$;
 -- 층 순서
 create or replace function public.ws_floor_no(p text)
 returns int language sql immutable set search_path = public as $$
-  select coalesce(array_position(array['B1', '1F', '2F', '3F', '4F', '5F', '6F'], p), 99);
+  select coalesce(array_position(array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'], p), 99);   -- 층 B3~10F (결정 228)
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -58,7 +67,7 @@ create or replace function public.ws_fe_list_()
 returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object('ok', true,
     'items', coalesce((select jsonb_agg(jsonb_build_object('id', fe_id, 'floor', floor, 'store', store_name, 'no', coalesce(case when no ~ '^\d+$' then no::int end, 0),
-                         'name', name, 'token', qr_token, 'created', public.ws_kst(created_at))
+                         'name', name, 'token', qr_token, 'created', public.ws_kst(created_at), 'printed', printed_at is not null)
                        order by public.ws_floor_no(floor), store_name collate "C", coalesce(case when no ~ '^\d+$' then no::int end, 0))
                        from public.fire_ext where active), '[]'::jsonb),
     'execUrl', coalesce(regexp_replace(nullif(btrim(public.ws_setting('바로가기주소')), ''), '[?#].*$', ''), ''),   -- 비면 화면 통로가 지금 주소로
@@ -88,8 +97,8 @@ declare
 begin
   -- Code.gs: Number(count) || 1 을 1~20 으로
   n := least(greatest(coalesce(nullif(case when coalesce(p_d->>'count', '') ~ '^\s*\d+(\.\d+)?\s*$' then floor((p_d->>'count')::numeric)::int end, 0), 1), 1), 20);
-  if v_floor not in ('B1', '1F', '2F', '3F', '4F', '5F', '6F') then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
-  if v_store = '' then return jsonb_build_object('ok', false, 'error', '매장명을 넣어 주세요.'); end if;
+  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
+  if v_store = '' then return jsonb_build_object('ok', false, 'error', '위치를 적어 주세요.'); end if;   -- 칸 이름은 「위치」 (전: 매장명, 결정 228). 열 이름 store_name 은 그대로
   perform pg_advisory_xact_lock(hashtext('ws_fe'));
   select coalesce(max(case when no ~ '^\d+$' then no::int end), 0) into max_no from public.fire_ext where store_name = v_store;
   select coalesce(max(substring(fe_id from '-(\d+)$')::int), 0) into seq from public.fire_ext where fe_id like 'WS-FE-' || day_key || '-%';

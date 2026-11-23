@@ -86,7 +86,7 @@ async def main():
         box = await page.evaluate("(() => { const r = document.querySelector('.fdview').getBoundingClientRect(); return [r.width, r.height] })()")
         check(0.6 < box[0] / box[1] < 0.75 and box[1] > 800, f'A4 세로에 가까운 팝업 {box}')
         ft = await page.locator('.fdv-ft button').all_inner_texts()
-        check(ft == ['↺ 왼쪽으로 돌리기', '↻ 오른쪽으로 돌리기'], '사진 아래 좌우 회전 버튼')
+        check(ft == ['↺ 왼쪽으로 돌리기', '↻ 오른쪽으로 돌리기', '맞춤'], '사진 아래 좌우 회전 버튼 · 맞춤')
         await page.click('#fdvL'); await page.wait_for_timeout(250)
         tr = await page.evaluate("document.querySelector('#fdvImg').style.transform")
         check('rotate(270deg)' in tr, '왼쪽으로 돌리기 → 270도')

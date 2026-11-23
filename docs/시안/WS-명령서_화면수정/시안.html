@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>업무지원앱 변경 시안</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#fff;color:#1E3A5F;font-family:"Noto Sans KR",system-ui,sans-serif;max-width:820px;margin:0 auto;line-height:1.5}
+h1{font-size:20px;margin:8px 0 4px}h3{font-size:16px;margin:34px 0 8px;border-bottom:1px solid #D8DDE5;padding-bottom:4px}
+.cap{font-size:13px;color:#5F6B7A;margin:6px 0 10px;line-height:1.7}
+.tag{display:inline-block;font-size:12px;background:#F1F4F8;padding:2px 8px;border-radius:2px;margin:6px 0}
+.m{border:1px solid #D8DDE5;border-radius:2px;background:#fff;padding:12px;margin-bottom:8px}
+.bar{background:#1E3A5F;color:#fff;padding:10px 14px;font-size:15px;font-weight:500;display:flex;justify-content:space-between;align-items:center}
+.bt{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border:1px solid #D8DDE5;background:#fff;color:#1E3A5F;font-size:13px;border-radius:2px;cursor:pointer;gap:4px;font-family:inherit}
+.bt.on{background:#1E3A5F;color:#fff;border-color:#1E3A5F}
+.bt.dng{color:#B3261E;border-color:#B3261E}
+.new{background:#FFF6D6}
+.lb{font-size:13px;color:#5F6B7A;margin:10px 0 4px}
+.inp{min-height:36px;border:1px solid #D8DDE5;border-radius:2px;padding:6px 10px;font-size:14px;width:100%;font-family:inherit;color:#1E3A5F;background:#fff}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:0;border-bottom:2px solid #1E3A5F;margin-bottom:10px}
+.tabs .bt{border-radius:2px 2px 0 0;border-bottom:0;min-height:38px;flex:0 0 auto}
+.acc{border:1px solid #D8DDE5;margin-bottom:6px}
+.acc-h{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F1F4F8;font-size:14px;font-weight:500;cursor:pointer;gap:8px;flex-wrap:wrap}
+.acc-h small{font-weight:400;color:#5F6B7A;font-size:12px}
+.acc-b{display:none}.acc.open .acc-b{display:block}
+.acc.open .ch{transform:rotate(180deg)}.ch{display:inline-block}
+table.t{border-collapse:collapse;width:100%;font-size:13px}
+table.t th,table.t td{border-top:1px solid #D8DDE5;padding:7px 10px;text-align:left}
+table.t th{background:#fff;color:#5F6B7A;font-weight:400;font-size:12px}
+.warn{color:#B3261E;font-weight:500}.ok{color:#2E7D32}
+.ph{width:calc(25% - 5px);aspect-ratio:1;border:1px dashed #9AA4B1;background:#F7F9FB;display:flex;align-items:center;justify-content:center;font-size:12px;color:#5F6B7A;text-align:center}
+.pgrid{display:flex;gap:6px;flex-wrap:wrap}
+.ov{background:rgba(30,58,95,.45);padding:24px 12px;display:flex;justify-content:center}
+.dlg{background:#fff;border-radius:2px;padding:16px;max-width:360px;width:100%}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:14px;margin-right:12px}
+</style></head><body>
+<h1>업무지원앱 변경 시안</h1>
+<div class="cap">잠실점 에비뉴엘 · 2026-11-23 · 노란 바탕 = 새로 생기는 부분 · 눌러 보면 움직이는 곳이 많습니다<br>보류: CCTV 신설, 배터리 히트맵 · 1번(압축·주석 정리)은 화면이 바뀌지 않아 시안 없음</div>
+
+<h3>2. 직원 삭제(퇴사 처리) · 파트 선택</h3>
+<span class="tag">출근현황 → 직원 이름을 누르면 (소장·관리파트만 보임)</span>
+<div class="m"><div style="font-size:15px;font-weight:500;margin-bottom:8px">홍길동 · 기본 휴일 설정</div>
+<div class="row"><span class="bt">월</span><span class="bt on">화</span><span class="bt">수</span><span class="bt">목</span><span class="bt">금</span><span class="bt">토</span><span class="bt">일</span></div>
+<div class="lb new" style="padding:2px 6px;display:inline-block">파트</div>
+<div class="row new" style="padding:6px"><label class="chk"><input type="checkbox" checked onclick="pt(this)"> 전방파트 <small style="color:#5F6B7A">(전기·방재 인원)</small></label><label class="chk"><input type="checkbox" onclick="pt(this)"> 기건파트 <small style="color:#5F6B7A">(기계·건축 인원)</small></label></div>
+<div class="row" style="margin-top:12px;justify-content:space-between"><span class="bt dng new" onclick="document.getElementById('dl').style.display='flex'">직원 삭제 (퇴사 처리)</span><span class="bt on">저장</span></div></div>
+<div id="dl" class="ov" style="display:none;margin-bottom:8px"><div class="dlg">
+<div style="font-size:15px;font-weight:500;margin-bottom:8px">정말 삭제하시겠습니까?</div>
+<div style="font-size:13px;color:#18202B;line-height:1.7"><b>홍길동</b> (전방파트)을 퇴사 처리합니다.<br>· PIN과 로그인 인증이 함께 삭제됩니다.<br>· 지난 출근·일지 기록의 이름은 그대로 남습니다.<br>· 소장이 「퇴사자 보기」에서 되살릴 수 있습니다.</div>
+<div class="row" style="margin-top:14px;justify-content:flex-end"><span class="bt" onclick="document.getElementById('dl').style.display='none'">취소</span><span class="bt dng" onclick="document.getElementById('dl').style.display='none'">삭제</span></div></div></div>
+<div class="cap">- 「직원 삭제」를 누르면 되묻기 팝업이 나옵니다. 확인하면 퇴사 처리(기록은 보존, PIN·인증 동시 삭제).<br>- 파트는 전방 또는 기건 중 하나만 선택됩니다. 바꾸면 출근현황 인원 집계가 바로 바뀝니다.<br>- 소장 본인과 마지막 남은 관리자는 삭제 버튼이 막힙니다. 삭제·파트 변경은 이력으로 남습니다.</div>
+
+<h3>3. 리포트 월별 묶음 (온습도 · 공조기 · 에어커튼 공통)</h3>
+<span class="tag">온습도 리포트 → 날짜별 상세기록</span>
+<div class="row" style="margin-bottom:8px"><span class="bt on" id="mb1" onclick="mode(1)">월별</span><span class="bt" id="mb2" onclick="mode(2)">일별</span><span class="bt new" onclick="this.classList.toggle('on')">이상만 보기</span><span class="bt new">설비 ▾ 전체</span></div>
+<div id="acs">
+<div class="acc open"><div class="acc-h" onclick="this.parentNode.classList.toggle('open')"><span>2026년 11월<small>평균 22.4℃ · 최고 26.1℃ · 최저 19.8℃ · <span class="warn">기준 초과 3회</span></small></span><span class="ch">▲</span></div>
+<div class="acc-b"><table class="t"><tr><th>날짜</th><th>평균 온도</th><th>평균 습도</th><th>상태</th></tr>
+<tr><td>11/22</td><td>22.1℃</td><td>41%</td><td class="ok">정상</td></tr>
+<tr><td>11/21</td><td>26.1℃</td><td>44%</td><td class="warn">온도 초과</td></tr>
+<tr><td>11/20</td><td>21.8℃</td><td>40%</td><td class="ok">정상</td></tr>
+<tr><td colspan="4" style="color:#5F6B7A">… 지금 표 모양 그대로</td></tr></table></div></div>
+<div class="acc"><div class="acc-h" onclick="this.parentNode.classList.toggle('open')"><span>2026년 10월<small>평균 23.0℃ · 최고 25.2℃ · 최저 20.1℃ · 기준 초과 0회</small></span><span class="ch">▲</span></div><div class="acc-b"><div style="padding:10px;font-size:13px;color:#5F6B7A">(일별 표)</div></div></div>
+<div class="acc"><div class="acc-h" onclick="this.parentNode.classList.toggle('open')"><span>2026년 9월<small>평균 24.5℃ · 최고 27.4℃ · 최저 21.0℃ · <span class="warn">기준 초과 7회</span></small></span><span class="ch">▲</span></div><div class="acc-b"><div style="padding:10px;font-size:13px;color:#5F6B7A">(일별 표)</div></div></div>
+</div>
+<div class="cap">- 가장 최근 달만 펼쳐 두고 나머지는 접습니다. 머리줄을 누르면 열고 닫습니다.<br>- 머리줄에 요약(평균·최고·최저·기준 초과)이 있어 펼치지 않아도 이상한 달이 보입니다.<br>- 공조기·에어커튼 리포트도 같은 모양이며, 머리줄 요약만 다릅니다: 공조기는 「점검 N회 · 이상 N건 · 미점검 N일」, 에어커튼은 「점검 N회 · 이상 N건」. 설비(번호)·층별로 거르기도 같이 넣습니다.</div>
+
+<h3>4. 서류작업 → 주간/야간 작업내역</h3>
+<div class="tabs"><span class="bt on" id="tw" onclick="wk(1)">주간작업</span><span class="bt" id="tn" onclick="wk(2)">야간작업</span></div>
+
+<div id="wk1">
+<div class="m">
+<div class="row"><div style="flex:1 1 150px"><div class="lb" style="margin-top:0">일자</div><div class="inp">2026-11-23</div></div>
+<div><div class="lb" style="margin-top:0">파트</div><label class="chk"><input type="checkbox" checked> 전기·방재</label><label class="chk"><input type="checkbox"> 기계·건축</label></div></div>
+<div class="lb">작업자</div><div class="inp">홍길동, 김철수</div>
+<div class="lb new" style="display:inline-block;padding:2px 6px">작업위치 (버튼으로 선택)</div>
+<div class="row loc" id="loc1"><span class="bt" onclick="sl(this)">B3</span><span class="bt" onclick="sl(this)">B2</span><span class="bt" onclick="sl(this)">B1</span><span class="bt on" onclick="sl(this)">1F</span><span class="bt" onclick="sl(this)">2F</span><span class="bt" onclick="sl(this)">3F</span><span class="bt" onclick="sl(this)">4F</span><span class="bt" onclick="sl(this)">5F</span><span class="bt" onclick="sl(this)">6F</span><span class="bt" onclick="sl(this)">10F</span><span class="bt" onclick="sl(this)">외곽</span></div>
+<div class="lb">작업내용</div><div class="inp" style="min-height:60px">3F 복도 조명 안정기 교체</div>
+<div class="new" style="padding:6px;margin-top:8px;display:flex;gap:0;align-items:stretch">
+<div style="flex:1;padding-right:10px"><div class="lb" style="margin-top:0">작업 전 사진 <span style="color:#9AA4B1">(최대 4장)</span></div>
+<div class="pgrid"><div class="ph" style="width:calc(50% - 3px)">전 1<br>✕</div><div class="ph" style="width:calc(50% - 3px)">📷<br>추가</div><div class="ph" style="width:calc(50% - 3px);border-style:solid;border-color:#D8DDE5">&nbsp;</div><div class="ph" style="width:calc(50% - 3px);border-style:solid;border-color:#D8DDE5">&nbsp;</div></div></div>
+<div style="border-left:2px solid #D8DDE5"></div>
+<div style="flex:1;padding-left:10px"><div class="lb" style="margin-top:0">작업 후 사진 <span style="color:#9AA4B1">(최대 4장)</span></div>
+<div class="pgrid"><div class="ph" style="width:calc(50% - 3px)">후 1<br>✕</div><div class="ph" style="width:calc(50% - 3px)">후 2<br>✕</div><div class="ph" style="width:calc(50% - 3px)">📷<br>추가</div><div class="ph" style="width:calc(50% - 3px);border-style:solid;border-color:#D8DDE5">&nbsp;</div></div></div></div></div>
+<div class="lb new" style="display:inline-block;padding:2px 6px">사용자재 (이름·수량·단위)</div>
+<div class="row new" style="padding:6px"><div class="inp" style="flex:2 1 140px;width:auto">안정기 32W</div><div class="inp" style="flex:0 0 70px;width:auto">2</div><div class="inp" style="flex:0 0 70px;width:auto">개</div><span class="bt">+ 자재 추가</span></div>
+<div class="lb">비고</div><div class="inp">-</div>
+<div class="row" style="margin-top:14px;justify-content:space-between"><span class="bt">뒤로</span><span class="row"><span class="bt">인쇄 A4</span><span class="bt">PDF 보기</span><span class="bt on">저장</span></span></div></div>
+</div>
+
+<div id="wk2" style="display:none">
+<div class="row" style="margin-bottom:10px"><input class="inp" style="flex:1 1 200px;width:auto" value="3F 방염"><span class="bt on">검색하기</span><span class="bt new">신규작성</span></div>
+<div class="cap" style="margin-top:0">검색: 층 · 업체명 · 작업내용 · 비어 있으면 최근 작업 표시</div>
+<div class="acc open"><div class="acc-h"><span>11/22 · 3F · OO인테리어<small>방염 시공 · <span class="warn">각서 없음</span></small></span></div></div>
+<div class="tag" style="margin-top:14px">신규작성을 누르면</div>
+<div class="m">
+<div class="lb" style="margin-top:0">현장 사진 <span style="color:#9AA4B1">(개수 제한 없음)</span></div>
+<div class="pgrid"><div class="ph new" style="cursor:pointer">📷<br>사진찍기</div><div class="ph new" style="cursor:pointer">🖼<br>여러 장 넣기</div><div class="ph">사진 1<br>✕</div><div class="ph">사진 2<br>✕</div><div class="ph">사진 3<br>✕</div><div class="ph">사진 4<br>✕</div><div class="ph">사진 5<br>✕</div></div>
+<div class="cap" style="margin:4px 0 0">4열 격자로 계속 이어집니다. 올릴 때 자동으로 작게 줄여 느려지지 않게 하고, 올리는 중에는 진행 표시, 사진마다 ✕로 삭제.</div>
+<div class="row"><div style="flex:1 1 150px"><div class="lb">날짜</div><div class="inp">2026-11-23</div></div><div style="flex:2 1 200px"><div class="lb">업체명</div><div class="inp">OO인테리어</div></div></div>
+<div class="lb">작업위치</div>
+<div class="row loc"><span class="bt" onclick="sl(this)">B3</span><span class="bt" onclick="sl(this)">B2</span><span class="bt" onclick="sl(this)">B1</span><span class="bt" onclick="sl(this)">1F</span><span class="bt" onclick="sl(this)">2F</span><span class="bt on" onclick="sl(this)">3F</span><span class="bt" onclick="sl(this)">4F</span><span class="bt" onclick="sl(this)">5F</span><span class="bt" onclick="sl(this)">6F</span><span class="bt" onclick="sl(this)">10F</span><span class="bt" onclick="sl(this)">외곽</span></div>
+<div class="lb">작업내용</div><div class="inp" style="min-height:56px">매장 천장 방염 도장</div>
+<div class="lb new" style="display:inline-block;padding:2px 6px">방염서류 / 각서 첨부 (사진으로)</div>
+<div style="display:flex;gap:0;align-items:stretch">
+<div style="flex:1;padding-right:10px"><div style="font-size:13px;font-weight:500;margin-bottom:6px">방염서류 <span style="font-weight:400;color:#5F6B7A">(여러 장)</span></div><div class="row" style="margin-bottom:6px"><span class="bt">📷 사진찍기</span><span class="bt">🖼 갤러리</span></div><div class="pgrid"><div class="ph" style="width:calc(50% - 3px)">방염 1<br>✕</div><div class="ph" style="width:calc(50% - 3px)">방염 2<br>✕</div></div></div>
+<div style="border-left:2px solid #D8DDE5"></div>
+<div style="flex:1;padding-left:10px"><div style="font-size:13px;font-weight:500;margin-bottom:6px">각서 <span style="font-weight:400;color:#5F6B7A">(여러 장)</span></div><div class="row" style="margin-bottom:6px"><span class="bt">📷 사진찍기</span><span class="bt">🖼 갤러리</span></div><div class="pgrid"><div class="ph" style="width:calc(50% - 3px)">각서 1<br>✕</div></div></div></div>
+<div class="row new" style="margin-top:8px;padding:6px;font-size:12px;color:#5F6B7A">🔍 사진을 누르면 확대해서 글자를 확인합니다 · 흐리거나 어두우면 「다시 찍으세요」 안내 · 서류 사진은 덜 줄여서 저장</div>
+<div class="lb">기타사항</div><div class="inp">-</div>
+<div class="row" style="margin-top:14px;justify-content:space-between"><span class="bt">뒤로</span><span class="row"><span class="bt">인쇄 A4</span><span class="bt">PDF 보기</span><span class="bt on">저장</span></span></div>
+<div class="m new" style="font-size:13px;line-height:1.8;margin-top:10px"><b>야간작업 PDF / 인쇄 순서</b><br>① 작업 내용 + 현장 사진(여러 장이면 A4에 맞춰 축소) + 각서 사진 — <b>양면</b>으로 붙여서<br>② 방염서류 사진 — 한 장이 A4 한 쪽 크기 · <b>단면</b> · 맨 뒤에 붙음 (방염서류만 따로 단면 인쇄)</div></div></div>
+
+<h3>5. 서류작업 → 위험작업신청서</h3>
+<div class="m"><div class="row" style="margin-bottom:8px"><input class="inp" style="flex:1 1 180px;width:auto" placeholder="날짜 · 업체명 · 위치 검색"><span class="bt on">검색하기</span></div>
+<div class="row" style="margin-bottom:6px"><span class="bt new">📷 사진찍기</span><span class="bt new">🖼 갤러리에서 선택</span><span style="font-size:12px;color:#5F6B7A">찍거나 고르면 바로 저장 · 날짜 태그 <b>2026-11-23</b> 자동</span></div>
+<div class="new" style="padding:6px;margin-bottom:8px"><div class="row"><div style="flex:2 1 180px"><div class="lb" style="margin-top:0">업체명 · 매장명 (직접 입력, 선택사항)</div><div class="inp">OO인테리어</div></div></div>
+<div class="lb">위치 (선택)</div><div class="row loc"><span class="bt" onclick="sl(this)">B3</span><span class="bt" onclick="sl(this)">B2</span><span class="bt" onclick="sl(this)">B1</span><span class="bt" onclick="sl(this)">1F</span><span class="bt" onclick="sl(this)">2F</span><span class="bt on" onclick="sl(this)">3F</span><span class="bt" onclick="sl(this)">4F</span><span class="bt" onclick="sl(this)">5F</span><span class="bt" onclick="sl(this)">6F</span><span class="bt" onclick="sl(this)">10F</span><span class="bt" onclick="sl(this)">외곽</span></div>
+<div style="font-size:12px;color:#5F6B7A;margin-top:4px">비워 둬도 저장됩니다. 이후 저장하는 사진에 같이 붙습니다.</div></div>
+<div class="new" style="padding:6px 10px;margin-bottom:8px;font-size:13px">⏳ 올리기 대기 중 2장 <span style="color:#5F6B7A">— 연결되면 자동으로 올라갑니다</span></div>
+<div class="acc open"><div class="acc-h"><span>2026-11-23 <small>5장</small></span><span class="ch">▲</span></div><div class="acc-b"><div class="pgrid" style="padding:8px"><div style="width:calc(25% - 5px)"><div class="ph" style="width:100%">1</div><div class="new" style="font-size:11px;line-height:1.3;padding:2px">OO인테리어<br>11/23 09:12</div></div><div style="width:calc(25% - 5px)"><div class="ph" style="width:100%">2</div><div class="new" style="font-size:11px;line-height:1.3;padding:2px">OO인테리어<br>11/23 09:14</div></div><div style="width:calc(25% - 5px)"><div class="ph" style="width:100%">3</div><div class="new" style="font-size:11px;line-height:1.3;padding:2px">△△설비<br>11/23 10:40</div></div><div style="width:calc(25% - 5px)"><div class="ph" style="width:100%">4</div><div class="new" style="font-size:11px;line-height:1.3;padding:2px">△△설비<br>11/23 10:41</div></div><div style="width:calc(25% - 5px)"><div class="ph" style="width:100%">5</div><div class="new" style="font-size:11px;line-height:1.3;padding:2px">(업체 미입력)<br>11/23 13:05</div></div><div style="width:calc(25% - 5px)"><div class="ph new" style="width:100%">새로 추가됨<br>(맨 끝)</div><div class="new" style="font-size:11px;line-height:1.3;padding:2px">OO인테리어<br>11/23 14:30</div></div></div></div></div>
+<div class="acc"><div class="acc-h" onclick="this.parentNode.classList.toggle('open')"><span>2026-11-20 <small>3장</small></span><span class="ch">▲</span></div><div class="acc-b"><div class="pgrid" style="padding:8px"><div class="ph">1</div><div class="ph">2</div><div class="ph">3</div></div></div></div></div>
+<div class="row" style="justify-content:space-between;margin:-2px 0 8px;padding:10px;border:1px solid #D8DDE5;background:#F7F9FB"><span class="bt new">뒤로</span><span class="row"><span class="bt new">인쇄 A4</span><span class="bt on new">저장</span></span></div>
+<div class="cap">- 저장된 사진 아래에 <b>업체명 · 날짜 · 시간</b>이 같이 표시됩니다(찍은 시각 기준, 업체명은 직접 입력한 값).<br>- 화면 맨 아래에 뒤로 · 인쇄 A4 · 저장 버튼이 있습니다.<br>- 사진이 통신 불량으로 안 올라가면 기기에 보관했다가 연결되면 자동으로 올리고 「대기 중 N장」을 표시합니다. 업체명·위치는 선택 입력이라 비워 둬도 저장됩니다.<br>- 「신청서 추가」 버튼은 없습니다. 중간중간 사진을 찍거나 골라서 저장하면 됩니다.<br>- 저장된 사진은 일자별로 4열로 보이고, 누르면 확대됩니다(두 손가락 확대·+/− 버튼).<br>- 같은 날 사진을 더 저장하면 그날 사진의 맨 끝에 붙습니다. 날짜 태그는 오늘 날짜가 자동으로 붙고, 날짜·업체명·위치로 검색됩니다.</div>
+
+<h3>6. 점검 → 열화상점검 → 기존데이터 비교</h3>
+<span class="tag">열화상점검 세부항목에 「기존데이터 비교」 추가</span>
+<div class="tabs" style="margin-bottom:8px"><span class="bt">점검 입력</span><span class="bt">리포트</span><span class="bt on new">기존데이터 비교</span></div>
+<div class="m"><div class="row"><div><div class="lb" style="margin-top:0">층</div><div class="row"><span class="bt">B1</span><span class="bt on">3F</span><span class="bt">4F</span><span class="bt">5F</span><span class="bt">…</span></div></div></div>
+<div class="row" style="margin-top:8px"><div><div class="lb" style="margin-top:0">매장 <span class="new" style="padding:0 4px">지도의 매장 목록(매장ID)에서 선택 · 이름 다르게 써도 같은 매장으로 비교</span></div><span class="bt on">전체</span> <span class="bt">A 매장</span> <span class="bt">B 매장</span> <span class="bt">C 매장</span></div></div>
+<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin:12px 0 6px;font-size:13px"><span>비교: 이번 점검(2026-4Q) ↔ 지난 점검(2026-3Q) · 스팟온도</span><span>기준 <b>+5℃</b> ↑ <span class="bt" style="min-height:26px">기준 변경</span></span></div>
+<table class="t"><tr><th>매장 / 차단기</th><th>지난</th><th>이번</th><th>차이</th><th>상태</th></tr>
+<tr><td>A 매장 · MCCB-1</td><td>38.2℃</td><td class="warn">46.9℃</td><td class="warn">+8.7℃</td><td class="warn">점검 요망</td></tr>
+<tr><td>A 매장 · MCCB-2</td><td>36.0℃</td><td>37.5℃</td><td>+1.5℃</td><td class="ok">정상</td></tr>
+<tr><td>B 매장 · ELB-1</td><td>40.1℃</td><td class="warn">45.8℃</td><td class="warn">+5.7℃</td><td class="warn">점검 요망</td></tr>
+<tr><td>C 매장 · MCCB-3</td><td>—</td><td>35.4℃</td><td>—</td><td style="color:#5F6B7A">비교 불가</td></tr></table></div>
+<div class="m"><div style="font-size:13px;margin-bottom:6px"><b>비교 기준 양식</b> <span style="color:#5F6B7A">(확인 필요)</span></div><div class="row"><span class="bt on">.atr (서멀스튜디오 보고서)</span><span class="bt">PDF</span></div></div>
+<div class="m new"><div style="font-size:14px;font-weight:500;margin-bottom:6px">기준온도 설정 (직원 누구나 변경 가능)</div>
+<div class="row"><span>지난 분기보다</span><div class="inp" style="width:70px">5</div><span>℃ 이상 오르면 점검 요망</span><span class="bt on">저장</span></div>
+<div style="font-size:12px;color:#5F6B7A;margin-top:6px">마지막 변경: 홍길동 · 11/10 (기준을 바꾸면 변경한 사람과 시각이 기록됩니다)</div></div>
+<div class="row" style="justify-content:space-between;margin:-2px 0 8px;padding:10px;border:1px solid #D8DDE5;background:#F7F9FB"><span class="bt new">뒤로</span><span class="row"><span class="bt new">인쇄 A4</span><span class="bt on new">저장</span></span></div>
+<div class="cap">- 열화상점검의 모든 탭(점검 입력 · 리포트 · 기존데이터 비교) 맨 아래에 같은 뒤로 · 인쇄 A4 · 저장 줄이 들어갑니다.<br>- 층별 → 매장별로 나눠 보고, 열화상 리포트의 스팟온도를 지난 분기와 비교해 기준 이상 오르면 「점검 요망」을 표시합니다. 점검 요망은 맨 위에 모아 보여 줍니다.<br>- 기준온도는 직원 모두가 바꿀 수 있고, 누가 언제 바꿨는지 기록합니다.<br>- 지난 분기 자료가 없거나 차단기 이름이 바뀐 경우는 「비교 불가」로 따로 표시합니다.</div>
+
+<script>
+function pt(el){var c=el.closest('.row').querySelectorAll('input');c.forEach(function(x){if(x!==el)x.checked=false});if(!el.checked)el.checked=true}
+function sl(el){el.parentNode.querySelectorAll('.bt').forEach(function(b){b.classList.remove('on')});el.classList.add('on')}
+function wk(n){document.getElementById('wk1').style.display=n==1?'':'none';document.getElementById('wk2').style.display=n==2?'':'none';document.getElementById('tw').classList.toggle('on',n==1);document.getElementById('tn').classList.toggle('on',n==2)}
+function mode(n){document.getElementById('mb1').classList.toggle('on',n==1);document.getElementById('mb2').classList.toggle('on',n==2)}
+</script>
+</body></html>
