@@ -2154,7 +2154,7 @@ var GuideIndexer = (function () {
 
   function fInput(key, opts) {
     opts = opts || {};
-    var f = S.F[key], type = { date: 'date', tel: 'tel', email: 'email' }[f.type] || 'text';
+    var f = S.F[key] || { type: 'date', label: '퇴점일' }, type = { date: 'date', tel: 'tel', email: 'email' }[f.type] || 'text'; // 퇴점일: 서버 항목표(02_const.sql)가 옛 판이어도 화면은 열림
     var label = opts.label || f.label.replace(/_/g, ' ');
     var off = kitchenOff(key);
     var attrs = ' id="f-' + key + '" class="inp' + (off ? ' na-c' : '') + '" data-field="' + key + '" type="' + (off ? 'text' : type) + '" value="' + esc(off ? NA : S.review[key]) + '"' +
