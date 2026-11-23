@@ -343,7 +343,7 @@ const ix = run('apiGuideIndex(A)');
 ok(ix.length === 1 && ix[0].d === ctx.BID && ix[0].p === 91, '검색 색인 제공 (항목마다 지침 ID)');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 91)`) === img, '쪽 이미지 data URL');
 ok(run(`apiGuidePage(A, "${ctx.BID}", 999)`) === null, '없는 쪽은 null');
-ok(run('apiBootstrap(A)').version === '1.9.5' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
+ok(run('apiBootstrap(A)').version === '1.9.6' && run('apiBootstrap(A)').guides.length === 1, '부트스트랩에 지침 목록');
 
 // 개정판: 다른 PDF로 같은 지침 바꾸기
 const pdf2 = mkFile('통합안전관리지침_27.pdf', 'application/pdf', Buffer.from('new'), gRoot.id);

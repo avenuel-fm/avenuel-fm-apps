@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DW-12 화면 수정 시안</title>
+<style>
+body{margin:0;padding:16px;background:#fff;color:#1E3A5F;font-family:"Noto Sans KR",system-ui,sans-serif;max-width:760px;margin:0 auto}
+h1{font-size:20px;margin:8px 0 4px}h3{font-size:16px;margin:28px 0 8px;border-bottom:1px solid #D8DDE5;padding-bottom:4px}
+.m{background:#fff;border:1px solid #D8DDE5;border-radius:2px;margin-bottom:6px}
+.bar{background:#1E3A5F;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.bar .t1{font-size:12px;opacity:.85}.bar .t2{font-size:17px;font-weight:500}
+.bt{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 10px;border:1px solid #D8DDE5;background:#fff;color:#1E3A5F;font-size:13px;border-radius:2px;gap:4px}
+.pri{background:#1E3A5F;color:#fff;border-color:#fff}
+.lb{font-size:13px;color:#5F6B7A;margin:0 0 4px}
+.inp{height:36px;border:1px solid #D8DDE5;border-radius:2px;background:#fff;padding:0 10px;display:flex;align-items:center;font-size:14px;color:#1E3A5F;box-sizing:border-box}
+.tag{display:inline-block;font-size:12px;background:#F1F4F8;padding:2px 8px;border-radius:2px;margin:0 0 6px}
+.cap{font-size:13px;color:#5F6B7A;margin:2px 0 8px;line-height:1.6}
+table.p{border-collapse:collapse;width:100%;font-size:12px;color:#18202B}
+table.p td{border:1px solid #888;padding:5px 6px}table.p td.h{background:#F1F4F8;text-align:center;width:74px}
+.new{background:#FFF6D6}
+.acc{border:1px solid #D8DDE5;border-radius:2px;margin-bottom:8px}
+.acc-h{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F1F4F8;font-size:15px;font-weight:500}
+.acc-h small{font-weight:400;color:#5F6B7A;font-size:13px;margin-left:8px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:9px 12px;border-top:1px solid #D8DDE5;font-size:14px;flex-wrap:wrap}
+.row span.s{color:#5F6B7A;font-size:12px}
+</style></head><body>
+<h1>DW-12 화면 수정 시안</h1>
+<div class="cap">잠실점 에비뉴엘 · 도면협의 v1.9.5 → v1.9.6 예정 · 2026-11-23 · 노란 바탕 = 새로 생기는 부분</div>
+
+<h3>1. 머리줄 (대시보드)</h3>
+<span class="tag">지금</span>
+<div class="m"><div class="bar"><div><div class="t1">잠실점 에비뉴엘 · 시설팀 · v1.9.5</div><div class="t2">도면협의 대시보드</div></div>
+<div style="display:flex;gap:6px;flex-wrap:wrap"><span class="bt">동기화 · 10:21</span><span class="bt" style="background:#F1F4F8">✓ 소장 접속 중</span><span class="bt">지침 관리</span><span class="bt pri">+ 새 도면협의</span><span class="bt">어둡게</span><span class="bt">로그아웃</span></div></div></div>
+<span class="tag" style="margin-top:10px">바꾼 뒤</span>
+<div class="m"><div class="bar"><div><div class="t1">잠실점 에비뉴엘 · 시설팀 · v1.9.6</div><div class="t2">도면협의 대시보드 - 소장 접속 중</div></div>
+<div style="display:flex;gap:6px;flex-wrap:wrap"><span class="bt pri">+ 새 도면협의</span><span class="bt">로그아웃</span><span class="bt" style="width:32px;padding:0">⚙</span></div></div></div>
+<div class="cap">「소장 접속 중」 박스를 없애고 제목 줄에 이어서 표시(부소장이면 「부소장 접속 중」). 동기화·지침 관리·어둡게는 톱니바퀴 안으로.</div>
+
+<h3>2. 톱니바퀴 → 오른쪽에서 슬라이드</h3>
+<div class="m" style="position:relative;height:270px;overflow:hidden">
+<div class="bar"><div style="font-size:15px;font-weight:500">도면협의 대시보드 - 소장 접속 중</div><div style="display:flex;gap:6px"><span class="bt">로그아웃</span><span class="bt" style="width:32px;padding:0;background:#F1F4F8">⚙</span></div></div>
+<div style="padding:14px;font-size:13px;color:#5F6B7A">(대시보드 내용)</div>
+<div style="position:absolute;inset:0;background:rgba(30,58,95,.45)"></div>
+<div style="position:absolute;top:0;right:0;bottom:0;width:250px;background:#fff;border-left:1px solid #D8DDE5">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #D8DDE5;font-size:15px;font-weight:500">설정<span style="font-weight:400">✕</span></div>
+<div style="padding:12px;display:flex;flex-direction:column;gap:8px">
+<span class="bt new" style="height:40px;justify-content:space-between;border-color:#D8DDE5"><span>다시 불러오기 (동기화)</span><span style="color:#5F6B7A;font-size:12px">10:21</span></span>
+<span class="bt" style="height:40px;justify-content:flex-start">지침 관리</span>
+<span class="bt" style="height:40px;justify-content:flex-start">어둡게 (화면 모드)</span></div>
+<div style="padding:0 14px;font-size:12px;color:#5F6B7A">바깥을 누르거나 ✕ 로 닫음</div></div></div>
+<div class="cap">누르면 어두운 막과 함께 오른쪽에서 밀려 나옵니다. 마지막 동기화 시각은 동기화 버튼 옆에 작게 표시.</div>
+
+<h3>3. 메인 화면: 작성 월별 아코디언</h3>
+<div class="acc"><div class="acc-h"><span>2026년 11월<small>5곳 · 협의중 3 · 컨펌완료 2</small></span><span>▲</span></div>
+<div class="row"><div>OO 매장<br><span class="s">에비뉴엘컨펌_041_261120 · 3F</span></div><div style="text-align:right">2차 · 협의중<br><span class="s">오픈 12/25 D-32</span></div></div>
+<div class="row"><div>△△ 매장<br><span class="s">에비뉴엘컨펌_040_261112 · 2F</span></div><div style="text-align:right">컨펌완료<br><span class="s">오픈 12/10 D-17</span></div></div>
+<div class="row"><div style="color:#5F6B7A">… 3곳 더 (지금 표 모양 그대로)</div><div></div></div></div>
+<div class="acc"><div class="acc-h"><span>2026년 10월<small>4곳 · 협의중 1 · 컨펌완료 3</small></span><span>▼</span></div></div>
+<div class="acc"><div class="acc-h"><span>2026년 9월<small>3곳 · 협의중 0 · 컨펌완료 3</small></span><span>▼</span></div></div>
+<div class="cap">- 가장 최근 달은 펼쳐 두고 나머지는 접어 둠. 머리줄을 누르면 열고 닫음.<br>- 월 기준은 <b>작성일자</b>. 매장 자료에 작성일 칸이 따로 없어, 문서번호 끝의 날짜(YYMMDD)를 작성일로 씀. 안에 표(칸·버튼)는 지금과 같음.<br>- 「전체 / 협의중 / 컨펌완료」 탭과 검색은 그대로 두고, 걸러진 결과가 월별로 묶임. 달력 탭은 그대로.</div>
+
+<h3>4. 새 도면협의: 퇴점일 입력 · 출력 양식</h3>
+<div class="m" style="padding:14px">
+<div class="lb">공사 기간 · 퇴점일</div>
+<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+<div class="inp" style="flex:1 1 120px">2026-12-01</div><span style="color:#5F6B7A;align-self:center">~</span><div class="inp" style="flex:1 1 120px">2026-12-20</div>
+<span class="new" style="padding:4px 6px;display:flex;flex-direction:column;flex:1 1 140px"><span style="font-size:12px;color:#5F6B7A">퇴점일 (선택)</span><div class="inp" style="background:#fff">2027-01-31</div></span></div></div>
+<span class="tag" style="margin-top:10px">출력 양식 1쪽 위쪽</span>
+<div class="m" style="padding:10px"><table class="p"><tr><td class="h">공사 기간</td><td colspan="3">2026.12.01 ~ 2026.12.20</td><td class="h" rowspan="4">시공업체</td><td rowspan="4">(업체·담당자)</td></tr>
+<tr><td class="h">오픈 예정일</td><td colspan="3">2026.12.25</td></tr>
+<tr class="new"><td class="h">퇴점일</td><td colspan="3">2027.01.31</td></tr>
+<tr><td class="h">소방 점검<br>예정일</td><td colspan="3">2026.12.18</td></tr></table></div>
+<div class="cap">퇴점일은 <b>비워 둬도 저장됩니다</b>. 비어 있으면 출력에는 「-」로 표시. 줄이 하나 늘어 1쪽 높이가 조금 늘어납니다.</div>
+
+<h3>5. 안전관리규정 준수 동의서: 서명 칸</h3>
+<span class="tag">서명 전</span>
+<div class="m" style="padding:14px;color:#18202B;font-size:14px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">* 책임자 :
+<div style="width:200px;height:64px;border:1px dashed #5F6B7A;border-radius:2px;display:flex;align-items:center;justify-content:center;color:#9AA4B1">(서명)</div></div></div>
+<span class="tag" style="margin-top:10px">터치해서 서명한 뒤</span>
+<div class="m" style="padding:14px;color:#18202B;font-size:14px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">* 책임자 :
+<div style="width:200px;height:64px;border:1px solid #1E3A5F;border-radius:2px;display:flex;align-items:center;justify-content:center"><svg width="150" height="48" viewBox="0 0 150 48"><path d="M8 34 C22 6 34 6 30 28 C28 42 44 14 58 22 C70 30 60 40 80 20 C92 8 104 30 120 16 C128 10 134 20 142 12" fill="none" stroke="#1E3A5F" stroke-width="2.2" stroke-linecap="round"/></svg></div></div></div>
+<div class="cap">「(서명)」 글자는 박스 안으로. 서명이 들어가면 글자는 사라지고 서명 그림만 남음. 롯데백화점 담당자 칸도 같음.</div>
+
+<h3>6. 종합방재실 협의서 사진: 확대·축소</h3>
+<div class="m" style="max-width:420px">
+<div style="display:flex;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #D8DDE5;font-size:14px;font-weight:500">종합방재실 협의서 · OO 매장<span style="font-weight:400">✕</span></div>
+<div style="position:relative;height:210px;background:#EDF0F3;display:flex;align-items:center;justify-content:center">
+<div style="width:150px;height:170px;background:#fff;border:1px solid #B8C0CC;display:flex;align-items:center;justify-content:center;font-size:12px;color:#5F6B7A">협의서 사진</div>
+<div style="position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px"><span class="bt new" style="width:40px;height:40px;padding:0;font-size:20px">+</span><span class="bt new" style="width:40px;height:40px;padding:0;font-size:20px">−</span></div>
+<div style="position:absolute;left:10px;bottom:10px;font-size:12px;background:#fff;border:1px solid #D8DDE5;padding:2px 8px">100%</div></div>
+<div style="display:flex;gap:8px;padding:10px 12px;flex-wrap:wrap"><span class="bt" style="flex:1">↺ 왼쪽으로 돌리기</span><span class="bt" style="flex:1">↻ 오른쪽으로 돌리기</span><span class="bt new">맞춤</span></div></div>
+<div class="cap">두 손가락으로 벌리면 확대, 모으면 축소. 확대하면 한 손가락으로 끌어서 이동. + / − 버튼과 「맞춤」(처음 크기로). 100%~400%.</div>
+</body></html>
