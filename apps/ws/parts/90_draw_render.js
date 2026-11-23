@@ -28,7 +28,6 @@ function render() {
   else if (S.view === 'qr') html = renderQr();
   else if (S.view === 'hyd') html = renderHyd();
   else if (S.view === 'hydfl') html = S.hq ? renderHydFloor() : renderHyd();
-  else if (S.view === 'eqpick') html = renderEqPick();
   else if (S.view === 'eh') html = renderEh();
   else if (S.view === 'cs') html = renderCs();
   else if (S.view === 'csck') html = renderCsCk();
