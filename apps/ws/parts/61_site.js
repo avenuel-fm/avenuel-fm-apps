@@ -1,12 +1,11 @@
 /* ── 공사장 점검 (WS_공사장점검, 결정 100): 현장 목록 → 현장 점검(자동 저장) → 날짜별·현장별 PDF ── */
 const CS_ST = [['양호', 'ok'], ['미흡', 'bad'], ['해당없음', 'na']];
 const CS_MAX_PHOTOS = 6;   // 한 줄 3장 × 2줄 (사용자 11-11)
-// 빈 사진 칸: 첫 줄은 3칸을 채워 보여 주고, 3장을 넘기면 다음 줄에 「＋ 사진 추가」 1칸 (최대 6장)
-function csAddSlots(x, i) {
-  const n = x.photos.length;
-  if (n >= CS_MAX_PHOTOS) return '';
-  const k = n < 3 ? 3 - n : 1;
-  return Array.from({ length: k }, () => '<label class="ph43"><b>＋</b>' + (n < 3 ? '사진' : '사진 추가') + '<input type="file" accept="image/*" hidden onchange="csPhAdd(' + i + ',this)"></label>').join('');
+// 사진 넣기 (사용자 11-24, TBM 사진칸과 같게): [카메라] 바로 찍기 · [파일] 갤러리에서 여러 장 고르기, 최대 6장
+function csPhBar(x, i) {
+  const n = x.photos.length, full = n >= CS_MAX_PHOTOS;
+  const pick = cam => '<label class="btn sm' + (full ? ' off' : '') + '">' + (cam ? ICON.cam + ' 카메라' : ICON.folder + ' 파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : ' multiple') + (full ? ' disabled' : '') + ' hidden onchange="csPhAdd(' + i + ',this)"></label>';
+  return '<div class="tbpb csphb">' + pick(true) + pick(false) + '</div><small class="csphn">사진 ' + n + ' / ' + CS_MAX_PHOTOS + '장</small>';
 }
 function csDay(d) { return Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + '일월화수목금토'[new Date(d + 'T00:00:00').getDay()] + ')'; }
 function csNow(dateToo) { const d = new Date(), p = n => String(n).padStart(2, '0'); return (dateToo ? d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' : '') + p(d.getHours()) + ':' + p(d.getMinutes()); }
@@ -221,14 +220,17 @@ function csItemHtml(x, i) {
     '<p>' + h(x.d) + '</p>' +
     '<div class="seg csseg" role="group" aria-label="' + h(x.t) + ' 결과">' + CS_ST.map(s => '<button type="button" class="' + s[1] + (x.st === s[0] ? ' on' : '') + '" aria-pressed="' + (x.st === s[0]) + '" onclick="csSt(' + i + ',\'' + s[0] + '\')">' + s[0] + '</button>').join('') + '</div>' +
     '<div class="csph">' + x.photos.map((p, j) => '<div class="ph43"><img src="' + h(p.src) + '" alt="' + h(x.t) + ' 사진 ' + (j + 1) + '"><span class="tm">' + h(p.at) + ' 촬영</span><button class="x" onclick="csPhDel(' + i + ',' + j + ')" aria-label="사진 지우기">✕</button></div>').join('') +
-    csAddSlots(x, i) + '</div>' +
+    '</div>' + csPhBar(x, i) +
     '<textarea class="inp csmemo" maxlength="300" placeholder="특이사항 (미흡이면 꼭 적기)" oninput="csMemo(' + i + ',this)">' + h(x.memo) + '</textarea></div>';
 }
 function csSt(i, s) { const x = S.ck.items[i]; x.st = x.st === s ? '' : s; csDirty(); render(); }
 function csMemo(i, el) { S.ck.items[i].memo = el.value; csDirty(); }
 async function csPhAdd(i, el) {
-  const f = el.files && el.files[0]; if (!f) return;
-  try { const src = await shrinkJpeg(f, 1600, 0.7); S.ck.items[i].photos.push({ id: '', src: src, at: csNow() }); csDirty(true); render(); } catch (e) { toast(e.message); }
+  const fs = Array.from(el.files || []); el.value = ''; if (!fs.length) return;   // 같은 파일을 또 골라도 다시 들어오게 비움
+  const x = S.ck.items[i], room = CS_MAX_PHOTOS - x.photos.length;
+  try { for (const f of fs.slice(0, room)) x.photos.push({ id: '', src: await shrinkJpeg(f, 1600, 0.7), at: csNow() }); } catch (e) { toast(e.message); }
+  csDirty(true); render();
+  if (fs.length > room) toast('사진은 한 항목에 ' + CS_MAX_PHOTOS + '장까지입니다');
 }
 function csPhDel(i, j) { if (!confirm('이 사진을 지울까요?')) return; S.ck.items[i].photos.splice(j, 1); csDirty(); render(); }
 function csExtraOpen() {

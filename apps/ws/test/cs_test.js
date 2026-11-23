@@ -69,18 +69,25 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   ok(await p.locator('.csit').count() === 9, '기본 항목 9개');
   ok(/오후점검/.test(await p.locator('.csrtabs .on').innerText()) && await p.locator('.csrtabs button').count() === 2 && await p.locator('.csrtabs button:disabled').count() === 1, '첫 점검 = 오후점검 (퇴실점검은 아직 못 누름, 칸 2개)');
   ok(/처음 저장할 때/.test(await p.locator('.csmeta').innerText()), '저장 전: 점검 시각은 처음 저장할 때');
-  ok(await p.locator('.csit').nth(0).locator('label.ph43').count() === 3, '사진 빈 칸 3개 기본');
-  { // 항목 9에 사진 6장: 3장 뒤 「사진 추가」 1칸(두 번째 줄), 6장이면 칸 없음
-    const it = p.locator('.csit').nth(8);
-    for (let n = 1; n <= 6; n++) {
-      await it.locator('input[type=file]').first().setInputFiles(__dirname + '/gauge.jpg');
+  { // 사진 넣기 (사용자 11-24): [카메라](capture) · [파일](여러 장) 버튼 2개, 빈 점선 칸 없음, 최대 6장
+    const it0 = p.locator('.csit').nth(0), f0 = it0.locator('.csphb input');
+    ok(await it0.locator('label.ph43').count() === 0 && await it0.locator('.csphb label').count() === 2 && /카메라/.test(await it0.locator('.csphb label').nth(0).innerText()) && /파일/.test(await it0.locator('.csphb label').nth(1).innerText()), '사진: [카메라] [파일] 버튼 2개, 빈 점선 칸 없음');
+    ok(await f0.nth(0).getAttribute('capture') === 'environment' && await f0.nth(1).getAttribute('capture') === null && await f0.nth(1).getAttribute('multiple') !== null, '카메라는 바로 찍기(capture), 파일은 여러 장 고르기(multiple)');
+    ok(/사진 0 \/ 6장/.test(await it0.locator('.csphn').innerText()) && await it0.locator('.csph img').count() === 0, '사진 0 / 6장 · 사진 없으면 사진 줄 없음');
+    const it = p.locator('.csit').nth(8);   // 항목 9: 카메라로 4장 → 파일로 3장 고르면 남은 2장만 (6장)
+    for (let n = 1; n <= 4; n++) {
+      await it.locator('.csphb input').first().setInputFiles(__dirname + '/gauge.jpg');
       await p.waitForFunction(k => document.querySelectorAll('.csit')[8].querySelectorAll('img').length === k, n);
       await p.waitForSelector('.csst.ok', { timeout: 10000 });   // 자동 저장 뒤 다시 그린 다음에 봄
-      if (n === 4) await it.screenshot({ path: __dirname + '/shot_cs_photos.png' });
-      if (n === 3) ok(await it.locator('label.ph43').count() === 1 && /사진 추가/.test(await it.locator('label.ph43').innerText()), '3장 뒤 「사진 추가」 1칸');
-      if (n === 3) { const y = await it.locator('.csph > *').evaluateAll(e => e.map(x => Math.round(x.getBoundingClientRect().top))); ok(y[3] > y[0] && y[0] === y[2], '4번째 칸은 두 번째 줄'); }
     }
-    ok(await it.locator('label.ph43').count() === 0 && await it.locator('img').count() === 6, '6장이면 더 넣는 칸 없음');
+    await it.screenshot({ path: __dirname + '/shot_cs_photos.png' });
+    ok(/사진 4 \/ 6장/.test(await it.locator('.csphn').innerText()), '4장: 사진 4 / 6장');
+    await p.evaluate(() => { window.__toasts = []; const o = window.toast; window.toast = m => { window.__toasts.push(m); return o(m); }; });   // 알림은 금방 다른 글로 바뀌어 기록해 둠
+    await it.locator('.csphb input').nth(1).setInputFiles([__dirname + '/gauge.jpg', __dirname + '/gauge.jpg', __dirname + '/gauge.jpg']);
+    await p.waitForFunction(() => document.querySelectorAll('.csit')[8].querySelectorAll('img').length === 6);
+    await p.waitForSelector('.csst.ok', { timeout: 10000 });
+    ok(await it.locator('img').count() === 6 && await it.locator('.csphb input:disabled').count() === 2, '파일로 3장 고르면 남은 2장만 들어가 6장 · 두 버튼 꺼짐');
+    ok((await p.evaluate(() => window.__toasts)).some(m => /6장까지/.test(m)), '넘치면 「한 항목에 6장까지」 알림');
   }
   const seg = (i, s) => p.locator('.csit').nth(i).locator(`.csseg button:text-is("${s}")`).click();
   for (const i of [0, 1, 2, 4, 5, 8]) await seg(i, '양호');
