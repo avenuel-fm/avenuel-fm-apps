@@ -2089,7 +2089,7 @@ function ahuNorm(x) { return String(x).replace(/[℃%\s]/g, '').replace(/,/g, '.
 // 칸 하나 검사 (서버 ws_ahu_save 와 같은 범위). 문제 없으면 ''
 function ahuCheck(k, val, name) {
   if (val === '') return '';
-  const rg = k === 'u' ? [-10, 50] : k.indexOf('out_t') === 0 ? [-30, 50] : k.indexOf('out_h') === 0 ? [0, 100] : [-5, 40];
+  const rg = k === 'u' ? [-10, 50] : k.indexOf('out_t') === 0 ? [-30, 50] : k.indexOf('out_h') === 0 ? [0, 100] : [-5, 50];   // 냉수 최고 50 (결정 242)
   return /^-?\d+(\.\d+)?$/.test(val) && Number(val) >= rg[0] && Number(val) <= rg[1] ? '' : (name || '') + ' ' + rg[0] + ' ~ ' + rg[1] + ' 숫자로 넣어 주세요';
 }
 // 고친 칸 중 문제 있는 칸 [{k, u, t, msg}]
