@@ -92,8 +92,11 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   for (let x = 9810; x <= 9990; x += 2) { const c = await px(x, 3999); if (dark(c)) outerDark++; }
   ok(innerDark === 0, '1) 겹친 바닥의 안쪽 선은 안 보임 (검은 점 ' + innerDark + '개)');
   ok(outerDark > 10, '2) 바깥 둘레 점선은 보임 (검은 점 ' + outerDark + '개)');
-  const hit = await f.evaluate(() => ({ lines: document.querySelectorAll('#floor-user .floor-lines polygon.user-floor-line').length, fills: document.querySelectorAll('#floor-user > polygon.user-floor').length, order: !!(document.querySelector('.floor-lines').compareDocumentPosition(document.querySelector('#floor-user > polygon.user-floor')) & Node.DOCUMENT_POSITION_FOLLOWING) }));
-  ok(hit.lines === 2 && hit.fills === 2 && hit.order, '3) 점선 층 2개 · 면 2개 · 점선이 면 아래 ' + JSON.stringify(hit));
+  let overStore = 0;
+  for (let y = 4110; y <= 4290; y += 2) { const c = await px(9499, y); if (dark(c)) overStore++; }
+  ok(overStore > 10, '2-2) 바닥 점선이 매장(아그라) 위에서도 끊기지 않고 보임 (검은 점 ' + overStore + '개)');
+  const hit = await f.evaluate(() => ({ lines: document.querySelectorAll('#floor-outline-layer .floor-lines polygon.user-floor-line').length, fills: document.querySelectorAll('#floor-user polygon, #floor-outline-layer polygon[fill]:not([fill="none"]):not(mask polygon)').length, order: !!(document.querySelector('#vendor-stores-layer').compareDocumentPosition(document.querySelector('#floor-outline-layer')) & Node.DOCUMENT_POSITION_FOLLOWING) }));
+  ok(hit.lines === 2 && hit.fills === 0 && hit.order, '3) 점선 2개 · 색 있는 면 없음(투명) · 점선 층이 매장보다 위 ' + JSON.stringify(hit));
   await shot(p, 'shot_map_floor_union.png');
 
   // ── 열쇠 ──

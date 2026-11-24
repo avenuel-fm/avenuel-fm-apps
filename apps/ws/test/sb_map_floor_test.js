@@ -97,11 +97,11 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   // ── 3) 바닥 그리기: 매장 위에 겹쳐도 매장이 위 ──
   await draw(f, [{ x: 9500, y: 4120 }, { x: 9760, y: 4120 }, { x: 9760, y: 4300 }, { x: 9500, y: 4300 }]);
   await p.waitForTimeout(300);
-  const fz = await f.evaluate(() => { const z = getFloorZones('1F').filter(z => z.category === 'floor'); const e = document.querySelector('#floor-user polygon.user-floor'); return { n: z.length, name: z[0] && z[0].name, geom: z[0] && z[0].geometry, fill: e && e.getAttribute('fill'), inZones: !!document.querySelector('#safety-zones-layer [data-zone-category="floor"]') }; });
-  ok(fz.n === 1 && fz.name === '바닥 1' && fz.geom === 'polygon' && fz.fill === '#ffffff' && !fz.inZones, '7) 바닥 저장: 면 · 이름 「바닥 1」 · 바닥 층에 그림 (구역 층에는 없음)');
+  const fz = await f.evaluate(() => { const z = getFloorZones('1F').filter(z => z.category === 'floor'); const e = document.querySelector('#floor-outline-layer polygon.user-floor-line'); return { n: z.length, name: z[0] && z[0].name, geom: z[0] && z[0].geometry, fill: e && e.getAttribute('fill'), inZones: !!document.querySelector('#safety-zones-layer [data-zone-category="floor"]') }; });
+  ok(fz.n === 1 && fz.name === '바닥 1' && fz.geom === 'polygon' && fz.fill === 'none' && !fz.inZones, '7) 바닥 저장: 면 · 이름 「바닥 1」 · 투명(색 없음)으로 맨 위 점선 층에 그림 (구역 층에는 없음)');
   const over = await pixel(f, 9550, 4150);
   ok(near(over, [223, 231, 240, 255]), '8) 바닥을 매장(아그라) 위에 겹쳐 그려도 화면에는 안 보임 · 매장이 위 ' + over.join(','));
-  const off = await f.evaluate(() => { const e = document.querySelector('.user-floor'), cs = getComputedStyle(e); return { s: cs.stroke, pe: cs.pointerEvents, on: document.body.classList.contains('zone-drawing-mode') }; });
+  const off = await f.evaluate(() => { const e = document.querySelector('.user-floor-line'), cs = getComputedStyle(e); return { s: cs.stroke, pe: cs.pointerEvents, on: document.body.classList.contains('zone-drawing-mode') }; });
   ok(!off.on && off.s === 'none' && off.pe === 'none', '9) 평소 바닥은 점선도 없고 눌리지도 않음');
   await fl.locator('#btn-symbol-menu').click();
   ok(await fl.locator('#chk-zone-filter-floor').count() === 1 && !(await fl.locator('#chk-zone-filter-floor').isChecked()), '10) 레이어 메뉴 구역 칸에 「바닥」 (처음엔 꺼짐)');
@@ -141,7 +141,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   await f.evaluate(id => openZoneModal(getFloorZones('1F').find(z => z.id === id)), zid);
   ok(/바닥/.test(await fl.locator('#zone-modal-badge').innerText()) && /매장·기능실 아래/.test(await fl.locator('#zone-info-category').innerText()), '19) 바닥 상세 창: 종류 표시');
   await f.evaluate(() => deleteCurrentZone()); await p.waitForTimeout(300);
-  ok(await f.evaluate(() => getFloorZones('1F').every(z => z.category !== 'floor') && !document.querySelector('.user-floor')), '20) 바닥 지우기');
+  ok(await f.evaluate(() => getFloorZones('1F').every(z => z.category !== 'floor') && !document.querySelector('.user-floor-line')), '20) 바닥 지우기');
 
   // ── 6) 직각 체크박스 ──
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(200);
