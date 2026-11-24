@@ -38,7 +38,7 @@ function loggedIn(r) { S.token = r.token; store('ws_token', r.token); SHELL.set(
 const OFFMSG = '이 기기에 저장했습니다. 신호가 잡히면 자동으로 보냅니다';   // 서버에 들어가기 전에는 「저장되었습니다」라고 하지 않음 (결정 222)
 function logoutAsk() { if (window.WS_OFFLINE && WS_OFFLINE.count() && !confirm('아직 전송되지 않은 저장 대기 ' + WS_OFFLINE.count() + '건이 있습니다. 로그아웃해도 이 기기에 남아 있다가, 본인이 다시 로그인하면 보냅니다. 로그아웃할까요?')) return; logout(); }
 if (window.WS_OFFLINE) { WS_OFFLINE.tokenFn = () => S.token; WS_OFFLINE.onSent = n => toast('저장 대기 ' + n + '건을 전송했습니다'); }
-function logout(expired) { store('ws_token', null); store('ws_main', null); SHELL.set(''); bootSeq++; S.token = ''; S.user = null; S.sign = null; S.pin = ''; S.view = 'login'; render(); if (expired === true) toast('다시 로그인해 주세요.'); }
+function logout(expired) { store('ws_token', null); store('ws_main', null); SHELL.set(''); bootSeq++; S.token = ''; S.user = null; S.sign = null; S.pin = ''; S.view = 'login'; histReset(); render(); if (expired === true) toast('다시 로그인해 주세요.'); }
 
 /* ── 근무일 첫 서명 (결정 56·60) — 서명하지 않으면 로그인되지 않음 ── */
 function renderSign() {
