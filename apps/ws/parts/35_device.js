@@ -21,7 +21,7 @@ async function deviceReg() {
 async function deviceOff() {
   if (!confirm('이 기기의 등록을 풀까요? 다시 쓰려면 시설팀 계정으로 기기 등록을 해야 합니다.')) return;
   await WS_API.unregister(S.token);
-  store('ws_token', null); store('ws_main', null); S.token = ''; S.user = null; S.device = null; S.view = 'device'; render();
+  store('ws_token', null); store('ws_main', null); S.token = ''; S.user = null; S.device = null; S.view = 'device'; histReset(); render();
 }
 async function setToastSec(v) {
   const r = await call('adminSetToast', v);
