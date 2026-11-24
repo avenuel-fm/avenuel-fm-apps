@@ -18,7 +18,7 @@ function lgSet(r) {
   // 그날 금일작업이 아직 비었으면 TBM 작업 표로 채워 둠 (10줄까지, 저장은 직원이 [저장])
   const tbm = r.tbm || {}, auto = LG_DEPTS.every(d => !works[d].some(x => x)) && LG_DEPTS.some(d => (tbm[d] || []).length);
   if (auto) LG_DEPTS.forEach(d => { works[d] = Array.from({ length: LG_LINES }, (_, i) => (tbm[d] || [])[i] || ''); });
-  S.lg = { srv: r, day: r.day, f, works, ver: r.ver, by: r.by, pdf: r.pdf, dirty: auto, busy: false, night: r.night || '', nightNew: '' };
+  S.lg = { srv: r, day: r.day, f, works, ver: r.ver, by: r.by, pdf: r.pdf, dirty: auto, busy: false };
   if (S.view === 'log') render();
   // Supabase 판: 공조기·에어커튼은 구글을 거쳐 늦게 옴(6~9초) → 일지를 먼저 보여 주고 그 칸만 나중에 채움
   if (r.acLater) r.acLater.then(ac => { r.ac = ac; delete r.acLater; const el = S.lg && S.lg.srv === r && document.querySelector('#app .lgac'); if (el) el.outerHTML = lgAc(ac); });
@@ -78,30 +78,9 @@ function lgSheet(edit) {
     '<div><div class="lgsec">에너지 사용량 <small>막대 = 같은 줄 안에서 전년과 비교<span class="lglg"><i style="background:#CBD2DB"></i>' + s.prevDay.slice(0, 4) + '</span><span class="lglg"><i style="background:#1F5FA8"></i>' + dd.slice(0, 4) + '</span> · 증감율 빨강 = 늘어남</small></div>' +
     '<div class="lgegrid">' + LG_METERS.map(([k, nm]) => '<div class="lgmc"><div class="lgmh"><b>' + nm + '</b>' + (edit ? inp(k) : '') + '</div><div data-bars="' + k + '">' + lgBars(k) + '</div></div>').join('') + '</div></div>' +
     lgAc(s.ac) +
-    '<div class="lgrow"><div class="lgworks"><div class="lgwk2">' + work('전기방재') + work('기계건축') + '</div>' +
-    '</div>' +
-    '<div><div class="lgsec">야간 일일 작업 현황</div><div class="lgnight" id="lgNight">' + lgNight(edit) + '</div></div></div>' +
+    '<div class="lgworks"><div class="lgwk2">' + work('전기방재') + work('기계건축') + '</div></div>' +
     '<div class="lgfoot">- 1 / 1 -</div></div>';
 }
-/** 야간 그림: 칸 크기에 맞춰 자르지 않고 줄여 가운데 (남는 곳 흰색) */
-function lgNight(edit) {
-  const g = S.lg, src = g.nightNew === '-' ? '' : (g.nightNew || g.night);
-  const file = '<input type="file" accept="image/*" hidden onchange="lgNightFile(this)">';
-  if (!edit) return src ? '<img src="' + src + '" alt="야간 일일 작업 현황">' : '';
-  if (!src) return '<label class="lgnadd">' + ICON.clip + '그림 올리기<small>사진·캡처 파일, 또는 Ctrl+V로 붙여 넣기</small>' + file + '</label>';
-  return '<img src="' + src + '" alt="야간 일일 작업 현황"><div class="lgnb"><label class="btn sm">바꾸기' + file + '</label><button class="btn sm" onclick="lgNightSet(\'-\')">빼기</button></div>';
-}
-function lgNightSet(v) { S.lg.nightNew = v; lgDirty(); const e = $('lgNight'); if (e) e.innerHTML = lgNight(true); }
-async function lgNightFile(el) {
-  const f = el.files && el.files[0]; if (!f) return;
-  try { lgNightSet(await shrinkJpeg(f, 2400, 0.85, true)); } catch (e) { toast('그림을 읽지 못했습니다'); }
-}
-document.addEventListener('paste', e => {
-  if (S.view !== 'log' || !S.lg || !lgPc()) return;
-  const it = Array.from((e.clipboardData && e.clipboardData.items) || []).find(x => x.type.indexOf('image/') === 0);
-  if (!it) return;
-  e.preventDefault(); shrinkJpeg(it.getAsFile(), 2400, 0.85, true).then(lgNightSet, () => toast('그림을 읽지 못했습니다'));
-});
 function lgState() {
   const g = S.lg;
   return g.dirty ? '<span class="nwstate dirty"><i class="dot"></i>저장 안 함</span>' : g.ver ? '<span class="nwstate">' + ICON.ok + '저장됨 · ' + h(String(g.ver).slice(5, 16).replace('-', '/')) + ' ' + h(g.by) + '</span>' : '<span class="nwstate" style="color:var(--muted)">아직 저장 안 함</span>';
@@ -132,7 +111,6 @@ function lgWork(el) { S.lg.works[el.dataset.d][Number(el.dataset.i)] = el.value;
 function lgPayload() {
   const g = S.lg, d = Object.assign({}, g.f, { works: {} });
   LG_DEPTS.forEach(x => { d.works[x] = g.works[x].map(t => t.trim()).filter(Boolean); });
-  if (g.nightNew) d.night = g.nightNew;
   return d;
 }
 /* 인쇄 = B4 가로 한 장. 종이 틀(1587×1120)을 0.867배 → 364×257mm */
