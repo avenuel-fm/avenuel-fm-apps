@@ -19,11 +19,11 @@ async function whLoad(k) {
 }
 function whTab(k) { const w = S.wh; if (w.tab === k) return; w.tab = k; if (!w[k].list) whLoad(k); render(); }
 function whSearch() { const o = S.wh[S.wh.tab]; o.q = o.qv.trim(); whLoad(S.wh.tab); }
-function whNewForm() { const o = S.wh.n; if (o.dirty && !confirm('저장하지 않은 내용이 있습니다. 새로 쓸까요?')) return; o.f = whNew('n'); o.dirty = false; render(); window.scrollTo(0, 0); }
+function whNewForm() { const o = S.wh.n; if (o.dirty && !confirm('저장하지 않은 내용이 있습니다. 새로 쓸까요?')) return; o.f = whNew('n'); o.sl = {}; o.dirty = false; render(); window.scrollTo(0, 0); }
 function whEdit(id) {
   const k = S.wh.tab, o = S.wh[k], x = o.list.find(y => y.id === id); if (!x) return;
   if (o.dirty && !confirm('저장하지 않은 내용이 있습니다. 다른 작업을 열까요?')) return;
-  o.f = JSON.parse(JSON.stringify(x)); if (k === 'd' && !o.f.mats.length) o.f.mats.push({ n: '', q: '', u: '' });
+  o.sl = {}; o.f = JSON.parse(JSON.stringify(x)); if (k === 'd' && !o.f.mats.length) o.f.mats.push({ n: '', q: '', u: '' });
   o.dirty = false; render(); window.scrollTo(0, 0);
 }
 function whDirty() { const o = S.wh[S.wh.tab]; o.dirty = true; const e = $('whState'); if (e) e.innerHTML = whState(); }
@@ -48,10 +48,14 @@ function whSlots(k, fld, title, max) {   // 주간: 칸 하나에 사진 한 장
   const L = S.wh[k].f[fld], n = Math.max(max, L.length);
   return '<div class="whcol">' + Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + (L[i] ? whTile(k, fld, L[i], i) : '<div class="whim empty">사진 없음</div>') + whBtns(k, fld, i, false) + '</div>').join('') + '</div>';
 }
-function whMulti(k, fld, title) {   // 야간: 개수 제한 없음, 휴대폰 2열 · PC 4열
-  const L = S.wh[k].f[fld];
-  return '<div class="whpc"><h4>' + title + '<small>' + L.length + '장</small></h4>' + (L.length ? '<div class="whg">' + L.map((p, i) => whTile(k, fld, p, i)).join('') + '</div>' : '') + whBtns(k, fld, -1, true) + '</div>';
+const WH_MAX = 20;
+function whMulti(k, fld, title) {   // 야간: 주간과 같은 칸 모양, 처음 2칸 · ＋ 버튼으로 20칸까지, 휴대폰 2열 · PC 4열
+  const o = S.wh[k], L = o.f[fld], n = Math.max(2, L.length, (o.sl && o.sl[fld]) || 0);
+  return '<div class="whsec"><h4>' + title + '<small>' + L.length + '장 / ' + WH_MAX + '장</small></h4><div class="whg">' +
+    Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + (L[i] ? whTile(k, fld, L[i], i) : '<div class="whim empty">사진 없음</div>') + whBtns(k, fld, i, true) + '</div>').join('') + '</div>' +
+    '<button type="button" class="btn whplus" onclick="whPlus(\'' + k + '\',\'' + fld + '\')"' + (n >= WH_MAX ? ' disabled' : '') + '>' + ICON.plus + ' 사진 칸 추가 (' + n + ' / ' + WH_MAX + ')</button></div>';
 }
+function whPlus(k, fld) { const o = S.wh[k]; o.sl = o.sl || {}; o.sl[fld] = Math.min(WH_MAX, Math.max(2, o.f[fld].length, o.sl[fld] || 0) + 1); render(); }
 function whFloors(f) { return '<div class="rwfls">' + RW_FLOORS.map(x => '<button type="button" class="rwfl' + (f.floor === x ? ' on' : '') + '" aria-pressed="' + (f.floor === x) + '" onclick="whFloor(\'' + x + '\')">' + x + '</button>').join('') + '</div>'; }
 function whFormD(f) {
   return '<div class="card whf"><label class="rwlb">일자</label><input class="inp" type="date" max="' + rwToday() + '" value="' + h(f.day) + '" onchange="whIn(\'day\',this)" aria-label="일자">' +
@@ -196,14 +200,14 @@ function whQuality(uri) {
 }
 async function whAdd(k, fld, el, at) {
   const fs = Array.from(el.files || []); el.value = ''; if (!fs.length) return;
-  const o = S.wh[k], L = o.f[fld], max = k === 'd' ? 2 : 0, doc = fld === 'fire' || fld === 'pledge'; let dup = 0, cut = 0, bad = '';
+  const o = S.wh[k], L = o.f[fld], max = k === 'd' ? 2 : WH_MAX, doc = fld === 'fire' || fld === 'pledge'; let dup = 0, cut = 0, bad = '';
   for (const f of fs) {
-    if (max && at < 0 && L.length >= max) { cut++; continue; }
+    if (L.length >= max && !(at >= 0 && at < L.length)) { cut++; continue; }
     const key = f.name + '|' + f.size + '|' + f.lastModified;
     if (o.keys.indexOf(key) !== -1) { dup++; continue; }
     try {
       const data = await (doc ? shrinkJpeg(f, 2400, 0.85) : shrinkJpeg(f, 1600, 0.7));
-      if (at >= 0 && at < L.length) L[at] = { data, src: data }; else L.push({ data, src: data }); o.keys.push(key); if (o.keys.length > 80) o.keys.shift();
+      if (at >= 0 && at < L.length) L[at] = { data, src: data }; else L.push({ data, src: data }); o.keys.push(key); at = -1; if (o.keys.length > 80) o.keys.shift();
       if (doc && !bad) bad = await whQuality(data);
     } catch (e) { toast(e.message); }
   }
@@ -238,7 +242,7 @@ async function whSave() {
     const r = await call(WH_API[k][1], d); o.busy = false;
     if (!r.ok) { render(); return toast(r.error || '저장하지 못했습니다'); }
     if (o.list) { const i = o.list.findIndex(x => x.id === r.item.id); if (i >= 0) o.list[i] = r.item; else o.list.unshift(r.item); o.list.sort((a, b) => a.day < b.day ? 1 : a.day > b.day ? -1 : 0); }
-    o.f = whNew(k); o.keys = [];   // 저장하면 빈 양식 (저장한 작업은 아래 목록에서 눌러 다시 고침)
+    o.f = whNew(k); o.sl = {}; o.keys = [];   // 저장하면 빈 양식 (저장한 작업은 아래 목록에서 눌러 다시 고침)
     o.dirty = false; render(); window.scrollTo(0, 0); toast(k === 'd' ? '저장했습니다 · 종합업무일지 금일작업에도 들어갑니다' : '저장했습니다');
   } catch (e) { o.busy = false; render(); }
 }
