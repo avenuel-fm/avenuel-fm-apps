@@ -40,6 +40,7 @@ const ehData = () => ({ ok: true, floor: '1F', floors: EH_F.map(f => ({ code: f,
 const STAFF = [{ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, { staff_id: 'S002', name: '김철수', part: '기건파트', role: '직원' }];
 const RISK = [{ words: '(기본)', risk: '손 다침', kind: '베임', p: 1, s: 2, fixes: [{ t: '보호장갑', on: true }] },
   { words: '분전반, 배선', risk: '감전', kind: '감전', p: 2, s: 3, fixes: [{ t: '전원 차단', on: true }] }];
+const RW = [];
 const CSITE = { id: 'WS-CS-1', name: '5F 리모와', work: '인테리어', co: 'A사' }, CS = {};
 const feData = () => ({ ok: true, items: FE, execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const RPC = {
@@ -116,6 +117,15 @@ const RPC = {
     return { ok: true, items: CS.items.map(x => x.photos.map(ph => ph.id)), check: CS.check, rounds: [CS.check] };
   },
   ws_cs_save_pdf: a => { CS.check.pdf = { url: a.p_file.url, at: ver() }; return { ok: true, check: CS.check, rounds: [CS.check], warn: '' }; },
+  /* 위험작업신청서 */
+  ws_rw_list: () => ({ ok: true, admin: true, floors: ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '10F', '외곽'], list: RW.map(r => r.item) }),
+  ws_rw_add: a => {
+    const x = RW.find(r => r.cid === a.p_cid);
+    if (x) return { ok: true, dup: true, item: x.item };
+    const item = { id: 'WS-RK-' + (RW.length + 1), day: a.p_day || D, co: a.p_co, floor: a.p_floor, by: ME.name, at: '11/24 09:1' + RW.length, src: a.p_file.url };
+    RW.push({ cid: a.p_cid, item }); return { ok: true, item };
+  },
+  ws_rw_delete: a => { const i = RW.findIndex(r => r.item.id === a.p_id); RW.splice(i, 1); return { ok: true }; },
   /* 3-6 환경설정 */
   ws_admin_staff: () => ({ ok: true, toastSec: 2.6, staff: STAFF }),
   ws_risk_get: () => ({ ok: true, rows: RISK }),
@@ -431,6 +441,38 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const cpu = UPLOADS.find(x => /^cs_pdf\//.test(x.p));
   ok(cpu && cpu.type === 'application/pdf' && last('ws_cs_save_pdf').a.p_file.path === cpu.p && last('ws_cs_save_pdf').a.p_ck_id === 'WS-CK-1', '45) PDF를 버킷 cs_pdf/ 에 올리고 점검 번호와 함께');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_cs.png') });
+
+  // ── 위험작업신청서 (결정 236) ──
+  await p.evaluate(() => openRw()); await p.waitForFunction(() => S.rw && S.rw.list);
+  ok(await p.locator('.rwfl').count() === 11 && await p.locator('.rwadd input[type=file]').count() === 2, 'R1) 위험작업신청서: 사진찍기·갤러리 · 위치 버튼 11개 (B3~10F·외곽)');
+  await p.fill('#rwCo', 'OO인테리어'); await p.click('.rwfl >> text="3F"');
+  const nr = count('ws_rw_add'), nu = UPLOADS.length;
+  await p.locator('.rwadd input[type=file]').nth(1).setInputFiles(path.join(__dirname, 'gauge.jpg'));
+  ok(await called('ws_rw_add', nr), 'R2) 사진을 고르면 바로 저장');
+  const ra = last('ws_rw_add').a, ru = UPLOADS.slice(nu);
+  ok(ru.length === 1 && /^risk_photo\/\d{4}-\d{2}\/[a-z0-9]+\.jpg$/.test(ru[0].p) && ra.p_file.path === ru[0].p && ra.p_co === 'OO인테리어' && ra.p_floor === '3F' && /^[0-9a-f]{24}$/.test(ra.p_cid) && /^\d{4}-\d{2}-\d{2}$/.test(ra.p_day) && !('data' in ra),
+    'R3) 사진은 버킷 risk_photo/ 에, 업체명·위치·날짜 태그·고유 번호와 함께 ' + (ru[0] && ru[0].p));
+  await p.waitForFunction(() => document.querySelectorAll('.rwt').length === 1);
+  ok(/OO인테리어/.test(await p.locator('.rwcap').first().innerText()) && /3F/.test(await p.locator('.rwcap').first().innerText()), 'R4) 일자별 목록에 사진 아래 업체명·위치·시간');
+  await p.locator('.rwadd input[type=file]').nth(1).setInputFiles(path.join(__dirname, 'gauge.jpg'));
+  await new Promise(r => setTimeout(r, 800));
+  ok(count('ws_rw_add') === nr + 1 && await p.locator('.rwt').count() === 1, 'R5) 같은 사진을 또 고르면 건너뜀 (두 번 저장 안 됨)');
+  await p.evaluate(() => { window.__run = window.run; window.run = () => Promise.reject(new Error('Failed to fetch')); });
+  await p.locator('.rwadd input[type=file]').nth(1).setInputFiles({ name: 'b.jpg', mimeType: 'image/jpeg', buffer: fs.readFileSync(path.join(__dirname, 'gauge.jpg')) });
+  await p.waitForFunction(() => S.rw.pend.length === 1);
+  ok(/올리기 대기 중 1장/.test(await p.locator('#rwPend').innerText()) && await p.locator('.rwt').count() === 1, 'R6) 통신 불량: 「올리기 대기 중 1장」 · 아직 목록에 안 들어감');
+  await p.evaluate(() => { window.run = window.__run; return rwFlush(); });
+  await p.waitForFunction(() => S.rw.pend.length === 0 && document.querySelectorAll('.rwt').length === 2);
+  ok(await p.locator('#rwPend').innerText() === '' && count('ws_rw_add') === nr + 2, 'R7) 연결되면 자동으로 올라가고 대기 표시가 사라짐');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_rw.png'), fullPage: true });
+  await p.locator('.rwim').first().click(); await p.locator('.rwv').waitFor();
+  await p.click('.rwvf >> text="＋"');
+  ok(/150%/.test(await p.locator('.rwvf b').innerText()) && await p.locator('.rwvf button >> text="이전"').isDisabled(), 'R8) 사진 크게 보기: 확대 · 첫 장이면 이전 막힘');
+  await p.click('.rwvf >> text="다음"'); ok(/100%/.test(await p.locator('.rwvf b').innerText()), 'R9) 다음 사진으로 넘기면 100%로');
+  await p.click('.rwvh >> text="닫기"'); ok(await p.locator('.rwv').count() === 0, 'R10) 닫기');
+  await p.locator('.rwx').first().click();
+  await p.waitForFunction(() => document.querySelectorAll('.rwt').length === 1);
+  ok(count('ws_rw_delete') === 1, 'R11) 소장·관리자는 ✕로 지움 (되묻기 뒤)');
 
   // ── 환경설정 (3-6) ──
   await p.evaluate(() => openSet()); await p.locator('.strow').first().waitFor();

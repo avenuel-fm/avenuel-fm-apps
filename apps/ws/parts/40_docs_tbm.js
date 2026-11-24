@@ -8,6 +8,7 @@ function renderDocs() {
     R('att', 'openAtt()', 'var(--tint)', 'var(--navy)', ICON.att, '출근현황', '근무 스케줄 엑셀 → 날짜별 조직도 · 그림으로 저장') +
     R('ahu', 'openAhu()', 'var(--blue-bg)', 'var(--blue)', ICON.ahu, '온습도/공조기/에어커튼 입력', 'AHU 환기온도 11:00 · 16:00 · 매장 온습도 · 가동시간 · 리포트') +
     R('log', 'openLog()', 'var(--tint)', 'var(--sub)', ICON.log, '종합업무일지', '에너지 사용량 · 날씨 · 금일작업 · B4 인쇄 (PC)') +
+    R('risk', 'openRw()', 'var(--orange-bg)', 'var(--orange)', ICON.hat, '위험작업신청서', '신청서 사진 · 날짜 · 업체 · 위치 · 검색 · 인쇄 A4') +
     '</div>';
 }
 /* 미리 받기 (결정 78): 메인이 뜬 뒤 자주 여는 화면 내용을 뒤에서 받아 두고, 열 때 바로 보여 준 뒤 새로 받음 */

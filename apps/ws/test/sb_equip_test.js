@@ -1,4 +1,4 @@
-// 소화전·공기호흡기 점검 화면 시험 (결정 224): 앱(QR 관리 탭·③ 현황·④⑤ 고르기) + QR 화면 eq.html(로그인 입력 / 지난 점검 표)
+// 소화전·공기호흡기 점검 화면 시험 (결정 224·230): 앱(QR 관리 탭·③ 현황 — 조회만) + QR 화면 eq.html(로그인 입력 / 지난 점검 표)
 // 진짜 Supabase 대신 가짜(FAKE)를 씀 — 화면 → 통로 → DB 함수에 넘기는 값만 봄. DB 함수 자체 시험은 equip_sql_test.js
 // 먼저: python tools/build_fm.py   그다음: node test/sb_equip_test.js
 const { chromium } = require('playwright');
@@ -141,13 +141,15 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   // ── 소화기 점검 메뉴 ──
   await p.evaluate(() => go('fire'));
   const menu = await p.locator('.wrap.list').innerText();
-  ok(/① 소화기, 소화전, 공기호흡기 QR 관리/.test(menu) && /③ 층별 소화전, 공기호흡기 점검 현황/.test(menu) && /④ 소화전 점검 입력/.test(menu) && /⑤ 공기호흡기 점검 입력/.test(menu) && !/수정중/.test(menu), '1) 메뉴: ①②③ + 새 ④ 소화전 점검 입력 · ⑤ 공기호흡기 점검 입력 (「수정중」은 사라짐)');
+  ok(/① 소화기\/소화전\/공기호흡기 QR 관리/.test(menu) && !/QR 관리 · 인쇄/.test(menu) && /② 매장별 소화기 점검 현황/.test(menu) && /③ 층별 소화전\/공기호흡기 점검 현황/.test(menu) && !/④/.test(menu) && !/⑤/.test(menu) && !/점검 입력/.test(menu) && !/수정중/.test(menu), '1) 메뉴: ①②③만 — 새 이름(슬래시), ④ 소화전 점검 입력·⑤ 공기호흡기 점검 입력 줄은 없어짐');
+  ok(/소화기\/소화전\/공기호흡기 점검/.test(await p.locator('header.top').innerText()), '1-1) 메뉴 제목 「소화기/소화전/공기호흡기 점검」');
 
   await p.locator('text=소화전·공기호흡기 기한 지남').waitFor();
   ok(/이번 달 소화전·공기호흡기[\s\S]*0 \/ 2곳/.test(await p.locator('.wrap.list').innerText()) && /미입력 2곳/.test(await p.locator('.wrap.list').innerText()), '1-2) 메뉴 맨 위: 소화전·공기호흡기 이번 달 0 / 2곳 + 미입력 알림');
   await shot(p, 'a_menu');
   // ── ① QR 관리 v2 (결정 228): 탭 · 층→위치 아코디언 (모두 접힘으로 시작) ──
-  await p.click('text=① 소화기, 소화전, 공기호흡기 QR 관리');
+  await p.click('text=① 소화기/소화전/공기호흡기 QR 관리');
+  ok(/소화기\/소화전\/공기호흡기 QR 관리/.test(await p.locator('header.top').innerText()), '1-2) QR 관리 제목 「소화기/소화전/공기호흡기 QR 관리」');
   await p.locator('.ac-h').first().waitFor();
   ok(await p.locator('.seg button').allInnerTexts().then(t => t.join() === '소화기,소화전,공기호흡기') && await p.locator('.seg button.on').innerText() === '소화기', '2) QR 관리: 소화기 / 소화전 / 공기호흡기 탭, 처음은 소화기');
   ok(await p.locator('.fe').count() === 0 && /1F[\s\S]*위치 1곳 · 소화기 1대/.test(await p.locator('.ac-h').first().innerText()), '2-2) 처음은 모두 접힘: 층 줄만 보임 (「1F 위치 1곳 · 소화기 1대」)');
@@ -275,13 +277,12 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   ok(/점검자 홍길동/.test(dl) && /누수 있음/.test(dl) && /배관 이음부 물방울/.test(dl) && await p.locator('.dialog img').count() === 3, '14) 항목을 누르면 점검자·항목별 정상/이상·이상 내용·사진 3장');
   await p.click('.dialog .back'); delete DONE[T1];
 
-  // ── ④ 고르기 → eq.html ──
-  await p.evaluate(() => openEqPick('hyd')); await p.locator('.feb').first().waitFor();
-  const pk = await p.locator('.wrap.list').innerText();
-  await shot(p, 'f_pick');
-  ok(/3F[\s\S]*동측 계단 앞/.test(pk) && !/방재실/.test(pk), '15) ④ 소화전 점검 입력: 소화전만 층별로 나열');
-  await Promise.all([p.waitForURL(/eq\.html\?eq=abcdefghjkmn&from=app/), p.click('.feb:has-text("동측 계단 앞")')]);
-  ok(true, '16) 고르면 입력 화면 eq.html?eq=고유번호 가 열림 (QR을 찍은 것과 같은 화면)');
+  // ── 앱에는 점검 입력이 없음 (조회만) — 입력은 QR을 찍은 휴대폰 화면 eq.html 에서만 (결정 230) ──
+  await p.evaluate(() => openHyd()); await p.locator('.floor').first().waitFor();
+  const hy = await p.locator('.wrap.list').innerText();
+  ok(/조회만 됩니다/.test(hy) && /QR을 휴대폰으로 찍어서/.test(hy) && !(await p.locator('button:has-text("점검 입력")').count()), '15) ③ 현황: 「조회만 됩니다 · 입력은 QR을 휴대폰으로」 안내, 점검 입력 버튼 없음');
+  ok(!(await p.evaluate(() => typeof openEqPick !== 'undefined' || typeof renderEqPick !== 'undefined')), '16) 앱 코드에서 ④⑤ 고르기 화면이 사라짐');
+  await p.goto(BASE + 'eq.html?eq=' + T1);   // QR을 찍은 것과 같음
 
   // ── eq.html 로그인 상태: 소화전 입력 (휴대폰 크기 — 카메라 화면은 휴대폰용) ──
   await p.setViewportSize({ width: 390, height: 844 });
