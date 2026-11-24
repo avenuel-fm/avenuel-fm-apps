@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>열화상 리포트 자동 작성기</title>
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=20261124_08">
   <!-- 고정 버전 CDN 의존성 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -13,7 +13,7 @@
 
   <!-- 페이지 헤더 -->
   <header class="page-header">
-    <h1 class="page-title">열화상 리포트 자동 작성</h1>
+    <h1 class="page-title">열화상 리포트 자동 작성 <span style="font-size: 13px; font-weight: normal; color: var(--text-sub); margin-left: 8px;">(v99.1 치환엔진)</span></h1>
     <div class="header-actions">
       <button type="button" id="btnReset" class="btn btn-secondary">새 문서 (초기화)</button>
       <button type="button" id="btnModelModal" class="btn btn-secondary">스팟 위치 학습 관리</button>
@@ -259,10 +259,10 @@
   </div>
 
   <!-- 스크립트 연결 (캐시 방지 버전 파라미터 적용) -->
-  <script src="./mock_bridge.js?v=20261124_07"></script>
-  <script src="./flir_parser.js?v=20261124_07"></script>
-  <script src="./atr_generator.js?v=20261124_07"></script>
-  <script src="./spot_model.js?v=20261124_07"></script>
-  <script src="./app.js?v=20261124_07"></script>
+  <script src="./mock_bridge.js?v=20261124_08"></script>
+  <script src="./flir_parser.js?v=20261124_08"></script>
+  <script src="./atr_generator.js?v=20261124_08"></script>
+  <script src="./spot_model.js?v=20261124_08"></script>
+  <script src="./app.js?v=20261124_08"></script>
 </body>
 </html>

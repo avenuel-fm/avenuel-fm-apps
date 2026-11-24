@@ -20,16 +20,18 @@
 
     const STORAGE_KEY_INSPECTOR = 'avenuel_thermal_last_inspector';
     const STORAGE_KEY_TITLE = 'avenuel_thermal_last_title';
+    const STORAGE_KEY_SPOT_MODEL = 'avenuel_thermal_spot_model';
 
     // 전역 상태
     const state = {
         bridge: null,
-        templateUrl: "./master_template.atr",
+        templateUrl: "./master_template.atr?v=20261124_08",
         templateBuffer: null,
         pages: [],
         currentIndex: 0,
         selectedSpotIndex: 0,
         spotModel: new SpotModelManager(),
+        kbLearnTimer: null,
 
         // PDF 저장 상태
         pdfSaved: false,
@@ -108,10 +110,37 @@
     };
 
     /**
+     * 스팟 학습 모델 로컬 및 서버 영구 동기화
+     */
+    function saveSpotModel() {
+        try {
+            const exported = state.spotModel.export();
+            localStorage.setItem(STORAGE_KEY_SPOT_MODEL, JSON.stringify(exported));
+            if (state.bridge && state.bridge.saveModel) {
+                state.bridge.saveModel(exported).catch(e => console.warn('Bridge saveModel error:', e));
+            }
+        } catch (e) {
+            console.warn('Spot model save error:', e);
+        }
+    }
+
+    function loadSpotModel() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_SPOT_MODEL);
+            if (saved) {
+                state.spotModel.load(JSON.parse(saved));
+                console.log('[FM Thermal] 로컬 스토리지에서 스팟 학습 모델 복원 완료');
+            }
+        } catch (e) {
+            console.warn('Spot model load error:', e);
+        }
+    }
+
+    /**
      * 앱 초기화
      */
     async function init() {
-        console.log('[FM Thermal] 99쪽 동적 복제 & PDF 일치 열화상 엔진 v20261124_03 로드 완료');
+        console.log('[FM Thermal] 99쪽 동적 복제 & 직무고시 3상 스팟 자동 이동 엔진 로드 완료');
         state.bridge = (window.parent && window.parent.WS_THERMAL) || window.WS_THERMAL;
 
         // 점검일자 기본값: 오늘
@@ -125,6 +154,9 @@
         const savedTitle = localStorage.getItem(STORAGE_KEY_TITLE);
         if (savedTitle) DOM.inpTitle.value = savedTitle;
 
+        // 로컬에 기억된 스팟 학습 모델 복원
+        loadSpotModel();
+
         if (state.bridge) {
             try {
                 const me = await state.bridge.me();
@@ -135,7 +167,10 @@
                 const bootInfo = await state.bridge.boot();
                 if (bootInfo) {
                     if (bootInfo.template_url) state.templateUrl = bootInfo.template_url;
-                    if (bootInfo.model) state.spotModel.load(bootInfo.model);
+                    if (bootInfo.model) {
+                        state.spotModel.load(bootInfo.model);
+                        saveSpotModel();
+                    }
                 }
             } catch (e) {
                 console.warn('Bridge init error:', e);
@@ -382,20 +417,16 @@
             const page = state.pages[state.currentIndex];
             if (!page) return alert('학습할 사진 페이지가 없습니다.');
             state.spotModel.learn(page.circuit_name, page.spots);
-            if (state.bridge && state.bridge.saveModel) {
-                await state.bridge.saveModel(state.spotModel.export());
-            }
+            saveSpotModel();
             renderPatternsTable();
-            alert(`[${page.circuit_name}] 위치에 대한 스팟 좌표가 학습되었습니다.`);
+            alert(`[${page.circuit_name}] 위치에 대한 스팟 좌표가 학습 및 저장되었습니다.`);
         });
 
         // 학습 모델 초기화
         DOM.btnResetModel.addEventListener('click', async () => {
-            if (confirm('학습된 모든 위치 패턴을 초기화하시겠습니까?')) {
+            if (confirm('학습된 모든 위치 패턴을 초기화하고 99.atr 기본 패턴으로 되돌리시겠습니까?')) {
                 state.spotModel = new SpotModelManager();
-                if (state.bridge && state.bridge.saveModel) {
-                    await state.bridge.saveModel(state.spotModel.export());
-                }
+                saveSpotModel();
                 renderPatternsTable();
                 alert('학습 모델이 초기화되었습니다.');
             }
@@ -522,15 +553,15 @@
         for (const file of toProcess) {
             try {
                 const parsed = await FlirParser.parse(file);
-                let circuitName = file.name.replace(/\.[^/.]+$/, "");
-                if (circuitName.includes('_')) {
-                    const parts = circuitName.split('_');
-                    circuitName = parts[parts.length - 1];
-                }
+                // [개선 1] 파일명 확장자만 제거하여 사용자가 미리 붙인 위치명/회로명 전체를 온전히 유지
+                let circuitName = file.name.replace(/\.[^/.]+$/, "").trim();
 
-                // 학습된 스팟 모델 패턴이 있고 원본에 스팟이 없었다면 예측 위치 적용
-                if (!parsed.hasNativeSpots) {
-                    const predicted = state.spotModel.predict(circuitName, file.name);
+                // [개선 2] 학습 모델에서 해당 회로명/위치명에 대한 최적 스팟 좌표 자동 예측 및 자동 이동
+                const predicted = state.spotModel.predict(circuitName, file.name);
+                const isDefault = (predicted[0].x === 102 && predicted[0].y === 126);
+
+                // 학습된 패턴이 있거나, 원본에 스팟이 없으면 학습/예측 좌표로 자동 이동
+                if (!isDefault || !parsed.hasNativeSpots) {
                     for (let i = 0; i < 3; i++) {
                         parsed.spots[i].x = predicted[i].x;
                         parsed.spots[i].y = predicted[i].y;
@@ -602,13 +633,22 @@
             const maxT = Math.max(page.spots[0].temp, page.spots[1].temp, page.spots[2].temp);
             const minT = Math.min(page.spots[0].temp, page.spots[1].temp, page.spots[2].temp);
             const deltaT = Math.round((maxT - minT) * 10) / 10;
-            const isWarn = deltaT >= 5.0;
+
+            let statusText = '정상';
+            let statusBadgeClass = 'sidebar-status-normal';
+            if (deltaT > 10.0) {
+                statusText = '이상';
+                statusBadgeClass = 'sidebar-status-danger';
+            } else if (deltaT >= 5.0) {
+                statusText = '요주의';
+                statusBadgeClass = 'sidebar-status-warn';
+            }
 
             item.innerHTML = `
                 <img class="sidebar-thumb" src="${page.thermalUrl}" alt="썸네일">
                 <div class="sidebar-info">
                     <span class="sidebar-name">#${idx + 1} ${escapeHtml(page.circuit_name)}</span>
-                    <span class="sidebar-status">ΔT ${deltaT.toFixed(1)}°C (${isWarn ? '요주의' : '정상'})</span>
+                    <span class="sidebar-status ${statusBadgeClass}">ΔT ${deltaT.toFixed(1)}°C (${statusText})</span>
                 </div>
             `;
             DOM.sidebarList.appendChild(item);
@@ -634,7 +674,7 @@
     }
 
     /**
-     * 온도 요약 표 업데이트
+     * 온도 요약 표 업데이트 (직무고시 기준 3단계: 정상 / 요주의 / 이상)
      */
     function updateTempTable(page) {
         const t1 = page.spots[0].temp;
@@ -651,12 +691,15 @@
 
         DOM.tblDeltaT.textContent = `${deltaT.toFixed(1)} °C`;
 
-        if (deltaT >= 5.0) {
+        if (deltaT > 10.0) {
+            DOM.tblStatus.className = 'state-badge state-danger';
+            DOM.tblStatus.textContent = '이  상';
+        } else if (deltaT >= 5.0) {
             DOM.tblStatus.className = 'state-badge state-warn';
-            DOM.tblStatus.textContent = '요주의';
+            DOM.tblStatus.textContent = '요 주의';
         } else {
             DOM.tblStatus.className = 'state-badge state-normal';
-            DOM.tblStatus.textContent = '정상';
+            DOM.tblStatus.textContent = '정  상';
         }
     }
 
