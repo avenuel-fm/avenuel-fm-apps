@@ -873,6 +873,38 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_admin_set_menu', [tk, ['docs.risk']])).ok && /사용 중지/.test(await callErr('ws_rw_list', ['emp', '', '', ''])) && (await call('ws_rw_list', [tk, '', '', ''])).ok, '위험작업: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);
   ok((await call('ws_rw_delete', [tk, rka.item.id])).ok && (await call('ws_rw_list', [tk, '', '', ''])).list.length === 1 && (await call('ws_rw_delete', [tk, rka.item.id])).ok === false, '위험작업: 소장은 지움 (숨김 처리) · 지운 것을 또 지우면 안내');
+
+  // ══ 주간/야간 작업내역 (26_workhist.sql, 결정 240) ══
+  await db.exec(SQL('26_workhist.sql')); await db.exec(SQL('26_workhist.sql'));
+  const XP = n => { const p = 'dw_photo/' + ym + '/' + n + '.jpg'; return { url: PUB + p, path: p }; };
+  const xnf = async () => (await one('select count(*)::int n from files')).n;
+  ok(/permission denied/.test(await asErr('anon', "select ws_dw_list('x','','','')")) && /permission denied/.test(await asErr('authenticated', "select ws_dw_pics(null, null, 1, 'a', 'a', 'a', 'a')")), '작업내역: 비로그인·내부 함수 못 부름');
+  const xd = await call('ws_dw_save', [tk, J({ day: '', parts: ['전기방재'], workers: '홍길동, 김철수', floor: '3F', content: ' 복도 조명 안정기 교체 ', mats: [{ n: '안정기 32W', q: '2', u: '개' }, { n: '', q: '1', u: '' }], note: '비고', before: [{ file: XP('a1') }], after: [{ file: XP('a2') }, { file: XP('a3') }] })]);
+  ok(xd.ok && /^WS-WD-\d{8}-001$/.test(xd.item.id) && xd.item.content === '복도 조명 안정기 교체' && xd.item.mats.length === 1 && xd.item.before.length === 1 && xd.item.after.length === 2 && xd.item.floor === '3F', '주간작업: 저장 (글 다듬기 · 빈 자재 줄 뺌 · 사진 전1·후2) ' + JSON.stringify(xd).slice(0, 200));
+  ok((await call('ws_dw_save', [tk, J({ parts: [], content: 'x' })])).ok === false && (await call('ws_dw_save', [tk, J({ parts: ['전기방재'], content: '' })])).ok === false && (await call('ws_dw_save', [tk, J({ day: '2099-01-01', parts: ['전기방재'], content: 'x' })])).ok === false, '주간작업: 파트·작업내용 필수 · 먼 미래 날짜 거부');
+  ok((await call('ws_dw_save', [tk, J({ parts: ['기계건축'], content: 'x', before: [1, 2, 3, 4, 5].map(i => ({ file: XP('b' + i) })) })])).ok === false, '주간작업: 사진 5장 → 거부');
+  ok(/파일 정보/.test(await callErr('ws_dw_save', [tk, J({ parts: ['기계건축'], content: 'x', after: [{ file: { url: 'https://evil/x.jpg', path: 'dw_photo/2026-11/a.jpg' } }] })])), '주간작업: 버킷 밖 사진 주소 → 거부');
+  const xf0 = await xnf();
+  const xd2 = await call('ws_dw_save', [tk, J({ id: xd.item.id, day: xd.item.day, parts: ['전기방재', '기계건축'], content: '복도 조명 안정기 교체(수정)', floor: '99F', before: [{ id: xd.item.before[0].id }, { file: XP('a4') }], after: [{ id: xd.item.after[1].id }, { id: '00000000-0000-0000-0000-000000000000' }] })]);
+  ok(xd2.ok && xd2.item.id === xd.item.id && xd2.item.floor === '' && xd2.item.before.length === 2 && xd2.item.after.length === 1 && xd2.item.after[0].id === xd.item.after[1].id && await xnf() === xf0 + 1 &&
+    (await one('select count(*)::int n from dw_day')).n === 1, '주간작업: 고치기 = 같은 번호 · 있던 사진 유지 · 새 사진 한 번만 파일로 · 남의 파일 번호는 무시 · 없는 층은 비움');
+  const xlg = (await call('ws_log_get', [tk, ''])).tbm;
+  ok(xlg['전기방재'][0] === '복도 조명 안정기 교체(수정)' && xlg['기계건축'][0] === '복도 조명 안정기 교체(수정)', '일지 연동: 주간작업 → 두 파트 금일작업 (고친 글로)');
+  const xd3 = await call('ws_dw_save', [tk, J({ parts: ['전기방재'], content: '복도 조명 안정기 교체(수정)', floor: '' })]);
+  ok(xd3.ok && (await call('ws_log_get', [tk, ''])).tbm['전기방재'].filter(x => x === '복도 조명 안정기 교체(수정)').length === 1, '일지 연동: 같은 글은 한 줄만');
+  ok((await call('ws_dw_delete', [tk, xd3.item.id])).ok && (await call('ws_dw_delete', [tk, xd3.item.id])).ok === false && (await call('ws_dw_list', ['emp', '', '', ''])).list.length === 1, '주간작업: 지움(숨김) · 또 지우면 안내 · 직원도 목록 봄');
+  ok((await call('ws_dw_delete', [tk, xd.item.id])).ok && !(await call('ws_log_get', [tk, ''])).tbm['전기방재'].includes('복도 조명 안정기 교체(수정)'), '일지 연동: 삭제하면 금일작업에서도 빠짐');
+  await call('ws_dw_save', [tk, J({ parts: ['전기방재'], workers: '박', floor: '2F', content: '배관 점검' })]);
+  ok((await call('ws_dw_list', [tk, '박', '', ''])).list.length === 1 && (await call('ws_dw_list', [tk, '배관', '', ''])).list.length === 1 && (await call('ws_dw_list', [tk, '2f', '', ''])).list.length === 1 && (await call('ws_dw_list', [tk, 'zzz', '', ''])).list.length === 0, '주간작업: 작업자·내용·위치로 검색');
+  const xn = await call('ws_dn_save', [tk, J({ day: '', co: ' OO인테리어 ', floor: '3F', content: '매장 천장 방염 도장', note: '기타', photos: [{ file: XP('n1') }, { file: XP('n2') }, { file: XP('n3') }], fire: [{ file: XP('f1') }], pledge: [] })]);
+  ok(xn.ok && /^WS-WN-\d{8}-001$/.test(xn.item.id) && xn.item.co === 'OO인테리어' && xn.item.photos.length === 3 && xn.item.fire.length === 1 && xn.item.pledge.length === 0, '야간작업: 저장 (현장 3 · 방염서류 1 · 각서 없음)');
+  ok((await call('ws_dn_save', [tk, J({ co: '', content: 'x' })])).ok === false && (await call('ws_dn_save', [tk, J({ co: 'a', content: '' })])).ok === false, '야간작업: 업체명·작업내용 필수');
+  const xn2 = await call('ws_dn_save', [tk, J({ id: xn.item.id, day: xn.item.day, co: 'OO인테리어', floor: '3F', content: '매장 천장 방염 도장', pledge: [{ file: XP('p1') }], fire: [{ id: xn.item.fire[0].id }, { file: XP('f2') }], photos: [{ id: xn.item.photos[1].id }] })]);
+  ok(xn2.ok && xn2.item.fire.length === 2 && xn2.item.pledge.length === 1 && xn2.item.photos.length === 1 && xn2.item.photos[0].id === xn.item.photos[1].id && (await one('select count(*)::int n from dw_night')).n === 1, '야간작업: 고치기 (사진 칸마다 빼고 더함)');
+  ok((await call('ws_dn_list', [tk, '인테리어', '', ''])).list.length === 1 && (await call('ws_dn_list', [tk, '3f', '', ''])).list.length === 1 && (await call('ws_dn_list', [tk, '방염', '', ''])).list.length === 1 && (await call('ws_dn_list', [tk, 'zzz', '', ''])).list.length === 0, '야간작업: 층·업체·작업내용 검색');
+  ok((await call('ws_admin_set_menu', [tk, ['docs.work']])).ok && /사용 중지/.test(await callErr('ws_dw_list', ['emp', '', '', ''])) && /사용 중지/.test(await callErr('ws_dn_list', ['emp', '', '', ''])) && (await call('ws_dw_list', [tk, '', '', ''])).ok, '작업내역: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
+  await call('ws_admin_set_menu', [tk, []]);
+  ok((await call('ws_dn_delete', [tk, xn.item.id])).ok && (await call('ws_dn_list', [tk, '', '', ''])).list.length === 0 && (await call('ws_dn_delete', [tk, xn.item.id])).ok === false, '야간작업: 지움 (숨김) · 또 지우면 안내');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
