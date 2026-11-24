@@ -40,6 +40,7 @@ const ehData = () => ({ ok: true, floor: '1F', floors: EH_F.map(f => ({ code: f,
 const STAFF = [{ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, { staff_id: 'S002', name: '김철수', part: '기건파트', role: '직원' }];
 const RISK = [{ words: '(기본)', risk: '손 다침', kind: '베임', p: 1, s: 2, fixes: [{ t: '보호장갑', on: true }] },
   { words: '분전반, 배선', risk: '감전', kind: '감전', p: 2, s: 3, fixes: [{ t: '전원 차단', on: true }] }];
+const RW = [], WD = [], WN = []; let WF = 0;
 const CSITE = { id: 'WS-CS-1', name: '5F 리모와', work: '인테리어', co: 'A사' }, CS = {};
 const feData = () => ({ ok: true, items: FE, execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const RPC = {
@@ -116,6 +117,31 @@ const RPC = {
     return { ok: true, items: CS.items.map(x => x.photos.map(ph => ph.id)), check: CS.check, rounds: [CS.check] };
   },
   ws_cs_save_pdf: a => { CS.check.pdf = { url: a.p_file.url, at: ver() }; return { ok: true, check: CS.check, rounds: [CS.check], warn: '' }; },
+  /* 위험작업신청서 */
+  ws_rw_list: () => ({ ok: true, admin: true, floors: ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '10F', '외곽'], list: RW.map(r => r.item) }),
+  ws_rw_add: a => {
+    const x = RW.find(r => r.cid === a.p_cid);
+    if (x) return { ok: true, dup: true, item: x.item };
+    const item = { id: 'WS-RK-' + (RW.length + 1), day: a.p_day || D, co: a.p_co, floor: a.p_floor, by: ME.name, at: '11/24 09:1' + RW.length, src: a.p_file.url };
+    RW.push({ cid: a.p_cid, item }); return { ok: true, item };
+  },
+  ws_rw_delete: a => { const i = RW.findIndex(r => r.item.id === a.p_id); RW.splice(i, 1); return { ok: true }; },
+  ws_dw_list: () => ({ ok: true, floors: [], list: WD.slice() }),
+  ws_dw_save: a => {
+    const d = a.p_d, pic = (l, old) => (l || []).map(x => x.file ? { id: 'F' + (++WF), src: x.file.url } : (old || []).find(y => y.id === x.id)).filter(Boolean);
+    const old = WD.find(x => x.id === d.id), item = { id: d.id || 'WS-WD-' + (WD.length + 1), day: d.day, parts: d.parts, workers: d.workers, floor: d.floor, content: d.content, mats: d.mats.filter(m => m.n), note: d.note,
+      before: pic(d.before, old && old.before), after: pic(d.after, old && old.after), by: ME.name, at: '11/24 10:00' };
+    if (old) WD[WD.indexOf(old)] = item; else WD.push(item); return { ok: true, item };
+  },
+  ws_dw_delete: a => { WD.splice(WD.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
+  ws_dn_list: () => ({ ok: true, floors: [], list: WN.slice() }),
+  ws_dn_save: a => {
+    const d = a.p_d, pic = (l, old) => (l || []).map(x => x.file ? { id: 'F' + (++WF), src: x.file.url } : (old || []).find(y => y.id === x.id)).filter(Boolean);
+    const old = WN.find(x => x.id === d.id), item = { id: d.id || 'WS-WN-' + (WN.length + 1), day: d.day, co: d.co, floor: d.floor, content: d.content, note: d.note,
+      photos: pic(d.photos, old && old.photos), fire: pic(d.fire, old && old.fire), pledge: pic(d.pledge, old && old.pledge), by: ME.name, at: '11/24 10:00' };
+    if (old) WN[WN.indexOf(old)] = item; else WN.push(item); return { ok: true, item };
+  },
+  ws_dn_delete: a => { WN.splice(WN.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
   /* 3-6 환경설정 */
   ws_admin_staff: () => ({ ok: true, toastSec: 2.6, staff: STAFF }),
   ws_risk_get: () => ({ ok: true, rows: RISK }),
@@ -322,6 +348,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(count('ws_ahu_save') === n9 && /고칠 칸 1개/.test(er) && /7F-39 16:00/.test(er) && await p.locator('input.lgin.bad[data-u="7F-39"][data-t="16"]').count() === 1, 'A9) 글자 넣고 저장 → 서버에 안 보냄 · 칸 빨간 표시 · 이유가 아래 줄에 남음 ' + er);
   await p.fill('input.lgin[data-u="7F-39"][data-t="16"]', '23,5℃');
   ok(/저장 안 함/.test(await p.locator('#ahuState').innerText()) && await p.locator('input.lgin.bad').count() === 0, 'A10) 「23,5℃」는 숫자로 봐 줌 → 빨간 표시 사라짐');
+  ok(await p.evaluate(() => ahuCheck('cw_t16', '45') === '' && ahuCheck('cw_t16', '50') === '' && /−?-5 ~ 50/.test(ahuCheck('cw_t16', '51'))), 'A10b) 냉수공급온도 50까지 넣을 수 있음 (결정 242)');
   const n11 = count('ws_ahu_save'); await p.click('#ahuSave');
   ok(await called('ws_ahu_save', n11) && await toast('저장하고 PDF도 만들었습니다') && last('ws_ahu_save').a.p_c.temps['7F-39']['16'] === '23.5', 'A11) 쉼표·℃는 「23.5」로 고쳐 보냄 ' + JSON.stringify(last('ws_ahu_save').a.p_c));
   await p.waitForFunction(() => !S.ahu.busy && !S.ahu.pdfBusy);   // 저장 뒤 PDF 만드는 동안은 값을 넣어도 먼저 저장하지 않음
@@ -431,6 +458,111 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const cpu = UPLOADS.find(x => /^cs_pdf\//.test(x.p));
   ok(cpu && cpu.type === 'application/pdf' && last('ws_cs_save_pdf').a.p_file.path === cpu.p && last('ws_cs_save_pdf').a.p_ck_id === 'WS-CK-1', '45) PDF를 버킷 cs_pdf/ 에 올리고 점검 번호와 함께');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_cs.png') });
+
+  // ── 위험작업신청서 (결정 236) ──
+  await p.evaluate(() => openRw()); await p.waitForFunction(() => S.rw && S.rw.list);
+  ok(await p.locator('.rwfl').count() === 11 && await p.locator('.rwadd input[type=file]').count() === 2, 'R1) 위험작업신청서: 사진찍기·갤러리 · 위치 버튼 11개 (B3~10F·외곽)');
+  await p.fill('#rwCo', 'OO인테리어'); await p.click('.rwfl >> text="3F"');
+  const nr = count('ws_rw_add'), nu = UPLOADS.length;
+  await p.locator('.rwadd input[type=file]').nth(1).setInputFiles(path.join(__dirname, 'gauge.jpg'));
+  ok(await called('ws_rw_add', nr), 'R2) 사진을 고르면 바로 저장');
+  const ra = last('ws_rw_add').a, ru = UPLOADS.slice(nu);
+  ok(ru.length === 1 && /^risk_photo\/\d{4}-\d{2}\/[a-z0-9]+\.jpg$/.test(ru[0].p) && ra.p_file.path === ru[0].p && ra.p_co === 'OO인테리어' && ra.p_floor === '3F' && /^[0-9a-f]{24}$/.test(ra.p_cid) && /^\d{4}-\d{2}-\d{2}$/.test(ra.p_day) && !('data' in ra),
+    'R3) 사진은 버킷 risk_photo/ 에, 업체명·위치·날짜 태그·고유 번호와 함께 ' + (ru[0] && ru[0].p));
+  await p.waitForFunction(() => document.querySelectorAll('.rwt').length === 1);
+  ok(/OO인테리어/.test(await p.locator('.rwcap').first().innerText()) && /3F/.test(await p.locator('.rwcap').first().innerText()), 'R4) 일자별 목록에 사진 아래 업체명·위치·시간');
+  await p.locator('.rwadd input[type=file]').nth(1).setInputFiles(path.join(__dirname, 'gauge.jpg'));
+  await new Promise(r => setTimeout(r, 800));
+  ok(count('ws_rw_add') === nr + 1 && await p.locator('.rwt').count() === 1, 'R5) 같은 사진을 또 고르면 건너뜀 (두 번 저장 안 됨)');
+  await p.evaluate(() => { window.__run = window.run; window.run = () => Promise.reject(new Error('Failed to fetch')); });
+  await p.locator('.rwadd input[type=file]').nth(1).setInputFiles({ name: 'b.jpg', mimeType: 'image/jpeg', buffer: fs.readFileSync(path.join(__dirname, 'gauge.jpg')) });
+  await p.waitForFunction(() => S.rw.pend.length === 1);
+  ok(/올리기 대기 중 1장/.test(await p.locator('#rwPend').innerText()) && await p.locator('.rwt').count() === 1, 'R6) 통신 불량: 「올리기 대기 중 1장」 · 아직 목록에 안 들어감');
+  await p.evaluate(() => { window.run = window.__run; return rwFlush(); });
+  await p.waitForFunction(() => S.rw.pend.length === 0 && document.querySelectorAll('.rwt').length === 2);
+  ok(await p.locator('#rwPend').innerText() === '' && count('ws_rw_add') === nr + 2, 'R7) 연결되면 자동으로 올라가고 대기 표시가 사라짐');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_rw.png'), fullPage: true });
+  await p.locator('.rwim').first().click(); await p.locator('.rwv').waitFor();
+  await p.click('.rwvf >> text="＋"');
+  ok(/150%/.test(await p.locator('.rwvf b').innerText()) && await p.locator('.rwvf button >> text="이전"').isDisabled(), 'R8) 사진 크게 보기: 확대 · 첫 장이면 이전 막힘');
+  await p.click('.rwvf >> text="다음"'); ok(/100%/.test(await p.locator('.rwvf b').innerText()), 'R9) 다음 사진으로 넘기면 100%로');
+  await p.click('.rwvh >> text="닫기"'); ok(await p.locator('.rwv').count() === 0, 'R10) 닫기');
+  await p.locator('.rwx').first().click();
+  await p.waitForFunction(() => document.querySelectorAll('.rwt').length === 1);
+  ok(count('ws_rw_delete') === 1, 'R11) 소장·관리자는 ✕로 지움 (되묻기 뒤)');
+
+
+  // ── 주간/야간 작업내역 (결정 240) ──
+  await p.evaluate(() => openWh()); await p.waitForFunction(() => S.wh && S.wh.d.list);
+  const wjpg = fs.readFileSync(path.join(__dirname, 'gauge.jpg'));
+  const xjf = (n, x) => ({ name: n + '.jpg', mimeType: 'image/jpeg', buffer: Buffer.concat([wjpg, Buffer.from(x || n)]) });
+  ok(await p.locator('.whf .rwfl').count() === 11 && await p.locator('.whck input').count() === 2 && await p.locator('.whpc input[type=file]').count() === 8 && await p.locator('#whBar button').count() >= 3, 'W1) 주간작업: 위치 버튼 11개 · 파트 체크 2 · 사진 칸 4개(전 2·후 2, 카메라·파일) · 아래 줄(뒤로·인쇄·PDF·저장)');
+  await p.locator('.whck input').first().check(); await p.click('.whf .rwfl >> text="2F"');
+  await p.locator('.whf textarea').first().fill('복도 조명 안정기 교체');
+  await p.locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('a1')]); await p.locator('.whpc').nth(1).locator('input[type=file]').nth(1).setInputFiles([xjf('a2')]);
+  await p.waitForFunction(() => S.wh.d.f.before.length === 2);
+  await p.locator('.whmat input').nth(0).fill('안정기 32W'); await p.locator('.whmat input').nth(1).fill('2'); await p.locator('.whmat input').nth(2).fill('개');
+  const xwu = UPLOADS.length, xnsave = count('ws_dw_save');
+  await p.click('#whBar .btn.pri'); await p.waitForFunction(() => !S.wh.d.busy && S.wh.d.list.length === 1);
+  const xwa = last('ws_dw_save').a.p_d, xwup = UPLOADS.slice(xwu);
+  ok(count('ws_dw_save') === xnsave + 1 && xwup.length === 2 && xwup.every(u => /^dw_photo\/\d{4}-\d{2}\/[a-z0-9]+\.jpg$/.test(u.p)) && xwa.before.length === 2 && xwa.before[0].file.path === xwup[0].p && !('data' in xwa.before[0]) && xwa.after.length === 0 &&
+    xwa.parts[0] === '전기방재' && xwa.floor === '2F' && xwa.mats[0].n === '안정기 32W' && xwa.mats[0].u === '개', 'W2) 저장: 사진 2장 버킷 dw_photo/ 에 올림 · 파트·위치·자재 줄을 함께 넘김');
+  ok(await p.locator('.whrow').count() === 1 && await p.evaluate(() => !S.wh.d.f.id && !S.wh.d.f.before.length && !S.wh.d.f.content), 'W3) 저장 뒤 빈 양식 · 목록에 한 줄');
+  await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.d.f.id && S.wh.d.f.before.length === 2);
+  await p.locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('c1')]);
+  await new Promise(r => setTimeout(r, 800));
+  ok(await p.evaluate(() => S.wh.d.f.before.length) === 2 && await p.evaluate(() => !!S.wh.d.f.before[0].data), 'W4) 작업 전 사진은 2칸 (이미 찬 칸에 다시 고르면 바꿈)');
+  const xnu2 = UPLOADS.length; await p.click('#whBar .btn.pri'); await p.waitForFunction(() => !S.wh.d.busy && !S.wh.d.dirty);
+  ok(UPLOADS.length === xnu2 + 1 && !!last('ws_dw_save').a.p_d.before[0].file && !!last('ws_dw_save').a.p_d.before[1].id && last('ws_dw_save').a.p_d.id === 'WS-WD-1' && WD.length === 1, 'W5) 고쳐 저장: 있던 사진은 번호만, 바꾼 사진 1장만 올림 · 같은 번호로 덮어씀');
+  await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.d.f.id && S.wh.d.f.before.length === 2);
+  await p.locator('.whx').first().click(); ok(await p.evaluate(() => S.wh.d.f.before.length) === 1 && /저장 안 함/.test(await p.locator('#whState').innerText()), 'W6) 사진 ✕ (되묻기 뒤) → 「저장 안 함」');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_wh_day.png'), fullPage: true });
+  await p.evaluate(() => whPrint()); await new Promise(r => setTimeout(r, 400));
+  ok(await p.evaluate(() => $('print').querySelectorAll('.pg').length) === 1 && /안정기 32W/.test(await p.evaluate(() => $('print').innerText)) && await p.evaluate(() => $('print').querySelectorAll('.cell').length) === 1, 'W7) 주간 인쇄: 1쪽 · 사진은 있는 것만 · 사용자재 표');
+  await p.click('.seg >> text="야간작업"'); await p.waitForFunction(() => S.wh.n.list);
+  ok(await p.locator('.whf').count() === 1 && await p.locator('button >> text="신규작성"').count() === 1 && await p.evaluate(() => !S.wh.n.f.id), 'W8) 야간작업 탭: 열면 바로 빈 신규작성 양식');
+  await p.click('button >> text="신규작성"');
+  await p.locator('.whf input.inp[maxlength="30"]').fill('OO인테리어'); await p.click('.whf .rwfl >> text="3F"'); await p.locator('.whf textarea').first().fill('매장 천장 방염 도장');
+  await p.locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([1, 2, 3, 4, 5].map(i => xjf('n' + i)));
+  await p.locator('.whsec').nth(1).locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('f1')]);
+  await p.waitForFunction(() => S.wh.n.f.photos.length === 5 && S.wh.n.f.fire.length === 1);
+  const xs0 = p.locator('.whsec').nth(0), xcnt = () => xs0.locator('.whpc').count();
+  ok(await xcnt() === 5 && await p.locator('.whsec').nth(1).locator('.whpc').count() === 2, 'W8b) 야간: 현장 사진 5장 → 칸 5개 · 방염서류는 빈 칸 2개 (처음 2칸)');
+  await xs0.locator('.whplus').click(); const x6 = await xcnt();
+  for (let i = 0; i < 14; i++) await xs0.locator('.whplus').click();
+  ok(x6 === 6 && await xcnt() === 20 && await xs0.locator('.whplus').isDisabled(), 'W8c) ＋ 버튼: 칸이 하나씩 늘고 20칸에서 멈춤(버튼 회색)');
+  ok(await p.evaluate(() => whPages('n').split('class="pg"').length - 1) === 3, 'W9) 야간 쪽 수: 내용+현장 사진 · 각서 · 방염서류 1장 = 3쪽 (각서 없으면 「미첨부」 쪽)');
+  await p.evaluate(() => whPrint()); await new Promise(r => setTimeout(r, 400));
+  ok(/각서 미첨부/.test(await p.evaluate(() => $('print').innerText)) && await p.evaluate(() => $('print').querySelectorAll('.full img').length) === 1, 'W10) 인쇄: 각서 미첨부 표시 · 방염서류는 한 장이 한 쪽');
+  const xnn = UPLOADS.length; await p.click('#whBar .btn.pri'); await p.waitForFunction(() => !S.wh.n.busy && S.wh.n.list.length === 1);
+  const xna = last('ws_dn_save').a.p_d, xnup = UPLOADS.slice(xnn);
+  ok(xnup.length === 6 && xnup.every(u => /^dw_photo\//.test(u.p)) && xna.co === 'OO인테리어' && xna.floor === '3F' && xna.photos.length === 5 && xna.fire.length === 1 && xna.pledge.length === 0, 'W11) 야간 저장: 현장 5 · 방염서류 1 · 각서 0 → 버킷 dw_photo/ 에 6장');
+  ok(/각서 없음/.test(await p.locator('.whrow').first().innerText()) && !/방염서류 없음/.test(await p.locator('.whrow').first().innerText()), 'W12) 목록에 「각서 없음」 표시');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_wh_night.png'), fullPage: true });
+  await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.n.f.id);
+  await p.locator('.whsec').nth(2).locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('p1')]);
+  await p.waitForFunction(() => S.wh.n.f.pledge.length === 1);
+  await p.locator('.whim').first().click(); await p.locator('.rwv').waitFor(); await p.click('.rwvh >> text="닫기"');
+  await p.click('.whdel'); await p.waitForFunction(() => S.wh.n.f && !S.wh.n.f.id && !S.wh.n.f.photos.length);
+  ok(WN.length === 0 && count('ws_dn_delete') === 1, 'W13) 이 작업 삭제 (되묻기 뒤) · 사진 크게 보기 열고 닫기');
+  await p.click('.seg >> text="주간작업"'); await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.d.f.id);
+  await p.click('.whdel'); await p.waitForFunction(() => !S.wh.d.f.id);
+  ok(WD.length === 0 && await p.locator('.whrow').count() === 0, 'W14) 주간작업 삭제 → 목록에서 사라짐 · 새 양식으로');
+  ok(await p.evaluate(() => JSON.stringify(whWeek('2026-11-24'))) === '["2026-11-22","2026-11-28"]', 'W15) 주(일~토) 계산');
+  WD.push({ id: 'X2', day: '2026-11-24', parts: ['기계건축'], workers: 'a', floor: '2F', content: '새 작업', mats: [], note: '', before: [], after: [] },
+    { id: 'X1', day: '2026-11-03', parts: ['전기방재'], workers: 'a', floor: 'B1', content: '옛 작업', mats: [], note: '', before: [], after: [] },
+    { id: 'X3', day: '2026-10-05', parts: ['전기방재'], workers: 'a', floor: '1F', content: '지난달', mats: [], note: '', before: [], after: [] });
+  await p.evaluate(() => whLoad('d')); await p.waitForFunction(() => S.wh.d.list.length === 3);
+  ok(await p.locator('.csacc.whmo').count() === 2 && await p.locator('.csacc.whwk').count() === 2 && await p.locator('.whrow').count() === 1, 'W16) 목록 아코디언: 월 2 · (펼친 달의) 주 2 · 가장 최근 주만 펼침 → 1줄');
+  await p.locator('.csacc.whwk').nth(1).click(); ok(await p.locator('.whrow').count() === 2, 'W17) 주 머리줄 누르면 펼침');
+  await p.click('button >> text="주간보고작성"'); await p.locator('.whrep').waitFor();
+  await p.evaluate(() => { window.loadExcelJs = async () => {}; window.whExcel = async (l, f, t, ps) => { window.XR = { n: l.map(x => x.id), f, t, ps }; }; });
+  await p.locator('.whrep input[type=date]').fill('2026-11-25'); await p.locator('.whrep .whck input').nth(1).check();
+  await p.click('.whrep >> text="엑셀 저장"'); await p.waitForFunction(() => window.XR);
+  const xrr = await p.evaluate(() => window.XR);
+  ok(xrr.f === "2026-11-22" && xrr.t === "2026-11-28" && xrr.n.join() === "X2" && xrr.ps.length === 2, 'W18) 주간보고: 기준일 주(일~토)·고른 파트의 작업만 엑셀 만들기에 넘김');
+  WD.length = 0;
+  await p.evaluate(() => { TOASTQ.length = 0; }); await new Promise(r => setTimeout(r, 3500));   // 앞 알림 줄 비우기 (뒤 시험의 알림이 밀리지 않게)
 
   // ── 환경설정 (3-6) ──
   await p.evaluate(() => openSet()); await p.locator('.strow').first().waitFor();

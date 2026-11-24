@@ -109,6 +109,28 @@ body:has(.csbar) #app{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
 .fname b{font-size:var(--size-m)}
 .fname small{font-size:var(--size-s);color:var(--muted)}
 .floorh{font-size:var(--size-s);font-weight:600;color:var(--muted);margin:var(--sp-1) var(--sp-1) 0}
+/* QR 관리: 층 → 위치 아코디언 · 등록 창 종류 체크 (결정 228) */
+.ac{background:var(--white);border:1px solid var(--line2);border-radius:var(--radius);overflow:hidden}
+.ac+.ac{margin-top:var(--sp-2)}
+.ac-h{display:flex;align-items:center;gap:var(--sp-2);min-height:52px;padding:0 var(--sp-3);background:var(--white)}
+.ac-h>input{width:20px;height:20px;accent-color:var(--blue);flex:none}
+.ac-t{flex:1;min-width:0;display:flex;align-items:center;gap:var(--sp-2);min-height:52px;border:0;background:none;padding:0;text-align:left;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+.ac-t .ac-n{font-size:var(--size-m)}.ac-t.big .ac-n{font-size:var(--size-l)}
+.ac-t .cv{width:16px;height:16px;flex:none;transition:transform .15s}
+.ac-h.open .cv{transform:rotate(90deg)}
+.ac-t .cnt{margin-left:auto;font-size:var(--size-s);font-weight:400;color:var(--muted);text-align:right}
+.ac-t .cnt .unp{color:var(--ink);font-weight:600}
+.ac-b{border-top:1px solid var(--line3);padding:var(--sp-2);background:var(--tint);display:flex;flex-direction:column;gap:var(--sp-2)}
+.ac-b .ac{border-color:var(--line3)}
+.ac-b .ac-h,.ac-b .ac-t{min-height:48px}
+.ac-b .ac-t{font-weight:500}
+.ac-b .ac-b{background:var(--white);padding:0;gap:0}
+.ac-act{display:flex;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--line3);background:var(--white)}
+.ck{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.ckl{display:flex;align-items:center;gap:var(--sp-2);min-height:44px;padding:0 var(--sp-3);border:1px solid var(--line);border-radius:var(--radius);font-size:var(--size-m);background:var(--white);cursor:pointer}
+.ckl.on{border-color:var(--blue);background:var(--blue-bg);font-weight:500}
+.ckl input{width:20px;height:20px;accent-color:var(--blue)}
+.pre{background:var(--tint);border:1px solid var(--line);border-radius:var(--radius);padding:var(--sp-2) var(--sp-3);font-size:var(--size-s);line-height:1.7;color:var(--ink)}
 .mnav{display:flex;align-items:center;gap:var(--sp-2)}
 .mnav .btn{width:44px;padding:0;font-size:var(--size-l)}
 .mnav div{flex:1;text-align:center;display:flex;flex-direction:column}
@@ -358,6 +380,8 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:n
 .csrow+.csrow{border-top:1px solid var(--line3)}
 .csrow .fname b{font-size:var(--size-m)}
 .csgo{flex:1;min-width:0;display:flex;align-items:center;gap:var(--sp-2);min-height:44px;border:0;background:none;padding:0;cursor:pointer;text-align:left;color:inherit}
+.csacc.whmo{background:var(--bg2,#F1F4F8)}.csacc.whwk{padding-left:calc(var(--sp-3) + 14px)}.whrow{padding-left:calc(var(--sp-3) + 28px)}
+.whrep{margin:var(--sp-2) 0;border-color:var(--blue-d,#1F5FA8)}.whrl{display:flex;gap:var(--sp-3);align-items:center;flex-wrap:wrap;margin:var(--sp-2) 0}.whrl small{color:var(--muted)}.whrl label{display:flex;gap:6px;align-items:center}
 .csno{width:28px;height:28px;border-radius:var(--radius);background:var(--blue-bg);color:var(--blue-d);font-size:var(--size-s);font-weight:500;display:flex;align-items:center;justify-content:center;flex:none}
 .csadd{width:100%;border-style:dashed;color:var(--blue-d);background:var(--blue-bg);border-color:var(--line);font-weight:500}
 .csday{padding:var(--sp-2) var(--sp-3);background:var(--ground);font-size:var(--size-s);font-weight:600;color:var(--sub);border-top:1px solid var(--line3)}
@@ -369,13 +393,12 @@ button.attag{cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:n
 .csit p{margin:var(--sp-1) 0 var(--sp-2);font-size:var(--size-s);color:var(--muted);line-height:1.45}
 .csseg button{font-size:var(--size-m);font-weight:500}
 .csseg button.on.bad{background:var(--navy)}.csseg button.on.na{background:var(--muted)}
-.csph{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2);margin-top:var(--sp-2)}
+.csph{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2);margin-top:var(--sp-2)}@media (min-width:768px){.csph{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .csph .ph43{position:relative;border-radius:var(--radius)}
 .csph .ph43 img{width:100%;height:100%}
 .csph .tm{position:absolute;left:0;right:0;bottom:0;font-size:var(--size-s);color:var(--white);background:var(--overlay);padding:var(--sp-1) var(--sp-1)}
 .csph .x{position:absolute;right:2px;top:2px;width:32px;height:32px;border:0;border-radius:var(--radius);background:var(--overlay);color:var(--white);font-size:var(--size-m);cursor:pointer}
-.csph label.ph43{border:2px dashed var(--line);background:var(--tint);flex-direction:column;font-size:var(--size-s);color:var(--muted);cursor:pointer}
-.csph label.ph43 b{font-size:var(--size-xl);line-height:1;color:var(--blue)}
+.csph:empty{display:none}.csphb{margin-top:var(--sp-2)}.csphb .off{opacity:.5;pointer-events:none}.csphn{display:block;margin-top:var(--sp-1);color:var(--muted)}
 .csmemo{margin-top:var(--sp-2);min-height:60px;padding:var(--sp-2) var(--sp-3);resize:vertical;font-family:inherit}
 .csbar{position:fixed;left:0;right:0;bottom:0;background:var(--white);border-top:1px solid var(--line2);padding:var(--sp-2) var(--sp-4) calc(var(--sp-3) + env(safe-area-inset-bottom));box-shadow:none;z-index:15}
 .csbar-in{max-width:1100px;margin:0 auto;display:flex;gap:var(--sp-2);align-items:center}
@@ -488,7 +511,6 @@ select.lgin{text-align:center;padding:0}
 .lgbv{font-size:11px;line-height:13px;text-align:right}.lgbv span{display:block}.lgbv .p{color:#5B6573}.lgbv .c{font-weight:500}
 .lgrt{font-size:11.5px;text-align:right;color:#3F4855}
 .lglg{display:inline-flex;align-items:center;gap:4px;margin-left:8px}.lglg i{width:10px;height:7px;border-radius:2px;display:inline-block}
-.lgrow{display:grid;grid-template-columns:1fr 360px;gap:16px}
 .lgac2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .acb{border:1px solid #DCE1E7;border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:6px}
 .ach{display:flex;align-items:baseline;gap:8px}.ach b{font-size:13px;font-weight:600}.ach span{margin-left:auto;font-size:11px;color:#5B6573}
@@ -504,11 +526,6 @@ select.lgin{text-align:center;padding:0}
 .lgwork li .n{width:20px;flex:none;color:#5B6573;text-align:right}
 .lgwork li .lgin{text-align:left;border-color:transparent;font-size:13.5px;height:24px}
 .lgwork li .lgin:placeholder-shown{border-color:#DCE1E7}
-.lgnight{border:1px solid #CBD2DB;height:282px;display:flex;align-items:center;justify-content:center;color:#5B6573;font-size:13px;position:relative;overflow:hidden;background:#fff}
-.lgnight img{max-width:100%;max-height:100%;object-fit:contain;display:block}
-.lgnight .lgnb{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
-.lgnight .lgnadd{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;color:#1F5FA8;font-size:14px;padding:24px}
-.lgnight .lgnadd small{color:#5B6573;font-size:12px}
 .lgfoot{display:flex;justify-content:flex-end;font-size:11px;color:#7A8494;margin-top:auto}
 .lgpc{max-width:520px;margin:40px auto;text-align:center}
 .devwrap{max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:var(--sp-12) var(--sp-6) var(--sp-6);gap:var(--sp-6)}
@@ -527,6 +544,31 @@ select.lgin{text-align:center;padding:0}
   .label img{flex:none;display:block;image-rendering:pixelated}
   .ehl{page-break-after:always;break-after:page}
 }
+/* 위험작업신청서 (결정 236) */
+.rwadd{padding:var(--sp-3)}.rwadd .tbpb .btn{min-height:var(--control-h)}.rwhint{display:block;margin-top:var(--sp-1);color:var(--muted);font-size:var(--size-s)}.rwhint input{min-height:32px;border:1px solid var(--line);border-radius:var(--radius);padding:0 var(--sp-1);font:inherit;background:var(--white);color:var(--ink)}
+.rwlb{display:block;margin:var(--sp-3) 0 var(--sp-1);font-size:var(--size-s);font-weight:600;color:var(--sub)}.rwfls{display:flex;flex-wrap:wrap;gap:var(--sp-1)}
+.rwfl{min-height:var(--control-h);min-width:44px;padding:0 var(--sp-2);border:1px solid var(--line);border-radius:var(--radius);background:var(--white);color:var(--ink);font:inherit;font-size:var(--size-s);cursor:pointer}.rwfl.on{background:var(--navy);border-color:var(--navy);color:var(--white)}
+.rwpend{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}.rwpend .btn{margin-left:auto}
+.rwres{padding:0;overflow:hidden}.rwg{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-2);padding:var(--sp-2) var(--sp-3) var(--sp-3)}
+.rwt{position:relative;min-width:0}.rwim{display:flex;width:100%;border:1px solid var(--line2);padding:0;cursor:pointer}.rwim img{width:100%;height:100%}
+.rwcap{margin-top:2px;font-size:var(--size-xs,11px);line-height:1.3;color:var(--sub);overflow-wrap:anywhere}.rwno{color:var(--muted)}
+.rwx{position:absolute;top:2px;right:2px;width:28px;height:28px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:13px;cursor:pointer}
+.rwv{position:fixed;inset:0;z-index:60;background:var(--white);display:flex;flex-direction:column}.rwvh{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--line2);font-size:var(--size-s)}.rwvh span{flex:1;min-width:0}
+.rwvb{flex:1;overflow:auto;background:var(--tint)}.rwvb img{display:block;margin:0 auto}.rwvf{display:flex;align-items:center;justify-content:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3) calc(var(--sp-2) + env(safe-area-inset-bottom));border-top:1px solid var(--line2)}
+@media (max-width:599px){.rwg{gap:var(--sp-1);padding:var(--sp-2)}}
+/* 주간/야간 작업내역 (결정 240) */
+.whf{padding:var(--sp-3)}.whpic{min-width:0;margin-top:var(--sp-3)}.whpt{display:flex;align-items:baseline;gap:var(--sp-2);margin-bottom:var(--sp-1)}.whpt b{font-size:var(--size-s);font-weight:600;color:var(--sub)}.whpt small{color:var(--muted);font-size:var(--size-s)}
+.whpc{border:1px solid var(--line2);border-radius:var(--radius);padding:var(--sp-2);margin-top:var(--sp-2);min-width:0}.whpc h4{margin:0 0 var(--sp-1);font-size:var(--size-m);font-weight:600;color:var(--navy)}.whpc h4 small{margin-left:var(--sp-2);font-weight:400;color:var(--muted);font-size:var(--size-s)}
+.whg,.whg2{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-1)}.whg2{margin-top:var(--sp-2)}.whg .whpc{margin-top:0}.whsec{margin-top:var(--sp-2)}.whsec>h4{margin:0 0 var(--sp-1);font-size:var(--size-m);font-weight:600;color:var(--navy)}.whsec>h4 small{margin-left:var(--sp-2);font-weight:400;color:var(--muted);font-size:var(--size-s)}.whplus{width:100%;margin-top:var(--sp-1);border-style:dashed;color:var(--blue-d)}@media (min-width:768px){.whg{grid-template-columns:repeat(4,1fr)}}
+.wht{position:relative;min-width:0}.whim{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:4/3;border:1px solid var(--line2);padding:0;background:var(--tint);cursor:pointer;overflow:hidden;color:var(--muted);font-size:var(--size-s)}.whim img{width:100%;height:100%;object-fit:contain}.whim.empty{cursor:default}
+.whx{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:var(--radius);border:1px solid var(--line);background:var(--white);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.whbs{display:flex;gap:var(--sp-1);margin-top:var(--sp-1)}.whbs .btn{flex:1;min-width:0;min-height:var(--control-h);padding:0 var(--sp-1);gap:var(--sp-1)}
+.whsplit{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:var(--sp-2)}.whsplit .whcol{min-width:0;padding-right:var(--sp-2)}.whsplit .whcol+.whcol{padding:0 0 0 var(--sp-2);border-left:1px solid var(--line2)}.whsplit .whpc:first-child{margin-top:0}
+.whck{display:flex;gap:var(--sp-4);min-height:var(--control-h);align-items:center}.whck label{display:flex;align-items:center;gap:var(--sp-1);font-size:var(--size-m)}
+.whtwo{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}.whmat{display:grid;grid-template-columns:1fr 72px 72px 44px;gap:var(--sp-1);margin-bottom:var(--sp-1)}.whdel{margin-top:var(--sp-3);color:var(--error);border-color:var(--error)}
+.whrow{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:var(--sp-3);background:var(--white);border:0;border-bottom:1px solid var(--line2);font:inherit;color:var(--ink);cursor:pointer}.whrow.on{background:var(--tint)}.whrow span{font-size:var(--size-m)}.whrow small{color:var(--muted);font-size:var(--size-s)}
+.whb{display:inline-block;margin-left:var(--sp-1);padding:0 var(--sp-1);border:1px solid var(--error);border-radius:var(--radius);color:var(--error)}
+@media (max-width:599px){.whtwo{grid-template-columns:1fr}}
 /* 온습도/공조기/에어커튼 입력 (WS_온습도공조기, 결정 212·196) — 시안 docs/시안/WS-온습도공조기 */
 .cltabs{margin-bottom:var(--sp-3)}.cltabs button{font-size:var(--size-s);line-height:1.3;padding:4px 2px}
 .flnav{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-1);margin-top:var(--sp-3)}
@@ -553,6 +595,7 @@ select.lgin{text-align:center;padding:0}
 .uc .r{display:grid;grid-template-columns:36px 1fr 1fr 1fr;gap:var(--sp-1);align-items:center;margin-top:var(--sp-1);font-size:var(--size-s);color:var(--sub)}
 .uc select{min-height:var(--control-h);min-width:0;border:1px solid var(--line);border-radius:var(--radius);background:var(--white);font:inherit;font-size:16px;padding:0 4px;color:var(--ink)}
 .uc .f{display:flex;justify-content:space-between;align-items:center;gap:var(--sp-2);font-size:var(--size-s);color:var(--sub);margin-top:var(--sp-2)}.uc .f b{color:var(--ink);font-weight:600}
+.uc.saved select,.uc.saved .ap{background:var(--line2);color:var(--muted)}.hvin .inp.saved{background:var(--line2);color:var(--muted)}   /* 저장된 값 = 회색 (결정 226) */
 .uc.isoff .r{opacity:.45}.uc.isoff{background:var(--tint)}.uc.bad{outline:2px solid var(--red);outline-offset:-2px}
 .ucg{display:flex;flex-direction:column;gap:var(--sp-2)}.ucg .uc{border:1px solid var(--line2);border-radius:var(--radius)}
 .cltbl{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--line2);margin-top:var(--sp-3);font-size:var(--size-s)}
@@ -569,6 +612,9 @@ select.lgin{text-align:center;padding:0}
 .repchart{position:relative;height:300px;background:var(--white);border:1px solid var(--line2);border-radius:var(--radius);padding:var(--sp-2)}
 .cladv{display:flex;flex-direction:column;gap:var(--sp-1)}.cladv details{background:var(--white);border:1px solid var(--line2);border-radius:var(--radius)}
 .cladv summary{display:flex;align-items:center;gap:var(--sp-2);min-height:44px;padding:0 var(--sp-3);cursor:pointer;font-size:var(--size-m)}.cladv summary small{color:var(--muted);font-size:var(--size-s)}
+.repacc{display:flex;flex-direction:column;gap:var(--sp-1)}.repacc details{background:var(--white);border:1px solid var(--line2);border-radius:var(--radius)}
+.repacc summary{display:flex;align-items:center;flex-wrap:wrap;gap:2px var(--sp-2);min-height:44px;padding:4px var(--sp-3);cursor:pointer;font-size:var(--size-m)}.repacc summary small{color:var(--muted);font-size:var(--size-s)}
+.repacc details>.scroll{padding:0 var(--sp-2) var(--sp-2)}.repacc .repday{display:flex;flex-direction:column;gap:var(--sp-1);padding:0 var(--sp-2) var(--sp-2)}.repacc .repday details{background:var(--tint)}
 .cladv ul{margin:0;padding:0 var(--sp-3) var(--sp-3) calc(var(--sp-3) + 18px);font-size:var(--size-s);color:var(--sub);line-height:1.7}
 .ucg3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2)}
 .lgwrap:has(.ucpc),.lgwrap:has(.uhg){max-width:none}
@@ -579,7 +625,7 @@ select.lgin{text-align:center;padding:0}
 .ucpc .ucg{gap:3px}
 .ucpc .uc{display:flex;align-items:center;gap:4px;padding:2px 4px;border:1px solid var(--line2);border-radius:var(--radius)}
 .ucpc .uc .h,.ucpc .uc .r{display:contents}
-.ucpc .uc .flname{width:80px;flex:none;font-size:13px;padding:2px 4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ucpc .uc .flname small{display:none}
+.ucpc .uc .flname{width:80px;flex:none;font-size:13px;padding:2px 3px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ucpc .uc .flname small{display:none}
 .ucpc .uc .r>span:first-child{display:none}
 .ucpc .uc .r:nth-child(3)>span:first-child{display:inline;font-size:0;order:3}.ucpc .uc .r:nth-child(3)>span:first-child::before{content:'~';font-size:14px;color:var(--sub)}
 .ucpc .uc .ap{order:2;flex:none;font-size:13px}.ucpc .uc .r:nth-child(3)>.ap{order:4}
@@ -587,7 +633,13 @@ select.lgin{text-align:center;padding:0}
 .ucpc .uc .off{order:5;min-height:28px;font-size:12px;gap:3px;white-space:nowrap}.ucpc .uc .off input{width:16px;height:16px}
 .ucpc .uc .f{order:6;margin:0;flex:none;width:86px;overflow:hidden;flex-direction:column;align-items:flex-end;gap:0;font-size:12px;line-height:1.25;white-space:nowrap}
 .ucpc.zoned .uc .f{width:64px}.ucpc .uc .f .nwstate,.ucpc .uc .f .clmuted{font-size:11px}.ucpc .uc .f svg{width:11px;height:11px}
-.ucpc .ucg3{gap:4px}
+.ucpc .ucg3{gap:4px}.ucpc.zoned .uc .flname{width:58px;padding:2px}.ucpc.zoned .uc.long .flname{font-size:11px;letter-spacing:-.4px}
+/* 칸 폭이 모자라면(태블릿 가로·좁은 창·큰 글꼴) 장비 칸 두 줄 — 1줄 이름·미가동·상태, 2줄 시작 ~ 종료. 화면 폭이 아니라 칸 폭으로 정해서 옆 칸을 넘지 않음 (결정 218) */
+.ucpc .ucg:not(.ucg3){container:uccell/inline-size}.ucpc .ucg3{container:uc3/inline-size}
+@container uccell (max-width:519px){.ucpc .ucg .uc{flex-wrap:wrap;row-gap:3px;padding:3px 4px}.ucpc .ucg .uc::after{content:'';order:1;flex-basis:100%}.ucpc .ucg .uc .off,.ucpc .ucg .uc .f{order:1}.ucpc .ucg .uc .f{width:auto;flex-direction:row;gap:6px;margin-left:auto}.ucpc .ucg .uc select{min-width:46px;height:30px;min-height:30px}}
+@container uc3 (max-width:1627px){.ucpc .ucg .uc{flex-wrap:wrap;row-gap:3px;padding:3px 4px}.ucpc .ucg .uc::after{content:'';order:1;flex-basis:100%}.ucpc .ucg .uc .off,.ucpc .ucg .uc .f{order:1}.ucpc .ucg .uc .f{width:auto;flex-direction:row;gap:6px;margin-left:auto}.ucpc .ucg .uc select{min-width:46px;height:30px;min-height:30px}}
+/* 태블릿 세로 (600~1023): 장비 카드 두 칸씩 */
+@media (min-width:600px) and (max-width:1023px){.flsec .hvlist{display:grid;grid-template-columns:1fr 1fr}.flsec .hvlist .uc{border-top:1px solid var(--line3)}.flsec .hvlist .uc:nth-child(-n+2){border-top:none}.flsec .hvlist .uc:nth-child(odd){border-right:1px solid var(--line3)}}
 .uc .ap{text-align:center;font-size:var(--size-s);color:var(--ink)}
 .ucz{font-size:var(--size-s);color:var(--sub);font-weight:600;margin:var(--sp-3) 0 var(--sp-1)}
 .flsec{scroll-margin-top:70px}
@@ -617,7 +669,7 @@ select.lgin{text-align:center;padding:0}
 <div id="layer"></div>
 <script>
 const EXEC_URL = <?!= JSON.stringify(execUrl) ?>;
-const FLOORS = ['B1','1F','2F','3F','4F','5F','6F'];
+const FLOORS = ['B3','B2','B1','1F','2F','3F','4F','5F','6F','7F','8F','9F','10F'];   // 소화기·소화전·공기호흡기 층 B3~10F (결정 228)
 const CAN_PRINT = window.matchMedia('(hover: hover) and (pointer: fine)').matches && window.innerWidth >= 900;
 const S = { token: store('ws_token') || '', user: null, view: 'loading', pin: '', sign: null, docs: null, tbm: null, fire: null, qr: null, sel: {}, q: '', st: null, ym: '', floor: '3F', busy: false, ver: <?!= JSON.stringify(APP.version) ?> || store('ws_ver') || '' };
 
@@ -683,10 +735,12 @@ const ICON = {
   fire: _pi('<rect x="6.5" y="9" width="9" height="12" rx="2.5"/><path d="M6.5 14h9M11 9V5M8.5 5h5.5l3-1.5M14.5 6.5c3 0 5 1.5 5 4.5v4"/>'),
   plug: _pi('<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 01-12 0z"/><path d="M12 17v4"/>'),
   therm: _pi('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7l1.5-3h5L16 7"/><circle cx="12" cy="13.5" r="3.5"/><path d="M10.5 13.5q.75-1.2 1.5 0t1.5 0"/>'),
+  work: _pi('<circle cx="8.5" cy="12" r="3"/><path d="M8.5 4.5v2M8.5 17.5v2M1.5 12h2M13.5 12h1M3.6 7.1l1.4 1.4M12 15.5l-1.4-1.4M3.6 16.9L5 15.5"/><path d="M21 14.2A5.2 5.2 0 0116.3 9a5.2 5.2 0 013.9-5 6.4 6.4 0 00.8 10.2z"/>'),
   hat: _pi('<path d="M4 16a8 8 0 0116 0"/><rect x="2.5" y="16" width="19" height="3" rx="1"/><path d="M12 8v8"/>'),
   qr: _pi('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M14 21h3M21 17v4h-1.5"/>', 24),
   stat: _pi('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/>', 24),
   hyd: _pi('<path d="M8 21V11a4 4 0 018 0v10M5.5 21h13M4 13.5h4M16 13.5h4M10 8h4M12 7V3.5"/>', 24),
+  air: _pi('<rect x="8" y="4" width="8" height="17" rx="4"/><path d="M10.5 4V2.5h3V4M8 9h8M12 12v3"/>', 24),
   box: _pi('<path d="M3 7.5L12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5l9 4.5 9-4.5M12 12v9"/>'),
   docs: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
   inspect: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
@@ -716,23 +770,48 @@ function ymLabel(ym) { return Number(ym.slice(0, 4)) + '년 ' + Number(ym.slice(
 
 /* ── 화면 이동 (뒤로 가기 지원) ── */
 function go(view, push) {
-  S.view = view;
-  if (push !== false) { try { google.script.history.push({ v: view }, { }); } catch (e) {} }
+  const cur = S.view; S.view = view;
+  if (push !== false) hist(view, cur);
   render();
   window.scrollTo(0, 0);
-  if (view === 'fire' && !(S.fireAt && Date.now() - S.fireAt < 60000)) refreshFire();   // 1분 안에 받은 숫자면 그대로 (결정 78)
+  if (view === 'fire' && !(S.fireAt && Date.now() - S.fireAt < 60000)) refreshFire();
+  if (view === 'fire' && !(S.eqAt && Date.now() - S.eqAt < 60000)) refreshEq();   // 1분 안에 받은 숫자면 그대로 (결정 78)
 }
 async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; S.fireAt = Date.now(); if (S.view === 'fire') render(); } catch (e) {} }
-try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
-const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', thermal: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', hyd: 'fire', status: 'fire', floor: 'status', docs: 'main', set: 'main', risk: 'set', map: 'main', cad: 'main', spec: 'main', tbm: 'docs', nw: 'docs', log: 'docs', ahu: 'docs', clim: 'docs', use: 'docs', rep: 'docs', kw: 'set', uhr: 'use', att: 'docs', attup: 'att' };
-function back() { if (S.view === 'pdf') return go((S.pdf && S.pdf.from) || 'main'); if (S.view === 'csck') return csLeave(); if (S.view === 'risk' && S.rk && S.rk.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'log' && !lgLeaveOk()) return; if (S.view === 'ahu' && !ahuLeaveOk()) return; if ((S.view === 'clim' || S.view === 'use') && !clLeaveOk()) return; if (S.view === 'rep') return repBack(); if (S.view === 'uhr') return uhBack(); if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
+// 소화전·공기호흡기 이번 달 숫자 (실패해도 메뉴는 그대로)
+async function refreshEq() { try { const e = await run('eqStatus', S.token, ''); if (e && e.ok) { S.eqc = e; S.eqAt = Date.now(); if (S.view === 'fire') render(); } } catch (e) {} }
+// 브라우저 기본 기록으로 안드로이드·아이폰 뒤로가기 지원 (결정 244). 구글 웹앱·바로가기 주소 양쪽에서 같이 됨.
+// HS = 화면 기록 거울. 메인이 바닥 — 메인에서는 기록을 더 쌓지 않아 뒤로가기가 앱을 바로 끝냄.
+let HS = ['main'], histIgn = 0;
+function histSkip() { histIgn++; setTimeout(() => { histIgn = 0; }, 700); }
+function hist(view, cur) {
+  try {
+    if (view === cur) history.replaceState({ v: view }, '');
+    else if (HS.length > 1 && HS[HS.length - 2] === view) { HS.pop(); histSkip(); history.back(); }
+    else if (view === 'main') { const n = HS.length - 1; HS = ['main']; if (n > 0) { histSkip(); history.go(-n); } }
+    else { HS.push(view); history.pushState({ v: view }, ''); }
+  } catch (e) {}
+}
+function histReset() { const n = HS.length - 1; HS = ['main']; if (n > 0) { try { histSkip(); history.go(-n); } catch (e) {} } }
+window.addEventListener('popstate', () => {
+  if (histIgn > 0) { histIgn--; return; }
+  if (!S.token || !S.user) return;
+  const open = document.querySelector('#layer > *') || (S.sp && S.sp.big);
+  if (S.view === 'main' || HS.length <= 1) { if (!open) return; }
+  try { history.pushState({ v: S.view }, ''); } catch (e) {}   // 이미 한 칸 물러났으므로 현재 화면 기록을 되돌려 놓고, 실제 이동은 아래 버튼과 같은 흐름
+  if (open) { if (S.sp && S.sp.big) spBigClose(); else closeDialog(); return; }
+  back();
+});
+const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', thermal: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', hyd: 'fire', hydfl: 'hyd', status: 'fire', floor: 'status', docs: 'main', set: 'main', risk: 'set', map: 'main', cad: 'main', spec: 'main', tbm: 'docs', nw: 'docs', log: 'docs', rw: 'docs', wh: 'docs', ahu: 'docs', clim: 'docs', use: 'docs', rep: 'docs', kw: 'set', uhr: 'use', att: 'docs', attup: 'att' };
+function back() { if (S.view === 'pdf') return go((S.pdf && S.pdf.from) || 'main'); if (S.view === 'csck') return csLeave(); if (S.view === 'risk' && S.rk && S.rk.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'wh' && S.wh && (S.wh.d.dirty || S.wh.n.dirty) && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'log' && !lgLeaveOk()) return; if (S.view === 'ahu' && !ahuLeaveOk()) return; if ((S.view === 'clim' || S.view === 'use') && !clLeaveOk()) return; if (S.view === 'rep') return repBack(); if (S.view === 'uhr') return uhBack(); if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
 
 function topbar(sub, title) {
   const u = S.user || {};
   return '<header class="top"><div class="top-in">' +
     '<div class="ttl"><small>' + h(sub) + '</small><b>' + h(title) + '</b></div>' +
     '<span class="me">' + h(u.name) + ' · ' + h(u.part) + '</span>' +
-    '<button class="btn sm" onclick="logout()">로그아웃</button>' +
+    (window.WS_OFFLINE ? WS_OFFLINE.chip() : '') +   // 「저장 대기 n건」 (오프라인 임시 저장, 결정 222) — 없으면 숨김
+    '<button class="btn sm" onclick="logoutAsk()">로그아웃</button>' +
     '</div></header>';
 }
 
@@ -765,8 +844,18 @@ async function doLogin() {
     await boot();
   } catch (e) { S.busy = false; S.pin = ''; render(); $('pinMsg').textContent = '연결 오류: ' + (e.message || e); }
 }
+/** QR 화면(eq.html)에서 「앱에 로그인하기」로 왔으면 로그인 뒤 그 QR 화면으로 돌려보냄 (같은 사이트 eq.html?eq=고유번호 만) */
+function afterLogin() {
+  let a = '';
+  try { a = sessionStorage.getItem('ws_after') || ''; sessionStorage.removeItem('ws_after'); } catch (e) {}
+  try { const u = new URL(a, location.href); if (u.origin === location.origin && /\/eq\.html$/.test(u.pathname) && /^[2-9a-km-np-z]{12}$/.test(u.searchParams.get('eq') || '')) { location.href = u.href; return true; } } catch (e) {}
+  return false;
+}
 function loggedIn(r) { S.token = r.token; store('ws_token', r.token); SHELL.set(r.token); S.user = r.user; S.pin = ''; S.sign = null; }
-function logout(expired) { store('ws_token', null); store('ws_main', null); SHELL.set(''); bootSeq++; S.token = ''; S.user = null; S.sign = null; S.pin = ''; S.view = 'login'; render(); if (expired === true) toast('다시 로그인해 주세요.'); }
+const OFFMSG = '이 기기에 저장했습니다. 신호가 잡히면 자동으로 보냅니다';   // 서버에 들어가기 전에는 「저장되었습니다」라고 하지 않음 (결정 222)
+function logoutAsk() { if (window.WS_OFFLINE && WS_OFFLINE.count() && !confirm('아직 전송되지 않은 저장 대기 ' + WS_OFFLINE.count() + '건이 있습니다. 로그아웃해도 이 기기에 남아 있다가, 본인이 다시 로그인하면 보냅니다. 로그아웃할까요?')) return; logout(); }
+if (window.WS_OFFLINE) { WS_OFFLINE.tokenFn = () => S.token; WS_OFFLINE.onSent = n => toast('저장 대기 ' + n + '건을 전송했습니다'); }
+function logout(expired) { store('ws_token', null); store('ws_main', null); SHELL.set(''); bootSeq++; S.token = ''; S.user = null; S.sign = null; S.pin = ''; S.view = 'login'; histReset(); render(); if (expired === true) toast('다시 로그인해 주세요.'); }
 
 /* ── 근무일 첫 서명 (결정 56·60) — 서명하지 않으면 로그인되지 않음 ── */
 function renderSign() {
@@ -868,6 +957,7 @@ async function boot(fromStart) {
   if (!r.needSign) setTimeout(prefetch, 0);   // 메인이 뜬 뒤 TBM·명일 작업을 뒤에서 미리 받음
   if (!r.needSign) store('ws_main', JSON.stringify({ sid: r.user.staff_id, user: r.user, fire: r.fire, docs: r.docs, menuOff: S.menuOff }));   // 다음 접속 때 먼저 보여 줄 메인 화면
   if (r.needSign) { S.sign = { mode: 'token', name: r.user.name, part: r.user.part, busy: false, msg: '' }; S.view = 'sign'; render(); return; }   // 표는 있는데 오늘 서명이 없음
+  if (afterLogin()) return;
   if (['login', 'loading', 'retry', 'sign'].indexOf(S.view) !== -1) go('main');
   else if (S.view === 'main') render();   // 먼저 보여 준 지난번 화면을 새 숫자로
 }
@@ -1136,8 +1226,8 @@ function spPvHtml(x, big) {
 if (window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches) document.addEventListener('contextmenu', e => e.preventDefault());
 /* ── 메인 메뉴 켜기·끄기 (결정 148): 설정 표 「메인메뉴끄기」, 소장·관리자·옵저버는 꺼진 칸도 엶 ── */
 const MENU = [
-  ['docs', '서류작업', [['tbm', 'TBM'], ['nw', '명일 작업 예정'], ['att', '출근현황'], ['ahu', '온습도/공조기/에어커튼 입력'], ['log', '종합업무일지']]],
-  ['inspect', '점검', [['fire', '소화기 점검'], ['eh', '전열필증'], ['thermal', '열화상점검'], ['cs', '공사장 점검']]],
+  ['docs', '서류작업', [['tbm', 'TBM'], ['nw', '명일 작업 예정'], ['att', '출근현황'], ['ahu', '온습도/공조기/에어커튼 입력'], ['log', '종합업무일지'], ['risk', '위험작업신청서'], ['work', '주간/야간 작업내역']]],
+  ['inspect', '점검', [['fire', '소화기/소화전/공기호흡기 점검'], ['eh', '전열필증'], ['thermal', '열화상점검'], ['cs', '공사장 점검']]],
   ['spec', '시방서 검색', null], ['mat', '자재현황', null], ['map', '지도', null], ['cad', 'CAD', null]];   // 자재현황은 준비중이라 켜고 끄기 없음
 const menuOff = k => (S.menuOff || []).indexOf(k) !== -1;
 const menuCanOpen = () => !!S.user && ['소장', '관리자', '옵저버'].indexOf(S.user.role) !== -1;
@@ -1267,7 +1357,7 @@ async function deviceReg() {
 async function deviceOff() {
   if (!confirm('이 기기의 등록을 풀까요? 다시 쓰려면 시설팀 계정으로 기기 등록을 해야 합니다.')) return;
   await WS_API.unregister(S.token);
-  store('ws_token', null); store('ws_main', null); S.token = ''; S.user = null; S.device = null; S.view = 'device'; render();
+  store('ws_token', null); store('ws_main', null); S.token = ''; S.user = null; S.device = null; S.view = 'device'; histReset(); render();
 }
 async function setToastSec(v) {
   const r = await call('adminSetToast', v);
@@ -1333,6 +1423,8 @@ function renderDocs() {
     R('att', 'openAtt()', 'var(--tint)', 'var(--navy)', ICON.att, '출근현황', '근무 스케줄 엑셀 → 날짜별 조직도 · 그림으로 저장') +
     R('ahu', 'openAhu()', 'var(--blue-bg)', 'var(--blue)', ICON.ahu, '온습도/공조기/에어커튼 입력', 'AHU 환기온도 11:00 · 16:00 · 매장 온습도 · 가동시간 · 리포트') +
     R('log', 'openLog()', 'var(--tint)', 'var(--sub)', ICON.log, '종합업무일지', '에너지 사용량 · 날씨 · 금일작업 · B4 인쇄 (PC)') +
+    R('risk', 'openRw()', 'var(--orange-bg)', 'var(--orange)', ICON.hat, '위험작업신청서', '신청서 사진 · 날짜 · 업체 · 위치 · 검색 · 인쇄 A4') +
+    R('work', 'openWh()', 'var(--blue-bg)', 'var(--blue)', ICON.work, '주간/야간 작업내역', '작업 전·후 사진 · 사용자재 · 방염서류 · 각서 · 인쇄 A4 · PDF') +
     '</div>';
 }
 /* 미리 받기 (결정 78): 메인이 뜬 뒤 자주 여는 화면 내용을 뒤에서 받아 두고, 열 때 바로 보여 준 뒤 새로 받음 */
@@ -1848,7 +1940,7 @@ function lgSet(r) {
   // 그날 금일작업이 아직 비었으면 TBM 작업 표로 채워 둠 (10줄까지, 저장은 직원이 [저장])
   const tbm = r.tbm || {}, auto = LG_DEPTS.every(d => !works[d].some(x => x)) && LG_DEPTS.some(d => (tbm[d] || []).length);
   if (auto) LG_DEPTS.forEach(d => { works[d] = Array.from({ length: LG_LINES }, (_, i) => (tbm[d] || [])[i] || ''); });
-  S.lg = { srv: r, day: r.day, f, works, ver: r.ver, by: r.by, pdf: r.pdf, dirty: auto, busy: false, night: r.night || '', nightNew: '' };
+  S.lg = { srv: r, day: r.day, f, works, ver: r.ver, by: r.by, pdf: r.pdf, dirty: auto, busy: false };
   if (S.view === 'log') render();
   // Supabase 판: 공조기·에어커튼은 구글을 거쳐 늦게 옴(6~9초) → 일지를 먼저 보여 주고 그 칸만 나중에 채움
   if (r.acLater) r.acLater.then(ac => { r.ac = ac; delete r.acLater; const el = S.lg && S.lg.srv === r && document.querySelector('#app .lgac'); if (el) el.outerHTML = lgAc(ac); });
@@ -1908,30 +2000,9 @@ function lgSheet(edit) {
     '<div><div class="lgsec">에너지 사용량 <small>막대 = 같은 줄 안에서 전년과 비교<span class="lglg"><i style="background:#CBD2DB"></i>' + s.prevDay.slice(0, 4) + '</span><span class="lglg"><i style="background:#1F5FA8"></i>' + dd.slice(0, 4) + '</span> · 증감율 빨강 = 늘어남</small></div>' +
     '<div class="lgegrid">' + LG_METERS.map(([k, nm]) => '<div class="lgmc"><div class="lgmh"><b>' + nm + '</b>' + (edit ? inp(k) : '') + '</div><div data-bars="' + k + '">' + lgBars(k) + '</div></div>').join('') + '</div></div>' +
     lgAc(s.ac) +
-    '<div class="lgrow"><div class="lgworks"><div class="lgwk2">' + work('전기방재') + work('기계건축') + '</div>' +
-    '</div>' +
-    '<div><div class="lgsec">야간 일일 작업 현황</div><div class="lgnight" id="lgNight">' + lgNight(edit) + '</div></div></div>' +
+    '<div class="lgworks"><div class="lgwk2">' + work('전기방재') + work('기계건축') + '</div></div>' +
     '<div class="lgfoot">- 1 / 1 -</div></div>';
 }
-/** 야간 그림: 칸 크기에 맞춰 자르지 않고 줄여 가운데 (남는 곳 흰색) */
-function lgNight(edit) {
-  const g = S.lg, src = g.nightNew === '-' ? '' : (g.nightNew || g.night);
-  const file = '<input type="file" accept="image/*" hidden onchange="lgNightFile(this)">';
-  if (!edit) return src ? '<img src="' + src + '" alt="야간 일일 작업 현황">' : '';
-  if (!src) return '<label class="lgnadd">' + ICON.clip + '그림 올리기<small>사진·캡처 파일, 또는 Ctrl+V로 붙여 넣기</small>' + file + '</label>';
-  return '<img src="' + src + '" alt="야간 일일 작업 현황"><div class="lgnb"><label class="btn sm">바꾸기' + file + '</label><button class="btn sm" onclick="lgNightSet(\'-\')">빼기</button></div>';
-}
-function lgNightSet(v) { S.lg.nightNew = v; lgDirty(); const e = $('lgNight'); if (e) e.innerHTML = lgNight(true); }
-async function lgNightFile(el) {
-  const f = el.files && el.files[0]; if (!f) return;
-  try { lgNightSet(await shrinkJpeg(f, 2400, 0.85, true)); } catch (e) { toast('그림을 읽지 못했습니다'); }
-}
-document.addEventListener('paste', e => {
-  if (S.view !== 'log' || !S.lg || !lgPc()) return;
-  const it = Array.from((e.clipboardData && e.clipboardData.items) || []).find(x => x.type.indexOf('image/') === 0);
-  if (!it) return;
-  e.preventDefault(); shrinkJpeg(it.getAsFile(), 2400, 0.85, true).then(lgNightSet, () => toast('그림을 읽지 못했습니다'));
-});
 function lgState() {
   const g = S.lg;
   return g.dirty ? '<span class="nwstate dirty"><i class="dot"></i>저장 안 함</span>' : g.ver ? '<span class="nwstate">' + ICON.ok + '저장됨 · ' + h(String(g.ver).slice(5, 16).replace('-', '/')) + ' ' + h(g.by) + '</span>' : '<span class="nwstate" style="color:var(--muted)">아직 저장 안 함</span>';
@@ -1962,7 +2033,6 @@ function lgWork(el) { S.lg.works[el.dataset.d][Number(el.dataset.i)] = el.value;
 function lgPayload() {
   const g = S.lg, d = Object.assign({}, g.f, { works: {} });
   LG_DEPTS.forEach(x => { d.works[x] = g.works[x].map(t => t.trim()).filter(Boolean); });
-  if (g.nightNew) d.night = g.nightNew;
   return d;
 }
 /* 인쇄 = B4 가로 한 장. 종이 틀(1587×1120)을 0.867배 → 364×257mm */
@@ -2040,7 +2110,7 @@ function ahuNorm(x) { return String(x).replace(/[℃%\s]/g, '').replace(/,/g, '.
 // 칸 하나 검사 (서버 ws_ahu_save 와 같은 범위). 문제 없으면 ''
 function ahuCheck(k, val, name) {
   if (val === '') return '';
-  const rg = k === 'u' ? [-10, 50] : k.indexOf('out_t') === 0 ? [-30, 50] : k.indexOf('out_h') === 0 ? [0, 100] : [-5, 40];
+  const rg = k === 'u' ? [-10, 50] : k.indexOf('out_t') === 0 ? [-30, 50] : k.indexOf('out_h') === 0 ? [0, 100] : [-5, 50];   // 냉수 최고 50 (결정 242)
   return /^-?\d+(\.\d+)?$/.test(val) && Number(val) >= rg[0] && Number(val) <= rg[1] ? '' : (name || '') + ' ' + rg[0] + ' ~ ' + rg[1] + ' 숫자로 넣어 주세요';
 }
 // 고친 칸 중 문제 있는 칸 [{k, u, t, msg}]
@@ -2133,7 +2203,7 @@ async function ahuSave(quiet) {
     const r = await call('ahuSave', g.day, g.ch);
     if (!r.ok) { g.busy = false; g.err = r.error; render(); toast(r.error); return false; }
     const late = g.ch;   // 저장하는 사이에 더 넣은 값은 지우지 않고 「저장 안 함」으로 남김
-    ahuSet(r); ahuLate(late, sent); if (!quiet) toast('저장했습니다'); return true;
+    ahuSet(r); ahuLate(late, sent); if (!quiet) toast(r.queued ? OFFMSG : '저장했습니다'); return true;
   } catch (e) { g.busy = false; g.err = '서버에 닿지 않았습니다. 다시 눌러 주세요'; render(); return false; }
 }
 function ahuLate(late, sent) {
@@ -2334,7 +2404,7 @@ async function atUpSave() {
 function renderInspect() {
   const R = (k, fn, bg, col, ico, name, sm) => subRow('inspect.' + k, fn, bg, col, ico, name, sm);
   return topbar('업무지원 ›', '점검') + '<div class="wrap list">' +
-    R('fire', "go('fire')", 'var(--blue-bg)', 'var(--blue)', ICON.fire, '소화기 점검', 'QR 관리·인쇄 · 월별 점검 현황') +
+    R('fire', "go('fire')", 'var(--blue-bg)', 'var(--blue)', ICON.fire, '소화기/소화전/공기호흡기 점검', 'QR 관리 · 월별 점검 현황') +
     R('eh', 'openEh()', 'var(--orange-bg)', 'var(--orange)', ICON.plug, '전열필증', '층·매장별 전열기기 관리 · 신고필증' + (CAN_PRINT ? ' 출력' : ' (출력은 PC에서)')) +
     R('thermal', "go('thermal')", 'var(--blue-bg)', 'var(--blue)', ICON.therm, '열화상점검', 'FLIR 열화상 사진 → 점검 보고서(.atr) · PC 전용', !thCanOpen()) +
     R('cs', 'openCs()', 'var(--green-bg)', 'var(--green)', ICON.hat, '공사장 점검', '공사 현장 안전 순찰 · 사진 · 날짜별 현장별 PDF') +
@@ -2411,17 +2481,18 @@ window.WS_CAD = {
 };
 
 /* ── 개선 A: 입력 기간 안내 ── */
-function periodBanner(st, counts) {
+function periodBanner(st, counts, u) {   // u = 세는 단위 (소화기 「대」, 소화전·공기호흡기 「곳」)
+  u = u || '대';
   if (!st) return '';
   const w = st.window, d = st.day, m = Number(st.ym.slice(5, 7));
   if (!st.isCurrent) return st.ym < st.curYm ? '<div class="banner b-gray">' + ymLabel(st.ym) + ' · 입력 기간 ' + m + '/' + w.start + '~' + m + '/' + w.end + ' · 마감됨</div>' : '';
   if (d < w.start) return '<div class="banner b-gray">이번 달 입력은 ' + m + '월 ' + w.start + '일부터 받습니다.</div>';
   if (d <= w.end) {
     const left = w.end - d;
-    if (counts.wait > 0 && left <= 1) return '<div class="banner b-warn"><b>마감 임박</b> · ' + m + '월 ' + w.end + '일까지 · 점검 전 <b>' + counts.wait + '대</b></div>';
-    return '<div class="banner b-info">이번 달 입력 기간 ' + m + '월 ' + w.start + '일 ~ ' + w.end + '일 · ' + (left === 0 ? '오늘 마감' : left + '일 남음') + ' · 점검 전 ' + counts.wait + '대</div>';
+    if (counts.wait > 0 && left <= 1) return '<div class="banner b-warn"><b>마감 임박</b> · ' + m + '월 ' + w.end + '일까지 · 점검 전 <b>' + counts.wait + u + '</b></div>';
+    return '<div class="banner b-info">이번 달 입력 기간 ' + m + '월 ' + w.start + '일 ~ ' + w.end + '일 · ' + (left === 0 ? '오늘 마감' : left + '일 남음') + ' · 점검 전 ' + counts.wait + u + '</div>';
   }
-  if (counts.miss > 0) return '<div class="banner b-red"><b>기한 지남</b> · 미입력 ' + counts.miss + '대 · 지금 입력해도 받고 「기한 후」로 표시합니다</div>';
+  if (counts.miss > 0) return '<div class="banner b-red"><b>기한 지남</b> · 미입력 ' + counts.miss + u + ' · 지금 입력해도 받고 「기한 후」로 표시합니다</div>';
   return '<div class="banner b-gray">이번 달 입력 기간이 끝났습니다.</div>';
 }
 
@@ -2432,60 +2503,182 @@ function renderFire() {
   const done = c.ok + c.bad;
   const pct = c.total ? Math.round(done / c.total * 100) : 0;
   const st = f ? { ym: f.ym, curYm: f.ym, isCurrent: true, day: f.day, window: f.window } : null;
-  return topbar('점검 ›', '소화기 점검') + '<div class="wrap list">' +
+  return topbar('점검 ›', '소화기/소화전/공기호흡기 점검') + '<div class="wrap list">' +
     '<div class="card" style="padding:var(--sp-3) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2)"><div style="display:flex;justify-content:space-between;font-size:var(--size-m)"><span style="color:var(--muted)">이번 달 점검</span><span><b style="color:var(--green)">' + done + '</b> / ' + c.total + '대</span></div>' +
     '<div class="bar" style="height:8px"><span style="width:' + pct + '%;background:var(--green)"></span></div></div>' +
-    periodBanner(st, c) +
-    '<button class="row" onclick="openQr()"><span class="ico" style="background:var(--blue-bg);color:var(--blue);width:48px;height:48px">' + ICON.qr + '</span><span class="fname"><b style="font-size:var(--size-l)">① 소화기, 소화전, 공기호흡기 QR 관리 · 인쇄</b><small>매장별 소화기 등록 · 삭제 · QR' + (CAN_PRINT ? ' · 출력' : ' (출력은 PC에서)') + '</small></span>' + ICON.chev + '</button>' +
-    '<button class="row" onclick="openStatus()"><span class="ico" style="background:var(--green-bg);color:var(--green);width:48px;height:48px">' + ICON.stat + '</span><span class="fname"><b style="font-size:var(--size-l)">② 매장별 소화기 점검 현황</b><small>월별 · 층별(B1~6F) · 매장별</small></span>' + ICON.chev + '</button>' +
-    '<button class="row" onclick="go(\'hyd\')"><span class="ico" style="background:var(--blue-bg);color:var(--blue);width:48px;height:48px">' + ICON.hyd + '</span><span class="fname"><b style="font-size:var(--size-l)">③ 층별 소화전, 공기호흡기 점검 현황</b><small>수정중</small></span>' + ICON.chev + '</button>' +
+    periodBanner(st, c) + eqNotice() +
+    '<button class="row" onclick="openQr()"><span class="ico" style="background:var(--blue-bg);color:var(--blue);width:48px;height:48px">' + ICON.qr + '</span><span class="fname"><b style="font-size:var(--size-l)">① 소화기/소화전/공기호흡기 QR 관리</b><small>소화기 · 소화전 · 공기호흡기 등록 · 삭제 · QR' + (CAN_PRINT ? ' · 출력' : ' (출력은 PC에서)') + '</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openStatus()"><span class="ico" style="background:var(--green-bg);color:var(--green);width:48px;height:48px">' + ICON.stat + '</span><span class="fname"><b style="font-size:var(--size-l)">② 매장별 소화기 점검 현황</b><small>월별 · 층별(B3~10F) · 매장별</small></span>' + ICON.chev + '</button>' +
+    '<button class="row" onclick="openHyd()"><span class="ico" style="background:var(--green-bg);color:var(--green);width:48px;height:48px">' + ICON.stat + '</span><span class="fname"><b style="font-size:var(--size-l)">③ 층별 소화전/공기호흡기 점검 현황</b><small>월별 · 층별(B3~10F) · 소화전 · 공기호흡기 · 조회만</small></span>' + ICON.chev + '</button>' +
     '</div>';
 }
-/* ③ 소화전·공기호흡기: 점검 양식은 추후 올림 → 그때까지 「수정중」 (결정 170) */
+/* ── ③ 층별 소화전/공기호흡기 점검 현황 (결정 224 · 230, supabase/23_fire_equip.sql) ──
+   앱에서는 조회만. 점검 입력은 붙어 있는 QR을 휴대폰으로 찍어 여는 eq.html 에서만 함 */
+const EQ_KIND = { hyd: '소화전', air: '공기호흡기' };
+async function openHyd(ym) { go('hyd'); await loadHyd(ym || ''); }
+async function loadHyd(ym) { S.hq = null; render(); S.hq = await call('eqStatus', ym); S.hym = S.hq.ym; render(); }
 function renderHyd() {
-  return topbar('소화기 점검 ›', '층별 소화전, 공기호흡기 점검 현황') + '<div class="wrap list"><div class="banner b-gray">수정중입니다. 소화전·공기호흡기 점검 양식이 올라오면 이 화면을 만듭니다.</div></div>';
+  const st = S.hq, T = topbar('소화기/소화전/공기호흡기 점검 ›', '층별 소화전/공기호흡기 점검 현황');
+  if (!st) return T + '<div class="wrap"><div class="banner b-gray">불러오는 중…</div></div>';
+  const c = st.counts, idx = st.months.indexOf(st.ym);
+  const prev = idx > 0 ? st.months[idx - 1] : '';
+  const next = idx >= 0 && idx < st.months.length - 1 ? st.months[idx + 1] : '';
+  const nk = (it, k) => it.filter(i => i.kind === k).length;
+  const floors = FLOORS.map(fl => {
+    const it = st.items.filter(i => i.floor === fl);
+    if (!it.length) return '';
+    const fc = counts(it);
+    const p = n => Math.round(n / fc.total * 100) + '%';
+    return '<button class="floor" onclick="openHydFloor(\'' + fl + '\')"><span class="elbow"></span><b style="width:34px;font-size:var(--size-m)">' + fl + '</b>' +
+      '<span class="fname" style="gap:var(--sp-1)"><span class="bar"><span style="width:' + p(fc.ok) + ';background:var(--green)"></span><span style="width:' + p(fc.bad) + ';background:var(--orange)"></span><span style="width:' + p(fc.miss) + ';background:var(--navy)"></span></span><small>소화전 ' + nk(it, 'hyd') + ' · 공기호흡기 ' + nk(it, 'air') + '</small></span>' +
+      (fc.miss ? '<span class="chip c-miss">미입력 ' + fc.miss + '</span>' : '') + (fc.bad ? '<span class="chip c-bad">이상 ' + fc.bad + '</span>' : '') +
+      '<b style="font-size:var(--size-s);color:var(--green)">' + (fc.ok + fc.bad) + '/' + fc.total + '</b>' + ICON.chev + '</button>';
+  }).join('');
+  const m = Number(st.ym.slice(5, 7));
+  return T + '<div class="wrap list">' +
+    '<div class="mnav"><button class="btn" aria-label="이전 달" ' + (prev ? 'onclick="loadHyd(\'' + prev + '\')"' : 'disabled') + '>‹</button><div><b style="font-size:var(--size-l)">' + ymLabel(st.ym) + '</b><small style="color:var(--muted)">입력 기간 ' + m + '/' + st.window.start + ' ~ ' + m + '/' + st.window.end + '</small></div><button class="btn" aria-label="다음 달" ' + (next ? 'onclick="loadHyd(\'' + next + '\')"' : 'disabled') + '>›</button></div>' +
+    periodBanner(st, c, '곳') +
+    '<div class="card legend"><span><span class="dot" style="background:var(--green)"></span>점검완료 <b>' + c.ok + '</b></span><span><span class="dot" style="background:var(--orange)"></span>이상 있음 <b>' + c.bad + '</b></span><span><span class="dot" style="background:var(--line)"></span>점검 전 <b>' + c.wait + '</b></span><span><span class="dot" style="background:var(--navy)"></span>미입력 <b>' + c.miss + '</b></span></div>' +
+    '<div class="card tree"><div class="tree-root">' + ymLabel(st.ym) + ' · 전체 ' + c.total + '곳 (소화전 ' + nk(st.items, 'hyd') + ' · 공기호흡기 ' + nk(st.items, 'air') + ')</div>' +
+    (floors || '<div style="padding:var(--sp-3) 0;color:var(--muted);font-size:var(--size-m)">이 달에 등록된 소화전·공기호흡기가 없습니다. ① QR 관리에서 등록해 주세요.</div>') + '</div>' +
+    '<small style="text-align:center;color:var(--muted)">이 화면은 조회만 됩니다. 점검 입력은 소화전·공기호흡기에 붙어 있는 QR을 휴대폰으로 찍어서 합니다.</small>' +
+    '<button class="btn" onclick="loadHyd(\'' + st.ym + '\')">새로고침</button></div>';
+}
+function openHydFloor(fl) { S.hfloor = fl; go('hydfl'); }
+function renderHydFloor() {
+  const st = S.hq, it = st.items.filter(i => i.floor === S.hfloor), m = Number(st.ym.slice(5, 7));
+  const chips = FLOORS.map(f => '<button class="fl' + (f === S.hfloor ? ' on' : '') + '" aria-pressed="' + (f === S.hfloor) + '" onclick="S.hfloor=\'' + f + '\';render()">' + f + '</button>').join('');
+  const sect = k => {
+    const list = it.filter(i => i.kind === k);
+    if (!list.length) return '';
+    const done = list.filter(i => i.state === 'ok' || i.state === 'bad').length;
+    return '<div class="store"><div class="store-h"><b>' + EQ_KIND[k] + '</b><small style="color:var(--muted)">' + done + ' / ' + list.length + '</small></div>' +
+      list.map(i => {
+        const has = i.state === 'ok' || i.state === 'bad';
+        const sub = has ? h(i.by) + ' · ' + h(String(i.at).slice(5, 16)) + ' 입력' + (i.late ? ' · 기한 후' : '') : (i.state === 'miss' ? m + '월 ' + st.window.end + '일까지 입력 없음' : m + '월 ' + st.window.end + '일까지 입력 받는 중');
+        return '<button class="feb" ' + (has ? 'onclick="hydDetail(\'' + i.checkId + '\')"' : 'disabled') + '><span class="fname"><b>' + h(i.name) + '</b><small>' + sub + '</small></span>' +
+          (i.late ? '<span class="chip c-wait">기한 후</span>' : '') + '<span class="chip ' + STATE[i.state][1] + '">' + STATE[i.state][0] + '</span></button>';
+      }).join('') + '</div>';
+  };
+  return topbar('층별 점검 현황 › ' + ymLabel(st.ym) + ' ›', S.hfloor + ' · 소화전 ' + it.filter(i => i.kind === 'hyd').length + ' · 공기호흡기 ' + it.filter(i => i.kind === 'air').length) + '<div class="wrap list">' +
+    '<div style="display:flex;gap:var(--sp-1);overflow-x:auto;padding-bottom:var(--sp-1)">' + chips + '</div>' +
+    (it.length ? sect('hyd') + sect('air') : '<div class="banner b-gray">' + S.hfloor + '에 등록된 소화전·공기호흡기가 없습니다.</div>') +
+    '<small style="text-align:center;color:var(--muted)">점검완료 · 이상 있음을 누르면 입력한 사진과 내용을 봅니다 (입력은 QR로)</small></div>';
+}
+async function hydDetail(id) {
+  dialog('<div style="display:flex;justify-content:center;padding:var(--sp-8)"><span class="spin" style="color:var(--blue);width:28px;height:28px"></span></div>');
+  try {
+    const r = await call('eqDetail', id);
+    if (!r.ok) { closeDialog(); toast(r.error); return; }
+    dialog('<div style="display:flex;align-items:center;margin-bottom:var(--sp-2)"><div class="fname"><b style="font-size:var(--size-l)">' + h(r.name) + '</b><small>' + h(r.floor) + ' · 점검자 ' + h(r.by) + ' · ' + h(r.at) + ' 입력' + (r.late ? ' · 기한 후' : '') + '</small></div><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
+      r.items.map(i => '<div style="display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-3) 0;border-top:1px solid var(--line)"><div style="display:flex;align-items:center;justify-content:space-between"><b style="font-size:var(--size-m)">' + h(i.label) + '</b><span class="chip ' + (i.bad ? 'c-bad' : 'c-ok') + '">' + h(i.text) + '</span></div>' +
+        (i.memo ? '<div style="font-size:var(--size-m)">' + h(i.memo) + '</div>' : '') +
+        '<div class="ph43">' + (i.photo ? '<img src="' + h(i.photo) + '" alt="' + h(i.label) + ' 사진">' : '<small>사진 없음</small>') + '</div></div>').join(''));
+  } catch (e) { closeDialog(); }
+}
+/* 현황 화면을 열어 두면 1분마다, 다른 화면에서 돌아오면 바로 다시 읽음 (QR로 입력한 점검이 곧 보임) */
+let eqBusy = false;
+async function quietEq() {
+  if (eqBusy || document.hidden || ['hyd', 'hydfl'].indexOf(S.view) === -1 || !S.hq || document.querySelector('.dialog-back')) return;
+  eqBusy = true;
+  try {
+    const v = S.view, r = await run('eqStatus', S.token, S.hq.ym);
+    if (r && r.ok && S.view === v && S.hq && r.ym === S.hq.ym) { S.hq = r; render(); }
+  } catch (e) { /* 다음 번에 다시 */ } finally { eqBusy = false; }
+}
+setInterval(quietEq, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) quietEq(); });
+window.addEventListener('pageshow', e => { if (e.persisted) quietEq(); });
+
+/** 소화기 점검 메뉴 맨 위: 소화전·공기호흡기 이번 달 진행 + 기한 지남·마감 임박 알림 (결정 224) */
+function eqNotice() {
+  const e = S.eqc;
+  if (!e || !e.counts || !e.counts.total) return '';
+  const c = e.counts, d = e.day, w = e.window, done = c.ok + c.bad, m = Number(e.ym.slice(5, 7));
+  let msg = '';
+  if (c.miss > 0) msg = '<div class="banner b-red"><b>소화전·공기호흡기 기한 지남</b> · 미입력 <b>' + c.miss + '곳</b> · 지금 입력해도 받고 「기한 후」로 표시합니다</div>';
+  else if (c.wait > 0 && d <= w.end && w.end - d <= 1) msg = '<div class="banner b-warn"><b>소화전·공기호흡기 마감 임박</b> · ' + m + '월 ' + w.end + '일까지 · 점검 전 <b>' + c.wait + '곳</b></div>';
+  return '<div class="card" style="padding:var(--sp-3) var(--sp-4);display:flex;justify-content:space-between;font-size:var(--size-m)"><span style="color:var(--muted)">이번 달 소화전·공기호흡기</span><span><b style="color:var(--green)">' + done + '</b> / ' + c.total + '곳</span></div>' + msg;
 }
 
 /* ── ① QR 관리 ── */
-async function openQr() { go('qr'); await loadQr(); }
+const QR_KIND = { fe: '소화기', hyd: '소화전', air: '공기호흡기' };
+const KSEP = '<';   // 열림·선택 키 구분 글자 (위치 이름에는 < > 가 못 들어감)
+async function openQr() { S.qrKind = 'fe'; S.qr = null; S.qrOpen = {}; S.qrSc = {}; S.q = ''; go('qr'); await loadQr(); }
 async function loadQr() {
-  const r = await call('feList');
+  const k = S.qrKind || 'fe';
+  const r = k === 'fe' ? await call('feList') : await call('eqList', k);
+  if ((S.qrKind || 'fe') !== k) return;   // 그 사이 다른 탭을 눌렀으면 이 답은 버림
   S.qr = r; S.sel = {};
+  // 방금 등록한 것: 층·위치를 펼치고 미리 골라 둠 (바로 [출력])
+  const nw = S.qrNew; S.qrNew = null;
+  if (nw && nw.length) r.items.forEach(i => { if (nw.indexOf(i.name) !== -1) { S.sel[i.id] = true; S.qrOpen[[k, i.floor].join(KSEP)] = true; S.qrOpen[[k, i.floor, i.store].join(KSEP)] = true; } });
   render();
 }
-function qrUrl(token) { return (S.qr && S.qr.execUrl ? S.qr.execUrl : EXEC_URL) + '?fe=' + token; }
+function qrTab(k) { if ((S.qrKind || 'fe') === k) return; S.qrKind = k; S.qr = null; S.sel = {}; S.q = ''; S.qrSc = {}; render(); loadQr(); }
+// 소화기 QR은 ?fe=, 소화전·공기호흡기 QR은 ?eq= (바로가기 index.html 이 eq.html 로 보냄)
+function qrUrl(token) { return (S.qr && S.qr.execUrl ? S.qr.execUrl : EXEC_URL) + ((S.qrKind || 'fe') === 'fe' ? '?fe=' : '?eq=') + token; }
+/** 층 → 위치 묶음 (결정 228, 서버가 층·위치·번호 순으로 줌). 소화전·공기호흡기는 위치가 place, 소화기는 store_name — 화면에서는 둘 다 i.store */
+function qrGroups(items) {
+  const out = [];
+  FLOORS.forEach(fl => {
+    const fi = items.filter(i => i.floor === fl);
+    if (!fi.length) return;
+    const locs = [];
+    fi.forEach(i => { let l = locs.find(x => x.place === i.store); if (!l) locs.push(l = { place: i.store, items: [] }); l.items.push(i); });
+    out.push({ fl, locs, items: fi });
+  });
+  return out;
+}
+// 열림: 검색 중이면 맞는 것은 자동으로 펼침(눌러서 접으면 그대로), 아니면 눌러 둔 대로 (처음은 모두 접힘)
+function qrIsOpen(key) { return S.q.trim() ? !S.qrSc[key] : !!S.qrOpen[key]; }
+function qrTog(key) { if (S.q.trim()) S.qrSc[key] = qrIsOpen(key); else S.qrOpen[key] = !S.qrOpen[key]; render(); }
+function qrOpenAll(on) {
+  const k = S.qrKind || 'fe', searching = !!S.q.trim();
+  qrGroups(S.qr.items).forEach(g => [[k, g.fl]].concat(g.locs.map(l => [k, g.fl, l.place])).forEach(a => { const key = a.join(KSEP); if (searching) S.qrSc[key] = !on; else S.qrOpen[key] = on; }));
+  render();
+}
+function qrIdsOf(key) { const p = key.split(KSEP); return S.qr.items.filter(i => i.floor === p[1] && (p[2] === undefined || i.store === p[2])).map(i => i.id); }
+function qrSelKey(key, on) { qrIdsOf(key).forEach(id => { S.sel[id] = on; }); render(); }
+function qrMarkPartial() { document.querySelectorAll('.ac-h > input[data-part]').forEach(e => { e.indeterminate = true; }); }
 function renderQr() {
-  const r = S.qr;
+  const r = S.qr, kind = S.qrKind || 'fe', kn = QR_KIND[kind], unit = kind === 'fe' ? '대' : '개';
   const selN = Object.keys(S.sel).filter(k => S.sel[k]).length;
-  let body = '<div class="banner b-gray">불러오는 중…</div>';
+  const chev = '<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="#5B6573" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>';
+  let body = '<div class="banner b-gray">불러오는 중…</div>', expandBar = '';
+  const row = i => '<div class="fe"><input type="checkbox" aria-label="' + h(i.name) + ' 고르기" ' + (S.sel[i.id] ? 'checked' : '') + ' onchange="S.sel[\'' + i.id + '\']=this.checked;render()">' +
+    '<button class="qrmini" data-qr="' + h(i.token) + '" onclick="bigQr(\'' + i.id + '\')" aria-label="' + h(i.name) + ' QR 크게 보기"></button>' +
+    '<span class="fname"><b>' + h(i.name) + '</b><small>' + h(i.id) + '</small></span>' + (i.printed === false ? '<span class="chip c-miss">미인쇄</span>' : '') + '</div>';
+  const head = (key, label, cnt, items, big) => {
+    const ids = items.map(i => i.id), n = ids.filter(id => S.sel[id]).length, open = qrIsOpen(key), unp = items.filter(i => i.printed === false).length;
+    return '<div class="ac-h' + (open ? ' open' : '') + '"><input type="checkbox" data-k="' + h(key) + '" ' + (n === ids.length ? 'checked' : '') + (n && n < ids.length ? ' data-part="1"' : '') + ' onchange="qrSelKey(this.dataset.k,this.checked)" aria-label="' + h(label) + ' 전체 고르기">' +
+      '<button class="ac-t' + (big ? ' big' : '') + '" data-k="' + h(key) + '" aria-expanded="' + open + '" onclick="qrTog(this.dataset.k)">' + chev + '<span class="ac-n">' + h(label) + '</span><span class="cnt">' + cnt + (unp ? ' · <span class="unp">미인쇄 ' + unp + '</span>' : '') + '</span></button></div>';
+  };
   if (r) {
     const q = S.q.trim().toLowerCase().replace(/\s+/g, '');
     const items = r.items.filter(i => !q || (i.store + i.name + i.floor).toLowerCase().replace(/\s+/g, '').indexOf(q) !== -1);
-    if (!items.length) body = '<div class="banner b-gray">' + (r.items.length ? '검색 결과가 없습니다.' : '등록된 소화기가 없습니다. [+ 등록]으로 추가하세요.') + '</div>';
+    if (!items.length) body = '<div class="banner b-gray">' + (r.items.length ? '검색 결과가 없습니다.' : '등록된 ' + kn + '이(가) 없습니다. [+ 등록]으로 추가하세요.') + '</div>';
     else {
-      body = '';
-      FLOORS.forEach(fl => {
-        const fItems = items.filter(i => i.floor === fl);
-        if (!fItems.length) return;
-        body += '<div class="floorh">' + fl + '</div>';
-        const stores = [...new Set(fItems.map(i => i.store))];
-        stores.forEach(s => {
-          const list = fItems.filter(i => i.store === s);
-          body += '<div class="store"><div class="store-h"><b>' + h(s) + '</b><small style="color:var(--muted)">' + list.length + '대</small></div>' +
-            list.map(i => '<div class="fe"><input type="checkbox" aria-label="' + h(i.name) + ' 고르기" ' + (S.sel[i.id] ? 'checked' : '') + ' onchange="S.sel[\'' + i.id + '\']=this.checked;render()">' +
-              '<button class="qrmini" data-qr="' + h(i.token) + '" onclick="bigQr(\'' + i.id + '\')" aria-label="' + h(i.name) + ' QR 크게 보기"></button>' +
-              '<span class="fname"><b>' + h(i.name) + '</b><small>' + h(i.id) + '</small></span></div>').join('') + '</div>';
-        });
-      });
+      expandBar = '<div style="display:flex;gap:var(--sp-2);justify-content:flex-end"><button class="btn sm" onclick="qrOpenAll(true)">모두 펼치기</button><button class="btn sm" onclick="qrOpenAll(false)">모두 접기</button></div>';
+      body = qrGroups(items).map(g => {
+        const fk = [kind, g.fl].join(KSEP), fo = qrIsOpen(fk);
+        return '<div class="ac">' + head(fk, g.fl, '위치 ' + g.locs.length + '곳 · ' + kn + ' ' + g.items.length + unit, g.items, true) +
+          (fo ? '<div class="ac-b">' + g.locs.map(l => {
+            const lk = [kind, g.fl, l.place].join(KSEP), lo = qrIsOpen(lk);
+            return '<div class="ac">' + head(lk, l.place, kn + ' ' + l.items.length + unit, l.items, false) +
+              (lo ? '<div class="ac-b"><div class="ac-act"><button class="btn sm" data-k="' + h(lk) + '" onclick="qrMore(this.dataset.k)">+ 1' + unit + ' 추가</button><button class="btn sm" data-k="' + h(lk) + '" onclick="qrRenameDlg(this.dataset.k)">이름 고치기</button></div>' + l.items.map(row).join('') + '</div>' : '') + '</div>';
+          }).join('') + '</div>' : '') + '</div>';
+      }).join('');
     }
   }
-  return topbar('소화기 점검 ›', '소화기 QR 관리') + '<div class="wrap list">' +
-    '<div class="tools"><input class="inp" type="search" placeholder="매장명 · 소화기 이름 · 층 검색" aria-label="검색" value="' + h(S.q) + '" oninput="S.q=this.value;renderKeepFocus(this)">' +
+  const tabs = '<div class="seg" role="group" aria-label="종류">' + ['fe', 'hyd', 'air'].map(k => '<button class="' + (k === kind ? 'on' : '') + '" aria-pressed="' + (k === kind) + '" onclick="qrTab(\'' + k + '\')">' + QR_KIND[k] + '</button>').join('') + '</div>';
+  return topbar('소화기/소화전/공기호흡기 점검 ›', '소화기/소화전/공기호흡기 QR 관리') + '<div class="wrap list">' + tabs +
+    '<div class="tools"><input class="inp" type="search" placeholder="위치 · 이름 · 층 검색" aria-label="검색" value="' + h(S.q) + '" oninput="S.q=this.value;S.qrSc={};renderKeepFocus(this)">' +
     '<button class="btn pri" onclick="addDialog()">+ 등록</button>' +
     (CAN_PRINT ? '<button class="btn" onclick="printLabels()" ' + (selN ? '' : 'disabled') + '>' + ICON.print + ' 출력 (' + selN + ')</button>' : '') +
     '<button class="btn warn" onclick="delDialog()" ' + (selN ? '' : 'disabled') + '>삭제 (' + selN + ')</button></div>' +
     (CAN_PRINT ? '' : '<div class="banner b-gray">QR 출력은 PC 화면에서 합니다. 휴대폰에서는 등록과 삭제만 됩니다.</div>') +
-    body + '</div>';
+    expandBar + body + '</div>';
 }
 function renderKeepFocus(el) { const pos = el.selectionStart; render(); const n = document.querySelector('.tools .inp'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }
 function drawQrs() {
@@ -2506,35 +2699,101 @@ function bigQr(id) {
   new QRCode($('bigqr'), { text: qrUrl(i.token), width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
 }
 function addDialog() {
-  const stores = S.qr ? [...new Set(S.qr.items.map(i => i.store))] : [];
-  dialog('<h2 style="margin:0 0 var(--sp-3);font-size:var(--size-l)">소화기 등록</h2>' +
-    '<label style="display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--size-s);color:var(--sub);margin-bottom:var(--sp-3)">층<select id="aFloor" class="inp">' + FLOORS.map(f => '<option' + (f === S.floor ? ' selected' : '') + '>' + f + '</option>').join('') + '</select></label>' +
-    '<label style="display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--size-s);color:var(--sub);margin-bottom:var(--sp-3)">매장명<input id="aStore" class="inp" list="storeList" maxlength="30" placeholder="예: 샤넬뷰티"><datalist id="storeList">' + stores.map(s => '<option value="' + h(s) + '">').join('') + '</datalist></label>' +
-    '<label style="display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--size-s);color:var(--sub);margin-bottom:var(--sp-2)">몇 대를 추가할까요?<input id="aCount" class="inp" type="number" min="1" max="20" value="1" inputmode="numeric"></label>' +
-    '<small style="color:var(--muted)">이름은 「매장명-소화기1」처럼 이어서 붙습니다.</small>' +
+  const cur = S.qrKind || 'fe';
+  const lab = 'display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--size-s);color:var(--sub);margin-bottom:var(--sp-3)';
+  dialog('<h2 style="margin:0 0 var(--sp-3);font-size:var(--size-l)">등록</h2>' +
+    '<div style="font-size:var(--size-s);color:var(--sub);margin-bottom:var(--sp-1)">종류 (여러 개 골라도 됩니다)</div>' +
+    '<div class="ck" style="margin-bottom:var(--sp-3)">' + ['fe', 'hyd', 'air'].map(k => '<label class="ckl' + (k === cur ? ' on' : '') + '"><input type="checkbox" id="ak_' + k + '"' + (k === cur ? ' checked' : '') + ' onchange="addPre()">' + QR_KIND[k] + '</label>').join('') + '</div>' +
+    '<label style="' + lab + '">층<select id="aFloor" class="inp">' + FLOORS.map(f => '<option' + (f === S.floor ? ' selected' : '') + '>' + f + '</option>').join('') + '</select></label>' +
+    '<label style="' + lab + '">위치<input id="aStore" class="inp" maxlength="30" placeholder="예: 동측 계단 앞" oninput="addPre()"></label>' +
+    '<label style="' + lab + ';margin-bottom:var(--sp-2)">몇 대를 추가할까요? (종류마다 같은 대수)<input id="aCount" class="inp" type="number" min="1" max="20" value="1" inputmode="numeric" oninput="addPre()"></label>' +
+    '<small style="color:var(--muted)">이름은 「위치-소화기1」처럼 이어서 붙습니다. 같은 위치에 이미 있으면 번호가 이어집니다.</small>' +
+    '<div id="aPre" class="pre" style="margin-top:var(--sp-2)"></div>' +
     '<div id="aMsg" role="alert" style="color:var(--red);font-size:var(--size-s);min-height:18px;margin-top:var(--sp-1)"></div>' +
     '<div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button id="aBtn" class="btn big pri" style="flex:2" onclick="doAdd()">등록하고 QR 만들기</button></div>');
+  addPre();
+}
+function addPre() {
+  const ks = ['fe', 'hyd', 'air'];
+  ks.forEach(k => { const c = $('ak_' + k); if (c && c.parentNode) c.parentNode.classList.toggle('on', c.checked); });
+  const place = ($('aStore').value || '').trim().replace(/\s+/g, ' ') || '위치', n = Math.max(1, Math.min(20, Math.floor(Number($('aCount').value)) || 1));
+  const lines = ks.filter(k => $('ak_' + k).checked).map(k => place + '-' + QR_KIND[k] + '1' + (n > 1 ? ' ~ ' + place + '-' + QR_KIND[k] + n : ''));
+  $('aPre').innerHTML = lines.length ? '<b>만들어지는 이름</b><br>' + lines.map(h).join('<br>') : '<span style="color:var(--muted)">종류를 하나 이상 골라 주세요.</span>';
 }
 async function doAdd() {
-  const d = { floor: $('aFloor').value, store: $('aStore').value, count: $('aCount').value };
+  const kinds = ['fe', 'hyd', 'air'].filter(k => $('ak_' + k).checked), msg = $('aMsg');
+  if (!kinds.length) { msg.textContent = '종류를 하나 이상 골라 주세요.'; return; }
+  const floor = $('aFloor').value, place = $('aStore').value, count = $('aCount').value;
   $('aBtn').disabled = true; $('aBtn').innerHTML = '<span class="spin"></span>';
+  const done = {};
+  let err = '';
+  for (const k of kinds) {   // 종류마다 차례로 (소화기는 fire_ext, 소화전·공기호흡기는 fire_equip)
+    try {
+      const r = k === 'fe' ? await call('feAdd', { floor, store: place, count }) : await call('eqAdd', { kind: k, floor, place, count });
+      if (!r.ok) { err = QR_KIND[k] + ': ' + r.error; break; }
+      done[k] = r.added;
+    } catch (e) { err = QR_KIND[k] + ': 서버에 연결하지 못했습니다.'; break; }
+  }
+  const ok = Object.keys(done);
+  if (err) {   // 일부만 됐으면 된 종류는 체크를 풀어 다시 만들지 않게
+    ok.forEach(k => { const c = $('ak_' + k); if (c) c.checked = false; });
+    addPre();
+    msg.textContent = (ok.length ? ok.map(k => QR_KIND[k]).join('·') + '은(는) 등록했습니다. ' : '') + err;
+    $('aBtn').disabled = false; $('aBtn').textContent = '등록하고 QR 만들기';
+  } else closeDialog();
+  if (ok.length) afterAdd(done, floor);
+}
+function afterAdd(done, floor) {
+  const cur = S.qrKind || 'fe', ks = Object.keys(done), target = ks.indexOf(cur) !== -1 ? cur : ks[0];
+  S.floor = floor;
+  // 한 종류만이고 3개 이하면 이름을 그대로, 아니면 종류별 개수
+  toast((ks.length === 1 && done[ks[0]].length <= 3 ? done[ks[0]].join(', ') : ks.map(k => QR_KIND[k] + ' ' + done[k].length + (k === 'fe' ? '대' : '개')).join(' · ')) + ' 등록');
+  if (target !== cur) { S.qrKind = target; S.qr = null; S.q = ''; S.qrSc = {}; }
+  S.qrNew = done[target]; S.sel = {};
+  render(); loadQr();
+}
+/** 위치 아코디언의 [+ 1대 추가]: 같은 층·위치에 한 대 더 (이름 번호는 이어서) */
+async function qrMore(key) {
+  const p = key.split(KSEP), k = p[0], floor = p[1], place = p[2];
   try {
-    const r = await call('feAdd', d);
-    if (!r.ok) { $('aMsg').textContent = r.error; $('aBtn').disabled = false; $('aBtn').textContent = '등록하고 QR 만들기'; return; }
-    S.floor = d.floor; closeDialog(); toast(r.added.join(', ') + ' 등록'); S.qr = r; S.sel = {}; render();
-  } catch (e) { $('aBtn').disabled = false; $('aBtn').textContent = '등록하고 QR 만들기'; }
+    const r = k === 'fe' ? await call('feAdd', { floor, store: place, count: 1 }) : await call('eqAdd', { kind: k, floor, place, count: 1 });
+    if (!r.ok) { toast(r.error); return; }
+    toast(r.added.join(', ') + ' 등록'); S.qrNew = r.added; loadQr();
+  } catch (e) { /* call()이 알림을 띄움 */ }
+}
+function qrRenameDlg(key) {
+  const p = key.split(KSEP);
+  S.rn = { key, k: p[0], fl: p[1], place: p[2] };
+  dialog('<h2 style="margin:0 0 var(--sp-2);font-size:var(--size-l)">위치 이름 고치기</h2><p style="margin:0 0 var(--sp-3);font-size:var(--size-m)">' + h(p[1]) + ' · ' + h(p[2]) + ' <span style="color:var(--muted)">(' + QR_KIND[p[0]] + ')</span></p>' +
+    '<label style="display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--size-s);color:var(--sub);margin-bottom:var(--sp-2)">새 위치 이름<input id="rnNew" class="inp" maxlength="30" value="' + h(p[2]) + '" onkeydown="if(event.key===\'Enter\')doRename()"></label>' +
+    '<small style="color:var(--muted)">이 위치 것의 이름이 「새이름-' + QR_KIND[p[0]] + '1」처럼 한꺼번에 바뀝니다. 붙여 둔 QR은 그대로 쓸 수 있습니다.</small>' +
+    '<div id="rnMsg" role="alert" style="color:var(--red);font-size:var(--size-s);min-height:18px;margin-top:var(--sp-1)"></div>' +
+    '<div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button id="rnBtn" class="btn big pri" style="flex:2" onclick="doRename()">이름 고치기</button></div>');
+  setTimeout(() => { const e = $('rnNew'); if (e) { e.focus(); e.select(); } }, 50);
+}
+async function doRename() {
+  const R = S.rn, nv = $('rnNew').value;
+  $('rnBtn').disabled = true;
+  try {
+    const r = await call('qrRename', R.k, R.fl, R.place, nv);
+    if (!r.ok) { $('rnMsg').textContent = r.error; $('rnBtn').disabled = false; return; }
+    const nk = [R.k, R.fl, nv.trim().replace(/\s+/g, ' ')].join(KSEP);
+    if (S.qrOpen[R.key] !== undefined) { S.qrOpen[nk] = S.qrOpen[R.key]; delete S.qrOpen[R.key]; }   // 열어 둔 상태를 새 이름으로 옮김
+    closeDialog(); toast(r.count + (R.k === 'fe' ? '대' : '개') + ' 이름을 고쳤습니다');
+    if ((S.qrKind || 'fe') === R.k) { S.qr = r; S.sel = {}; render(); }
+  } catch (e) { $('rnBtn').disabled = false; }
 }
 function delDialog() {
-  const ids = Object.keys(S.sel).filter(k => S.sel[k]);
+  const kind = S.qrKind || 'fe', kn = QR_KIND[kind], ids = Object.keys(S.sel).filter(k => S.sel[k]);
   const names = S.qr.items.filter(i => ids.indexOf(i.id) !== -1).map(i => i.name);
-  dialog('<h2 style="margin:0 0 var(--sp-2);font-size:var(--size-l)">소화기 ' + ids.length + '대 삭제</h2><p style="margin:0 0 var(--sp-2);font-size:var(--size-m);line-height:1.6">' + names.map(h).join('<br>') + '</p>' +
+  dialog('<h2 style="margin:0 0 var(--sp-2);font-size:var(--size-l)">' + kn + ' ' + ids.length + (kind === 'fe' ? '대' : '개') + ' 삭제</h2><p style="margin:0 0 var(--sp-2);font-size:var(--size-m);line-height:1.6">' + names.map(h).join('<br>') + '</p>' +
     '<p style="margin:0 0 var(--sp-3);font-size:var(--size-s);color:var(--muted)">목록과 현황에서 빠지고, 붙어 있는 QR을 찍으면 「삭제된 QR」로 나옵니다. 지난달까지의 점검 기록은 남습니다.</p>' +
     '<div style="display:flex;gap:var(--sp-2)"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button id="dBtn" class="btn big warn" style="flex:2" onclick="doDel()">삭제</button></div>');
 }
 async function doDel() {
-  const ids = Object.keys(S.sel).filter(k => S.sel[k]);
+  const kind = S.qrKind || 'fe', ids = Object.keys(S.sel).filter(k => S.sel[k]);
   $('dBtn').disabled = true;
-  try { const r = await call('feDelete', ids); closeDialog(); toast(r.count + '대 삭제'); S.qr = r; S.sel = {}; render(); } catch (e) { $('dBtn').disabled = false; }
+  try { const r = kind === 'fe' ? await call('feDelete', ids) : await call('eqDelete', ids, kind); closeDialog(); toast(r.count + (kind === 'fe' ? '대' : '개') + ' 삭제'); S.qr = r; S.sel = {}; render(); } catch (e) { $('dBtn').disabled = false; }
 }
 const LABEL_PRESETS = [[50, 50], [40, 40], [30, 34], [50, 30]];
 // 라벨 프린터: BIXOLON SLP-TX400 (203dpi = 8점/mm). QR 한 칸이 프린터 점(dot) 정수 배가 되게 그려 흐림 없이 찍히게 함
@@ -2567,7 +2826,7 @@ function labelHtml(i, L) {
   const pad = 1.5, gap = 0.8, textMm = 2.8;
   const maxMm = Math.max(10, Math.min(L.w - pad * 2, L.h - pad * 2 - gap - textMm));
   const q = qrImage(i.token, maxMm);
-  const name = i.store + ' 소화기' + i.no;
+  const name = i.label || (i.store + ' 소화기' + i.no);   // 소화전·공기호흡기는 「3F 동측 계단 앞 소화전」 통째로
   // 글자 수에 맞춰 크기 자동 (최대 7pt, 최소 4.5pt) — 1pt ≈ 0.353mm, 한글 1자 ≈ 1em
   const units = Array.from(name).reduce((n, c) => n + (/[\x00-\x7F]/.test(c) ? 0.55 : 1), 0);
   const pt = Math.max(4.5, Math.min(7, (L.w - pad * 2) / Math.max(units, 1) / 0.353));
@@ -2608,7 +2867,15 @@ function doPrint(one) {
     run('labelSave', S.token, L.w, L.h).then(r => { if (r && !r.ok) toast(r.error); }, () => toast('라벨 크기를 저장하지 못했습니다. 인쇄는 그대로 됩니다.'));   // run = 구글·Supabase 둘 다
   }
   closeDialog();
+  if (!one) qrMarkPrinted(list.map(i => i.id));
   setTimeout(() => window.print(), 300);
+}
+/** 인쇄한 라벨은 「미인쇄」 딱지를 뗌 (서버에도 기록, 시험 인쇄 1장은 제외, 실패해도 인쇄는 그대로) */
+function qrMarkPrinted(ids) {
+  const k = S.qrKind || 'fe';
+  S.qr.items.forEach(i => { if (ids.indexOf(i.id) !== -1 && i.printed === false) i.printed = true; });
+  run('qrPrinted', S.token, k, ids).catch(() => {});
+  render();
 }
 
 /* ── ② 점검 현황 ── */
@@ -2629,7 +2896,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) quie
 function counts(items) { const c = { ok: 0, bad: 0, wait: 0, miss: 0, total: items.length }; items.forEach(i => c[i.state]++); return c; }
 function renderStatus() {
   const st = S.st;
-  if (!st) return topbar('소화기 점검 ›', '월별 점검 현황') + '<div class="wrap"><div class="banner b-gray">불러오는 중…</div></div>';
+  if (!st) return topbar('소화기/소화전/공기호흡기 점검 ›', '월별 점검 현황') + '<div class="wrap"><div class="banner b-gray">불러오는 중…</div></div>';
   const c = st.counts;
   const idx = st.months.indexOf(st.ym);
   const prev = idx > 0 ? st.months[idx - 1] : '';
@@ -2645,7 +2912,7 @@ function renderStatus() {
       (fc.miss ? '<span class="chip c-miss">미입력 ' + fc.miss + '</span>' : '') + (fc.bad ? '<span class="chip c-bad">이상 ' + fc.bad + '</span>' : '') +
       '<b style="font-size:var(--size-s);color:var(--green)">' + (fc.ok + fc.bad) + '/' + fc.total + '</b>' + ICON.chev + '</button>';
   }).join('');
-  return topbar('소화기 점검 ›', '월별 점검 현황') + '<div class="wrap list">' +
+  return topbar('소화기/소화전/공기호흡기 점검 ›', '월별 점검 현황') + '<div class="wrap list">' +
     '<div class="mnav"><button class="btn" aria-label="이전 달" ' + (prev ? 'onclick="loadStatus(\'' + prev + '\')"' : 'disabled') + '>‹</button><div><b style="font-size:var(--size-l)">' + ymLabel(st.ym) + '</b><small style="color:var(--muted)">입력 기간 ' + Number(st.ym.slice(5, 7)) + '/' + st.window.start + ' ~ ' + Number(st.ym.slice(5, 7)) + '/' + st.window.end + '</small></div><button class="btn" aria-label="다음 달" ' + (next ? 'onclick="loadStatus(\'' + next + '\')"' : 'disabled') + '>›</button></div>' +
     periodBanner(st, c) +
     '<div class="card legend"><span><span class="dot" style="background:var(--green)"></span>점검완료 <b>' + c.ok + '</b></span><span><span class="dot" style="background:var(--orange)"></span>이상 있음 <b>' + c.bad + '</b></span><span><span class="dot" style="background:var(--line)"></span>점검 전 <b>' + c.wait + '</b></span><span><span class="dot" style="background:var(--navy)"></span>미입력 <b>' + c.miss + '</b></span></div>' +
@@ -2790,13 +3057,15 @@ function climFloors() {
   return fl;
 }
 function climLast(f, z) { const a = S.clim.srv.recs.filter(r => r.floor === f && r.zone === z); return a[a.length - 1]; }
-function climDirty() { return Object.keys(S.clim.v).some(k => S.clim.v[k].t !== '' || S.clim.v[k].h !== ''); }
+function climBase(k) { const p = k.split('|'), l = climLast(p[0], p[1]); return l ? { t: String(l.t), h: String(l.h) } : { t: '', h: '' }; }   // 오늘 마지막 저장값 (결정 226)
+function climNew(k) { const v = S.clim.v[k], b = climBase(k); return !!v && (v.t !== '' || v.h !== '') && (v.t !== b.t || v.h !== b.h); }   // 고쳐서 새로 저장할 구역
+function climDirty() { return Object.keys(S.clim.v).some(climNew); }
 function climLeaveOk() { return !(S.clim && S.clim.srv && climDirty()) || confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?'); }
 function climGo(i) { const fl = climFloors(); S.clim.fi = S.climFi = Math.max(0, Math.min(fl.length - 1, i)); render(); window.scrollTo(0, 0); }
-function climVal(k) { return S.clim.v[k] || { t: '', h: '' }; }
+function climVal(k) { return S.clim.v[k] || climBase(k); }
 function climIn(el) {
   const g = S.clim, k = el.dataset.z, f = el.dataset.f, val = clNum(el.value); g.err = '';
-  if (k) { (g.v[k] = g.v[k] || { t: '', h: '' })[f] = val; }
+  if (k) { (g.v[k] = g.v[k] || climBase(k))[f] = val; el.classList.remove('saved'); }
   else { g.out[f] = val; g.out.auto = false; }
   el.classList.toggle('bad', f === 't' ? clBad(val, k ? -10 : -30, 50) : clBad(val, 0, 100));
   el.classList.toggle('empty', !val);
@@ -2819,10 +3088,10 @@ function renderClim() {
   if (!g || !g.srv) return clTop() + '<div class="wrap list">' + clTabs('clim') + '<div class="banner b-gray">불러오는 중…</div></div>';
   const fl = climFloors(), pc = lgPc(), done = f => f.zs.filter(z => climLast(f.f, z)).length + '/' + f.zs.length;
   const zoneRow = (f, z) => {
-    const k = f.f + '|' + z, v = climVal(k), last = climLast(f.f, z);
-    return '<div class="zr"><b>' + z + '</b>' + climBox('data-z="' + k + '" data-f="t" aria-label="' + CL_FL[f.f][0] + ' ' + z + ' 실내온도"', v.t, '℃', clBad(v.t, -10, 50) ? ' bad' : '') +
-      climBox('data-z="' + k + '" data-f="h" aria-label="' + CL_FL[f.f][0] + ' ' + z + ' 실내습도"', v.h, '%', clBad(v.h, 0, 100) ? ' bad' : '') +
-      '<div class="sub"><span>' + (last ? '오늘 ' + last.at + ' · ' + last.t + '℃ ' + last.h + '%' : '오늘 기록 없음') + '</span><span id="di-' + k.replace('|', '-') + '">' + clDiTag(v.t, v.h) + '</span></div></div>';
+    const k = f.f + '|' + z, v = climVal(k), sv = !g.v[k] && climLast(f.f, z) ? ' saved' : '';   // 저장값 그대로면 회색 (결정 226)
+    return '<div class="zr"><b>' + z + '</b>' + climBox('data-z="' + k + '" data-f="t" aria-label="' + CL_FL[f.f][0] + ' ' + z + ' 실내온도"', v.t, '℃', (clBad(v.t, -10, 50) ? ' bad' : '') + sv) +
+      climBox('data-z="' + k + '" data-f="h" aria-label="' + CL_FL[f.f][0] + ' ' + z + ' 실내습도"', v.h, '%', (clBad(v.h, 0, 100) ? ' bad' : '') + sv) +
+      '<div class="sub"><span></span><span id="di-' + k.replace('|', '-') + '">' + clDiTag(v.t, v.h) + '</span></div></div>';
   };
   const head = '<div class="card" style="padding:var(--sp-4)"><div class="hvhd"><b>매장 온도 · 습도</b>' + clRepBtn('climate') + '</div>' +
     '<div class="hvmeta">측정 시각은 저장한 때 (지금 ' + clKst() + ') · 하루 여러 번 넣어도 모두 남음</div>' +
@@ -2846,7 +3115,7 @@ async function climSave() {
   const rows = [], fl = climFloors();
   let bad = '';
   fl.forEach(f => f.zs.forEach(z => {
-    const v = climVal(f.f + '|' + z); if (v.t === '' && v.h === '') return;
+    const v = climVal(f.f + '|' + z); if (!climNew(f.f + '|' + z)) return;   // 고친 구역만 (저장값 그대로는 다시 안 보냄)
     const nm = CL_FL[f.f][0] + ' ' + z;
     if (!bad && (v.t === '' || v.h === '')) bad = nm + ': 온도와 습도를 둘 다 넣어 주세요';
     if (!bad && clBad(v.t, -10, 50)) bad = nm + ' 온도는 -10 ~ 50 숫자로 넣어 주세요';
@@ -2862,7 +3131,7 @@ async function climSave() {
     const r = await call('climateAdd', rows, { t: g.out.t, h: g.out.h });
     g.busy = false;
     if (!r.ok) { g.err = r.error; render(); toast(r.error); return; }
-    g.srv = r; g.v = {}; g.err = ''; render(); toast(rows.length + '곳 저장했습니다');
+    g.srv = r; g.v = {}; g.err = ''; render(); toast(r.queued ? OFFMSG : rows.length + '곳 저장했습니다');
   } catch (e) { g.busy = false; g.err = '서버에 닿지 않았습니다. 다시 눌러 주세요'; render(); }
 }
 
@@ -2913,7 +3182,7 @@ function useCard(u) {
   // 공조기는 가동시간 글자 없음(리포트에서 봄) · 「기본 시각」 글자 없음 (결정 206)
   const foot = p.err ? '<span class="hverr">' + p.err + '</span>' : g.kind === 'hvac' ? '' : p.off ? '미가동 · <b>0시간</b>' : p.empty ? '입력 없음' : '가동 <b>' + useDur(p.e - p.s) + '</b>';
   const st = g.ch[u.u] ? '<span class="nwstate dirty"><i class="dot"></i>저장 안 함</span>' : v.saved ? '<span class="nwstate">' + ICON.ok + '저장됨</span>' : '';
-  return '<div class="uc' + (v.off ? ' isoff' : '') + (p.err ? ' bad' : '') + '" data-card="' + h(u.u) + '"><div class="h">' + clName(u.name, u.tone, u.sub) +
+  return '<div class="uc' + (u.name.length > 6 ? ' long' : '') + (v.saved && !g.ch[u.u] && !v.off ? ' saved' : '') + (v.off ? ' isoff' : '') + (p.err ? ' bad' : '') + '" data-card="' + h(u.u) + '"><div class="h">' + clName(u.name, u.tone, u.sub) +
     '<label class="off"><input type="checkbox" data-u="' + h(u.u) + '" data-f="off"' + (v.off ? ' checked' : '') + ' onchange="useIn(this)" aria-label="' + h(nm) + ' 미가동">미가동</label></div>' +
     '<div class="r"><span>시작</span>' + useSel(u, 's', v.s, nm + ' 시작', v.sp) + '</div><div class="r"><span>종료</span>' + useSel(u, 'e', v.e, nm + ' 종료', v.ep) + '</div>' +
     '<div class="f"><span>' + foot + '</span>' + st + '</div></div>';
@@ -2949,7 +3218,7 @@ function renderUse() {
   const past = g.day < r.workDay ? '<br>지난 날짜입니다 · 31일 안은 고칠 수 있습니다' : '';
   const meta = useMiss() + ' · 기본 ' + d0 + (ex ? ' · ' + ex : '') + past;
   const date = '<button class="nwdate" data-date="' + h(g.day) + '" onclick="useCal()" aria-label="일자 바꾸기">' + ICON.cal + clMd(g.day) + '</button>';
-  const btns = '<div class="hdbtns">' + (isBoss() ? '<button class="btn sm" id="uhrBtn" onclick="openUhr(\'' + g.kind + '\')">' + ICON.clock + '가동시간 설정</button>' : '') + clRepBtn(g.kind) + '</div>';
+  const btns = '<div class="hdbtns"><button class="btn sm" id="uhrBtn" onclick="openUhr(\'' + g.kind + '\')">' + ICON.clock + '가동시간 설정</button>' + clRepBtn(g.kind) + '</div>';
   const bar = '<div class="nwbar"><span id="useState">' + useState() + '</span><div class="dslot"><button class="btn pri" id="useSave" onclick="useSave()"' + (g.busy ? ' disabled' : '') + '>' + (g.busy ? '<span class="spin"></span> 저장 중…' : '저장') + '</button></div></div>';
   const note = '<p class="clnote">시각은 오전/오후 · 시 · 10분 단위. 미가동 체크 = 0시간, 빈 칸 = 통계에서 뺌. [저장]은 고친 장비와 화면의 아직 저장 안 한 장비(기본 시각)를 함께 저장합니다.</p>';
   if (pc) {
@@ -2990,7 +3259,7 @@ async function useSave() {
     const r = await call('usageSave', g.kind, g.day, rows);
     g.busy = false;
     if (!r.ok) { g.err = r.error; render(); toast(r.error); return; }
-    useSet(r); toast(rows.length + '대 저장했습니다 (' + clMd(g.day) + ')');
+    useSet(r); toast(r.queued ? OFFMSG : rows.length + '대 저장했습니다 (' + clMd(g.day) + ')');
   } catch (e) { g.busy = false; g.err = '서버에 닿지 않았습니다. 다시 눌러 주세요'; render(); }
 }
 
@@ -3024,6 +3293,7 @@ async function loadRep() {
 }
 function repBack() { const p = S.rep; if (p.from === 'use') openUse(p.fromKind); else if (p.from === 'clim') openClim(); else go(p.from || 'docs'); }
 function repPer(k) { S.rep.per = k; loadRep(); }
+function repMon(m) { return m.slice(0, 4) + '년 ' + Number(m.slice(5)) + '월'; }
 function repKpi(l, v, sub) { return '<div class="kpi"><span>' + l + '</span><strong>' + v + '</strong>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
 function repArrow(c, p, unit, dg) { if (c == null || p == null) return '—'; const d = c - p, t = (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + Math.abs(d).toLocaleString('ko-KR', { minimumFractionDigits: dg == null ? 1 : dg, maximumFractionDigits: dg == null ? 1 : dg }) + unit; return '<span class="' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">' + t + '</span>'; }
 // 기간 안 장비별 하루 분 → 묶음 계산 (옛 computeStats 와 같은 식)
@@ -3073,8 +3343,14 @@ function repUseHtml() {
     rows.map(x => '<tr' + (x.q.days ? '' : ' class="dim"') + '><td class="l">' + h((x.u.sub ? x.u.sub + ' ' : '') + x.u.name) + '</td><td>' + x.q.days + '</td><td>' + (x.q.days ? useDur(Math.round(x.q.min / x.q.days)) : '—') + '</td><td>' + (x.q.days ? H(x.q.min) + 'h' : '—') + '</td><td>' + (x.u.kw == null ? '<span class="clmuted">—</span>' : h(x.u.kw)) + '</td>' +
       [1, 2, 3].map(i => '<td>' + cmp(x.q.cmp, i) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
   html += '<h3>일별 사용시간 추이</h3><div class="repchart"><canvas id="repCv" height="300"></canvas></div>';
-  let dr = ''; for (let i = 0; i < 31; i++) { const d = repDay(to, -i), a = pd[d]; dr += '<tr' + (a ? '' : ' class="dim"') + '><td class="l">' + d + '</td><td>' + (a ? a.n + ' / ' + tot : '미입력') + '</td><td>' + (a ? H(a.min) + 'h' : '—') + '</td><td>' + (a ? H(a.min / a.n) + 'h' : '—') + '</td><td>' + (a ? fK(a.kwh) : '—') + '</td><td>' + (a ? fW(won(a.kwh)) : '—') + '</td></tr>'; }
-  html += '<h3>일일 기록 <small>최근 31일</small></h3><div class="scroll"><table class="cltbl rep"><thead><tr><th class="l">날짜</th><th>입력 대수</th><th>합계</th><th>1대 평균</th><th>전력량</th><th>예상 요금</th></tr></thead><tbody>' + dr + '</tbody></table></div>' +
+  // 일일 기록: 기간 전체를 달별로 접기, 이번 달만 펼침 (결정 234)
+  const mon = {}; for (let d = to; d >= p.from0; d = repDay(d, -1)) (mon[d.slice(0, 7)] = mon[d.slice(0, 7)] || []).push(d);
+  html += '<h3>일일 기록 <small>달을 누르면 펼침</small></h3><div class="repacc">' + Object.keys(mon).map((m, i) => {
+    const ds = mon[m], a = ds.map(d => pd[d]).filter(Boolean), mm = a.reduce((s, x) => s + x.min, 0), mk = a.reduce((s, x) => s + x.kwh, 0);
+    return '<details' + (i ? '' : ' open') + ' data-m="' + m + '"><summary><b>' + repMon(m) + '</b><small>기록 ' + a.length + '일 · 합계 ' + H(mm) + '시간 · ' + fK(mk) + (st.price == null ? '' : ' · ' + fW(won(mk))) + '</small></summary>' +
+      '<div class="scroll"><table class="cltbl rep"><thead><tr><th class="l">날짜</th><th>입력 대수</th><th>합계</th><th>1대 평균</th><th>전력량</th><th>예상 요금</th></tr></thead><tbody>' +
+      ds.map(d => { const a = pd[d]; return '<tr' + (a ? '' : ' class="dim"') + '><td class="l">' + d + '</td><td>' + (a ? a.n + ' / ' + tot : '미입력') + '</td><td>' + (a ? H(a.min) + 'h' : '—') + '</td><td>' + (a ? H(a.min / a.n) + 'h' : '—') + '</td><td>' + (a ? fK(a.kwh) : '—') + '</td><td>' + (a ? fW(won(a.kwh)) : '—') + '</td></tr>'; }).join('') + '</tbody></table></div></details>';
+  }).join('') + '</div>' +
     '<p class="clnote">미가동은 0시간으로 계산합니다. 기록은 기간 제한 없이 보관됩니다 (첫 기록 ' + (r.first || '—') + ').</p>';
   return html;
 }
@@ -3101,8 +3377,14 @@ function repClimHtml() {
   html += '<h3>조치 권고</h3>' + (adv.length ? '<div class="cladv">' + [...new Set(adv.map(a => a[0]))].map((fn, i) => { const a = adv.filter(x => x[0] === fn);
     return '<details' + (i ? '' : ' open') + '><summary><b>' + fn + '</b><small>' + a.length + '건</small></summary><ul>' + a.map(x => '<li>' + h(x[1]) + '</li>').join('') + '</ul></details>'; }).join('') + '</div>' : '<p class="clnote">평균 기준으로 조정이 필요한 구역이 없습니다.</p>');
   html += '<h3>추이 그래프 <small>일별 평균 온도·습도</small></h3><div class="repchart"><canvas id="repCv" height="300"></canvas></div>';
-  html += '<h3>상세 기록 <small>최근 ' + Math.min(200, rows.length) + '건</small></h3><div class="scroll"><table class="cltbl rep"><thead><tr><th class="l">시각</th><th>층</th><th>구역</th><th>온도</th><th>습도</th><th>불쾌지수</th><th>실외 온도</th><th>실외 습도</th></tr></thead><tbody>' +
-    rows.slice(-200).reverse().map(x => '<tr><td class="l">' + h(x[0]) + '</td><td>' + h(CL_FL[x[1]] ? CL_FL[x[1]][0] : x[1]) + '</td><td>' + h(x[2]) + '</td><td>' + x[3] + '</td><td>' + x[4] + '</td><td>' + x[5] + ' ' + clLv(Number(x[5]))[1] + '</td><td>' + (x[6] == null ? '—' : x[6]) + '</td><td>' + (x[7] == null ? '—' : x[7]) + '</td></tr>').join('') + '</tbody></table></div>' +
+  // 상세 기록: 달 → 날짜로 접기, 맨 위 달·날짜만 펼침 (결정 234)
+  const sm = g => { const t = avg(g.map(x => Number(x[3]))), hm = avg(g.map(x => Number(x[4]))), d = avg(g.map(x => Number(x[5]))); return g.length + '건 · 평균 ' + t.toFixed(1) + '℃ · ' + hm.toFixed(0) + '% · 불쾌지수 ' + d.toFixed(1); };
+  const grp = (a, k) => { const o = {}; a.forEach(x => { (o[k(x)] = o[k(x)] || []).push(x); }); return o; }, byM = grp(rows.slice().reverse(), x => x[0].slice(0, 7));
+  html += '<h3>상세 기록 <small>달 · 날짜를 누르면 펼침</small></h3><div class="repacc">' + Object.keys(byM).map((m, i) => { const byD = grp(byM[m], x => x[0].slice(0, 10));
+    return '<details' + (i ? '' : ' open') + ' data-m="' + m + '"><summary><b>' + repMon(m) + '</b><small>' + sm(byM[m]) + '</small></summary><div class="repday">' + Object.keys(byD).map((d, j) =>
+      '<details' + (i || j ? '' : ' open') + ' data-d="' + d + '"><summary><b>' + Number(d.slice(5, 7)) + '/' + Number(d.slice(8)) + '</b><small>' + sm(byD[d]) + '</small></summary><div class="scroll"><table class="cltbl rep"><thead><tr><th class="l">시각</th><th>층</th><th>구역</th><th>온도</th><th>습도</th><th>불쾌지수</th><th>실외 온도</th><th>실외 습도</th></tr></thead><tbody>' +
+      byD[d].map(x => '<tr><td class="l">' + h(x[0]) + '</td><td>' + h(CL_FL[x[1]] ? CL_FL[x[1]][0] : x[1]) + '</td><td>' + h(x[2]) + '</td><td>' + x[3] + '</td><td>' + x[4] + '</td><td>' + x[5] + ' ' + clLv(Number(x[5]))[1] + '</td><td>' + (x[6] == null ? '—' : x[6]) + '</td><td>' + (x[7] == null ? '—' : x[7]) + '</td></tr>').join('') + '</tbody></table></div></details>').join('') + '</div></details>';
+  }).join('') + '</div>' +
     '<p class="clnote">불쾌지수 = 0.81×T + 0.01×H×(0.99×T−14.3) + 46.3 · 쾌적 74 미만 · 주의 78 미만 · 불쾌 78 이상 · 쾌적 범위 23~26℃, 40~60%</p>';
   return html;
 }
@@ -3152,13 +3434,13 @@ function repCsv() {
 }
 function repPrint() {
   const p = S.rep, cv = $('repCv'), img = cv && cv.toDataURL ? '<img src="' + cv.toDataURL('image/png') + '" style="width:100%" alt="추이 그래프">' : '';
-  const body = $('repBody').innerHTML.replace(/<canvas[^>]*><\/canvas>/, img);
+  const body = $('repBody').innerHTML.replace(/<canvas[^>]*><\/canvas>/, img).replace(/<details(?! open)/g, '<details open');   // 인쇄는 모두 펼침
   $('print').innerHTML = '<style>@page{size:A4;margin:12mm}</style><div class="clrep clprint"><h2>에비뉴엘 ' + (p.kind === 'climate' ? '실내 온습도' : CL_KIND[p.kind] + ' 사용시간') + ' 리포트</h2>' + body + '</div>';
   setTimeout(() => window.print(), 50);
 }
 
 /* ── 환경설정 › 장비 전력(kW)·단가 (소장만, 결정 194). 빈 칸 = 모름 → 리포트 환산에서 뺌 ── */
-/* ── 가동시간 설정: 층(묶음) × 요일 기본 시작·종료 (21_equip_hours.sql, 결정 200). 소장만 ── */
+/* ── 가동시간 설정: 층(묶음) × 요일 기본 시작·종료 (21_equip_hours.sql, 결정 200). 전 직원 (결정 218) ── */
 const UH_DOW = ['월', '화', '수', '목', '금', '토', '일'];
 function uhHm(m) { return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
 function uhMin(t, end) { const x = /^(\d\d):(\d\d)/.exec(t || ''); if (!x) return null; const m = Number(x[1]) * 60 + Number(x[2]); return end && m === 0 ? 1440 : m; }
@@ -3549,13 +3831,12 @@ async function ehXSave() {
 
 /* ── 공사장 점검 (WS_공사장점검, 결정 100): 현장 목록 → 현장 점검(자동 저장) → 날짜별·현장별 PDF ── */
 const CS_ST = [['양호', 'ok'], ['미흡', 'bad'], ['해당없음', 'na']];
-const CS_MAX_PHOTOS = 6;   // 한 줄 3장 × 2줄 (사용자 11-11)
-// 빈 사진 칸: 첫 줄은 3칸을 채워 보여 주고, 3장을 넘기면 다음 줄에 「＋ 사진 추가」 1칸 (최대 6장)
-function csAddSlots(x, i) {
-  const n = x.photos.length;
-  if (n >= CS_MAX_PHOTOS) return '';
-  const k = n < 3 ? 3 - n : 1;
-  return Array.from({ length: k }, () => '<label class="ph43"><b>＋</b>' + (n < 3 ? '사진' : '사진 추가') + '<input type="file" accept="image/*" hidden onchange="csPhAdd(' + i + ',this)"></label>').join('');
+const CS_MAX_PHOTOS = 4;   // 새로 넣는 한도: 휴대폰 2열×2줄 · PC 4열 한 줄 (사용자 11-24, 결정 238). 서버는 예전 기록(6장)도 받도록 6장 그대로
+// 사진 넣기 (사용자 11-24, TBM 사진칸과 같게): [카메라] 바로 찍기 · [파일] 갤러리에서 여러 장 고르기, 최대 6장
+function csPhBar(x, i) {
+  const n = x.photos.length, full = n >= CS_MAX_PHOTOS;
+  const pick = cam => '<label class="btn sm' + (full ? ' off' : '') + '">' + (cam ? ICON.cam + ' 카메라' : ICON.folder + ' 파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : ' multiple') + (full ? ' disabled' : '') + ' hidden onchange="csPhAdd(' + i + ',this)"></label>';
+  return '<div class="tbpb csphb">' + pick(true) + pick(false) + '</div><small class="csphn">사진 ' + (n > CS_MAX_PHOTOS ? n + '장' : n + ' / ' + CS_MAX_PHOTOS + '장') + '</small>';
 }
 function csDay(d) { return Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + '일월화수목금토'[new Date(d + 'T00:00:00').getDay()] + ')'; }
 function csNow(dateToo) { const d = new Date(), p = n => String(n).padStart(2, '0'); return (dateToo ? d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' : '') + p(d.getHours()) + ':' + p(d.getMinutes()); }
@@ -3770,14 +4051,17 @@ function csItemHtml(x, i) {
     '<p>' + h(x.d) + '</p>' +
     '<div class="seg csseg" role="group" aria-label="' + h(x.t) + ' 결과">' + CS_ST.map(s => '<button type="button" class="' + s[1] + (x.st === s[0] ? ' on' : '') + '" aria-pressed="' + (x.st === s[0]) + '" onclick="csSt(' + i + ',\'' + s[0] + '\')">' + s[0] + '</button>').join('') + '</div>' +
     '<div class="csph">' + x.photos.map((p, j) => '<div class="ph43"><img src="' + h(p.src) + '" alt="' + h(x.t) + ' 사진 ' + (j + 1) + '"><span class="tm">' + h(p.at) + ' 촬영</span><button class="x" onclick="csPhDel(' + i + ',' + j + ')" aria-label="사진 지우기">✕</button></div>').join('') +
-    csAddSlots(x, i) + '</div>' +
+    '</div>' + csPhBar(x, i) +
     '<textarea class="inp csmemo" maxlength="300" placeholder="특이사항 (미흡이면 꼭 적기)" oninput="csMemo(' + i + ',this)">' + h(x.memo) + '</textarea></div>';
 }
 function csSt(i, s) { const x = S.ck.items[i]; x.st = x.st === s ? '' : s; csDirty(); render(); }
 function csMemo(i, el) { S.ck.items[i].memo = el.value; csDirty(); }
 async function csPhAdd(i, el) {
-  const f = el.files && el.files[0]; if (!f) return;
-  try { const src = await shrinkJpeg(f, 1600, 0.7); S.ck.items[i].photos.push({ id: '', src: src, at: csNow() }); csDirty(true); render(); } catch (e) { toast(e.message); }
+  const fs = Array.from(el.files || []); el.value = ''; if (!fs.length) return;   // 같은 파일을 또 골라도 다시 들어오게 비움
+  const x = S.ck.items[i], room = Math.max(0, CS_MAX_PHOTOS - x.photos.length);   // 예전에 5~6장 넣은 항목은 그대로 두고 더 못 넣음
+  try { for (const f of fs.slice(0, room)) x.photos.push({ id: '', src: await shrinkJpeg(f, 1600, 0.7), at: csNow() }); } catch (e) { toast(e.message); }
+  csDirty(true); render();
+  if (fs.length > room) toast('사진은 한 항목에 ' + CS_MAX_PHOTOS + '장까지입니다');
 }
 function csPhDel(i, j) { if (!confirm('이 사진을 지울까요?')) return; S.ck.items[i].photos.splice(j, 1); csDirty(); render(); }
 function csExtraOpen() {
@@ -3891,6 +4175,445 @@ async function csMakePdf(k, secs) {
   } finally { wrap.remove(); }
 }
 
+/* ── 서류작업 › 위험작업신청서 (WS_위험작업신청서, 결정 236): 손으로 쓴 신청서를 찍는 대로 저장 · 일자별 4열 · 검색 · 확대 · 인쇄 A4 ── */
+const RW_FLOORS = ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '10F', '외곽'];   // 서버 ws_rw_floors 와 같게
+function rwToday() { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+function rwCid() { return Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join(''); }   // 사진마다 고유 번호 — 다시 보내도 한 번만 저장
+async function openRw() {
+  S.rw = S.rw || { list: null, q: '', qv: '', day: rwToday(), co: '', floor: '', pend: [], open: {}, keys: [], admin: false };
+  go('rw'); await loadRw();
+}
+async function loadRw() {
+  const k = S.rw, r = await call('rwList', k.q, '', '');
+  if (!r.ok) return toast(r.error || '불러오지 못했습니다');
+  k.list = r.list; k.admin = r.admin; if (S.view === 'rw') render();
+  rwFlush();
+}
+function rwDays(list) { const g = []; list.forEach(x => { const l = g[g.length - 1]; if (l && l.day === x.day) l.list.push(x); else g.push({ day: x.day, list: [x] }); }); return g; }
+function rwDay(d) { return d.slice(0, 4) + '-' + d.slice(5, 7) + '-' + d.slice(8, 10); }
+function rwCap(x) { return '<div class="rwcap">' + (x.co ? h(x.co) : '<span class="rwno">(업체 미입력)</span>') + (x.floor ? ' · ' + h(x.floor) : '') + '<br>' + h(x.at) + '</div>'; }
+function rwTile(x) {
+  return '<div class="rwt"><button type="button" class="ph43 rwim" onclick="rwView(\'' + x.id + '\')" aria-label="사진 크게 보기"><img src="' + h(x.src) + '" loading="lazy" alt="위험작업신청서 ' + h(x.day) + '"></button>' +
+    (S.rw.admin ? '<button type="button" class="rwx" onclick="rwDel(\'' + x.id + '\')" aria-label="사진 지우기">✕</button>' : '') + rwCap(x) + '</div>';
+}
+function rwResHtml() {
+  const k = S.rw; if (!k.list) return '<div class="banner b-gray">불러오는 중…</div>';
+  if (!k.list.length) return '<div class="banner b-gray">' + (k.q ? '찾는 사진이 없습니다' : '저장된 사진이 없습니다. 위 버튼으로 신청서를 찍어 주세요') + '</div>';
+  return rwDays(k.list).map((d, i) => {
+    const open = d.day in k.open ? k.open[d.day] : i === 0;
+    return '<button class="csacc' + (open ? ' on' : '') + '" aria-expanded="' + open + '" onclick="rwAcc(\'' + d.day + '\')"><b>' + rwDay(d.day) + '</b><span class="csn">' + d.list.length + '장</span><span class="csar" aria-hidden="true"></span></button>' +
+      (open ? '<div class="rwg">' + d.list.map(rwTile).join('') + '</div>' : '');
+  }).join('');
+}
+function rwPendHtml() { const n = S.rw.pend.length; return n ? '<div class="banner b-warn rwpend">올리기 대기 중 ' + n + '장 — 연결되면 자동으로 올라갑니다 <button class="btn sm" onclick="rwFlush()">지금 올리기</button></div>' : ''; }
+function rwRedraw() { const k = S.rw, a = $('rwRes'), b = $('rwPend'); if (a) a.innerHTML = rwResHtml(); if (b) b.innerHTML = rwPendHtml(); const c = $('rwN'); if (c && k.list) c.textContent = k.list.length; }
+function rwAcc(d) { const k = S.rw, cur = d in k.open ? k.open[d] : (k.list[0] && k.list[0].day === d); k.open[d] = !cur; rwRedraw(); }
+function renderRw() {
+  const k = S.rw, fl = RW_FLOORS.map(f => '<button type="button" class="rwfl' + (k.floor === f ? ' on' : '') + '" aria-pressed="' + (k.floor === f) + '" onclick="rwFloor(\'' + f + '\')">' + f + '</button>').join('');
+  const pick = cam => '<label class="btn' + (cam ? ' pri' : '') + '">' + (cam ? ICON.cam + ' 사진찍기' : ICON.folder + ' 갤러리에서 선택') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : ' multiple') + ' hidden onchange="rwAdd(this)"></label>';
+  return topbar('서류작업 ›', '위험작업신청서') + '<div class="wrap list">' +
+    '<div class="cssec"><label class="cssrch"><input id="rwQ" type="search" enterkeyhint="search" placeholder="날짜 · 업체명 · 위치 검색" aria-label="날짜 업체명 위치 검색" value="' + h(k.qv) + '" oninput="S.rw.qv=this.value" onkeydown="if(event.key===\'Enter\')rwSearch()"></label><button class="btn pri" onclick="rwSearch()">검색하기</button></div>' +
+    '<div class="card rwadd"><div class="tbpb">' + pick(true) + pick(false) + '</div><small class="rwhint">찍거나 고르면 바로 저장됩니다. 날짜 태그 <input id="rwDay" type="date" value="' + h(k.day) + '" onchange="S.rw.day=this.value||rwToday()" aria-label="날짜 태그"> (기본: 오늘)</small>' +
+    '<label class="rwlb">업체명 · 매장명 (직접 입력, 선택)</label><input id="rwCo" class="inp" maxlength="30" placeholder="예: OO인테리어" value="' + h(k.co) + '" oninput="S.rw.co=this.value">' +
+    '<label class="rwlb">위치 (선택)</label><div class="rwfls">' + fl + '</div><small class="rwhint">비워 둬도 저장됩니다. 이후 저장하는 사진에 같은 값이 붙습니다.</small></div>' +
+    '<div id="rwPend">' + rwPendHtml() + '</div>' +
+    '<div class="cssec">' + (k.q ? '「' + h(k.q) + '」 검색 결과' : '최근 60일') + ' · <span id="rwN">' + (k.list ? k.list.length : '…') + '</span>장</div>' +
+    '<div id="rwRes" class="card rwres">' + rwResHtml() + '</div>' +
+    '<div class="nwbar"><button class="btn" onclick="rwPrint()">' + ICON.print + '인쇄 A4</button></div></div>';
+}
+function rwFloor(f) { const k = S.rw; k.floor = k.floor === f ? '' : f; render(); }
+function rwSearch() { const k = S.rw; k.q = k.qv.trim(); k.open = {}; loadRw(); }
+/* 사진 넣기: 글자가 읽히게 2400px·85%로 줄임(일반 현장 사진 1600px·70%보다 덜 줄임). 같은 사진을 연달아 고르면 건너뜀 */
+async function rwAdd(el) {
+  const fs = Array.from(el.files || []); el.value = ''; if (!fs.length) return;
+  const k = S.rw; let dup = 0;
+  for (const f of fs) {
+    const key = f.name + '|' + f.size + '|' + f.lastModified;
+    if (k.keys.indexOf(key) !== -1) { dup++; continue; }
+    try { k.pend.push({ cid: rwCid(), data: await shrinkJpeg(f, 2400, 0.85), day: k.day || rwToday(), co: k.co.trim(), floor: k.floor }); k.keys.push(key); if (k.keys.length > 60) k.keys.shift(); } catch (e) { toast(e.message); }
+  }
+  if (dup) toast(dup + '장은 이미 저장한 사진이라 건너뜁니다');
+  rwRedraw(); rwFlush();
+}
+const RW_NET = /fetch|network|load failed|연결|timeout|offline/i;
+let RW_T = 0;
+async function rwFlush() {
+  const k = S.rw; if (!k || k.sending || !S.token) return;
+  k.sending = true;
+  try {
+    while (k.pend.length) {
+      const p = k.pend[0]; let r;
+      try { r = await run('rwAdd', S.token, p.day, p.co, p.floor, p.data, p.cid); }
+      catch (e) {
+        const m = String(e && e.message);
+        if (m.indexOf('LOGIN') !== -1) { logout(true); return; }
+        if (RW_NET.test(m)) break;   // 통신 불량: 기기에 두고 나중에 다시 (shortcut: 앱을 닫으면 대기분은 사라짐 — 필요하면 IndexedDB 보관으로)
+        k.pend.shift(); toast(m || '저장하지 못했습니다'); continue;
+      }
+      k.pend.shift();
+      if (!r || !r.ok) { toast((r && r.error) || '저장하지 못했습니다'); continue; }
+      if (k.list && !k.list.some(x => x.id === r.item.id)) { k.list.push(r.item); k.list.sort((a, b) => a.day < b.day ? 1 : a.day > b.day ? -1 : 0); }
+    }
+  } finally { k.sending = false; }
+  if (S.view === 'rw') rwRedraw();
+  clearTimeout(RW_T); if (k.pend.length) RW_T = setTimeout(rwFlush, 20000);
+}
+window.addEventListener('online', () => { if (S.rw && S.rw.pend.length) rwFlush(); });
+async function rwDel(id) {
+  if (!confirm('이 사진을 지울까요?')) return;
+  const r = await call('rwDelete', id); if (!r.ok) return toast(r.error);
+  const k = S.rw; k.list = k.list.filter(x => x.id !== id); rwRedraw(); toast('지웠습니다');
+}
+/* 사진 크게 보기: 이전·다음 · 확대 100~400% (스크롤로 이동) */
+function rwView(id) { const k = S.rw, i = k.list.findIndex(x => x.id === id); if (i < 0) return; k.v = { i, z: 1 }; rwViewDraw(); }
+function rwViewDraw() {
+  const k = S.rw, v = k.v, x = k.list[v.i];
+  $('layer').innerHTML = '<div class="rwv" role="dialog" aria-modal="true"><div class="rwvh"><span>' + h(rwDay(x.day)) + ' · ' + h(x.co || '(업체 미입력)') + (x.floor ? ' · ' + h(x.floor) : '') + ' · ' + h(x.at) + '</span><button class="btn sm" onclick="rwClose()">닫기</button></div>' +
+    '<div class="rwvb"><img src="' + h(x.src) + '" style="width:' + v.z * 100 + '%" alt="신청서 사진"></div>' +
+    '<div class="rwvf"><button class="btn sm" onclick="rwNav(-1)"' + (v.i ? '' : ' disabled') + '>이전</button><button class="btn sm" onclick="rwZoom(-0.5)" aria-label="작게">−</button><b>' + Math.round(v.z * 100) + '%</b><button class="btn sm" onclick="rwZoom(0.5)" aria-label="크게">＋</button><button class="btn sm" onclick="rwNav(1)"' + (v.i < k.list.length - 1 ? '' : ' disabled') + '>다음</button></div></div>';
+}
+function rwClose() { S.rw.v = null; closeDialog(); }
+function rwNav(d) { const v = S.rw.v; v.i = Math.max(0, Math.min(S.rw.list.length - 1, v.i + d)); v.z = 1; rwViewDraw(); }
+function rwZoom(d) { const v = S.rw.v; v.z = Math.max(1, Math.min(4, v.z + d)); rwViewDraw(); }
+/* 인쇄 = A4 세로. 지금 화면에 보이는 사진(검색 결과)을 일자별로, 한 줄 4장 */
+function rwPrint() {
+  const k = S.rw; if (!k.list || !k.list.length) return toast('인쇄할 사진이 없습니다');
+  $('print').innerHTML = '<style>@page{size:A4;margin:10mm}.rwpr{font-family:"Noto Sans KR",sans-serif;color:#000}.rwpr h1{font-size:15pt;margin:0 0 1mm}.rwpr h2{font-size:11pt;margin:4mm 0 2mm;border-bottom:.3mm solid #000}' +
+    '.rwpr .g{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm}.rwpr .t{break-inside:avoid;font-size:7pt;line-height:1.3}.rwpr .b{aspect-ratio:4/3;background:#eceff3;display:flex;align-items:center;justify-content:center}.rwpr img{max-width:100%;max-height:100%;display:block}</style>' +
+    '<div class="rwpr"><h1>위험작업신청서</h1><div style="font-size:8pt">에비뉴엘 잠실점 시설팀 · ' + (k.q ? '검색: ' + h(k.q) + ' · ' : '') + '출력 ' + rwToday() + ' · ' + k.list.length + '장</div>' +
+    rwDays(k.list).map(d => '<h2>' + rwDay(d.day) + ' (' + d.list.length + '장)</h2><div class="g">' + d.list.map(x => '<div class="t"><div class="b"><img src="' + h(x.src) + '" alt=""></div>' + (x.co ? h(x.co) : '(업체 미입력)') + (x.floor ? ' · ' + h(x.floor) : '') + ' ' + h(x.at.slice(6)) + '</div>').join('') + '</div>').join('') + '</div>';
+  const im = [...$('print').querySelectorAll('img')];
+  Promise.all(im.map(i => i.decode ? i.decode().catch(() => {}) : null)).then(() => setTimeout(() => window.print(), 100));
+}
+/* ── 서류작업 › 주간/야간 작업내역 (WS_주야간작업내역, 결정 240): 주간작업 = 사진 전·후 + 사용자재 → 종합업무일지 금일작업 · 야간작업 = 현장·방염서류·각서 사진 → 인쇄 A4 / PDF ── */
+const WH_PARTS = [['전기방재', '전기·방재'], ['기계건축', '기계·건축']];
+const WH_API = { d: ['dwList', 'dwSave', 'dwDelete'], n: ['dnList', 'dnSave', 'dnDelete'] };
+const WH_TITLE = { d: '주간 작업내역', n: '야간 작업내역' };
+function whNew(k) {
+  const u = S.user || {}, part = u.part === '전방파트' ? ['전기방재'] : u.part === '기건파트' ? ['기계건축'] : [];
+  return k === 'n' ? { id: '', day: rwToday(), co: '', floor: '', content: '', note: '', photos: [], fire: [], pledge: [] }
+    : { id: '', day: rwToday(), parts: part, workers: u.name || '', floor: '', content: '', mats: [{ n: '', q: '', u: '' }], note: '', before: [], after: [] };
+}
+async function openWh() {
+  S.wh = S.wh || { tab: 'd', v: null, d: { list: null, q: '', qv: '', f: whNew('d'), dirty: false, busy: false, keys: [], open: {}, dflt: [] }, n: { list: null, q: '', qv: '', f: whNew('n'), dirty: false, busy: false, keys: [], open: {}, dflt: [] } };
+  go('wh'); await whLoad(S.wh.tab);
+}
+async function whLoad(k) {
+  const o = S.wh[k]; let r;
+  try { r = await call(WH_API[k][0], o.q, '', ''); } catch (e) { return; }
+  if (!r.ok) return toast(r.error || '불러오지 못했습니다');
+  o.list = r.list; if (S.view === 'wh') render();
+}
+function whTab(k) { const w = S.wh; if (w.tab === k) return; w.tab = k; if (!w[k].list) whLoad(k); render(); }
+function whSearch() { const o = S.wh[S.wh.tab]; o.q = o.qv.trim(); whLoad(S.wh.tab); }
+function whNewForm() { const o = S.wh.n; if (o.dirty && !confirm('저장하지 않은 내용이 있습니다. 새로 쓸까요?')) return; o.f = whNew('n'); o.sl = {}; o.dirty = false; render(); window.scrollTo(0, 0); }
+function whEdit(id) {
+  const k = S.wh.tab, o = S.wh[k], x = o.list.find(y => y.id === id); if (!x) return;
+  if (o.dirty && !confirm('저장하지 않은 내용이 있습니다. 다른 작업을 열까요?')) return;
+  o.sl = {}; o.f = JSON.parse(JSON.stringify(x)); if (k === 'd' && !o.f.mats.length) o.f.mats.push({ n: '', q: '', u: '' });
+  o.dirty = false; render(); window.scrollTo(0, 0);
+}
+function whDirty() { const o = S.wh[S.wh.tab]; o.dirty = true; const e = $('whState'); if (e) e.innerHTML = whState(); }
+function whState() { const o = S.wh[S.wh.tab]; return o.dirty ? '<span class="nwstate dirty"><i class="dot"></i>저장 안 함</span>' : o.f && o.f.id ? '<span class="nwstate">' + ICON.ok + '저장됨</span>' : ''; }
+function whIn(fld, el) { S.wh[S.wh.tab].f[fld] = el.value; whDirty(); }
+function whPart(key, el) { const f = S.wh.d.f, i = f.parts.indexOf(key); if (el.checked && i < 0) f.parts.push(key); if (!el.checked && i >= 0) f.parts.splice(i, 1); whDirty(); }
+function whFloor(fl) { const f = S.wh[S.wh.tab].f; f.floor = f.floor === fl ? '' : fl; whDirty(); render(); }
+function whMat(i, key, el) { S.wh.d.f.mats[i][key] = el.value; whDirty(); }
+function whMatAdd() { const m = S.wh.d.f.mats; if (m.length >= 20) return toast('자재는 20줄까지 넣을 수 있습니다'); m.push({ n: '', q: '', u: '' }); whDirty(); render(); }
+function whMatRm(i) { const m = S.wh.d.f.mats; m.splice(i, 1); if (!m.length) m.push({ n: '', q: '', u: '' }); whDirty(); render(); }
+
+/* 사진 칸 (스크린샷의 「회의 사진」 칸 모양): 제목 · 큰 4:3 칸 · 아래 카메라/파일 버튼 */
+function whBtns(k, fld, i, multi) {
+  const pick = cam => '<label class="btn whbt">' + (cam ? ICON.cam + ' 카메라' : ICON.folder + ' 파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : multi ? ' multiple' : '') + ' hidden onchange="whAdd(\'' + k + '\',\'' + fld + '\',this,' + i + ')"></label>';
+  return '<div class="whbs">' + pick(1) + pick(0) + '</div>';
+}
+function whTile(k, fld, p, i) {
+  return '<div class="wht"><button type="button" class="whim" onclick="whView(\'' + k + '\',\'' + fld + '\',' + i + ')" aria-label="사진 ' + (i + 1) + ' 크게 보기"><img src="' + h(p.src) + '" alt=""></button>' +
+    '<button type="button" class="whx" onclick="whRm(\'' + k + '\',\'' + fld + '\',' + i + ')" aria-label="사진 지우기">' + ICON.x + '</button></div>';
+}
+function whSlots(k, fld, title, max) {   // 주간: 칸 하나에 사진 한 장, 칸마다 카메라/파일 (예전에 더 넣어 둔 사진은 칸을 더 보여 줌)
+  const L = S.wh[k].f[fld], n = Math.max(max, L.length);
+  return '<div class="whcol">' + Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + (L[i] ? whTile(k, fld, L[i], i) : '<div class="whim empty">사진 없음</div>') + whBtns(k, fld, i, false) + '</div>').join('') + '</div>';
+}
+const WH_MAX = 20;
+function whMulti(k, fld, title) {   // 야간: 주간과 같은 칸 모양, 처음 2칸 · ＋ 버튼으로 20칸까지, 휴대폰 2열 · PC 4열
+  const o = S.wh[k], L = o.f[fld], n = Math.max(2, L.length, (o.sl && o.sl[fld]) || 0);
+  return '<div class="whsec"><h4>' + title + '<small>' + L.length + '장 / ' + WH_MAX + '장</small></h4><div class="whg">' +
+    Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + (L[i] ? whTile(k, fld, L[i], i) : '<div class="whim empty">사진 없음</div>') + whBtns(k, fld, i, true) + '</div>').join('') + '</div>' +
+    '<button type="button" class="btn whplus" onclick="whPlus(\'' + k + '\',\'' + fld + '\')"' + (n >= WH_MAX ? ' disabled' : '') + '>' + ICON.plus + ' 사진 칸 추가 (' + n + ' / ' + WH_MAX + ')</button></div>';
+}
+function whPlus(k, fld) { const o = S.wh[k]; o.sl = o.sl || {}; o.sl[fld] = Math.min(WH_MAX, Math.max(2, o.f[fld].length, o.sl[fld] || 0) + 1); render(); }
+function whFloors(f) { return '<div class="rwfls">' + RW_FLOORS.map(x => '<button type="button" class="rwfl' + (f.floor === x ? ' on' : '') + '" aria-pressed="' + (f.floor === x) + '" onclick="whFloor(\'' + x + '\')">' + x + '</button>').join('') + '</div>'; }
+function whFormD(f) {
+  return '<div class="card whf"><label class="rwlb">일자</label><input class="inp" type="date" max="' + rwToday() + '" value="' + h(f.day) + '" onchange="whIn(\'day\',this)" aria-label="일자">' +
+    '<div class="rwlb">파트 (일지 금일작업에 들어갈 곳)</div><div class="whck">' + WH_PARTS.map(p => '<label><input type="checkbox"' + (f.parts.indexOf(p[0]) >= 0 ? ' checked' : '') + ' onchange="whPart(\'' + p[0] + '\',this)"> ' + p[1] + '</label>').join('') + '</div>' +
+    '<label class="rwlb">작업자</label><input class="inp" maxlength="60" placeholder="예: 홍길동, 김철수" value="' + h(f.workers) + '" oninput="whIn(\'workers\',this)">' +
+    '<div class="rwlb">작업위치 (버튼으로 선택)</div>' + whFloors(f) +
+    '<label class="rwlb">작업내용</label><textarea class="inp" rows="3" maxlength="300" oninput="whIn(\'content\',this)">' + h(f.content) + '</textarea>' +
+    '<div class="whsplit">' + whSlots('d', 'before', '작업 전', 2) + whSlots('d', 'after', '작업 후', 2) + '</div>' +
+    '<div class="rwlb">사용자재 (이름 · 수량 · 단위)</div>' + f.mats.map((m, i) => '<div class="whmat"><input class="inp" maxlength="30" placeholder="자재 이름" value="' + h(m.n) + '" oninput="whMat(' + i + ',\'n\',this)" aria-label="자재 이름">' +
+      '<input class="inp" maxlength="10" inputmode="decimal" placeholder="수량" value="' + h(m.q) + '" oninput="whMat(' + i + ',\'q\',this)" aria-label="수량"><input class="inp" maxlength="10" placeholder="단위" value="' + h(m.u) + '" oninput="whMat(' + i + ',\'u\',this)" aria-label="단위">' +
+      '<button type="button" class="btn sm" onclick="whMatRm(' + i + ')" aria-label="자재 줄 지우기">' + ICON.x + '</button></div>').join('') +
+    '<button type="button" class="btn sm" onclick="whMatAdd()">' + ICON.plus + ' 자재 추가</button>' +
+    '<label class="rwlb">비고</label><textarea class="inp" rows="2" maxlength="300" oninput="whIn(\'note\',this)">' + h(f.note) + '</textarea>' + whDelBtn(f) + '</div>';
+}
+function whFormN(f) {
+  return '<div class="card whf">' + whMulti('n', 'photos', '현장 사진') +
+    '<div class="whtwo"><div><label class="rwlb">일자</label><input class="inp" type="date" max="' + rwToday() + '" value="' + h(f.day) + '" onchange="whIn(\'day\',this)" aria-label="일자"></div>' +
+    '<div><label class="rwlb">업체명 (직접 입력)</label><input class="inp" maxlength="30" placeholder="예: OO인테리어" value="' + h(f.co) + '" oninput="whIn(\'co\',this)"></div></div>' +
+    '<div class="rwlb">작업위치 (버튼으로 선택)</div>' + whFloors(f) +
+    '<label class="rwlb">작업내용</label><textarea class="inp" rows="3" maxlength="300" oninput="whIn(\'content\',this)">' + h(f.content) + '</textarea>' +
+    whMulti('n', 'fire', '방염서류') + whMulti('n', 'pledge', '각서') +
+    '<small class="rwhint">서류 사진은 누르면 크게 볼 수 있습니다. 흐리거나 어두우면 「다시 찍으세요」 안내가 나옵니다. 서류 사진은 일반 사진보다 덜 줄여 저장합니다.</small>' +
+    '<label class="rwlb">기타사항</label><textarea class="inp" rows="2" maxlength="300" oninput="whIn(\'note\',this)">' + h(f.note) + '</textarea>' + whDelBtn(f) + '</div>';
+}
+function whDelBtn(f) { return f.id ? '<button type="button" class="btn sm whdel" onclick="whDel()">이 작업 삭제</button>' : ''; }
+/* 목록 묶기: 월 → 주(일~토) → 일. 가장 최근 달·주만 펼침, 머리줄을 누르면 열고 닫음 */
+function whWeek(day) { const d = new Date(day + 'T00:00:00Z'), a = new Date(d - d.getUTCDay() * 864e5), z = new Date(+a + 6 * 864e5), f = x => x.toISOString().slice(0, 10); return [f(a), f(z)]; }
+function whAcc(key) { const o = S.wh[S.wh.tab]; const cur = key in o.open ? o.open[key] : o.dflt.indexOf(key) !== -1; o.open[key] = !cur; render(); }
+function whListHtml(k) {
+  const o = S.wh[k]; if (!o.list) return '<div class="banner b-gray">불러오는 중…</div>';
+  if (!o.list.length) return '<div class="banner b-gray">' + (o.q ? '찾는 작업이 없습니다' : k === 'd' ? '저장된 주간작업이 없습니다' : '저장된 야간작업이 없습니다') + '</div>';
+  const bad = (t, n) => n ? '' : '<span class="whb">' + t + ' 없음</span>';
+  const row = x => '<button type="button" class="whrow' + (o.f && o.f.id === x.id ? ' on' : '') + '" onclick="whEdit(&quot;' + x.id + '&quot;)"><b>' + h(x.day.slice(5).replace('-', '/')) + (x.floor ? ' · ' + h(x.floor) : '') + (k === 'n' ? ' · ' + h(x.co) : '') + '</b>' +
+    '<span>' + h(x.content) + '</span><small>' + (k === 'd' ? h(x.workers) + ' · ' + x.parts.map(p => (WH_PARTS.find(y => y[0] === p) || [0, p])[1]).join('·') + ' · 사진 ' + (x.before.length + x.after.length) + '장'
+      : '현장 ' + x.photos.length + '장 ' + bad('방염서류', x.fire.length) + bad('각서', x.pledge.length)) + '</small></button>';
+  const mons = []; o.list.forEach(x => {   // 목록은 최근 날짜가 위
+    const m = x.day.slice(0, 7), w = whWeek(x.day)[0]; let M = mons.find(y => y.m === m); if (!M) mons.push(M = { m, n: 0, wk: [] });
+    let W = M.wk.find(y => y.w === w); if (!W) M.wk.push(W = { w, list: [] }); W.list.push(x); M.n++;
+  });
+  o.dflt = ['m:' + mons[0].m, 'w:' + mons[0].m + ':' + mons[0].wk[0].w];
+  const on = key => key in o.open ? o.open[key] : o.dflt.indexOf(key) !== -1;
+  const hd = (key, cls, t, n) => '<button type="button" class="csacc ' + cls + (on(key) ? ' on' : '') + '" aria-expanded="' + on(key) + '" onclick="whAcc(&quot;' + key + '&quot;)"><b>' + t + '</b><span class="csn">' + n + '건</span><span class="csar" aria-hidden="true"></span></button>';
+  const f = d => Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10));
+  return '<div class="card rwres">' + mons.map(M => hd('m:' + M.m, 'whmo', M.m.slice(0, 4) + '년 ' + Number(M.m.slice(5)) + '월', M.n) + (on('m:' + M.m) ? M.wk.map(W => {
+    const key = 'w:' + M.m + ':' + W.w, r = whWeek(W.w);
+    return hd(key, 'whwk', f(r[0]) + '(일) ~ ' + f(r[1]) + '(토)', W.list.length) + (on(key) ? W.list.map(row).join('') : '');
+  }).join('') : '')).join('') + '</div>';
+}
+/* 주간보고 (엑셀): 기준일이 있는 주(일~토)의 고른 파트 작업내용 + 전·후 사진을 한 파일로 PC에 내려받음. 엑셀 도구(ExcelJS)는 처음 쓸 때 불러옴 */
+let XJ = null;
+function loadExcelJs() {
+  if (window.ExcelJS) return Promise.resolve();
+  return XJ || (XJ = new Promise((ok, no) => {
+    const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    sc.onload = ok; sc.onerror = () => { XJ = null; no(new Error('엑셀 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.')); };
+    document.head.appendChild(sc);
+  }));
+}
+function whRepToggle() { const w = S.wh; w.rep = w.rep || { open: false, day: rwToday(), parts: w.d.f.parts.slice(), busy: false }; w.rep.open = !w.rep.open; render(); }
+function whRepPart(key, el) { const r = S.wh.rep, i = r.parts.indexOf(key); if (el.checked && i < 0) r.parts.push(key); if (!el.checked && i >= 0) r.parts.splice(i, 1); }
+function whRepDay(el) { S.wh.rep.day = el.value || rwToday(); render(); }
+function whRepHtml() {
+  const r = S.wh.rep; if (!r || !r.open) return '';
+  const w = whWeek(r.day);
+  return '<div class="card whrep"><b>주간보고작성</b><div class="whrl"><label>기준일 <input class="inp" type="date" value="' + h(r.day) + '" onchange="whRepDay(this)"></label><small>' + w[0].slice(5).replace('-', '/') + '(일) ~ ' + w[1].slice(5).replace('-', '/') + '(토) 작업을 모읍니다</small></div>' +
+    '<div class="whrl whck">' + WH_PARTS.map(p => '<label><input type="checkbox"' + (r.parts.indexOf(p[0]) >= 0 ? ' checked' : '') + ' onchange="whRepPart(&quot;' + p[0] + '&quot;,this)"> ' + p[1] + '</label>').join('') + '</div>' +
+    '<button class="btn pri" onclick="whRepGo()"' + (r.busy ? ' disabled' : '') + '>' + (r.busy ? '<span class="spin"></span>' : ICON.dl + '엑셀 저장') + '</button></div>';
+}
+async function whImg(src) {
+  const rs = await fetch(src); if (!rs.ok) throw new Error('사진을 가져오지 못했습니다');
+  const b = await rs.blob(), u = URL.createObjectURL(b);
+  const d = await new Promise(ok => { const im = new Image(); im.onload = () => ok([im.naturalWidth, im.naturalHeight]); im.onerror = () => ok([4, 3]); im.src = u; });
+  URL.revokeObjectURL(u); return { buf: await b.arrayBuffer(), w: d[0], h: d[1] };
+}
+async function whExcel(list, from, to, parts) {
+  const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('주간보고'), lab = parts.map(p => (WH_PARTS.find(y => y[0] === p) || [0, p])[1]).join('·');
+  const bd = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+  ws.columns = [12, 12, 14, 8, 40, 26, 20, 27, 27, 27, 27].map(width => ({ width }));
+  ws.mergeCells('A1:K1'); ws.getCell('A1').value = '주간 작업 보고 (' + from + ' ~ ' + to + ')'; ws.getCell('A1').font = { bold: true, size: 16 };
+  ws.mergeCells('A2:K2'); ws.getCell('A2').value = '에비뉴엘 잠실점 시설팀 · ' + lab + ' · ' + list.length + '건';
+  const hr = ws.getRow(4); hr.values = ['일자', '파트', '작업자', '위치', '작업내용', '사용자재', '비고', '작업 전 1', '작업 전 2', '작업 후 1', '작업 후 2'];
+  hr.font = { bold: true }; hr.alignment = { horizontal: 'center', vertical: 'middle' };
+  hr.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF3' } }; c.border = bd; });
+  let r = 5;
+  for (const x of list) {
+    const dw = '일월화수목금토'[new Date(x.day + 'T00:00:00Z').getUTCDay()], row = ws.getRow(r); row.height = 112;
+    row.values = [x.day.slice(5).replace('-', '/') + '(' + dw + ')', x.parts.map(p => (WH_PARTS.find(y => y[0] === p) || [0, p])[1]).join('·'), x.workers, x.floor, x.content,
+      x.mats.map(m => m.n + (m.q ? ' ' + m.q : '') + (m.u || '')).join(String.fromCharCode(10)), x.note];
+    for (let c = 1; c <= 11; c++) { const cell = row.getCell(c); cell.alignment = { vertical: 'top', wrapText: true }; cell.border = bd; }
+    const pics = x.before.slice(0, 2).map((p, i) => [7 + i, p]).concat(x.after.slice(0, 2).map((p, i) => [9 + i, p]));
+    for (const [col, p] of pics) {
+      try {
+        const im = await whImg(p.src), sc = Math.min(184 / im.w, 139 / im.h, 1), id = wb.addImage({ buffer: im.buf, extension: 'jpeg' });
+        ws.addImage(id, { tl: { col: col + 0.04, row: r - 1 + 0.04 }, ext: { width: Math.round(im.w * sc), height: Math.round(im.h * sc) } });
+      } catch (e) { ws.getCell(r, col + 1).value = '(사진을 가져오지 못함)'; }
+    }
+    r++;
+  }
+  const buf = await wb.xlsx.writeBuffer(), a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  a.download = '주간보고_' + from + '~' + to + '_' + lab + '.xlsx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function whRepGo() {
+  const rp = S.wh.rep; if (rp.busy) return;
+  if (!rp.parts.length) return toast('파트를 하나 이상 골라 주세요');
+  const w = whWeek(rp.day); rp.busy = true; render();
+  try {
+    const r = await call('dwList', '', w[0], w[1]); if (!r.ok) throw new Error(r.error || '불러오지 못했습니다');
+    const L = r.list.filter(x => x.day >= w[0] && x.day <= w[1] && x.parts.some(p => rp.parts.indexOf(p) !== -1)).sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
+    if (!L.length) { rp.busy = false; render(); return toast('그 주에 고른 파트의 작업이 없습니다'); }
+    await loadExcelJs(); await whExcel(L, w[0], w[1], rp.parts);
+    rp.busy = false; render(); toast('엑셀을 저장했습니다 (' + L.length + '건)');
+  } catch (e) { rp.busy = false; render(); toast('엑셀을 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
+}
+function renderWh() {
+  const w = S.wh, k = w.tab, o = w[k];
+  const tabs = '<div class="seg cltabs" role="tablist" aria-label="작업내역 종류">' + [['d', '주간작업'], ['n', '야간작업']].map(t => '<button type="button" role="tab" aria-selected="' + (t[0] === k) + '" class="' + (t[0] === k ? 'on' : '') + '" onclick="whTab(\'' + t[0] + '\')">' + t[1] + '</button>').join('') + '</div>';
+  const srch = '<div class="cssec"><label class="cssrch"><input id="whQ" type="search" enterkeyhint="search" placeholder="' + (k === 'd' ? '일자 · 위치 · 내용 · 작업자' : '층 · 업체 · 작업내용') + '" aria-label="검색" value="' + h(o.qv) + '" oninput="S.wh.' + k + '.qv=this.value" onkeydown="if(event.key===\'Enter\')whSearch()"></label>' +
+    '<button class="btn pri" onclick="whSearch()">검색하기</button>' + (k === 'n' ? '<button class="btn" onclick="whNewForm()">신규작성</button>' : '') + '</div>';
+  const form = o.f ? (k === 'd' ? whFormD(o.f) : whFormN(o.f)) : '';
+  const bar = o.f ? '<div class="nwbar" id="whBar"><span id="whState">' + whState() + '</span><button class="btn" onclick="whPrint()">' + ICON.print + '인쇄 A4</button>' +
+    '<button class="btn" onclick="whPdf()"' + (o.pdfBusy ? ' disabled' : '') + '>' + (o.pdfBusy ? '<span class="spin"></span>' : ICON.file + 'PDF 보기') + '</button>' +
+    '<button class="btn pri" onclick="whSave()"' + (o.busy ? ' disabled' : '') + '>' + (o.busy ? '<span class="spin"></span>' : '저장') + '</button></div>' : '';
+  return topbar('서류작업 ›', '주간/야간 작업내역') + '<div class="wrap list">' + tabs + (k === 'd' ? form + srch : srch + form) +
+    '<div class="cssec">' + (o.q ? '「' + h(o.q) + '」 검색 결과' : '최근 60일') + ' · ' + (o.list ? o.list.length : '…') + '건' + (k === 'd' ? '<button class="btn" onclick="whRepToggle()">주간보고작성</button>' : '') + '</div>' + (k === 'd' ? whRepHtml() : '') + whListHtml(k) + bar + '</div>';
+}
+
+/* 사진 넣기: 현장·작업 사진 1600px·70%, 서류(방염·각서)는 글자가 읽히게 2400px·85%. 서류가 흐리거나 어두우면 다시 찍으라고 알림 */
+function whQuality(uri) {
+  return new Promise(ok => {
+    const im = new Image();
+    im.onload = () => {
+      const w = 320, hh = Math.max(1, Math.round(w * im.naturalHeight / im.naturalWidth)), c = document.createElement('canvas'); c.width = w; c.height = hh;
+      const g = c.getContext('2d'); g.drawImage(im, 0, 0, w, hh); const p = g.getImageData(0, 0, w, hh).data, L = [];
+      for (let i = 0; i < p.length; i += 4) L.push(0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]);
+      if (L.reduce((a, b) => a + b, 0) / L.length < 45) return ok('어둡습니다');
+      let d = 0, n = 0; for (let y = 0; y < hh; y++) for (let x = 1; x < w; x++) { d += Math.abs(L[y * w + x] - L[y * w + x - 1]); n++; }
+      ok(d / n < 1.2 ? '흐립니다' : '');   // shortcut: 대충 거르는 기준 — 현장에서 써 보고 숫자 조정
+    };
+    im.onerror = () => ok(''); im.src = uri;
+  });
+}
+async function whAdd(k, fld, el, at) {
+  const fs = Array.from(el.files || []); el.value = ''; if (!fs.length) return;
+  const o = S.wh[k], L = o.f[fld], max = k === 'd' ? 2 : WH_MAX, doc = fld === 'fire' || fld === 'pledge'; let dup = 0, cut = 0, bad = '';
+  for (const f of fs) {
+    if (L.length >= max && !(at >= 0 && at < L.length)) { cut++; continue; }
+    const key = f.name + '|' + f.size + '|' + f.lastModified;
+    if (o.keys.indexOf(key) !== -1) { dup++; continue; }
+    try {
+      const data = await (doc ? shrinkJpeg(f, 2400, 0.85) : shrinkJpeg(f, 1600, 0.7));
+      if (at >= 0 && at < L.length) L[at] = { data, src: data }; else L.push({ data, src: data }); o.keys.push(key); at = -1; if (o.keys.length > 80) o.keys.shift();
+      if (doc && !bad) bad = await whQuality(data);
+    } catch (e) { toast(e.message); }
+  }
+  if (cut) toast('사진은 ' + max + '장까지 넣을 수 있습니다');
+  else if (dup) toast(dup + '장은 이미 넣은 사진이라 건너뜁니다');
+  if (bad) toast('서류 사진이 ' + bad + '. 다시 찍어 주세요');
+  whDirty(); render();
+}
+function whRm(k, fld, i) { if (!confirm('이 사진을 지울까요?')) return; S.wh[k].f[fld].splice(i, 1); whDirty(); render(); }
+function whView(k, fld, i) { S.wh.v = { list: S.wh[k].f[fld].map(p => p.src), i, z: 1 }; whVDraw(); }
+function whVDraw() {
+  const v = S.wh.v;
+  $('layer').innerHTML = '<div class="rwv" role="dialog" aria-modal="true"><div class="rwvh"><span>' + (v.i + 1) + ' / ' + v.list.length + '</span><button class="btn sm" onclick="whVClose()">닫기</button></div>' +
+    '<div class="rwvb"><img src="' + h(v.list[v.i]) + '" style="width:' + v.z * 100 + '%" alt="확대 사진"></div>' +
+    '<div class="rwvf"><button class="btn sm" onclick="whVNav(-1)"' + (v.i ? '' : ' disabled') + '>이전</button><button class="btn sm" onclick="whVZoom(-0.5)" aria-label="작게">−</button><b>' + Math.round(v.z * 100) + '%</b><button class="btn sm" onclick="whVZoom(0.5)" aria-label="크게">＋</button><button class="btn sm" onclick="whVNav(1)"' + (v.i < v.list.length - 1 ? '' : ' disabled') + '>다음</button></div></div>';
+}
+function whVClose() { S.wh.v = null; closeDialog(); }
+function whVNav(d) { const v = S.wh.v; v.i = Math.max(0, Math.min(v.list.length - 1, v.i + d)); v.z = 1; whVDraw(); }
+function whVZoom(d) { const v = S.wh.v; v.z = Math.max(1, Math.min(4, v.z + d)); whVDraw(); }
+
+/* 저장 / 삭제 */
+function whPics4(l) { return l.map(p => p.id ? { id: p.id } : { data: p.data }); }
+async function whSave() {
+  const k = S.wh.tab, o = S.wh[k], f = o.f; if (o.busy) return;
+  if (k === 'd' && !f.parts.length) return toast('파트를 하나 이상 골라 주세요');
+  if (k === 'n' && !f.co.trim()) return toast('업체명을 입력해 주세요');
+  if (!f.content.trim()) return toast('작업내용을 입력해 주세요');
+  const d = k === 'd' ? { id: f.id, day: f.day, parts: f.parts, workers: f.workers, floor: f.floor, content: f.content, mats: f.mats, note: f.note, before: whPics4(f.before), after: whPics4(f.after) }
+    : { id: f.id, day: f.day, co: f.co, floor: f.floor, content: f.content, note: f.note, photos: whPics4(f.photos), fire: whPics4(f.fire), pledge: whPics4(f.pledge) };
+  o.busy = true; render();
+  try {
+    const r = await call(WH_API[k][1], d); o.busy = false;
+    if (!r.ok) { render(); return toast(r.error || '저장하지 못했습니다'); }
+    if (o.list) { const i = o.list.findIndex(x => x.id === r.item.id); if (i >= 0) o.list[i] = r.item; else o.list.unshift(r.item); o.list.sort((a, b) => a.day < b.day ? 1 : a.day > b.day ? -1 : 0); }
+    o.f = whNew(k); o.sl = {}; o.keys = [];   // 저장하면 빈 양식 (저장한 작업은 아래 목록에서 눌러 다시 고침)
+    o.dirty = false; render(); window.scrollTo(0, 0); toast(k === 'd' ? '저장했습니다 · 종합업무일지 금일작업에도 들어갑니다' : '저장했습니다');
+  } catch (e) { o.busy = false; render(); }
+}
+async function whDel() {
+  const k = S.wh.tab, o = S.wh[k]; if (!o.f.id || !confirm('이 작업을 지울까요?' + (k === 'd' ? ' (종합업무일지 금일작업에서도 빠집니다)' : ''))) return;
+  try {
+    const r = await call(WH_API[k][2], o.f.id); if (!r.ok) return toast(r.error);
+    if (o.list) o.list = o.list.filter(x => x.id !== o.f.id);
+    o.f = whNew(k); o.dirty = false; render(); toast('지웠습니다');
+  } catch (e) { /* call() 이 알림 */ }
+}
+
+/* 인쇄 · PDF 쪽 만들기. 주간 = 1쪽. 야간 = ① 내용+현장 사진 쪽 · 각서 쪽 (양면으로 붙임, 항상 2쪽) → ② 방염서류 사진 한 장 = 한 쪽 (단면, 맨 뒤) */
+const WH_CSS = '.whp{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#000;background:#fff}.whp *{box-sizing:border-box}' +
+  '.whp .pg{width:794px;height:1122px;padding:40px 44px;overflow:hidden;background:#fff;page-break-after:always;break-after:page;position:relative}.whp .pg:last-child{page-break-after:auto;break-after:auto}' +
+  '.whp h1{font-size:22px;margin:0 0 4px}.whp .sub{font-size:11px;color:#444;margin-bottom:12px}.whp table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:10px}' +
+  '.whp td,.whp th{border:1px solid #888;font-size:12px;padding:5px 7px;text-align:left;vertical-align:top;line-height:1.45;word-break:break-all}.whp th{background:#e8edf3;width:72px;font-weight:600}' +
+  '.whp .bx{border:1px solid #888;padding:7px 9px;font-size:12px;line-height:1.5;min-height:48px;margin-bottom:10px;white-space:pre-wrap;word-break:break-all}.whp .bx b{display:block;font-size:11px;color:#444;margin-bottom:2px}' +
+  '.whp .ph{display:flex;gap:0;border:1px solid #888}.whp .col{flex:1;min-width:0;padding:6px}.whp .col+.col{border-left:1px solid #888}.whp .col h4{margin:0 0 5px;font-size:12px}' +
+  '.whp .gr{display:grid;gap:5px}.whp .cell{background:#f1f3f6;display:flex;align-items:center;justify-content:center;overflow:hidden}.whp .cell img{display:block}' +
+  '.whp .none{font-size:12px;color:#666;padding:10px 0}.whp .full{position:absolute;left:44px;right:44px;top:70px;bottom:44px;display:flex;align-items:center;justify-content:center}.whp .full img{display:block}' +
+  '.whp .ft{position:absolute;left:44px;right:44px;bottom:16px;font-size:10px;color:#666;display:flex;justify-content:space-between}.whp .pdfonly{color:#999}@media print{.whp .pdfonly{display:none}}';
+function whGrid(l, W, H) {   // 장수에 맞춰 칸 수·크기를 정함 (많으면 줄여서 한 쪽에 모음). 칸이 모자라면 빈 칸은 안 그림
+  if (!l.length) return '';
+  const n = l.length, cols = n === 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : 5, rows = Math.ceil(n / cols), gap = 5;
+  const ch = Math.floor((H - gap * (rows - 1)) / rows), cw = Math.floor((W - gap * (cols - 1)) / cols), s = Math.min(ch, Math.round(cw * 0.75));
+  return '<div class="gr" style="grid-template-columns:repeat(' + cols + ',1fr)">' + l.map(p => '<div class="cell" style="height:' + s + 'px"><img src="' + h(p.src) + '" alt=""></div>').join('') + '</div>';
+}
+function whDay(d) { return d.slice(0, 4) + '년 ' + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일'; }
+function whFt(t) { return '<div class="ft"><span>에비뉴엘 잠실점 시설팀 · 출력 ' + rwToday() + '</span><span>' + h(t) + '</span></div>'; }
+function whPages(k) {
+  const f = S.wh[k].f;
+  if (k === 'd') {
+    const mats = f.mats.filter(m => m.n.trim()), part = f.parts.map(p => (WH_PARTS.find(y => y[0] === p) || [0, p])[1]).join(' · ');
+    return '<div class="pg"><h1>주간 작업내역</h1><div class="sub">에비뉴엘 잠실점 시설팀</div>' +
+      '<table><tr><th>일자</th><td>' + h(whDay(f.day)) + '</td><th>파트</th><td>' + h(part) + '</td></tr><tr><th>작업자</th><td>' + h(f.workers) + '</td><th>작업위치</th><td>' + h(f.floor) + '</td></tr></table>' +
+      '<div class="bx"><b>작업내용</b>' + h(f.content) + '</div>' +
+      ((f.before.length || f.after.length) ? '<div class="ph"><div class="col"><h4>작업 전</h4>' + whGrid(f.before, 340, 560) + '</div><div class="col"><h4>작업 후</h4>' + whGrid(f.after, 340, 560) + '</div></div>' : '') +
+      (mats.length ? '<table style="margin-top:10px"><tr><th>사용자재</th><th style="width:auto">이름</th><th style="width:90px">수량</th><th style="width:90px">단위</th></tr>' + mats.map(m => '<tr><td></td><td>' + h(m.n) + '</td><td>' + h(m.q) + '</td><td>' + h(m.u) + '</td></tr>').join('') + '</table>' : '') +
+      (f.note.trim() ? '<div class="bx"><b>비고</b>' + h(f.note) + '</div>' : '') + whFt('주간 작업내역') + '</div>';
+  }
+  const head = '<h1>야간 작업내역</h1><div class="sub">에비뉴엘 잠실점 시설팀</div>';
+  const p1 = '<div class="pg">' + head + '<table><tr><th>일자</th><td>' + h(whDay(f.day)) + '</td><th>업체명</th><td>' + h(f.co) + '</td></tr><tr><th>작업위치</th><td colspan="3">' + h(f.floor) + '</td></tr></table>' +
+    '<div class="bx"><b>작업내용</b>' + h(f.content) + '</div>' + (f.note.trim() ? '<div class="bx"><b>기타사항</b>' + h(f.note) + '</div>' : '') +
+    '<div class="bx" style="padding:6px"><b>현장 사진 (' + f.photos.length + '장)</b>' + (f.photos.length ? whGrid(f.photos, 690, 640) : '<div class="none">미첨부</div>') + '</div>' + whFt('야간 작업내역 ①') + '</div>';
+  const p2 = '<div class="pg"><h1>각서</h1><div class="sub">' + h(f.co) + ' · ' + h(whDay(f.day)) + '</div>' + (f.pledge.length ? whGrid(f.pledge, 706, 940) : '<div class="none">각서 미첨부</div>') + whFt('야간 작업내역 ② 각서') + '</div>';
+  const fire = f.fire.length ? f.fire.map((p, i) => '<div class="pg"><div class="sub">방염서류 ' + (i + 1) + '/' + f.fire.length + ' · ' + h(f.co) + ' · ' + h(whDay(f.day)) + ' <span class="pdfonly">· 이 쪽부터 단면 인쇄</span></div><div class="full"><img src="' + h(p.src) + '" alt=""></div></div>').join('')
+    : '<div class="pg"><h1>방염서류</h1><div class="sub">' + h(f.co) + ' · ' + h(whDay(f.day)) + '</div><div class="none">방염서류 미첨부</div></div>';
+  return p1 + p2 + fire;
+}
+/* 사진은 자르지 않고 칸에 맞춰 줄임 — PDF 도구가 object-fit 을 못 읽어 크기를 직접 정함 */
+async function whFit(box) {
+  try { if (document.fonts) await document.fonts.ready; } catch (e) {}
+  const im = [...box.querySelectorAll('img')]; await Promise.all(im.map(i => i.decode ? i.decode().catch(() => {}) : null));
+  box.querySelectorAll('.cell img,.full img').forEach(i => {
+    const c = i.parentNode, sc = Math.min(c.clientWidth / i.naturalWidth, c.clientHeight / i.naturalHeight) || 1;
+    i.style.width = Math.floor(i.naturalWidth * sc) + 'px'; i.style.height = Math.floor(i.naturalHeight * sc) + 'px';
+  });
+}
+function whCheck() { const k = S.wh.tab, f = S.wh[k].f; if (!f.content.trim()) { toast('작업내용을 입력해 주세요'); return false; } return true; }
+async function whPrint() {
+  if (!whCheck()) return;
+  const k = S.wh.tab; $('print').innerHTML = '<style>@page{size:A4;margin:0}' + WH_CSS + '</style><div class="whp">' + whPages(k) + '</div>';
+  await whFit($('print')); setTimeout(() => window.print(), 100);
+}
+async function whPdf() {
+  if (!whCheck()) return;
+  const k = S.wh.tab, o = S.wh[k]; if (o.pdfBusy) return;
+  o.pdfBusy = true; render();
+  const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;z-index:-1';
+  wrap.innerHTML = '<style>' + WH_CSS + '</style><div class="whp" style="width:794px">' + whPages(k) + '</div>'; document.body.appendChild(wrap);
+  try {
+    await loadH2p(); await whFit(wrap);
+    const keepY = window.scrollY; window.scrollTo(0, 0);
+    let blob; try {
+      blob = await html2pdf().set({ margin: 0, filename: o.f.day + '_' + WH_TITLE[k] + '.pdf', image: { type: 'jpeg', quality: 0.9 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, x: 0, y: 0, windowWidth: 794 },
+        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait', hotfixes: ['px_scaling'] }, pagebreak: { mode: ['css'] } }).from(wrap.querySelector('.whp')).outputPdf('blob');
+    } finally { window.scrollTo(0, keepY); }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.dataset.pv = JSON.stringify({ name: WH_TITLE[k], sub: o.f.day });
+    o.pdfBusy = false; pdfOpen(a);
+  } catch (e) { o.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
+  wrap.remove();
+}
 /* ── 그리기 ── */
 function render() {
   let html;
@@ -3909,7 +4632,7 @@ function render() {
   else if (S.view === 'use') html = renderUse();
   else if (S.view === 'rep' && S.rep) html = renderRep();
   else if (S.view === 'kw' && isBoss()) html = renderKw();
-  else if (S.view === 'uhr' && isBoss()) html = renderUhr();
+  else if (S.view === 'uhr') html = renderUhr();   // 전 직원 (결정 218)
   else if (S.view === 'map') html = renderMap();
   else if (S.view === 'spec') html = S.sp ? renderSpec() : renderMain();
   else if (S.view === 'att') html = renderAtt();
@@ -3920,9 +4643,12 @@ function render() {
   else if (S.view === 'fire') html = renderFire();
   else if (S.view === 'qr') html = renderQr();
   else if (S.view === 'hyd') html = renderHyd();
+  else if (S.view === 'hydfl') html = S.hq ? renderHydFloor() : renderHyd();
   else if (S.view === 'eh') html = renderEh();
   else if (S.view === 'cs') html = renderCs();
   else if (S.view === 'csck') html = renderCsCk();
+  else if (S.view === 'rw') html = renderRw();
+  else if (S.view === 'wh') html = renderWh();
   else if (S.view === 'status') html = renderStatus();
   else if (S.view === 'floor') html = S.st ? renderFloor() : renderStatus();
   else if (S.view === 'set' && isBoss()) html = renderSet();
@@ -3935,7 +4661,7 @@ function render() {
   }
   $('app').innerHTML = html;
   if (S.view === 'spec' && S.sp && S.sp.boot) spDraw();
-  if (S.view === 'qr') drawQrs();
+  if (S.view === 'qr') { drawQrs(); qrMarkPartial(); }
   if (S.view === 'sign') mountSign();
   if (S.view === 'pdf') pvDraw();
 }

@@ -1,13 +1,13 @@
 -- ============================================================================
 -- 업무지원(WS) 메인 메뉴 켜기·끄기 (결정 148) — 환경설정(소장)에서 메인 칸을 끄면 직원은 못 엶. 소장·관리자·옵저버는 꺼진 칸도 엶
 -- 실행: SQL Editor 에 통째로 붙여 넣고 Run (여러 번 돌려도 안전). 그다음 13_map.sql · 14_spec.sql 도 다시 Run (서버에서도 막기)
--- 저장: settings 표 key '메인메뉴끄기' = 꺼진 칸 이름을 쉼표로 (docs, inspect, spec, map, cad, docs.tbm … inspect.cs : 윗 메뉴 · 하위 메뉴 이름). 빈 값 = 모두 켜짐
+-- 저장: settings 표 key '메인메뉴끄기' = 꺼진 칸 이름을 쉼표로 (docs, inspect, spec, map, cad, docs.tbm … docs.risk … inspect.cs : 윗 메뉴 · 하위 메뉴 이름). 빈 값 = 모두 켜짐
 -- ============================================================================
 
 create or replace function public.ws_menu_off_()
 returns text[] language sql stable security definer set search_path = public as $$
   select coalesce(array(select k from unnest(string_to_array(coalesce(public.ws_setting('메인메뉴끄기'), ''), ',')) k
-                        where k in ('docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs')), '{}'::text[]);
+                        where k in ('docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'docs.work', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs')), '{}'::text[]);
 $$;
 
 -- 꺼진 칸도 여는 역할 (사용자 11-19 「소장 포함」)
@@ -35,8 +35,8 @@ create or replace function public.ws_admin_set_menu(p_token text, p_off text[])
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare me public.staff := public.ws_boss(p_token); v text;
 begin
-  select coalesce(string_agg(k, ',' order by array_position(array['docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs'], k)), '') into v
-    from (select distinct k from unnest(coalesce(p_off, '{}'::text[])) k where k in ('docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs')) x;
+  select coalesce(string_agg(k, ',' order by array_position(array['docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'docs.work', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs'], k)), '') into v
+    from (select distinct k from unnest(coalesce(p_off, '{}'::text[])) k where k in ('docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'docs.work', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs')) x;
   perform public.ws_set_text('메인메뉴끄기', v);
   perform public.ws_log(me.name, '메인 메뉴 끄기', '', coalesce(nullif(v, ''), '모두 켬'));
   return jsonb_build_object('ok', true, 'off', to_jsonb(public.ws_menu_off_()));

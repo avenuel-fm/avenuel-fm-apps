@@ -43,6 +43,16 @@
     return { path, url: sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl };
   }
 
+  /** 작업내역 사진 칸: 이미 있는 것은 {id}, 새 것({data})은 버킷에 올려 {file} */
+  async function dwPics(list) {
+    const out = [];
+    for (const p of Array.isArray(list) ? list : []) {
+      if (p && p.data) { let blob; try { blob = dataUrlToBlob(p.data); } catch (e) { throw new Error('사진을 읽지 못했습니다. 다시 찍어 주세요.'); } out.push({ file: await upload('dw_photo', blob, 'jpg') }); }
+      else if (p && p.id) out.push({ id: p.id });
+    }
+    return out;
+  }
+
   /* ── DB 함수 부르기: 오류 글('LOGIN' 등)을 그대로 넘겨 화면의 call()이 알아듣게 ── */
   async function rpc(fn, args) {
     const { data, error } = await sb.rpc(fn, args);
@@ -165,6 +175,16 @@
     feStatus: (token, ym) => rpc('ws_fe_status', { p_token: token, p_ym: ym || '' }),
     feDetail: (token, id) => rpc('ws_fe_detail', { p_token: token, p_check_id: String(id || '') }),
 
+    /* ── 소화전·공기호흡기 (supabase/23_fire_equip.sql, 결정 224). 점검 입력·QR 표는 eq.html 이 따로 부름 ── */
+    eqList: async (token, kind) => eqPage(await rpc('ws_eq_list', { p_token: token, p_kind: kind || 'hyd' })),
+    eqAdd: async (token, d) => eqPage(await rpc('ws_eq_add', { p_token: token, p_d: d || {} })),
+    eqDelete: async (token, ids, kind) => eqPage(await rpc('ws_eq_delete', { p_token: token, p_ids: ids || [], p_kind: kind || 'hyd' })),
+    eqStatus: (token, ym) => rpc('ws_eq_status', { p_token: token, p_ym: ym || '' }),
+    eqDetail: (token, id) => rpc('ws_eq_detail', { p_token: token, p_check_id: String(id || '') }),
+    /** QR 관리 v2 (결정 228): 위치 이름 고치기(QR 그대로) · 인쇄함 표시 — kind: fe 소화기 · hyd 소화전 · air 공기호흡기 */
+    qrRename: async (token, kind, floor, oldP, newP) => (kind === 'fe' ? fePage : eqPage)(await rpc('ws_qr_rename', { p_token: token, p_kind: kind, p_floor: floor, p_old: oldP, p_new: newP })),
+    qrPrinted: async (token, kind, ids) => (kind === 'fe' ? fePage : eqPage)(await rpc('ws_qr_printed', { p_token: token, p_kind: kind, p_ids: ids || [] })),
+
     /* ── 3-5 전열필증 (supabase/06_eh.sql). 필증 QR 보기는 eh-sb.html 이 따로 부름 ── */
     ehList: async (token, floor) => fePage(await rpc('ws_eh_list', { p_token: token, p_floor: floor || '' })),
     ehStoreSave: async (token, d) => fePage(await rpc('ws_eh_store_save', { p_token: token, p_d: d || {} })),
@@ -207,6 +227,22 @@
       return rpc('ws_cs_save_pdf', { p_token: token, p_ck_id: String(ckId || ''), p_file: await upload('cs_pdf', pdf) });
     },
 
+    /* ── 위험작업신청서 (supabase/25_risk.sql): 사진은 버킷 risk_photo/ 에 먼저 — 글자가 읽히게 다시 줄이지 않고 그대로 (화면이 2400px·85%로 줄여 보냄) ── */
+    rwList: (token, q, from, to) => rpc('ws_rw_list', { p_token: token, p_q: q || '', p_from: from || '', p_to: to || '' }),
+    async rwAdd(token, day, co, floor, dataUri, cid) {
+      let blob; try { blob = dataUrlToBlob(dataUri); } catch (e) { return { ok: false, error: '사진을 읽지 못했습니다. 다시 찍어 주세요.' }; }
+      return rpc('ws_rw_add', { p_token: token, p_day: day || '', p_co: co || '', p_floor: floor || '', p_file: await upload('risk_photo', blob, 'jpg'), p_cid: cid || '' });
+    },
+    rwDelete: (token, id) => rpc('ws_rw_delete', { p_token: token, p_id: String(id || '') }),
+
+    /* ── 주간/야간 작업내역 (supabase/26_workhist.sql): 사진은 버킷 dw_photo/ 에 먼저 — 화면이 이미 줄여 보내므로 그대로 ── */
+    dwList: (token, q, from, to) => rpc('ws_dw_list', { p_token: token, p_q: q || '', p_from: from || '', p_to: to || '' }),
+    dwSave: async (token, d) => rpc('ws_dw_save', { p_token: token, p_d: Object.assign({}, d, { before: await dwPics(d.before), after: await dwPics(d.after) }) }),
+    dwDelete: (token, id) => rpc('ws_dw_delete', { p_token: token, p_id: String(id || '') }),
+    dnList: (token, q, from, to) => rpc('ws_dn_list', { p_token: token, p_q: q || '', p_from: from || '', p_to: to || '' }),
+    dnSave: async (token, d) => rpc('ws_dn_save', { p_token: token, p_d: Object.assign({}, d, { photos: await dwPics(d.photos), fire: await dwPics(d.fire), pledge: await dwPics(d.pledge) }) }),
+    dnDelete: (token, id) => rpc('ws_dn_delete', { p_token: token, p_id: String(id || '') }),
+
     /* ── 3-6 환경설정 (supabase/08_settings.sql, 소장만). 위험성 목록은 시트 대신 여기서 고침 ── */
     adminStaff: token => rpc('ws_admin_staff', { p_token: token }),
     adminSetToast: (token, sec) => rpc('ws_admin_set_toast', { p_token: token, p_sec: Number(sec) }),
@@ -217,6 +253,68 @@
     riskGet: token => rpc('ws_risk_get', { p_token: token }),
     riskSave: (token, rows) => rpc('ws_risk_save', { p_token: token, p_rows: rows || [] })
   };
+
+  /* ── 오프라인 임시 저장 (결정 222): 공조기 환기온도 · 가동시간 · 온습도 저장은 먼저 기기 상자에 넣고 보냄 ──
+     신호가 없으면 「저장 대기」로 남고, 화면에는 마지막으로 받은 자료에 방금 입력을 얹어 돌려줌. 읽기 자료도 기기에 복사해 둠(지하에서 화면 열기) */
+  const OFF = window.WS_OFFLINE;
+  if (OFF) {
+    const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 용량이 모자라면 복사만 건너뜀 */ } };
+    const rkey = (name, a) => 'ws_rc:' + name + ':' + a.join('|');
+    // 읽기: 성공하면 복사해 두고, 신호가 없어 못 받으면 복사본을 돌려줌 (r.offline = true)
+    const cachedGet = (name, keyArgs) => {
+      const f = API[name];
+      API[name] = async (...a) => {
+        try {
+          const r = await f(...a);
+          if (r && r.ok) { lsSet(rkey(name, keyArgs(a)), r); if (r.day) lsSet(rkey(name, keyArgs(a, r.day)), r); }   // 날짜를 안 주고 받은 것(오늘)은 그 날짜 이름으로도 복사
+          return r;
+        } catch (e) {
+          const c = OFF.isNet(e) && lsGet(rkey(name, keyArgs(a)));
+          if (c) { c.offline = true; return c; }
+          throw e;
+        }
+      };
+    };
+    cachedGet('usageGet', (a, d) => [a[1], d !== undefined ? d : a[2] || '']);
+    cachedGet('ahuGet', (a, d) => [d !== undefined ? d : a[1] || '']);
+    cachedGet('climateGet', () => []);
+    const after = (res, name, keyArgs, patch) => {
+      if (res.status === 'sent' || res.status === 'rejected' || res.status === 'full' || res.status === 'nostore') return res.r;
+      const c = lsGet(rkey(name, keyArgs)) || {};
+      const r = patch ? patch(c) : c;
+      r.ok = true; r.queued = true; r.offline = true; return r;
+    };
+    const asNum = v => v === '' || v == null ? null : Number(v);
+
+    OFF.handler('usage', (j, ctx) => rpc('ws_usage_save', { p_token: ctx.token, p_kind: j.args.kind, p_day: j.args.day, p_rows: j.args.rows, p_at: j.enteredAt }));
+    API.usageSave = async (token, kind, day, rows) => after(
+      await OFF.send({ kind: 'usage', token, label: (kind === 'hvac' ? '공조기' : '에어커튼') + ' 가동시간 ' + Number(day.slice(5, 7)) + '/' + Number(day.slice(8, 10)), args: { kind, day, rows } }),
+      'usageGet', [kind, day], c => {
+        c.recs = c.recs || {};
+        (rows || []).forEach(x => { if (x.s == null && x.e == null && !x.off) delete c.recs[x.u]; else c.recs[x.u] = { s: x.s, e: x.e, off: !!x.off, by: '', ver: '' }; });
+        return c;
+      });
+
+    OFF.handler('ahu', (j, ctx) => rpc('ws_ahu_save', { p_token: ctx.token, p_day: j.args.day, p_c: j.args.c }));
+    API.ahuSave = async (token, day, c) => after(
+      await OFF.send({ kind: 'ahu', token, label: '공조기 환기온도 ' + Number(day.slice(5, 7)) + '/' + Number(day.slice(8, 10)), args: { day, c: c || {} } }),
+      'ahuGet', [day], r => {
+        const rec = r.rec = r.rec || { temps: {} }; rec.temps = rec.temps || {};
+        Object.keys(c || {}).forEach(k => {
+          if (k !== 'temps') { rec[k] = asNum(c[k]); return; }
+          Object.keys(c.temps).forEach(u => Object.keys(c.temps[u]).forEach(t => {
+            const v = asNum(c.temps[u][t]); rec.temps[u] = rec.temps[u] || {};
+            if (v == null) delete rec.temps[u][t]; else rec.temps[u][t] = v;
+          }));
+        });
+        return r;
+      });
+
+    OFF.handler('climate', (j, ctx) => rpc('ws_climate_add', { p_token: ctx.token, p_rows: j.args.rows, p_out: j.args.out, p_cid: j.id, p_at: j.enteredAt }));
+    API.climateAdd = async (token, rows, out) => after(
+      await OFF.send({ kind: 'climate', token, label: '온습도 ' + (rows || []).length + '곳', args: { rows: rows || [], out: out || {} } }), 'climateGet', [], null);
+  }
 
   /* ── 전열기 관리대장 엑셀 → 매장·기기 (Code.gs ehParse_ · ehW_ · ehDate_ 그대로) ── */
   const EH_FLOORS = ['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '팝업'], EH_NO = /^(B[1-3]|[1-6]F|팝업)-(\d+)-(\d+)$/;
@@ -292,6 +390,8 @@
   }
   /** QR 주소 앞부분: 설정 「바로가기주소」, 없으면 지금 앱이 있는 폴더 (…/fm/ws/) — QR은 거기에 ?fe= 를 붙임 */
   function fePage(r) { if (r && r.ok && !r.execUrl) r.execUrl = new URL('./', location.href).href; return r; }
+  /** 소화전·공기호흡기 목록: QR 라벨 글자는 이름 통째로 (화면 labelHtml 이 label 을 씀) */
+  function eqPage(r) { fePage(r); if (r && r.ok && r.items) r.items = r.items.map(i => Object.assign({ label: i.name, store: i.place }, i)); return r; }   // store = 화면이 층 아래 위치로 묶을 때 쓰는 이름 (소화기 store_name 과 같은 자리)
 
   /** 화면이 만든 PDF(data:) → Blob. 틀리면 { ok:false, error } (Code.gs와 같은 안내) */
   function pdfBlob(uri) {

@@ -62,7 +62,7 @@ if (require.main === module) (async () => {
   let r = await call('dw_start', { p_a: { pin: '1234' } });
   const TOK = H('token:소장:' + H('1234'));
   ok(r.role === '소장' && r.token === TOK, 'PIN 1234 → 소장, 표가 Code.gs 와 같은 값 (기억한 기기 그대로)');
-  ok(r.boot.fields.length === 68 && r.boot.rules.length === 7 && r.boot.phrases.length === 5 && Array.isArray(r.stores), '첫 화면: 항목·준수사항·문구·매장 목록');
+  ok(r.boot.fields.length === 69 && r.boot.rules.length === 7 && r.boot.phrases.length === 5 && Array.isArray(r.stores), '첫 화면: 항목·준수사항·문구·매장 목록');
   const A = { role: '소장', token: TOK }, B = { role: '부소장', token: H('token:부소장:' + H('5678')) };
   ok((await call('dw_login', { p_a: { role: '부소장', pin: '5678' } })).token === B.token, '부소장 PIN 로그인');
   ok(/PIN이 바뀌었습니다/.test(await callErr('dw_list_stores', { p_a: { role: '소장', token: 'x' } })), '틀린 표 → 다시 로그인 안내');

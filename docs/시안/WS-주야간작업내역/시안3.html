@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>야간작업 사진 칸 시안 3 — 주간처럼 칸마다 + 버튼 (최대 20장)</title>
+<style>
+body{margin:0;padding:20px;background:#E9EDF2;font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#1B2430;font-size:14px}
+h2{margin:0 0 6px;font-size:16px}.note{font-size:12.5px;color:#5B6573;line-height:1.6;margin:0 0 12px}
+.wrap{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}.frame{background:#fff;border:1px solid #D8DDE5;border-radius:10px;padding:14px}.m{width:360px}.pc{width:900px}
+.sec{font-size:13px;font-weight:700;color:#14284B;margin:4px 0 6px}.sec small{font-weight:400;color:#8A94A3;margin-left:6px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.card{border:1px solid #D8DDE5;border-radius:8px;padding:8px;min-width:0}.card h4{margin:0 0 4px;font-size:13.5px;color:#14284B}
+.tile{position:relative;aspect-ratio:4/3;background:#F1F4F8;border:1px solid #D8DDE5;display:flex;align-items:center;justify-content:center;color:#8A94A3;font-size:12px;overflow:hidden}
+.tile .ph{width:100%;height:62%;background:linear-gradient(135deg,#9db1c9,#6f86a3)}
+.tile .x{position:absolute;top:4px;right:4px;width:24px;height:24px;border:1px solid #D8DDE5;border-radius:6px;background:#fff;text-align:center;line-height:22px;font-size:12px}
+.bs{display:flex;gap:5px;margin-top:5px}.bs span{flex:1;height:36px;border:1px solid #D8DDE5;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;background:#fff}
+.add{margin-top:8px;height:42px;border:1.5px dashed #1F5FA8;color:#1F5FA8;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600;gap:6px}
+.add.off{border-color:#D8DDE5;color:#8A94A3}
+.tag{display:inline-block;background:#FFF4D6;padding:1px 6px;border-radius:4px;font-size:11.5px}
+</style></head><body>
+<h2>야간작업 — 현장 사진·방염서류 입력 칸 (시안 3)</h2>
+<p class="note">주간작업 칸과 <b>똑같이</b> 「칸 하나 = 제목 + 4:3 빈 네모 + 칸마다 카메라/파일 버튼」입니다. 처음엔 빈 칸 2개, <b>＋ 버튼</b>을 누르면 칸이 하나씩 늘어나 <b>최대 20장</b>. 휴대폰 2열 · PC 4열. 방염서류도 똑같습니다(각서는 그대로 두면 되는지 아래 확인).</p>
+<div class="wrap">
+<div class="frame m">
+ <div class="sec">현장 사진 <small>3장 / 20장</small></div>
+ <div class="g2">
+  <div class="card"><h4>현장 사진 1</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>현장 사진 2</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>현장 사진 3</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>현장 사진 4</h4><div class="tile">사진 없음</div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+ </div>
+ <div class="add">＋ 사진 칸 추가 <small>(4 / 20)</small></div>
+ <div class="sec" style="margin-top:14px">방염서류 <small>0장 / 20장</small></div>
+ <div class="g2">
+  <div class="card"><h4>방염서류 1</h4><div class="tile">사진 없음</div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>방염서류 2</h4><div class="tile">사진 없음</div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+ </div>
+ <div class="add">＋ 사진 칸 추가 <small>(2 / 20)</small></div>
+ <p class="note" style="margin-top:8px">휴대폰 2열 · 칸이 늘면 아래로 이어짐 · 20칸이 되면 ＋ 버튼이 회색(눌러도 안 늘어남)</p>
+</div>
+<div class="frame pc">
+ <div class="sec">현장 사진 <small>5장 / 20장</small></div>
+ <div class="g4">
+  <div class="card"><h4>현장 사진 1</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>현장 사진 2</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>현장 사진 3</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>현장 사진 4</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>현장 사진 5</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>현장 사진 6</h4><div class="tile">사진 없음</div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+ </div>
+ <div class="add">＋ 사진 칸 추가 <small>(6 / 20)</small></div>
+ <div class="sec" style="margin-top:14px">방염서류 <small>20장 / 20장</small></div>
+ <div class="g4">
+  <div class="card"><h4>방염서류 1</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>방염서류 2</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>방염서류 3</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>방염서류 4</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+ </div>
+ <div class="add off">＋ 사진 칸 추가 <small>(20 / 20 · 더 넣을 수 없음)</small></div>
+ <p class="note" style="margin-top:8px">PC 4열 (위는 줄임 — 실제로는 20칸까지 4열로 이어짐)</p>
+</div>
+</div>
+</body></html>

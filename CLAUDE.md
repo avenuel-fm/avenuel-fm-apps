@@ -26,6 +26,7 @@
 | `apps/ws/` | 업무지원 앱 (소화기 점검, 서명 로그인, 서류작업 …) |
 | `apps/ws/src/` | Apps Script에 올리는 파일 (`Code.gs`, `Index.html`, `Check.html`, `Styles.html`, `appsscript.json`) |
 | `apps/ws/test/` | 시험 도구 (가짜 구글 시트 서버 시험 + 휴대폰 화면 시험) |
+| `apps/ws/parts/` · `apps/ws/tools/build_index.py` | **`src/Index.html`은 자동 생성물 — 직접 고치지 않고 `parts/`의 조각(기능별)을 고친 뒤 `npm run build:index`.** 조각은 파일 이름 순서대로 이어 붙임 |
 | `apps/ws/tools/build_fm.py` | `src/Check.html` → `fm/ws/check.html` 만들기 |
 | `apps/dw/` | 도면협의 앱 (운영 v1.8.8). 자세한 안내는 `apps/dw/CLAUDE.md` (DW 폴더에서 일할 때 저절로 읽힘) |
 | `apps/dw/src/` | Apps Script에 올리는 파일 (`Code.gs`, `Index.html`, `App.html`, `Styles.html`, `appsscript.json`) |

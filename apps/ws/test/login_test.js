@@ -35,9 +35,9 @@ const fmFile = require('./fm_serve.js');
   await inner0.waitForFunction(() => S.cached === false, null, { timeout: 8000 });
   console.log('   → 서버 확인 뒤 새 숫자로 (PIN 없이 메인)');
   console.log(((await fr().locator('.tile.on').count()) === 0 ? '' : 'FAIL ') + '3-1) 메인에 미리 선택된 칸 없음');
-  await fr().locator('.tile:has(b:text-is("점검"))').click(); await fr().locator('text=소화기 점검').first().waitFor();
+  await fr().locator('.tile:has(b:text-is("점검"))').click(); await fr().locator('text=소화기/소화전/공기호흡기 점검').first().waitFor();
   await p.waitForTimeout(3500);
-  console.log('4) 점검 화면 3.5초 뒤에도 그대로:', await fr().locator('text=소화기 점검').count() > 0 && await fr().locator('.grid6').count() === 0);
+  console.log('4) 점검 화면 3.5초 뒤에도 그대로:', await fr().locator('text=소화기/소화전/공기호흡기 점검').count() > 0 && await fr().locator('.grid6').count() === 0);
   slow = 0;
   // 구글 칸 저장소가 지워진 경우 (사파리·삼성 인터넷 흉내)
   const inner = p.frames().find(f => f.url().startsWith(GU));

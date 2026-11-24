@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# 쉘 스크립트는 윈도우에서도 줄 끝을 LF 로 (CRLF 면 bash 가 실행 못 함)
+*.sh text eol=lf

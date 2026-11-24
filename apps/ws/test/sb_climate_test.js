@@ -112,6 +112,9 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(await called('ws_usage_save', n0) && await toastOf(p, '5대 저장했습니다'), 'C8) 저장 (화면의 아직 저장 안 한 장비도 기본 시각으로)');
   let sv = last('ws_usage_save').a;
   ok(sv.p_kind === 'hvac' && sv.p_day === Y && JSON.stringify(sv.p_rows) === '[{"u":"7F-39","s":600,"e":1250,"off":false},{"u":"6F-36","s":null,"e":null,"off":true},{"u":"5F-27","s":600,"e":1160,"off":false},{"u":"B3F-1","s":510,"e":1120,"off":false},{"u":"B3F-HVU1","s":510,"e":1120,"off":false}]', 'C9) DB 함수에 날짜·장비별 분 (오후 8:50 = 1250) · 미가동 ' + JSON.stringify(sv.p_rows));
+  ok(/saved/.test(await p.locator('.uc[data-card="7F-39"]').getAttribute('class')) && !/saved/.test(await p.locator('.uc[data-card="6F-36"]').getAttribute('class')), 'C9b) 저장된 장비는 시각 칸 회색 (미가동은 흐리게 그대로, 결정 226)');
+  await p.selectOption('.uc[data-card="5F-27"] select[data-f="eh"]', '9');
+  ok(!/saved/.test(await p.locator('.uc[data-card="5F-27"]').getAttribute('class')), 'C9c) 고치면 회색 풀림');
   await p.click('.flnav button:has-text("5층")');
   ok(await p.evaluate(() => S.use.pg) === 1 && /on/.test(await p.locator('.flnav button').nth(1).getAttribute('class')), 'C10) 층 버튼 → 그 층으로 이동');
   await p.selectOption('.uc[data-card="5F-27"] select[data-f="eh"]', '');
@@ -143,7 +146,13 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   n0 = count('ws_climate_add'); await p.click('#climSave'); await called('ws_climate_add', n0);
   const ca = last('ws_climate_add').a;
   ok(JSON.stringify(ca.p_rows) === '[{"floor":"6F","zone":"1구역","t":"24.1","h":"52"},{"floor":"6F","zone":"2구역","t":"28","h":"70"}]' && JSON.stringify(ca.p_out) === '{"t":"11.2","h":"48"}' && await toastOf(p, '2곳 저장했습니다'), 'C19) 저장 → 구역 2곳 + 실외');
-  ok(/오늘 14:05 · 24\.1℃ 52%/.test(await p.locator('.zr').first().innerText()), 'C20) 저장 뒤 구역마다 오늘 마지막 기록');
+  const t1 = p.locator('input[aria-label="6층 1구역 실내온도"]');
+  ok(await t1.inputValue() === '24.1' && await p.locator('input[aria-label="6층 1구역 실내습도"]').inputValue() === '52' && /saved/.test(await t1.getAttribute('class')) && !/오늘/.test(await p.locator('.zr').first().innerText()) && /기록 없음|저장됨/.test(await p.locator('#climState').innerText()), 'C20) 저장 뒤 칸에 오늘 값(회색) · 아래 「오늘」 글자 없음 (결정 226)');
+  n0 = count('ws_climate_add'); await p.click('#climSave');
+  ok(await toastOf(p, '넣은 구역이 없습니다') && count('ws_climate_add') === n0, 'C20b) 저장값 그대로면 다시 안 보냄');
+  await t1.fill('25'); await t1.dispatchEvent('input');
+  ok(!/saved/.test(await t1.getAttribute('class')) && /저장 안 함/.test(await p.locator('#climState').innerText()), 'C20c) 고치면 회색 풀림 · 저장 안 함');
+  await t1.fill('24.1'); await t1.dispatchEvent('input');
   await p.screenshot({ path: path.join(__dirname, 'shot_cl_clim.png'), fullPage: true });
   // AHU 탭: 11:00
   await p.click('.cltabs button:has-text("AHU")'); await p.locator('.hvtime').waitFor();
@@ -161,8 +170,12 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   const w1 = wB3.find(x => x[0] === '5F-27')[1];
   ok(wB3.filter(x => /^B3/.test(x[0])).every(x => Math.abs(x[1] - w1) <= 2), 'C24b) PC: B3층 칸도 다른 층 구역 칸과 같은 크기 ' + JSON.stringify(wB3));
   ok(await q.locator('.nwbar .back-in').count() === 1 && await q.locator('.flname[style]').count() === 0, 'C24c) 아래 줄 뒤로 하나 (AHU 탭과 같음) · 층 색 없음');
-  const one = await q.evaluate(() => { const c = document.querySelector('.uc[data-card="5F-27"]'), sel = [...c.querySelectorAll('select')].map(e => Math.round(e.getBoundingClientRect().top)); return [Math.round(c.getBoundingClientRect().height), new Set(sel).size]; });
-  ok(one[0] <= 40 && one[1] === 1, 'C24d) PC: 장비 한 칸이 한 줄 (높이 ' + one[0] + 'px)');
+  const lines = () => q.evaluate(() => { const c = document.querySelector('.uc[data-card="5F-27"]'), top = e => Math.round(e.getBoundingClientRect().top), sel = [...c.querySelectorAll('select')].map(top); return [Math.round(c.getBoundingClientRect().height), new Set(sel).size, top(c.querySelector('.off')) < Math.min(...sel), document.querySelectorAll('.ucpc .uc').length, [...document.querySelectorAll('.ucpc .uc')].filter(e => e.scrollWidth > e.clientWidth + 1 || e.getBoundingClientRect().right > innerWidth).length]; });
+  let one = await lines();
+  ok(one[1] === 1 && one[2] && one[4] === 0, 'C24d) 태블릿 가로(1280): 장비 칸 두 줄 (이름·미가동 / 시각) · 잘림 없음 ' + JSON.stringify(one));
+  await q.setViewportSize({ width: 1920, height: 950 }); one = await lines();
+  ok(one[0] <= 40 && one[1] === 1 && !one[2] && one[4] === 0, 'C24d2) PC 1920: 장비 칸 한 줄 그대로 (높이 ' + one[0] + 'px)');
+  await q.setViewportSize({ width: 1280, height: 900 });
   const sq = await q.evaluate(() => { const r = document.querySelector('.ucpc td.ctr .flname').getBoundingClientRect(), w = Math.min(...[...document.querySelectorAll('.ucpc select')].map(e => e.getBoundingClientRect().width)); return [Math.round(r.width), Math.round(r.height), Math.round(w), document.querySelectorAll('.ucpc select[data-f$="a"]').length]; });
   ok(sq[0] === sq[1] && sq[0] <= 48 && sq[2] >= 52 && sq[3] === 0, 'C24j) PC: 층 칸 정사각형 · 시·분 칸 52px 이상 · 오전/오후 고르기 없음 ' + JSON.stringify(sq));
   // 가동시간 설정 (결정 200): 리포트 왼쪽 버튼
@@ -188,6 +201,8 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   const dl = q.waitForEvent('download'); await q.click('button:has-text("CSV")');
   const csvF = await (await dl).path(), csv = fs.readFileSync(csvF, 'utf8');
   ok(/^﻿날짜,공조기,가동시간\(시간\),kW,전력량\(kWh\),예상 요금\(원\)/.test(csv) && /7F-39,10\.0,7\.5,75\.0,9000/.test(csv) && !/OLD-3/.test(csv), 'C27) CSV 받기 (한글 깨짐 방지 표시 · 전력·요금 칸)');
+  const acc = await q.evaluate(() => { const d = [...document.querySelectorAll('#repBody .repacc>details')]; return [d.length, d[0].open, d.slice(1).some(x => x.open), d[0].querySelector('summary').innerText, d.reduce((n, x) => n + x.querySelectorAll('tbody tr').length, 0)]; });
+  ok(acc[0] >= 2 && acc[1] && !acc[2] && /년 \d+월/.test(acc[3]) && /기록 \d+일/.test(acc[3]) && acc[4] === 30, 'C27b) 일일 기록: 달별 접기 · 이번 달만 펼침 · 기간 30일 모두 ' + JSON.stringify(acc));
   await q.screenshot({ path: path.join(__dirname, 'shot_cl_rep.png'), fullPage: true });
   await q.click('.nwbar button:has-text("뒤로")'); await q.locator('.ucpc').waitFor();
   ok(await q.evaluate(() => S.view) === 'use', 'C28) 리포트 [뒤로] → 공조기 가동시간');
@@ -200,6 +215,8 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(/측정 건수\s*2건/.test(ct) && /주의/.test(ct) && /온도가 높습니다/.test(ct), 'C29) 온습도 리포트: 건수 · 단계 · 조치 권고');
   await q.waitForFunction(() => window.CHART_N > 1);
   ok(await q.locator('.cladv details').count() === 1 && /6층\s*2건/.test(await q.locator('.cladv summary').innerText()) && await q.evaluate(() => window.CHART_T) === 'line:4', 'C29b) 조치 권고는 층별 접기 · 그래프에 쾌적 온도 띠 (선 2 + 범위 2) ' + await q.locator('.cladv').innerText() + ' ' + await q.evaluate(() => window.CHART_T));
+  const cacc = await q.evaluate(() => { const m = document.querySelector('#repBody .repacc>details'), d = m.querySelectorAll('.repday>details'); return [m.open, d.length, d[0].open, d[0].querySelectorAll('tbody tr').length, m.querySelector('summary').innerText]; });
+  ok(cacc[0] && cacc[1] >= 1 && cacc[2] && cacc[3] >= 1 && /2건 · 평균/.test(cacc[4]), 'C29c) 상세 기록: 달 → 날짜 접기 · 맨 위만 펼침 ' + JSON.stringify(cacc));
   await q.screenshot({ path: path.join(__dirname, 'shot_cl_rep_clim.png'), fullPage: true });
   // kW·단가 (소장)
   await q.evaluate(() => openKw()); await q.locator('input[aria-label="전력 단가"]').waitFor();

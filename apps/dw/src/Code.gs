@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.9.5',
+  VERSION: '1.9.6',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
@@ -153,7 +153,9 @@ var FIELDS = [
   ['agreeRespSig', '안전동의서_책임자서명', 'sig'],
   ['agreeRespSigDate', '안전동의서_책임자서명일', 'date'],
   ['agreeLotteSig', '안전동의서_롯데담당자서명', 'sig'],
-  ['agreeLotteSigDate', '안전동의서_롯데담당자서명일', 'date']
+  ['agreeLotteSigDate', '안전동의서_롯데담당자서명일', 'date'],
+  // 1.9.6 퇴점일 (선택 입력). 열은 맨 끝에만 추가
+  ['exitDate', '퇴점일', 'date']
 ];
 
 /** 주방공사가 "없음"이면 자동으로 "해당없음"이 되는 항목 */
