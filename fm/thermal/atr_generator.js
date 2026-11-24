@@ -410,13 +410,30 @@ class AtrGenerator {
         const footerStart = starts[totalSlots];
         const docFooter = docBytesOriginal.subarray(footerStart);
 
+        // FLIR .atr 구조 필수 규칙:
+        // 맨 마지막 슬롯(starts[totalSlots - 1] ~ starts[totalSlots], 즉 98번 슬롯)은
+        // FLIR 보고서 필수 템플릿 패키지([Content_Types].xml 등)를 담고 있으므로
+        // 생성되는 N쪽 문서의 맨 마지막 슬롯으로 반드시 98번 슬롯을 배치해야 함!
+        const selectedSlotIndices = [];
+        if (numActive === 1) {
+            selectedSlotIndices.push(totalSlots - 1);
+        } else {
+            for (let i = 0; i < numActive - 1; i++) {
+                selectedSlotIndices.push(i);
+            }
+            selectedSlotIndices.push(totalSlots - 1);
+        }
+
         // 2. 정확히 업로드된 N개 페이지만 슬롯을 변환하여 담고, 나머지 미사용 슬롯은 완전 제거!
         const activeGuids = new Set();
         const transformedSlots = [];
+        const p1 = new Uint8Array([0x2e, 0x7f, 0x01]);
+        const p2 = new Uint8Array([0xb8, 0x52, 0x01]);
 
         for (let p = 0; p < numActive; p++) {
-            const slotStart = starts[p];
-            const slotEnd = starts[p + 1];
+            const sIdx = selectedSlotIndices[p];
+            const slotStart = starts[sIdx];
+            const slotEnd = starts[sIdx + 1];
             const slotSlice = docBytesOriginal.subarray(slotStart, slotEnd);
 
             const item = circuitItems[p];
@@ -467,6 +484,35 @@ class AtrGenerator {
             };
 
             const transformed = await AtrGenerator.transformSlot(slotSlice, p, slotInfo, item);
+
+            // 각 슬롯 끝부분의 슬롯 메타데이터 PageCount 동적 패치
+            // p1 (2e 7f 01) 뒤 4바이트: 총 슬롯 수 N
+            // p2 (b8 52 01) 뒤 4바이트: 총 슬롯 수 + 1 (N + 1)
+            const searchFrom = Math.max(0, transformed.length - 4000);
+            let idxP1 = -1;
+            let cur1 = searchFrom;
+            while (true) {
+                const found = AtrGenerator.findSub(transformed, p1, cur1);
+                if (found === -1) break;
+                idxP1 = found;
+                cur1 = found + 1;
+            }
+            if (idxP1 !== -1 && idxP1 + 7 <= transformed.length) {
+                transformed.set(AtrGenerator.u32Bytes(numActive), idxP1 + 3);
+            }
+
+            let idxP2 = -1;
+            let cur2 = searchFrom;
+            while (true) {
+                const found = AtrGenerator.findSub(transformed, p2, cur2);
+                if (found === -1) break;
+                idxP2 = found;
+                cur2 = found + 1;
+            }
+            if (idxP2 !== -1 && idxP2 + 7 <= transformed.length) {
+                transformed.set(AtrGenerator.u32Bytes(numActive + 1), idxP2 + 3);
+            }
+
             transformedSlots.push(transformed);
 
             // 열화상 원본 바이너리 저장
