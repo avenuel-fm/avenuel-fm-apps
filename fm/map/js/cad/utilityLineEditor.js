@@ -1,9 +1,9 @@
 /* ==========================================================================
-   utilityLineEditor.js - 매장(자) ← 기능실(모) 설비 배관/간선(전기, 수도, 가스, 배수). 선은 길찾기로 자동 (결정 218)
+   utilityLineEditor.js - 매장(자) ← 기능실(모) 설비 배관/간선(전기, 수도, 가스, 배수). 선은 길찾기로 자동 (결정 246)
    ========================================================================== */
 
 var isUtilLineDrawingMode = false;
-var utilLineSourceStore = null;    // 자 = 매장 (결정 218. 예전에는 기능실이 자)
+var utilLineSourceStore = null;    // 자 = 매장 (결정 246. 예전에는 기능실이 자)
 var utilLineTargetStore = null;    // 모 = 기능실. 흐름은 모 → 자
 var utilLineSelectedType = 'power';// 'power'(전기) | 'water'(수도) | 'gas'(가스) | 'drain'(배수)
 var utilLineInputValue = '50';     // 입력 규격 (전기: A, 수도: mm, 배수: mm, 가스: 비활성)
@@ -357,7 +357,7 @@ function startUtilityLineDrawingMode(preStore = null) {
     showToast('매장(자)과 기능실(모)을 차례로 누르면 선이 길을 따라 자동으로 그려집니다.', 2500);
 }
 
-// 예전 방식(손으로 꺾어 그린) 배관은 길찾기 방식으로 바뀌며 지움 (결정 218). 자동으로 그린 선은 auto 표시가 있음
+// 예전 방식(손으로 꺾어 그린) 배관은 길찾기 방식으로 바뀌며 지움 (결정 246). 자동으로 그린 선은 auto 표시가 있음
 function purgeLegacyUtilityLines() {
     if (mapStore.readOnly()) return;
     let total = 0;
