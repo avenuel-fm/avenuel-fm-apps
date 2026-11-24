@@ -201,6 +201,8 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   const dl = q.waitForEvent('download'); await q.click('button:has-text("CSV")');
   const csvF = await (await dl).path(), csv = fs.readFileSync(csvF, 'utf8');
   ok(/^﻿날짜,공조기,가동시간\(시간\),kW,전력량\(kWh\),예상 요금\(원\)/.test(csv) && /7F-39,10\.0,7\.5,75\.0,9000/.test(csv) && !/OLD-3/.test(csv), 'C27) CSV 받기 (한글 깨짐 방지 표시 · 전력·요금 칸)');
+  const acc = await q.evaluate(() => { const d = [...document.querySelectorAll('#repBody .repacc>details')]; return [d.length, d[0].open, d.slice(1).some(x => x.open), d[0].querySelector('summary').innerText, d.reduce((n, x) => n + x.querySelectorAll('tbody tr').length, 0)]; });
+  ok(acc[0] >= 2 && acc[1] && !acc[2] && /년 \d+월/.test(acc[3]) && /기록 \d+일/.test(acc[3]) && acc[4] === 30, 'C27b) 일일 기록: 달별 접기 · 이번 달만 펼침 · 기간 30일 모두 ' + JSON.stringify(acc));
   await q.screenshot({ path: path.join(__dirname, 'shot_cl_rep.png'), fullPage: true });
   await q.click('.nwbar button:has-text("뒤로")'); await q.locator('.ucpc').waitFor();
   ok(await q.evaluate(() => S.view) === 'use', 'C28) 리포트 [뒤로] → 공조기 가동시간');
@@ -213,6 +215,8 @@ const called = async (fn, n0) => { for (let i = 0; i < 80; i++) { if (count(fn) 
   ok(/측정 건수\s*2건/.test(ct) && /주의/.test(ct) && /온도가 높습니다/.test(ct), 'C29) 온습도 리포트: 건수 · 단계 · 조치 권고');
   await q.waitForFunction(() => window.CHART_N > 1);
   ok(await q.locator('.cladv details').count() === 1 && /6층\s*2건/.test(await q.locator('.cladv summary').innerText()) && await q.evaluate(() => window.CHART_T) === 'line:4', 'C29b) 조치 권고는 층별 접기 · 그래프에 쾌적 온도 띠 (선 2 + 범위 2) ' + await q.locator('.cladv').innerText() + ' ' + await q.evaluate(() => window.CHART_T));
+  const cacc = await q.evaluate(() => { const m = document.querySelector('#repBody .repacc>details'), d = m.querySelectorAll('.repday>details'); return [m.open, d.length, d[0].open, d[0].querySelectorAll('tbody tr').length, m.querySelector('summary').innerText]; });
+  ok(cacc[0] && cacc[1] >= 1 && cacc[2] && cacc[3] >= 1 && /2건 · 평균/.test(cacc[4]), 'C29c) 상세 기록: 달 → 날짜 접기 · 맨 위만 펼침 ' + JSON.stringify(cacc));
   await q.screenshot({ path: path.join(__dirname, 'shot_cl_rep_clim.png'), fullPage: true });
   // kW·단가 (소장)
   await q.evaluate(() => openKw()); await q.locator('input[aria-label="전력 단가"]').waitFor();

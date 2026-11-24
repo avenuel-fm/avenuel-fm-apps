@@ -603,6 +603,9 @@ select.lgin{text-align:center;padding:0}
 .repchart{position:relative;height:300px;background:var(--white);border:1px solid var(--line2);border-radius:var(--radius);padding:var(--sp-2)}
 .cladv{display:flex;flex-direction:column;gap:var(--sp-1)}.cladv details{background:var(--white);border:1px solid var(--line2);border-radius:var(--radius)}
 .cladv summary{display:flex;align-items:center;gap:var(--sp-2);min-height:44px;padding:0 var(--sp-3);cursor:pointer;font-size:var(--size-m)}.cladv summary small{color:var(--muted);font-size:var(--size-s)}
+.repacc{display:flex;flex-direction:column;gap:var(--sp-1)}.repacc details{background:var(--white);border:1px solid var(--line2);border-radius:var(--radius)}
+.repacc summary{display:flex;align-items:center;flex-wrap:wrap;gap:2px var(--sp-2);min-height:44px;padding:4px var(--sp-3);cursor:pointer;font-size:var(--size-m)}.repacc summary small{color:var(--muted);font-size:var(--size-s)}
+.repacc details>.scroll{padding:0 var(--sp-2) var(--sp-2)}.repacc .repday{display:flex;flex-direction:column;gap:var(--sp-1);padding:0 var(--sp-2) var(--sp-2)}.repacc .repday details{background:var(--tint)}
 .cladv ul{margin:0;padding:0 var(--sp-3) var(--sp-3) calc(var(--sp-3) + 18px);font-size:var(--size-s);color:var(--sub);line-height:1.7}
 .ucg3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2)}
 .lgwrap:has(.ucpc),.lgwrap:has(.uhg){max-width:none}
@@ -3280,6 +3283,7 @@ async function loadRep() {
 }
 function repBack() { const p = S.rep; if (p.from === 'use') openUse(p.fromKind); else if (p.from === 'clim') openClim(); else go(p.from || 'docs'); }
 function repPer(k) { S.rep.per = k; loadRep(); }
+function repMon(m) { return m.slice(0, 4) + '년 ' + Number(m.slice(5)) + '월'; }
 function repKpi(l, v, sub) { return '<div class="kpi"><span>' + l + '</span><strong>' + v + '</strong>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
 function repArrow(c, p, unit, dg) { if (c == null || p == null) return '—'; const d = c - p, t = (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + Math.abs(d).toLocaleString('ko-KR', { minimumFractionDigits: dg == null ? 1 : dg, maximumFractionDigits: dg == null ? 1 : dg }) + unit; return '<span class="' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">' + t + '</span>'; }
 // 기간 안 장비별 하루 분 → 묶음 계산 (옛 computeStats 와 같은 식)
@@ -3329,8 +3333,14 @@ function repUseHtml() {
     rows.map(x => '<tr' + (x.q.days ? '' : ' class="dim"') + '><td class="l">' + h((x.u.sub ? x.u.sub + ' ' : '') + x.u.name) + '</td><td>' + x.q.days + '</td><td>' + (x.q.days ? useDur(Math.round(x.q.min / x.q.days)) : '—') + '</td><td>' + (x.q.days ? H(x.q.min) + 'h' : '—') + '</td><td>' + (x.u.kw == null ? '<span class="clmuted">—</span>' : h(x.u.kw)) + '</td>' +
       [1, 2, 3].map(i => '<td>' + cmp(x.q.cmp, i) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
   html += '<h3>일별 사용시간 추이</h3><div class="repchart"><canvas id="repCv" height="300"></canvas></div>';
-  let dr = ''; for (let i = 0; i < 31; i++) { const d = repDay(to, -i), a = pd[d]; dr += '<tr' + (a ? '' : ' class="dim"') + '><td class="l">' + d + '</td><td>' + (a ? a.n + ' / ' + tot : '미입력') + '</td><td>' + (a ? H(a.min) + 'h' : '—') + '</td><td>' + (a ? H(a.min / a.n) + 'h' : '—') + '</td><td>' + (a ? fK(a.kwh) : '—') + '</td><td>' + (a ? fW(won(a.kwh)) : '—') + '</td></tr>'; }
-  html += '<h3>일일 기록 <small>최근 31일</small></h3><div class="scroll"><table class="cltbl rep"><thead><tr><th class="l">날짜</th><th>입력 대수</th><th>합계</th><th>1대 평균</th><th>전력량</th><th>예상 요금</th></tr></thead><tbody>' + dr + '</tbody></table></div>' +
+  // 일일 기록: 기간 전체를 달별로 접기, 이번 달만 펼침 (결정 234)
+  const mon = {}; for (let d = to; d >= p.from0; d = repDay(d, -1)) (mon[d.slice(0, 7)] = mon[d.slice(0, 7)] || []).push(d);
+  html += '<h3>일일 기록 <small>달을 누르면 펼침</small></h3><div class="repacc">' + Object.keys(mon).map((m, i) => {
+    const ds = mon[m], a = ds.map(d => pd[d]).filter(Boolean), mm = a.reduce((s, x) => s + x.min, 0), mk = a.reduce((s, x) => s + x.kwh, 0);
+    return '<details' + (i ? '' : ' open') + ' data-m="' + m + '"><summary><b>' + repMon(m) + '</b><small>기록 ' + a.length + '일 · 합계 ' + H(mm) + '시간 · ' + fK(mk) + (st.price == null ? '' : ' · ' + fW(won(mk))) + '</small></summary>' +
+      '<div class="scroll"><table class="cltbl rep"><thead><tr><th class="l">날짜</th><th>입력 대수</th><th>합계</th><th>1대 평균</th><th>전력량</th><th>예상 요금</th></tr></thead><tbody>' +
+      ds.map(d => { const a = pd[d]; return '<tr' + (a ? '' : ' class="dim"') + '><td class="l">' + d + '</td><td>' + (a ? a.n + ' / ' + tot : '미입력') + '</td><td>' + (a ? H(a.min) + 'h' : '—') + '</td><td>' + (a ? H(a.min / a.n) + 'h' : '—') + '</td><td>' + (a ? fK(a.kwh) : '—') + '</td><td>' + (a ? fW(won(a.kwh)) : '—') + '</td></tr>'; }).join('') + '</tbody></table></div></details>';
+  }).join('') + '</div>' +
     '<p class="clnote">미가동은 0시간으로 계산합니다. 기록은 기간 제한 없이 보관됩니다 (첫 기록 ' + (r.first || '—') + ').</p>';
   return html;
 }
@@ -3357,8 +3367,14 @@ function repClimHtml() {
   html += '<h3>조치 권고</h3>' + (adv.length ? '<div class="cladv">' + [...new Set(adv.map(a => a[0]))].map((fn, i) => { const a = adv.filter(x => x[0] === fn);
     return '<details' + (i ? '' : ' open') + '><summary><b>' + fn + '</b><small>' + a.length + '건</small></summary><ul>' + a.map(x => '<li>' + h(x[1]) + '</li>').join('') + '</ul></details>'; }).join('') + '</div>' : '<p class="clnote">평균 기준으로 조정이 필요한 구역이 없습니다.</p>');
   html += '<h3>추이 그래프 <small>일별 평균 온도·습도</small></h3><div class="repchart"><canvas id="repCv" height="300"></canvas></div>';
-  html += '<h3>상세 기록 <small>최근 ' + Math.min(200, rows.length) + '건</small></h3><div class="scroll"><table class="cltbl rep"><thead><tr><th class="l">시각</th><th>층</th><th>구역</th><th>온도</th><th>습도</th><th>불쾌지수</th><th>실외 온도</th><th>실외 습도</th></tr></thead><tbody>' +
-    rows.slice(-200).reverse().map(x => '<tr><td class="l">' + h(x[0]) + '</td><td>' + h(CL_FL[x[1]] ? CL_FL[x[1]][0] : x[1]) + '</td><td>' + h(x[2]) + '</td><td>' + x[3] + '</td><td>' + x[4] + '</td><td>' + x[5] + ' ' + clLv(Number(x[5]))[1] + '</td><td>' + (x[6] == null ? '—' : x[6]) + '</td><td>' + (x[7] == null ? '—' : x[7]) + '</td></tr>').join('') + '</tbody></table></div>' +
+  // 상세 기록: 달 → 날짜로 접기, 맨 위 달·날짜만 펼침 (결정 234)
+  const sm = g => { const t = avg(g.map(x => Number(x[3]))), hm = avg(g.map(x => Number(x[4]))), d = avg(g.map(x => Number(x[5]))); return g.length + '건 · 평균 ' + t.toFixed(1) + '℃ · ' + hm.toFixed(0) + '% · 불쾌지수 ' + d.toFixed(1); };
+  const grp = (a, k) => { const o = {}; a.forEach(x => { (o[k(x)] = o[k(x)] || []).push(x); }); return o; }, byM = grp(rows.slice().reverse(), x => x[0].slice(0, 7));
+  html += '<h3>상세 기록 <small>달 · 날짜를 누르면 펼침</small></h3><div class="repacc">' + Object.keys(byM).map((m, i) => { const byD = grp(byM[m], x => x[0].slice(0, 10));
+    return '<details' + (i ? '' : ' open') + ' data-m="' + m + '"><summary><b>' + repMon(m) + '</b><small>' + sm(byM[m]) + '</small></summary><div class="repday">' + Object.keys(byD).map((d, j) =>
+      '<details' + (i || j ? '' : ' open') + ' data-d="' + d + '"><summary><b>' + Number(d.slice(5, 7)) + '/' + Number(d.slice(8)) + '</b><small>' + sm(byD[d]) + '</small></summary><div class="scroll"><table class="cltbl rep"><thead><tr><th class="l">시각</th><th>층</th><th>구역</th><th>온도</th><th>습도</th><th>불쾌지수</th><th>실외 온도</th><th>실외 습도</th></tr></thead><tbody>' +
+      byD[d].map(x => '<tr><td class="l">' + h(x[0]) + '</td><td>' + h(CL_FL[x[1]] ? CL_FL[x[1]][0] : x[1]) + '</td><td>' + h(x[2]) + '</td><td>' + x[3] + '</td><td>' + x[4] + '</td><td>' + x[5] + ' ' + clLv(Number(x[5]))[1] + '</td><td>' + (x[6] == null ? '—' : x[6]) + '</td><td>' + (x[7] == null ? '—' : x[7]) + '</td></tr>').join('') + '</tbody></table></div></details>').join('') + '</div></details>';
+  }).join('') + '</div>' +
     '<p class="clnote">불쾌지수 = 0.81×T + 0.01×H×(0.99×T−14.3) + 46.3 · 쾌적 74 미만 · 주의 78 미만 · 불쾌 78 이상 · 쾌적 범위 23~26℃, 40~60%</p>';
   return html;
 }
@@ -3408,7 +3424,7 @@ function repCsv() {
 }
 function repPrint() {
   const p = S.rep, cv = $('repCv'), img = cv && cv.toDataURL ? '<img src="' + cv.toDataURL('image/png') + '" style="width:100%" alt="추이 그래프">' : '';
-  const body = $('repBody').innerHTML.replace(/<canvas[^>]*><\/canvas>/, img);
+  const body = $('repBody').innerHTML.replace(/<canvas[^>]*><\/canvas>/, img).replace(/<details(?! open)/g, '<details open');   // 인쇄는 모두 펼침
   $('print').innerHTML = '<style>@page{size:A4;margin:12mm}</style><div class="clrep clprint"><h2>에비뉴엘 ' + (p.kind === 'climate' ? '실내 온습도' : CL_KIND[p.kind] + ' 사용시간') + ' 리포트</h2>' + body + '</div>';
   setTimeout(() => window.print(), 50);
 }
