@@ -396,108 +396,114 @@ class AtrGenerator {
         }
 
         const totalSlots = starts.length - 1; // 99개 슬롯
+        const numActive = Math.min(totalItems, totalSlots);
+
+        // 헤더 복사 및 슬롯 수(PageCount) 필드 패치 (\xed\x75\x10 뒤의 4바이트 uint32)
         const headerEnd = starts[0];
-        const docHeader = docBytesOriginal.subarray(0, headerEnd);
+        const docHeader = new Uint8Array(docBytesOriginal.subarray(0, headerEnd));
+        const countPattern = new Uint8Array([0xed, 0x75, 0x10]);
+        const cpIdx = AtrGenerator.findSub(docHeader, countPattern);
+        if (cpIdx !== -1) {
+            docHeader.set(AtrGenerator.u32Bytes(numActive), cpIdx + 3);
+        }
+
         const footerStart = starts[totalSlots];
         const docFooter = docBytesOriginal.subarray(footerStart);
 
-        // 2. 전체 슬롯 순회: 업로드된 N장은 치환하고, 미사용 슬롯은 원본 그대로 100% 보존!
+        // 2. 정확히 업로드된 N개 페이지만 슬롯을 변환하여 담고, 나머지 미사용 슬롯은 완전 제거!
+        const activeGuids = new Set();
         const transformedSlots = [];
 
-        for (let p = 0; p < totalSlots; p++) {
+        for (let p = 0; p < numActive; p++) {
             const slotStart = starts[p];
             const slotEnd = starts[p + 1];
             const slotSlice = docBytesOriginal.subarray(slotStart, slotEnd);
 
-            if (p < totalItems) {
-                const item = circuitItems[p];
-                const circuitName = (item.circuit_name || `회로_${p + 1}`).trim();
+            const item = circuitItems[p];
+            const circuitName = (item.circuit_name || `회로_${p + 1}`).trim();
 
-                // 슬롯 메인 GUID 추출
-                const viewSlice = new Uint8Array(slotSlice.subarray(0, 500));
-                let mainGuid = "";
-                for (let i = 0; i <= viewSlice.length - 32; i++) {
-                    let isHex = true;
-                    for (let j = 0; j < 32; j++) {
-                        const c = viewSlice[i + j];
-                        if (!((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x66))) {
-                            isHex = false;
-                            break;
-                        }
-                    }
-                    if (isHex) {
-                        mainGuid = String.fromCharCode(...viewSlice.subarray(i, i + 32));
+            // 슬롯 메인 GUID 추출
+            const viewSlice = new Uint8Array(slotSlice.subarray(0, 500));
+            let mainGuid = "";
+            for (let i = 0; i <= viewSlice.length - 32; i++) {
+                let isHex = true;
+                for (let j = 0; j < 32; j++) {
+                    const c = viewSlice[i + j];
+                    if (!((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x66))) {
+                        isHex = false;
                         break;
                     }
                 }
-                if (!mainGuid) {
-                    mainGuid = (p === 0) ? "a6fb7bc073da46b2b11355ce414e3832" : `slot_${p}`;
+                if (isHex) {
+                    mainGuid = String.fromCharCode(...viewSlice.subarray(i, i + 32));
+                    break;
                 }
-
-                // _MT.bin에서 원래 파일명 및 타이틀 추출
-                let origName = "JS가든 (14).jpg";
-                let origTitle = "JS가든 (14)";
-                const mtEntry = zip.file(`cactus/${mainGuid}_MT.bin`);
-                if (mtEntry) {
-                    try {
-                        const mtText = await mtEntry.async('string');
-                        const mtJson = JSON.parse(mtText);
-                        if (mtJson.Name) origName = mtJson.Name;
-                        if (mtJson.Title) origTitle = mtJson.Title;
-                    } catch (e) {
-                        console.warn(`MT parse warning for ${mainGuid}:`, e);
-                    }
-                }
-
-                const slotInfo = {
-                    slot: p,
-                    guid: mainGuid,
-                    orig_name: origName,
-                    orig_title: origTitle
-                };
-
-                const transformed = await AtrGenerator.transformSlot(slotSlice, p, slotInfo, item);
-                transformedSlots.push(transformed);
-
-                // 열화상 원본 바이너리 저장
-                let thData = null;
-                const pb = item.patchedBlob ? (item.patchedBlob.blob || item.patchedBlob) : null;
-                if (pb && pb.arrayBuffer) {
-                    thData = new Uint8Array(await pb.arrayBuffer());
-                } else if (item.thermalBlob && item.thermalBlob.arrayBuffer) {
-                    thData = new Uint8Array(await item.thermalBlob.arrayBuffer());
-                } else if (item.rawBuffer) {
-                    thData = new Uint8Array(item.rawBuffer);
-                }
-
-                if (thData) {
-                    zip.file(`cactus/${mainGuid}.bin`, thData);
-                }
-
-                // _MT.bin 메타데이터 동기화
-                const mtJson = {
-                    "$types": { "Cactus.Common.FileMeta, Cactus.Common": "1" },
-                    "$type": "1",
-                    "Id": mainGuid,
-                    "Name": `${circuitName}.jpg`,
-                    "Title": circuitName,
-                    "CreationTimeUtcLong": 5250958105167387904,
-                    "LastWriteTimeUtcLong": 5250958149365108758,
-                    "LastAccessTimeUtcLong": 5250958149365108758,
-                    "OriginalPath": `Z:\\VOL1\\Data\\0003_전기방재_[전기_방재업무]\\001_전기\\00_점검관련\\★ 직무고시 서류 모음\\05_열화상 점검\\26년\\4분기\\EPS실\\1층\\${circuitName}.jpg`,
-                    "FileSize": thData ? thData.length : 389428,
-                    "Checksum": null,
-                    "IsReadOnly": false,
-                    "IsHidden": false
-                };
-                zip.file(`cactus/${mainGuid}_MT.bin`, JSON.stringify(mtJson));
-            } else {
-                // [핵심] 미사용 슬롯은 원본 템플릿 슬라이스를 100% 그대로 보존하여 완전한 문서 트리 유지!
-                transformedSlots.push(slotSlice);
             }
+            if (!mainGuid) {
+                mainGuid = (p === 0) ? "a6fb7bc073da46b2b11355ce414e3832" : `slot_${p}`;
+            }
+            activeGuids.add(mainGuid);
+
+            // _MT.bin에서 원래 파일명 및 타이틀 추출
+            let origName = "JS가든 (14).jpg";
+            let origTitle = "JS가든 (14)";
+            const mtEntry = zip.file(`cactus/${mainGuid}_MT.bin`);
+            if (mtEntry) {
+                try {
+                    const mtText = await mtEntry.async('string');
+                    const mtJson = JSON.parse(mtText);
+                    if (mtJson.Name) origName = mtJson.Name;
+                    if (mtJson.Title) origTitle = mtJson.Title;
+                } catch (e) {
+                    console.warn(`MT parse warning for ${mainGuid}:`, e);
+                }
+            }
+
+            const slotInfo = {
+                slot: p,
+                guid: mainGuid,
+                orig_name: origName,
+                orig_title: origTitle
+            };
+
+            const transformed = await AtrGenerator.transformSlot(slotSlice, p, slotInfo, item);
+            transformedSlots.push(transformed);
+
+            // 열화상 원본 바이너리 저장
+            let thData = null;
+            const pb = item.patchedBlob ? (item.patchedBlob.blob || item.patchedBlob) : null;
+            if (pb && pb.arrayBuffer) {
+                thData = new Uint8Array(await pb.arrayBuffer());
+            } else if (item.thermalBlob && item.thermalBlob.arrayBuffer) {
+                thData = new Uint8Array(await item.thermalBlob.arrayBuffer());
+            } else if (item.rawBuffer) {
+                thData = new Uint8Array(item.rawBuffer);
+            }
+
+            if (thData) {
+                zip.file(`cactus/${mainGuid}.bin`, thData);
+            }
+
+            // _MT.bin 메타데이터 동기화
+            const mtJson = {
+                "$types": { "Cactus.Common.FileMeta, Cactus.Common": "1" },
+                "$type": "1",
+                "Id": mainGuid,
+                "Name": `${circuitName}.jpg`,
+                "Title": circuitName,
+                "CreationTimeUtcLong": 5250958105167387904,
+                "LastWriteTimeUtcLong": 5250958149365108758,
+                "LastAccessTimeUtcLong": 5250958149365108758,
+                "OriginalPath": `Z:\\VOL1\\Data\\0003_전기방재_[전기_방재업무]\\001_전기\\00_점검관련\\★ 직무고시 서류 모음\\05_열화상 점검\\26년\\4분기\\EPS실\\1층\\${circuitName}.jpg`,
+                "FileSize": thData ? thData.length : 389428,
+                "Checksum": null,
+                "IsReadOnly": false,
+                "IsHidden": false
+            };
+            zip.file(`cactus/${mainGuid}_MT.bin`, JSON.stringify(mtJson));
         }
 
-        // 3. 새 문서 결합 (Header + 99개 슬롯 전체 보존 + Footer)
+        // 3. 새 문서 결합 (Header + 정확히 N개 슬롯 + Footer)
         let docBytes = AtrGenerator.concat([docHeader, ...transformedSlots, docFooter]);
 
         // 문서 맨 앞 4바이트 길이 필드 동기화 (\t [totalLen - 5 4B LE])
@@ -539,10 +545,22 @@ class AtrGenerator {
             }
         }
 
-        // 6. 문서 바이너리 저장
+        // 6. 미사용 슬롯(N번 이후)의 더미 이미지 및 MT 파일 삭제하여 용량 최적화 및 페이지 일치
+        const toDrop = [];
+        zip.forEach((relPath, file) => {
+            if (!file.dir && relPath.startsWith('cactus/') && !relPath.includes('af9878b2')) {
+                const guid = relPath.replace('cactus/', '').replace('_MT.bin', '').replace('.bin', '');
+                if (!activeGuids.has(guid)) {
+                    toDrop.push(relPath);
+                }
+            }
+        });
+        toDrop.forEach(rp => zip.remove(rp));
+
+        // 7. 문서 바이너리 저장
         zip.file(docName, docBytes);
 
-        // 7. 최종 .atr ZIP 패키지 생성
+        // 8. 최종 .atr ZIP 패키지 생성
         const blob = await zip.generateAsync({
             type: 'blob',
             mimeType: 'application/octet-stream',
@@ -554,7 +572,7 @@ class AtrGenerator {
         return {
             blob,
             fileName,
-            pageCount: totalItems
+            pageCount: numActive
         };
     }
 }

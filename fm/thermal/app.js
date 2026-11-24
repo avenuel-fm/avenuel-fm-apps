@@ -891,6 +891,13 @@
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
             renderSidebar();
+
+            // [자동 학습 & 저장] 스팟 마커 이동 완료 시 해당 회로명의 스팟 좌표로 자동 학습 및 기억
+            const page = state.pages[state.currentIndex];
+            if (page && page.circuit_name) {
+                state.spotModel.learn(page.circuit_name, page.spots);
+                saveSpotModel();
+            }
         };
 
         DOM.thermalFrame.addEventListener('pointerdown', onPointerDown);
@@ -921,6 +928,16 @@
                 updateTempTable(page);
                 renderSidebar();
                 invalidatePdf();
+
+                // [자동 학습 & 저장] 키보드 미세조정 후 400ms 디바운스로 자동 학습 및 기억
+                clearTimeout(state.kbLearnTimer);
+                state.kbLearnTimer = setTimeout(() => {
+                    const p = state.pages[state.currentIndex];
+                    if (p && p.circuit_name) {
+                        state.spotModel.learn(p.circuit_name, p.spots);
+                        saveSpotModel();
+                    }
+                }, 400);
             }
         });
     }
