@@ -79,7 +79,7 @@ on conflict (seq) do nothing;
 create or replace function public.ws_ahu_range(p_key text)
 returns numeric[] language sql immutable set search_path = public as $$
   select (case when p_key like 'out_t%' then array[-30, 50] when p_key like 'out_h%' then array[0, 100]
-               when p_key like 'cw_t%' then array[-5, 40] else array[-10, 50] end)::numeric[];
+               when p_key like 'cw_t%' then array[-5, 50] else array[-10, 50] end)::numeric[];
 $$;
 
 -- 서명란 (사용자 11-19): 그날 로그인 서명한 사람 중에서
