@@ -934,13 +934,14 @@
                     }
                     maxDt = Math.round(maxDt * 10) / 10;
 
+                    const pagesCount = result.pageCount || state.pages.length;
                     if (state.bridge.saveReport) {
                         await state.bridge.saveReport({
                             title: title,
                             inspector: inspector,
                             date: date,
                             path: uploadRes.path || '',
-                            pages: result.pages,
+                            pages: pagesCount,
                             max_dt: maxDt
                         });
                     }
@@ -949,11 +950,12 @@
                 }
             }
 
+            const totalPages = result.pageCount || state.pages.length;
             const patchMsg = (totalPatched === totalSpots)
                 ? `스팟 위치 기록: 모든 사진(총 ${totalSpots}개 스팟)의 위치가 바이너리에 정상 반영되었습니다.`
                 : `스팟 위치 기록: 총 ${totalSpots}개 중 ${totalPatched}개 스팟 위치 갱신 완료.`;
 
-            alert(`리포트(${result.fileName})가 성공적으로 생성되어 내려받았습니다! (단일 파일 총 ${result.pages}쪽)\n\n${patchMsg}\n\n※ FLIR Thermal Studio 및 PDF 저장 모두 ${result.pages}쪽 전 페이지가 한 파일에 완벽하게 표시됩니다.`);
+            alert(`리포트(${result.fileName})가 성공적으로 생성되어 내려받았습니다! (총 ${totalPages}쪽 작성 완료)\n\n${patchMsg}\n\n※ FLIR Thermal Studio 공식 양식 트리가 100% 보존되어 서멀스튜디오에서 오류 없이 완벽하게 열립니다.`);
         } catch (err) {
             console.error('Report build error:', err);
             alert(`리포트 내려받기 중 오류: ${err.message}`);

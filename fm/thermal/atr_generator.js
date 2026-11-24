@@ -510,22 +510,39 @@ class AtrGenerator {
         let metaBytes = metaEntry ? new Uint8Array(await metaEntry.async('arraybuffer')) : new Uint8Array();
 
         const baseTitle = (reportTitle || "열화상_점검_보고서").trim();
-        const origRepName = 'temp';
-        const origTitleB = enc.encode(origRepName);
-        const newTitleB = enc.encode(baseTitle);
-
-        const patMetaOld = new Uint8Array([0x04, origTitleB.length & 0xff, (origTitleB.length >> 8) & 0xff, ...origTitleB]);
-        const patMetaNew = new Uint8Array([0x04, newTitleB.length & 0xff, (newTitleB.length >> 8) & 0xff, ...newTitleB]);
-        metaBytes = AtrGenerator.replaceBytes(metaBytes, patMetaOld, patMetaNew, 1);
-
         if (metaBytes.length > 0) {
+            const metaPattern = new Uint8Array([0xb3, 0x11, 0x04]);
+            const mIdx = AtrGenerator.findSub(metaBytes, metaPattern);
+            if (mIdx !== -1) {
+                const oldLen = metaBytes[mIdx + 3] | (metaBytes[mIdx + 4] << 8);
+                const oldTotal = 5 + oldLen;
+                const newTitleB = enc.encode(baseTitle);
+                const newChunk = new Uint8Array([0xb3, 0x11, 0x04, newTitleB.length & 0xff, (newTitleB.length >> 8) & 0xff, ...newTitleB]);
+                const nextMeta = new Uint8Array(metaBytes.length + (newChunk.length - oldTotal));
+                nextMeta.set(metaBytes.subarray(0, mIdx), 0);
+                nextMeta.set(newChunk, mIdx);
+                nextMeta.set(metaBytes.subarray(mIdx + oldTotal), mIdx + newChunk.length);
+                metaBytes = nextMeta;
+            }
             zip.file('cactus-meta', metaBytes);
         }
 
-        // 5. 문서 바이너리 저장
+        // 5. 문서 MT 메타데이터 크기 동기화
+        const docMtEntry = zip.file('cactus/af9878b2aa8e47faaf8942d892cde994_MT.bin');
+        if (docMtEntry) {
+            try {
+                const docMtJson = JSON.parse(await docMtEntry.async('string'));
+                docMtJson.FileSize = docBytes.length;
+                zip.file('cactus/af9878b2aa8e47faaf8942d892cde994_MT.bin', JSON.stringify(docMtJson));
+            } catch (e) {
+                console.warn('Doc MT update error:', e);
+            }
+        }
+
+        // 6. 문서 바이너리 저장
         zip.file(docName, docBytes);
 
-        // 6. 최종 .atr ZIP 패키지 생성
+        // 7. 최종 .atr ZIP 패키지 생성
         const blob = await zip.generateAsync({
             type: 'blob',
             mimeType: 'application/octet-stream',
