@@ -7,7 +7,7 @@
 create or replace function public.ws_menu_off_()
 returns text[] language sql stable security definer set search_path = public as $$
   select coalesce(array(select k from unnest(string_to_array(coalesce(public.ws_setting('메인메뉴끄기'), ''), ',')) k
-                        where k in ('docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs')), '{}'::text[]);
+                        where k in ('docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'docs.work', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs')), '{}'::text[]);
 $$;
 
 -- 꺼진 칸도 여는 역할 (사용자 11-19 「소장 포함」)
@@ -35,8 +35,8 @@ create or replace function public.ws_admin_set_menu(p_token text, p_off text[])
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare me public.staff := public.ws_boss(p_token); v text;
 begin
-  select coalesce(string_agg(k, ',' order by array_position(array['docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs'], k)), '') into v
-    from (select distinct k from unnest(coalesce(p_off, '{}'::text[])) k where k in ('docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs')) x;
+  select coalesce(string_agg(k, ',' order by array_position(array['docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'docs.work', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs'], k)), '') into v
+    from (select distinct k from unnest(coalesce(p_off, '{}'::text[])) k where k in ('docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'docs.work', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs')) x;
   perform public.ws_set_text('메인메뉴끄기', v);
   perform public.ws_log(me.name, '메인 메뉴 끄기', '', coalesce(nullif(v, ''), '모두 켬'));
   return jsonb_build_object('ok', true, 'off', to_jsonb(public.ws_menu_off_()));
