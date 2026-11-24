@@ -88,6 +88,13 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   ok(await vis() === 'u1,u2,u3,u4', '3) 기능실 E1을 누르면 그 기능실에서 나간 모든 선이 보임 (' + await vis() + ')');
   await f.evaluate(() => clearUtilityLineHighlight());
   ok(await vis() === '', '4) 선택을 풀면 다시 안 보임');
+  // 이름표 겹침 (결정 258): 같은 쌍 선 3개의 이름표가 서로 안 겹침
+  await f.evaluate(() => highlightUtilityLinesForStore({ id: '', name: 'E1' }));
+  const boxes = await f.evaluate(() => Array.from(document.querySelectorAll('#utility-lines-layer .util-line-item-group')).filter(g => g.style.display !== 'none').map(g => g.querySelector('.util-spec-badge-group')).filter(l => l && l.style.display !== 'none').map(l => { const r = l.querySelector('rect').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }));
+  let overlap = 0; for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) { const A = boxes[i], B = boxes[j]; if (A[0] < B[2] - 0.5 && B[0] < A[2] - 0.5 && A[1] < B[3] - 0.5 && B[1] < A[3] - 0.5) overlap++; }
+  ok(boxes.length === 4 && overlap === 0, '2-2) 보이는 선 4개의 이름표가 서로 겹치지 않음 (이름표 ' + boxes.length + '개, 겹침 ' + overlap + '쌍)');
+  ok(await f.evaluate(() => Array.from(document.querySelectorAll('#utility-lines-layer .util-line-item-group')).filter(g => g.style.display !== 'none').every(g => { const l = g.querySelector('.util-spec-badge-group'); return /translate/.test(l.getAttribute('transform') || ''); })), '2-3) 이름표는 각자 자리로 옮겨져 있음');
+  await f.evaluate(() => clearUtilityLineHighlight());
   const pts = await f.evaluate(() => ['u1', 'u2', 'u3', 'u4'].map(id => document.querySelector('#utility-lines-layer polyline[data-id="' + id + '"]').getAttribute('points')));
   const num = s => s.split(' ').map(q => q.split(',').map(Number));
   const [a, m, c, solo] = pts.map(num);

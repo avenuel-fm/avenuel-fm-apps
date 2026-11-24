@@ -166,7 +166,7 @@ declare
   items jsonb;
   first_ym text;
 begin
-  -- 지운 소화기는 지운 달 앞에서만 보이고, 지운 달이라도 그달 점검 기록이 있으면 보임
+  -- 지운 소화기는 지운 달 앞(지난달까지)에서만 보임 — 지운 달부터는 점검 기록이 있어도 안 보임 (결정 250)
   select coalesce(jsonb_agg(jsonb_build_object(
       'id', f.fe_id, 'floor', f.floor, 'store', f.store_name, 'name', f.name, 'no', coalesce(case when f.no ~ '^\d+$' then f.no::int end, 0),
       'state', case when c.check_id is not null then case when c.state = '이상있음' then 'bad' else 'ok' end
@@ -176,7 +176,7 @@ begin
   from public.fire_ext f
   left join lateral (select * from public.fire_checks x where x.fe_id = f.fe_id and x.ym = p_ym and not x.deleted order by x.entered_at desc limit 1) c on true
   where coalesce(f.created_at, '-infinity') < m_next
-    and (f.active or (f.deleted_at >= m_start and (f.deleted_at >= m_next or c.check_id is not null)));
+    and (f.active or (f.deleted_at >= m_start and f.deleted_at >= m_next));
   select least(cur_ym, coalesce(min(to_char(created_at at time zone 'Asia/Seoul', 'YYYY-MM')), cur_ym)) into first_ym from public.fire_ext;
   return jsonb_build_object('ok', true, 'ym', p_ym, 'curYm', cur_ym, 'day', v_day, 'window', jsonb_build_object('start', w_start, 'end', w_end),
     'isCurrent', p_ym = cur_ym, 'items', items,

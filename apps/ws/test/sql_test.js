@@ -352,6 +352,9 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const it = fs.items.find(x => x.id === mine[0].id);
   ok(fs.ok && fs.ym === fs.curYm && it.state === 'ok' && it.checkId === cs.checkId && fs.counts.total === fs.items.length && fs.counts.ok >= 1, '점검 현황: 이번 달, 입력한 소화기 점검완료');
   ok(!fs.items.some(x => x.id === del.id) && fs.months[fs.months.length - 1] === fs.curYm, '점검 현황: 이번 달 지운 소화기(기록 없음)는 안 보임, 달 목록 끝 = 이번 달');
+  await q("insert into fire_ext (fe_id, floor, store_name, name, qr_token, created_at, active, deleted_at) values ('F9','1F','마','1','q9', now() - interval '5 days', false, now())");
+  await q("insert into fire_checks (check_id, ym, fe_id, state, entered_at) values ('C9', $1, 'F9', '이상없음', now())", [fs.ym]);
+  ok(!(await call('ws_fe_status', [tk, fs.ym])).items.some(x => x.id === 'F9'), '점검 현황: 이번 달 점검을 입력했어도 이번 달에 지운 소화기는 안 보임 (결정 250)');
   const dt = await call('ws_fe_detail', [tk, cs.checkId]);
   ok(dt.ok && /p2\.jpg$/.test(dt.photo) && /m2\.png$/.test(dt.signA) && /n2\.png$/.test(dt.signB) && dt.state === '이상없음', '점검 내용 보기: 새 사진·손글씨 주소');
   ok((await call('ws_fe_detail', [tk, 'nope'])).ok === false, '점검 내용: 없는 번호 → 안내');
