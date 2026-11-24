@@ -106,11 +106,11 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   await fl.locator('#btn-symbol-menu').click();
   ok(await fl.locator('#chk-zone-filter-floor').count() === 1 && !(await fl.locator('#chk-zone-filter-floor').isChecked()), '10) 레이어 메뉴 구역 칸에 「바닥」 (처음엔 꺼짐)');
   await fl.locator('#chk-zone-filter-floor').check();
-  const on = await f.evaluate(() => { const cs = getComputedStyle(document.querySelector('.user-floor')); return { s: cs.stroke, d: cs.strokeDasharray }; });
+  const on = await f.evaluate(() => { const cs = getComputedStyle(document.querySelector('.user-floor-line')); return { s: cs.stroke, d: cs.strokeDasharray }; });
   ok(on.s === 'rgb(0, 0, 0)' && on.d !== 'none', '11) 바닥 레이어를 켜면 검은 점선 (' + on.s + ' / ' + on.d + ')');
   await shot(p, 'shot_map_floor_outline.png');
   await fl.locator('#chk-zone-filter-floor').uncheck();
-  ok(await f.evaluate(() => getComputedStyle(document.querySelector('.user-floor')).stroke === 'none'), '12) 레이어를 끄면 점선만 사라지고 바닥은 그대로');
+  ok(await f.evaluate(() => getComputedStyle(document.querySelector('.user-floor-line')).stroke === 'none'), '12) 레이어를 끄면 점선만 사라지고 바닥은 그대로');
   await fl.locator('#btn-symbol-menu').click();
   await f.evaluate(() => closeAllPopovers());
 
