@@ -197,7 +197,7 @@ begin
   from public.fire_equip e
   left join lateral (select * from public.fire_equip_checks x where x.eq_id = e.eq_id and x.ym = p_ym and not x.deleted order by x.entered_at desc limit 1) c on true
   where coalesce(e.created_at, '-infinity') < m_next
-    and (e.active or (e.deleted_at >= m_start and (e.deleted_at >= m_next or c.check_id is not null)));
+    and (e.active or (e.deleted_at >= m_start and e.deleted_at >= m_next));
   select least(cur_ym, coalesce(min(to_char(created_at at time zone 'Asia/Seoul', 'YYYY-MM')), cur_ym)) into first_ym from public.fire_equip;
   return jsonb_build_object('ok', true, 'ym', p_ym, 'curYm', cur_ym, 'day', v_day, 'window', jsonb_build_object('start', w_start, 'end', w_end),
     'isCurrent', p_ym = cur_ym, 'items', items,

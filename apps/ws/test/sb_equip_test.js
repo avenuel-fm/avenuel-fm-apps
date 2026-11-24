@@ -415,7 +415,7 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   ok(await xp2.locator('button:text-is("선택 3대 삭제")').count() === 1 && /이번 달 점검 입력 있음/.test(await xp2.locator('.feb:has-text("카페-소화기1")').innerText()), '53) 소화기 1대 + 매장 전체 선택 → 「선택 3대 삭제」, 점검 입력 있는 것은 표시');
   await xp2.click('button:text-is("선택 3대 삭제")');
   const ask = await xp2.locator('.dialog').innerText();
-  ok(/소화기 3대 삭제/.test(ask) && /카페-소화기1/.test(ask) && /신규 매장-소화기1/.test(ask) && /점검을 이미 입력한 1대/.test(ask), '54) 확인 창: 지울 이름 목록 + 점검 기록 있는 1대는 남는다는 안내');
+  ok(/소화기 3대 삭제/.test(ask) && /카페-소화기1/.test(ask) && /신규 매장-소화기1/.test(ask) && /점검을 이미 입력한 1대도 지워집니다/.test(ask), '54) 확인 창: 지울 이름 목록 + 점검 입력 있는 1대도 지워진다는 안내');
   n0 = count('ws_fe_delete'); await xp2.click('#fdBtn'); await called('ws_fe_delete', n0); await xp2.locator('.dialog').waitFor({ state: 'detached' });
   ok(last('ws_fe_delete').a.p_ids.length === 3 && !(await xp2.locator('text=신규 매장').count()) && !/지울 소화기를 눌러/.test(await xp2.locator('.wrap.list').innerText()) && await xp2.locator('button:text-is("소화기 삭제")').count() === 1, '55) 삭제 → 3대 지움, 목록 새로 읽고 삭제 모드 끝, 층 화면 그대로');
 

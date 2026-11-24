@@ -629,7 +629,7 @@ function fdelAsk() {
   if (!ids.length) return;
   dialog('<h2 style="margin:0 0 var(--sp-2);font-size:var(--size-l)">소화기 ' + ids.length + '대 삭제</h2>' +
     '<div style="max-height:200px;overflow:auto;margin-bottom:var(--sp-2)">' + pick.map(i => '<div style="padding:4px 0;border-top:1px solid var(--line)"><b>' + h(i.name) + '</b></div>').join('') + '</div>' +
-    '<div class="banner b-gray">삭제하면 다음 달 점검 목록부터 빠집니다.' + (has ? ' 이번 달 점검을 이미 입력한 <b>' + has + '대</b>는 이번 달 현황과 지난 기록에는 그대로 남습니다.' : ' 이번 달 점검 목록에서도 바로 빠집니다.') + ' QR 라벨은 쓸 수 없게 됩니다.</div>' +
+    '<div class="banner b-gray">삭제하면 이번 달 점검 목록에서 바로 빠지고, 지난달까지의 점검 기록은 그대로 남습니다.' + (has ? ' 이번 달 점검을 이미 입력한 <b>' + has + '대</b>도 지워집니다.' : '') + ' QR 라벨은 쓸 수 없게 됩니다.</div>' +
     '<div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-3)"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button id="fdBtn" class="btn big pri" style="flex:2" onclick="fdelGo()">삭제</button></div>');
 }
 async function fdelGo() {
