@@ -116,3 +116,9 @@
 - **기억**: 이 기기 브라우저(`localStorage` `lotte_map_layer_locks`)에만. 서버·Supabase 변경 없음. 다른 사람·기기에는 영향 없음.
 - **한계**: 지우개(`erase`)가 잠긴 구역 위에 흰 칠을 하는 것은 막지 않음. 방화구역·제연구획 꼭짓점 이동은 원래 없음.
 - 코드 `zoneEditor.js`(`isLayerLocked`·`onLayerLockChange`·`renderPaintZone`), `utilityLineEditor.js`, `index.html`, `cad-tools.css` · 시험 `apps/ws/test/sb_map_lock_test.js`
+
+## 15. 배관 선 표시 · 간격 · 전기 붉은색 (결정 254)
+- **평소엔 안 보임**: 배관/간선 선과 이름표는 평소 숨김(`display:none`). **매장**을 누르면 그 매장에 이어진 선, **기능실**을 누르면 그 기능실에서 나간 모든 선(매장마다)이 보임. 다른 곳을 누르면(`clearUtilityLineHighlight`) 다시 숨김. 방금 그린 선은 그 매장 기준으로 바로 보임. 숨긴 선은 눌러 고르거나 지울 수 없음. 레이어 메뉴의 종류별 체크는 그대로.
+- **여러 선**: 한 기능실에서 여러 선, 한 매장에 여러 선, 같은 기능실–같은 매장 사이 여러 선 모두 가능(저장은 선마다 독립). 같은 쌍의 선이 둘 이상이면 **선 굵기 3px + 간격 1px = 가운데끼리 4px**로 나란히 그림(가운데 선은 원래 길, 나머지는 양옆). 꺾임은 모서리 연장(miter)으로 평행 유지. 저장 위치는 그대로, 그릴 때만 옮김(`offsetPolyline`·`utilPairOffsets`, 선 id 순서로 정렬). 같은 복도를 지나는 다른 매장 행 선끼리의 겹침은 이번엔 다루지 않음.
+- **전기 = 붉은색** `#dc2626`(선·레이어 메뉴 아이콘·새 선 색). 수도·가스·배수 색은 기존 그대로. 예전에 그린 전기 선도 CSS로 함께 붉게.
+- 코드 `utilityLineEditor.js`(`renderFloorUtilityLines`·`highlightUtilityLinesForStore`), `css/cad-tools.css`, `index.html` · 시험 `apps/ws/test/sb_map_util_test.js`
