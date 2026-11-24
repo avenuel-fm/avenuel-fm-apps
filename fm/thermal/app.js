@@ -55,13 +55,11 @@
         btnReset: document.getElementById('btnReset'),
         btnModelModal: document.getElementById('btnModelModal'),
         btnDownloadAtr: document.getElementById('btnDownloadAtr') || document.getElementById('btnGenerateAtr'),
-        btnSavePdf: document.getElementById('btnSavePdf'),
         templateFallbackBanner: document.getElementById('templateFallbackBanner'),
         btnSelectTemplate: document.getElementById('btnSelectTemplate'),
         templateFileInput: document.getElementById('templateFileInput'),
         reportLayout: document.getElementById('reportLayout'),
         sidebarList: document.getElementById('sidebarList'),
-        sidebarAside: document.getElementById('sidebarAside'),
         pageCountBadge: document.getElementById('pageCountBadge'),
         inpCircuitName: document.getElementById('inpCircuitName'),
         envNotice: document.getElementById('envNotice'),
@@ -136,7 +134,7 @@
 
                 const bootInfo = await state.bridge.boot();
                 if (bootInfo) {
-                    // 양식은 앱과 함께 올린 ./master_template.atr(99쪽 양식)만 쓴다. 서버에 옛 1쪽·8쪽 양식이 등록돼 있어도 따르지 않음 (11-24)
+                    if (bootInfo.template_url) state.templateUrl = bootInfo.template_url;
                     if (bootInfo.model) state.spotModel.load(bootInfo.model);
                 }
             } catch (e) {
@@ -212,12 +210,7 @@
      * 내용 변경 시 PDF 저장 상태 무효화 (다시 PDF 저장 버튼으로 전환)
      */
     function invalidatePdf() {
-        state.pdfSaved = false;
-        state.pdfViewUrl = null;
-        if (DOM.btnSavePdf) {
-            DOM.btnSavePdf.textContent = 'PDF 저장';
-            DOM.btnSavePdf.disabled = (state.pages.length === 0);
-        }
+        // PDF 기능 삭제됨
     }
 
     /**
@@ -301,11 +294,6 @@
                 resetApp();
             }
         });
-
-        // [3. 버튼] PDF 저장 / PDF 보기
-        if (DOM.btnSavePdf) {
-            DOM.btnSavePdf.addEventListener('click', handleSavePdf);
-        }
 
         // [3. 버튼] 내려받기 (.atr 리포트)
         if (DOM.btnDownloadAtr) {
@@ -600,7 +588,7 @@
         state.pages.forEach((page, idx) => {
             const item = document.createElement('div');
             item.className = `sidebar-item ${idx === state.currentIndex ? 'active' : ''}`;
-            item.addEventListener('click', () => { selectPage(idx); if (DOM.sidebarAside) DOM.sidebarAside.focus({ preventScroll: true }); });   // 목록을 누르면 방향키 ↑↓ 로 쪽 이동
+            item.addEventListener('click', () => selectPage(idx));
 
             const maxT = Math.max(page.spots[0].temp, page.spots[1].temp, page.spots[2].temp);
             const minT = Math.min(page.spots[0].temp, page.spots[1].temp, page.spots[2].temp);
@@ -615,7 +603,6 @@
                 </div>
             `;
             DOM.sidebarList.appendChild(item);
-            if (idx === state.currentIndex) item.scrollIntoView({ block: 'nearest' });
         });
     }
 
@@ -865,15 +852,6 @@
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
                 if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
-                // 쪽 목록에 포커스가 있으면 ↑↓ 는 쪽 이동 (그 밖에는 기존대로 스팟 미세 이동)
-                if (DOM.sidebarAside && DOM.sidebarAside.contains(document.activeElement)) {
-                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        selectPage(state.currentIndex + (e.key === 'ArrowUp' ? -1 : 1));
-                    }
-                    return;
-                }
-
                 const page = state.pages[state.currentIndex];
                 if (!page) return;
 
@@ -893,257 +871,6 @@
                 invalidatePdf();
             }
         });
-    }
-
-    /**
-     * [3. 버튼: PDF 저장 · 내려받기]
-     * PDF 저장 (클릭 시 html2pdf 생성 -> bridge.upload -> bridge.toDrive -> bridge.saveReport -> PDF 보기 전환)
-     */
-    async function handleSavePdf() {
-        if (state.pdfSaved && state.pdfViewUrl) {
-            window.open(state.pdfViewUrl, '_blank');
-            return;
-        }
-
-        if (state.pages.length === 0) {
-            return alert('저장할 열화상 사진 페이지가 없습니다.');
-        }
-
-        if (typeof html2pdf === 'undefined') {
-            return alert('html2pdf 라이브러리를 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.');
-        }
-
-        const title = DOM.inpTitle.value.trim() || '열화상점검리포트';
-        const inspector = DOM.inpInspector.value.trim() || '측정자';
-        const date = DOM.inpDate.value.trim() || new Date().toISOString().split('T')[0];
-        const pdfFileName = `${date}_열화상점검-${title}.pdf`;
-
-        DOM.btnSavePdf.disabled = true;
-        DOM.btnSavePdf.textContent = 'PDF 저장 중...';
-
-        try {
-            // PDF 전용 개별 페이지 렌더링 호스트 생성 (실제 720px 크기로 렌더링되도록 투명 처리)
-            const host = document.createElement('div');
-            host.style.cssText = 'position:fixed;left:0;top:0;width:720px;z-index:-9999;background:#FFFFFF;opacity:0.01;pointer-events:none;';
-            document.body.appendChild(host);
-
-            function createPageEl(p, idx, total) {
-                const maxT = Math.max(p.spots[0].temp, p.spots[1].temp, p.spots[2].temp);
-                const minT = Math.min(p.spots[0].temp, p.spots[1].temp, p.spots[2].temp);
-                const deltaT = Math.round((maxT - minT) * 10) / 10;
-                const isWarn = deltaT >= 5.0;
-
-                const pageEl = document.createElement('div');
-                pageEl.style.cssText = 'width:720px; padding:24px; box-sizing:border-box; background:#FFFFFF; font-family:Noto Sans KR, Malgun Gothic, sans-serif; color:#111111;';
-
-                pageEl.innerHTML = `
-                    <div style="border-bottom: 2px solid #1E3A5F; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;">
-                        <div>
-                            <div style="font-size: 18px; font-weight: 600; color: #1E3A5F;">${escapeHtml(title)}</div>
-                            <div style="font-size: 12px; color: #5F6B7A; margin-top: 4px;">점검일자: ${date} · 측정자: ${escapeHtml(inspector)}</div>
-                        </div>
-                        <div style="font-size: 12px; color: #5F6B7A;">페이지 ${idx + 1} / ${total}</div>
-                    </div>
-
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="font-size: 15px; font-weight: 600; color: #1E3A5F;">
-                            측정 부위: ${escapeHtml(p.circuit_name)}
-                        </div>
-                        <div style="font-size: 11px; color: #5F6B7A;">
-                            적용값: 방사율 ${p.envInfo ? p.envInfo.emissivity : '0.95'} · 반사 ${p.envInfo ? p.envInfo.reflTempC : '20'}℃ · 거리 ${p.envInfo ? p.envInfo.distance : '1'}m
-                        </div>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                        <div>
-                            <div style="font-size: 12px; font-weight: 600; color: #5F6B7A; margin-bottom: 4px;">측정 부위 사진 (실화상)${p.hasVisual ? '' : ' <span style="font-size: 11px; font-weight: 400; color: #5F6B7A;">(실화상 없음)</span>'}</div>
-                            <div style="border: 1px solid #D8DDE5; border-radius: 2px; overflow: hidden; height: 240px; background: #F8FAFC; display: flex; align-items: center; justify-content: center;">
-                                <img src="${p.visualUrl || p.thermalUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
-                            </div>
-                        </div>
-                        <div>
-                            <div style="font-size: 12px; font-weight: 600; color: #5F6B7A; margin-bottom: 4px;">열화상 데이터 사진</div>
-                            <div style="position: relative; border: 1px solid #D8DDE5; border-radius: 2px; overflow: hidden; width: 320px; height: 240px; margin: 0 auto;">
-                                <img src="${p.thermalUrl}" width="320" height="240" style="width: 320px; height: 240px; display: block;">
-                                ${p.spots.map((sp, sIdx) => `
-                                    <div style="position: absolute; left: ${(sp.x / 320) * 100}%; top: ${(sp.y / 240) * 100}%; transform: translate(-50%, -50%); pointer-events: none;">
-                                        <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(30, 58, 95, 0.85); color: #ffffff; font-size: 10px; font-weight: 600; padding: 1px 4px; border-radius: 2px; white-space: nowrap;">
-                                            Sp${sIdx + 1}: ${sp.temp.toFixed(1)}°C
-                                        </div>
-                                        <div style="width: 12px; height: 12px; border: 1.5px solid #00f0ff; border-radius: 50%;"></div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; border: 1px solid #D8DDE5;">
-                        <thead>
-                            <tr style="background: #F1F4F8; color: #1E3A5F; border-bottom: 1px solid #D8DDE5;">
-                                <th style="padding: 6px; border-right: 1px solid #D8DDE5;">Sp1 (R상)</th>
-                                <th style="padding: 6px; border-right: 1px solid #D8DDE5;">Sp2 (S상)</th>
-                                <th style="padding: 6px; border-right: 1px solid #D8DDE5;">Sp3 (T상)</th>
-                                <th style="padding: 6px; border-right: 1px solid #D8DDE5;">상간 최대 온도차 (ΔT)</th>
-                                <th style="padding: 6px;">상태 판정</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style="padding: 8px; border-right: 1px solid #D8DDE5; font-weight: 600;">${p.spots[0].temp.toFixed(1)} °C</td>
-                                <td style="padding: 8px; border-right: 1px solid #D8DDE5; font-weight: 600;">${p.spots[1].temp.toFixed(1)} °C</td>
-                                <td style="padding: 8px; border-right: 1px solid #D8DDE5; font-weight: 600;">${p.spots[2].temp.toFixed(1)} °C</td>
-                                <td style="padding: 8px; border-right: 1px solid #D8DDE5; font-weight: 600; ${isWarn ? 'color: #B42318;' : ''}">${deltaT.toFixed(1)} °C</td>
-                                <td style="padding: 8px;">
-                                    <span style="display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 2px; ${isWarn ? 'background: #FFFFFF; color: #B42318; border: 1px solid #B42318;' : 'background: #1E3A5F; color: #FFFFFF;'}">
-                                        ${isWarn ? '요주의' : '정상'}
-                                    </span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-                return pageEl;
-            }
-
-            async function waitForImages(container) {
-                const imgs = Array.from(container.querySelectorAll('img'));
-                await Promise.all(imgs.map(img => {
-                    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-                    return new Promise(resolve => {
-                        img.onload = () => resolve();
-                        img.onerror = () => resolve();
-                        setTimeout(resolve, 500);
-                    });
-                }));
-            }
-
-            const opt = {
-                margin: [8, 8, 8, 8],
-                filename: pdfFileName,
-                image: { type: 'jpeg', quality: 0.95 },
-                html2canvas: { scale: 1.5, useCORS: true, logging: false },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            let pdf;
-            try {
-                // 1) 첫 페이지: html2pdf 로 jsPDF 인스턴스 획득
-                DOM.btnSavePdf.textContent = `PDF 생성 중 (1/${state.pages.length})...`;
-                const page0 = createPageEl(state.pages[0], 0, state.pages.length);
-                host.appendChild(page0);
-                await waitForImages(page0);
-
-                const worker = html2pdf().set(opt).from(page0).toPdf();
-                pdf = await worker.get('pdf');
-                page0.remove();
-
-                const pdfWidth = 210;
-                const margin = 8;
-                const contentWidth = pdfWidth - margin * 2; // 194mm
-
-                // 2) 2번째 페이지부터: 각 페이지를 개별 렌더링하여 PDF 에 추가 (GPU 텍스처 초과 방지)
-                for (let i = 1; i < state.pages.length; i++) {
-                    DOM.btnSavePdf.textContent = `PDF 생성 중 (${i + 1}/${state.pages.length})...`;
-                    const pageEl = createPageEl(state.pages[i], i, state.pages.length);
-                    host.appendChild(pageEl);
-                    await waitForImages(pageEl);
-
-                    const img = await html2pdf().set(opt).from(pageEl).toImg().get('img');
-                    pageEl.remove();
-
-                    pdf.addPage();
-                    const contentHeight = (img.height * contentWidth) / img.width;
-                    pdf.addImage(img.src, 'JPEG', margin, margin, contentWidth, contentHeight);
-                }
-            } finally {
-                host.remove();
-            }
-
-            const pdfBlob = pdf.output('blob');
-
-            let maxDt = 0;
-            for (const p of state.pages) {
-                const dt = Math.max(p.spots[0].temp, p.spots[1].temp, p.spots[2].temp) -
-                           Math.min(p.spots[0].temp, p.spots[1].temp, p.spots[2].temp);
-                if (dt > maxDt) maxDt = dt;
-            }
-            maxDt = Math.round(maxDt * 10) / 10;
-
-            const isStandalone = (!window.parent || window.parent === window || (state.bridge && state.bridge.isMock));
-
-            if (isStandalone) {
-                // 단독 실행 (mock)
-                const downloadUrl = URL.createObjectURL(pdfBlob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = pdfFileName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-
-                if (state.bridge && state.bridge.upload) {
-                    const up = await state.bridge.upload(pdfBlob, pdfFileName);
-                    if (state.bridge.saveReport) {
-                        await state.bridge.saveReport({
-                            title,
-                            inspector,
-                            date,
-                            path: state.lastAtrPath || '',
-                            pdf_path: up.path,
-                            pdf_url: up.url,
-                            drive_url: '',
-                            pages: state.pages.length,
-                            max_dt: maxDt
-                        });
-                    }
-                    state.pdfViewUrl = up.url || downloadUrl;
-                } else {
-                    state.pdfViewUrl = downloadUrl;
-                }
-
-                state.pdfSaved = true;
-                DOM.btnSavePdf.textContent = 'PDF 보기';
-                alert('PDF 파일이 다운로드되었습니다.\n(구글 드라이브 백업은 업무지원 안에서만 됩니다)');
-            } else {
-                // 업무지원 통로 연동
-                const up = await state.bridge.upload(pdfBlob, pdfFileName);
-                let dr = null;
-                try {
-                    dr = await state.bridge.toDrive(up.path, pdfFileName);
-                } catch (drErr) {
-                    alert('서버에는 저장했지만 구글 드라이브 백업은 못 했습니다: ' + (drErr.message || drErr));
-                }
-
-                const viewUrl = (dr && dr.url) ? dr.url : up.url;
-                if (state.bridge.saveReport) {
-                    try {   // 기록이 안 남아도(예: Supabase SQL 갱신 전) PDF 는 이미 저장됐으니 보기로 바꾸고 알림만
-                        await state.bridge.saveReport({
-                            title,
-                            inspector,
-                            date,
-                            path: state.lastAtrPath || '',
-                            pdf_path: up.path,
-                            pdf_url: up.url,
-                            drive_url: (dr && dr.url) ? dr.url : '',
-                            pages: state.pages.length,
-                            max_dt: maxDt
-                        });
-                    } catch (recErr) {
-                        alert('PDF는 저장했지만 보고서 기록은 남기지 못했습니다: ' + (recErr.message || recErr));
-                    }
-                }
-
-                state.pdfSaved = true;
-                state.pdfViewUrl = viewUrl;
-                DOM.btnSavePdf.textContent = 'PDF 보기';
-                alert(`PDF 리포트가 서버에 안전하게 저장되었습니다.\n${dr && dr.url ? '구글 드라이브 백업 완료' : ''}`);
-            }
-        } catch (err) {
-            console.error('PDF save error:', err);
-            alert(`PDF 저장 중 오류: ${err.message}`);
-        } finally {
-            DOM.btnSavePdf.disabled = false;
-        }
     }
 
     /**
@@ -1222,9 +949,11 @@
                 }
             }
 
-            alert(`리포트(${result.fileName})가 만들어져 내려받았습니다. (총 ${result.pages}쪽)
+            const patchMsg = (totalPatched === totalSpots)
+                ? `스팟 위치 기록: 모든 사진(총 ${totalSpots}개 스팟)의 위치가 바이너리에 정상 반영되었습니다.`
+                : `스팟 위치 기록: 총 ${totalSpots}개 중 ${totalPatched}개 스팟 위치 갱신 완료.`;
 
-※ 쪽 표의 온도는 앱에서 잡은 스팟 값입니다. (사진 원본 파일은 .atr 에 넣지 않습니다)`);
+            alert(`리포트(${result.fileName})가 성공적으로 생성되어 내려받았습니다! (단일 파일 총 ${result.pages}쪽)\n\n${patchMsg}\n\n※ FLIR Thermal Studio 및 PDF 저장 모두 ${result.pages}쪽 전 페이지가 한 파일에 완벽하게 표시됩니다.`);
         } catch (err) {
             console.error('Report build error:', err);
             alert(`리포트 내려받기 중 오류: ${err.message}`);

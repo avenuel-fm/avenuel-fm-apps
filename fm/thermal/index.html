@@ -8,7 +8,6 @@
   <!-- 고정 버전 CDN 의존성 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -18,8 +17,7 @@
     <div class="header-actions">
       <button type="button" id="btnReset" class="btn btn-secondary">새 문서 (초기화)</button>
       <button type="button" id="btnModelModal" class="btn btn-secondary">스팟 위치 학습 관리</button>
-      <button type="button" id="btnDownloadAtr" class="btn btn-secondary" disabled>내려받기</button>
-      <button type="button" id="btnSavePdf" class="btn btn-primary" disabled>PDF 저장</button>
+      <button type="button" id="btnDownloadAtr" class="btn btn-primary" disabled>내려받기 (.atr)</button>
     </div>
   </header>
 
@@ -67,7 +65,7 @@
   <!-- 리포트 작업 영역 (사이드바 목록 + 상세 뷰) -->
   <main id="reportLayout" class="report-layout" style="display: none;">
     <!-- 좌측 쪽 목록 -->
-    <aside class="page-list-sidebar" id="sidebarAside" tabindex="0" title="목록을 누른 뒤 키보드 ↑↓ 로 쪽 이동">
+    <aside class="page-list-sidebar">
       <div class="sidebar-title">
         <span>페이지 목록</span>
         <span id="pageCountBadge">0 / 99</span>
@@ -261,10 +259,10 @@
   </div>
 
   <!-- 스크립트 연결 (캐시 방지 버전 파라미터 적용) -->
-  <script src="./mock_bridge.js?v=20261124_09"></script>
-  <script src="./flir_parser.js?v=20261124_09"></script>
-  <script src="./atr_generator.js?v=20261124_09"></script>
-  <script src="./spot_model.js?v=20261124_09"></script>
-  <script src="./app.js?v=20261124_09"></script>
+  <script src="./mock_bridge.js?v=20261124_07"></script>
+  <script src="./flir_parser.js?v=20261124_07"></script>
+  <script src="./atr_generator.js?v=20261124_07"></script>
+  <script src="./spot_model.js?v=20261124_07"></script>
+  <script src="./app.js?v=20261124_07"></script>
 </body>
 </html>
