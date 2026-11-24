@@ -32,6 +32,7 @@ const status = () => { const items = stItems(), n = s => items.filter(i => i.sta
 const RPC = {
   ws_bootstrap: () => ({ ok: true, user: ME, toastSec: 1, needSign: false, docs: { day: D, signs: 1 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 }, window: { start: 1, end: 5 }, day: 14, ym: YM } }),
   ws_fe_list: () => feList(),
+  ws_fe_status: () => ({ ok: true, ym: YM, curYm: YM, day: 14, window: { start: 1, end: 5 }, isCurrent: true, months: [YM], items: FE.map(e => Object.assign({}, e, { state: 'miss', checkId: '', at: '', late: false })), counts: { ok: 0, bad: 0, wait: 0, miss: FE.length, total: FE.length } }),
   ws_fe_add: a => {
     const d = a.p_d, store = norm(d.store), n = Math.max(1, Math.min(20, Math.floor(Number(d.count)) || 1)), names = [];
     if (!store) return { ok: false, error: '위치를 적어 주세요.' };
@@ -125,11 +126,11 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
 
 (async () => {
   const b = await chromium.launch();
-  const mk = async (tok) => {
+  const mk = async (tok, xl) => {
     const c = await b.newContext({ viewport: { width: 1280, height: 900 } });
     await c.route('https://cdn.jsdelivr.net/npm/@supabase/**', r => r.fulfill({ contentType: 'application/javascript', body: FAKE }));
     await c.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
-    await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: QRLIB }));
+    await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: xl && /xlsx/.test(r.request().url()) ? xl : QRLIB }));
     if (tok) await c.addInitScript(t => { try { localStorage.setItem('ws_token', t); localStorage.setItem('ws_dev_at', '2026-11-14'); } catch (e) {} }, tok);
     return c;
   };
@@ -368,6 +369,40 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   const x = await mk(); const xp = await x.newPage();
   await xp.goto(BASE + 'eq.html?eq=' + T1); await xp.locator('.t').waitFor();
   ok(true, '40) 표가 아예 없어도 지난 점검 표');
+
+  // ── 매장별 소화기 수량 엑셀 올리기·내려받기 (결정 244) ──
+  const XLS = { '1F': [[], ['NO.', '브랜드명', '소화기 개수'], ['1', '카페', '3'], ['2', '신규 매장', '2'], ['', '계', '5']], '5F': [[], ['NO.', '브랜드명', '소화기 개수'], ['1', ' 꼼  데 ', '1'], ['2', '없는수량', ''], ['', '계', '1']], '메모': [['x']] };
+  const FX = 'window.XLSX={read:()=>({SheetNames:' + JSON.stringify(Object.keys(XLS)) + ',Sheets:' + JSON.stringify(XLS) + '}),utils:{sheet_to_json:w=>w,book_new:()=>({SheetNames:[],Sheets:{}}),aoa_to_sheet:a=>a,book_append_sheet:(wb,w,n)=>{wb.SheetNames.push(n);wb.Sheets[n]=w;}},writeFile:(wb,n)=>{window.__xl={name:n,sheets:wb.SheetNames,rows:wb.Sheets};}};';
+  const xc = await mk(TK, FX), xp2 = await xc.newPage(); xp2.on('pageerror', e => errs.push(e.message)); xp2.on('dialog', d => d.accept());
+  await xp2.goto(BASE + 'app.html'); await xp2.locator('.grid6').waitFor();
+  await xp2.evaluate(() => openStatus()); await xp2.locator('.tree').waitFor();
+  ok(/엑셀 올리기/.test(await xp2.locator('.wrap.list').innerText()) && /엑셀 내려받기/.test(await xp2.locator('.wrap.list').innerText()), '42) 매장별 현황 첫 화면에 [엑셀 올리기] [엑셀 내려받기]');
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화기.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  const nAdd0 = count('ws_fe_add');
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기")').waitFor();
+  const pv = await xp2.locator('.dialog').innerText();
+  ok(/1F · 5F/.test(pv) && /카페[\s\S]*3대[\s\S]*1대[\s\S]*\+2 등록/.test(pv) && /신규 매장[\s\S]*새 매장[\s\S]*\+2 등록/.test(pv) && /꼼 데[\s\S]*\+1 등록/.test(pv) && /새로 등록 \+5대/.test(pv) && !/없는수량|계\b/.test(pv.replace('엑셀 올리기', '')) && !/메모/.test(pv), '43) 미리보기: 층 시트(1F·5F)만, 「계」·수량 없는 줄·층 아닌 시트는 뺌, 부족분 +5대');
+  ok(count('ws_fe_add') === nAdd0, '44) 미리보기만으로는 저장하지 않음');
+  await shot(xp2, 'x_preview');
+  n0 = count('ws_fe_add'); await xp2.click('#xlGo'); await called('ws_fe_add', n0 + 2); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  const adds = CALLS.filter(c => c.fn === 'ws_fe_add').slice(n0).map(c => c.a.p_d.floor + '|' + c.a.p_d.store + '|' + c.a.p_d.count).join();
+  ok(adds === '1F|카페|2,1F|신규 매장|2,5F|꼼 데|1', '45) 등록하기 → 부족한 만큼만 소화기 등록 ' + adds);
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화기.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기")').waitFor();
+  ok(/등록할 것 없음/.test(await xp2.locator('.dialog').innerText()) && await xp2.locator('#xlGo').isDisabled() && !/대 초과/.test(await xp2.locator('.dialog').innerText()), '46) 같은 파일을 다시 올리면 「등록할 것 없음」(중복 등록 안 됨)');
+  await xp2.click('.dialog button:text-is("취소")');
+  await xp2.evaluate(() => { S.floor = '5F'; go('floor'); }); await xp2.locator('.store').first().waitFor();
+  ok(/5F 엑셀 올리기/.test(await xp2.locator('.wrap.list').innerText()), '47) 층 화면에는 「5F 엑셀 올리기」');
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화기.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기")').waitFor();
+  ok(/엑셀 올리기 — 5F\b/.test(await xp2.locator('.dialog h2').innerText()) && !/카페/.test(await xp2.locator('.dialog').innerText()), '48) 층 화면에서 올리면 그 층 시트만 읽음');
+  await xp2.click('.dialog button:text-is("취소")');
+  await xp2.click('button:has-text("5F 엑셀 내려받기")'); await xp2.waitForFunction(() => window.__xl);
+  const xd = await xp2.evaluate(() => window.__xl);
+  ok(xd.name === '소화기 현황_5F.xlsx' && xd.sheets.join() === '5F' && JSON.stringify(xd.rows['5F'].slice(1)) === JSON.stringify([['NO.', '브랜드명', '소화기 개수'], [1, '꼼 데', 1], ['', '계', { t: 'n', f: 'SUM(C3:C3)', v: 1 }]]), '49) 내려받기: 올린 양식과 같은 칸 (시트 이름=층, NO·브랜드명·소화기 개수, 계) ' + JSON.stringify(xd.rows['5F']));
+  await xp2.evaluate(() => { window.__xl = null; go('status'); }); await xp2.locator('.tree').waitFor();
+  await xp2.click('button:has-text("엑셀 내려받기")'); await xp2.waitForFunction(() => window.__xl);
+  const xs = (await xp2.evaluate(() => window.__xl)).sheets.join(); ok(/^(B3,)?1F,5F(,10F)?$/.test(xs), '50) 첫 화면에서 내려받으면 등록된 층 모두, 층 순서대로 ' + xs);
 
   ok(!errs.length, '41) 화면 오류 없음 ' + (errs.length ? JSON.stringify(errs) : ''));
   await b.close(); srv.close();
