@@ -32,7 +32,8 @@ const status = () => { const items = stItems(), n = s => items.filter(i => i.sta
 const RPC = {
   ws_bootstrap: () => ({ ok: true, user: ME, toastSec: 1, needSign: false, docs: { day: D, signs: 1 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 }, window: { start: 1, end: 5 }, day: 14, ym: YM } }),
   ws_fe_list: () => feList(),
-  ws_fe_status: () => ({ ok: true, ym: YM, curYm: YM, day: 14, window: { start: 1, end: 5 }, isCurrent: true, months: [YM], items: FE.map(e => Object.assign({}, e, { state: 'miss', checkId: '', at: '', late: false })), counts: { ok: 0, bad: 0, wait: 0, miss: FE.length, total: FE.length } }),
+  ws_fe_delete: a => { let n = 0; for (const id of a.p_ids) { const i = FE.findIndex(e => e.id === id); if (i >= 0) { FE.splice(i, 1); n++; } } return Object.assign(feList(), { count: n }); },
+  ws_fe_status: () => ({ ok: true, ym: YM, curYm: YM, day: 14, window: { start: 1, end: 5 }, isCurrent: true, months: [YM], items: FE.map(e => Object.assign({}, e, e.name === '카페-소화기1' ? { state: 'ok', checkId: 'CK1', at: D + ' 10:00', late: false } : { state: 'miss', checkId: '', at: '', late: false })), counts: { ok: 0, bad: 0, wait: 0, miss: FE.length, total: FE.length } }),
   ws_fe_add: a => {
     const d = a.p_d, store = norm(d.store), n = Math.max(1, Math.min(20, Math.floor(Number(d.count)) || 1)), names = [];
     if (!store) return { ok: false, error: '위치를 적어 주세요.' };
@@ -403,6 +404,20 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   await xp2.evaluate(() => { window.__xl = null; go('status'); }); await xp2.locator('.tree').waitFor();
   await xp2.click('button:has-text("엑셀 내려받기")'); await xp2.waitForFunction(() => window.__xl);
   const xs = (await xp2.evaluate(() => window.__xl)).sheets.join(); ok(/^(B3,)?1F,5F(,10F)?$/.test(xs), '50) 첫 화면에서 내려받으면 등록된 층 모두, 층 순서대로 ' + xs);
+
+  // ── 층 화면에서 소화기 삭제 (결정 250) ──
+  await xp2.evaluate(() => { S.floor = '1F'; go('floor'); }); await xp2.locator('.store').first().waitFor();
+  ok(await xp2.locator('button:text-is("소화기 삭제")').count() === 1, '51) 층 화면에 [소화기 삭제] 버튼');
+  await xp2.click('button:text-is("소화기 삭제")');
+  ok(/지울 소화기를 눌러 고르세요/.test(await xp2.locator('.wrap.list').innerText()) && await xp2.locator('button:has-text("선택 0대 삭제")').isDisabled(), '52) 삭제 모드: 안내 + 고르기 전에는 [선택 0대 삭제]가 꺼져 있음');
+  await xp2.click('.feb:has-text("카페-소화기1")');   // 점검 입력이 있는 것
+  await xp2.click('.store:has-text("신규 매장") button:text-is("전체 선택")');
+  ok(await xp2.locator('button:text-is("선택 3대 삭제")').count() === 1 && /이번 달 점검 입력 있음/.test(await xp2.locator('.feb:has-text("카페-소화기1")').innerText()), '53) 소화기 1대 + 매장 전체 선택 → 「선택 3대 삭제」, 점검 입력 있는 것은 표시');
+  await xp2.click('button:text-is("선택 3대 삭제")');
+  const ask = await xp2.locator('.dialog').innerText();
+  ok(/소화기 3대 삭제/.test(ask) && /카페-소화기1/.test(ask) && /신규 매장-소화기1/.test(ask) && /점검을 이미 입력한 1대/.test(ask), '54) 확인 창: 지울 이름 목록 + 점검 기록 있는 1대는 남는다는 안내');
+  n0 = count('ws_fe_delete'); await xp2.click('#fdBtn'); await called('ws_fe_delete', n0); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  ok(last('ws_fe_delete').a.p_ids.length === 3 && !(await xp2.locator('text=신규 매장').count()) && !/지울 소화기를 눌러/.test(await xp2.locator('.wrap.list').innerText()) && await xp2.locator('button:text-is("소화기 삭제")').count() === 1, '55) 삭제 → 3대 지움, 목록 새로 읽고 삭제 모드 끝, 층 화면 그대로');
 
   ok(!errs.length, '41) 화면 오류 없음 ' + (errs.length ? JSON.stringify(errs) : ''));
   await b.close(); srv.close();
