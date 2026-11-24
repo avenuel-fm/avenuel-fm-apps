@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>주간/야간 작업내역 사진 칸 시안</title>
+<style>
+body{margin:0;padding:20px;background:#E9EDF2;font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#1B2430;font-size:14px}
+h2{margin:0 0 12px;font-size:16px}.note{font-size:12.5px;color:#5B6573;line-height:1.6;margin:0 0 14px}
+.wrap{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.frame{background:#fff;border:1px solid #D8DDE5;border-radius:10px;padding:14px}
+.m{width:360px}.pc{width:880px}
+.lb{font-size:12px;font-weight:600;color:#5B6573;margin:10px 0 4px}
+.inp{border:1px solid #D8DDE5;border-radius:8px;height:38px;padding:0 10px;display:flex;align-items:center;color:#1B2430;background:#fff}
+.card{border:1px solid #D8DDE5;border-radius:8px;padding:12px;background:#fff;margin-top:10px}
+.card h4{margin:0 0 8px;font-size:15px;color:#14284B}.card h4 small{font-weight:400;color:#8A94A3;margin-left:6px;font-size:12px}
+.tile{position:relative;aspect-ratio:4/3;background:#F1F4F8;border:1px solid #D8DDE5;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tile .ph{width:100%;height:62%;background:linear-gradient(135deg,#9db1c9,#6f86a3)}
+.tile.empty{color:#8A94A3;font-size:12px}
+.tile .x{position:absolute;top:5px;right:5px;width:26px;height:26px;border:1px solid #D8DDE5;border-radius:6px;background:#fff;text-align:center;line-height:24px;font-size:13px}
+.btns{display:flex;gap:8px;margin-top:8px}.btns span{flex:1;height:42px;border:1px solid #D8DDE5;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;font-size:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:0}.cols>div{padding:0 10px}.cols>div+div{border-left:1px solid #D8DDE5}.cols>div:first-child{padding-left:0}.cols>div:last-child{padding-right:0}
+.sub{font-size:12px;color:#5B6573;margin:6px 0 2px}
+.bar{display:flex;gap:8px;margin-top:14px;border-top:1px solid #D8DDE5;padding-top:10px}.bar span{flex:1;height:40px;border:1px solid #D8DDE5;border-radius:8px;display:flex;align-items:center;justify-content:center}.bar .pri{background:#14284B;color:#fff;border-color:#14284B}
+.tag{display:inline-block;background:#FFF4D6;padding:1px 6px;border-radius:4px;font-size:11.5px;margin-bottom:6px}
+</style></head><body>
+<h2>주간/야간 작업내역 — 사진 칸 시안 (스크린샷의 「회의 사진」 칸 모양)</h2>
+<p class="note">모양: 제목 → 큰 4:3 사진 칸(연한 회색 바탕, 사진은 잘리지 않게 가운데) → 아래에 <b>카메라 / 파일</b> 두 버튼. 아래 시안은 왼쪽 휴대폰, 오른쪽 PC입니다.</p>
+
+<div class="wrap">
+
+<div>
+<h2>① 주간작업 — 작업 전/후 (2열, 총 4장)</h2>
+<p class="note"><span class="tag">설명</span> 휴대폰·PC 모두 2열. 왼쪽 열 = 작업 전 2장, 오른쪽 열 = 작업 후 2장. 칸마다 사진 1장 + 카메라/파일 버튼.</p>
+<div class="wrap">
+ <div class="frame m">
+  <div class="lb">작업내용</div><div class="inp">3F 복도 조명 안정기 교체</div>
+  <div class="cols" style="margin-top:10px">
+   <div><div class="card" style="margin:0 0 8px"><h4>작업 전 1</h4><div class="tile"><div class="ph"></div></div><div class="btns"><span>📷 카메라</span><span>📁 파일</span></div></div>
+        <div class="card" style="margin:0"><h4>작업 전 2</h4><div class="tile empty">사진 없음</div><div class="btns"><span>📷 카메라</span><span>📁 파일</span></div></div></div>
+   <div><div class="card" style="margin:0 0 8px"><h4>작업 후 1</h4><div class="tile"><div class="ph"></div></div><div class="btns"><span>📷 카메라</span><span>📁 파일</span></div></div>
+        <div class="card" style="margin:0"><h4>작업 후 2</h4><div class="tile empty">사진 없음</div><div class="btns"><span>📷 카메라</span><span>📁 파일</span></div></div></div>
+  </div>
+  <div class="bar"><span>뒤로</span><span>인쇄 A4</span><span>PDF 보기</span><span class="pri">저장</span></div>
+ </div>
+</div></div>
+
+<div>
+<h2>② 야간작업 — 첫 화면 = 신규작성 양식, 현장 사진·방염서류</h2>
+<p class="note"><span class="tag">설명</span> 탭을 열면 바로 빈 양식(신규작성)이 보임. 현장 사진·방염서류: <b>휴대폰 2열, PC 4열</b>, 장수 제한 없음. 사진 칸은 ✕로 지우고, 아래 카메라/파일 버튼으로 계속 추가. 각서 칸은 지금 모양 그대로.</p>
+<div class="wrap">
+ <div class="frame m">
+  <div class="card" style="margin-top:0"><h4>현장 사진 <small>5장</small></h4>
+   <div class="g2"><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div></div>
+   <div class="btns"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="lb">일자 / 업체명 / 작업위치 / 작업내용</div><div class="inp">OO인테리어 · 3F</div>
+  <div class="card"><h4>방염서류 <small>2장</small></h4>
+   <div class="g2"><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div></div>
+   <div class="btns"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4 style="font-size:13px">각서 <small>(지금 모양 그대로)</small></h4><div class="btns" style="margin-top:0"><span style="height:34px">📷 사진찍기</span><span style="height:34px">📁 갤러리</span></div></div>
+  <div class="bar"><span>뒤로</span><span>인쇄</span><span>PDF</span><span class="pri">저장</span></div>
+ </div>
+
+ <div class="frame pc">
+  <div class="card" style="margin-top:0"><h4>현장 사진 <small>8장</small></h4>
+   <div class="g4"><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div></div>
+   <div class="btns"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="card"><h4>방염서류 <small>4장</small></h4>
+   <div class="g4"><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="tile"><div class="ph"></div><span class="x">✕</span></div></div>
+   <div class="btns"><span>📷 카메라</span><span>📁 파일</span></div></div>
+ </div>
+</div></div>
+
+</div>
+</body></html>
