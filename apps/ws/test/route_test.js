@@ -1,4 +1,4 @@
-// 길찾기 계산 시험 (결정 218): 직각만 · 입구는 복도 쪽 가장 긴 변의 한가운데 · 복도 중앙선 따라감
+// 길찾기 계산 시험 (결정 246): 직각만 · 입구는 복도 쪽 가장 긴 변의 한가운데 · 복도 중앙선 따라감
 // 실행: node test/route_test.js
 const fs = require('fs'), path = require('path'), vm = require('vm');
 let fail = 0;
