@@ -7,7 +7,6 @@ Thumbs.db
 # 출근현황: 직원 이름·얼굴이 든 자료는 GitHub에 올리지 않음 (11-07 사용자)
 docs/양식/WS_출근현황_*
 *.xlsx
-fm/thermal/master_template.atr
 
 # 환경변수·비밀 키는 올리지 않음
 .env

@@ -15,7 +15,7 @@
 
 (function() {
     const DB_NAME = 'avenuel_thermal_db';
-    const DB_VERSION = 1;
+    const DB_VERSION = 2; // 캐시 무효화 및 99슬롯 공식 양식 강제 갱신
     const STORE_NAME = 'templates';
 
     const STORAGE_KEY_INSPECTOR = 'avenuel_thermal_last_inspector';
@@ -149,24 +149,30 @@
     }
 
     /**
-     * [개선 1] 템플릿 로드 및 IndexedDB 캐시
+     * [개선 1] 템플릿 로드 및 IndexedDB 캐시 (최소 40MB 공식 양식 검증)
      */
     async function loadTemplateWithFallback() {
         try {
-            const resp = await fetch(state.templateUrl);
+            const resp = await fetch(state.templateUrl, { cache: 'no-cache' });
             if (resp.ok) {
-                state.templateBuffer = await resp.arrayBuffer();
-                await saveTemplateToDb(state.templateBuffer);
-                return;
+                const buf = await resp.arrayBuffer();
+                if (buf && buf.byteLength > 40000000) {
+                    state.templateBuffer = buf;
+                    await saveTemplateToDb(buf);
+                    console.log(`[FM Thermal] 원격 99슬롯 양식 로드 성공 (${(buf.byteLength / (1024 * 1024)).toFixed(1)} MB)`);
+                    DOM.templateFallbackBanner.classList.remove('active');
+                    return;
+                }
             }
         } catch (e) {
             console.warn('Direct fetch failed (likely file:// or CORS):', e);
         }
 
         const cached = await getTemplateFromDb();
-        if (cached) {
+        if (cached && cached.byteLength > 40000000) {
             state.templateBuffer = cached;
-            console.log('Loaded template from IndexedDB cache');
+            console.log(`[FM Thermal] 캐시된 99슬롯 양식 로드 완료 (${(cached.byteLength / (1024 * 1024)).toFixed(1)} MB)`);
+            DOM.templateFallbackBanner.classList.remove('active');
             return;
         }
 
@@ -176,8 +182,11 @@
     function openDb() {
         return new Promise((resolve, reject) => {
             const req = indexedDB.open(DB_NAME, DB_VERSION);
-            req.onupgradeneeded = () => {
-                req.result.createObjectStore(STORE_NAME);
+            req.onupgradeneeded = (e) => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME);
+                }
             };
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
