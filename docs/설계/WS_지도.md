@@ -108,3 +108,11 @@
 - **예전 배관 정리**: 배관 연결을 처음 열 때 `auto` 표시가 없는(손으로 그린) 배관이 모든 층에 있으면 「N개 지울까요?」 확인 → 예를 누르면 지움(기록의 「이 날로 되돌리기」로 복구 가능). 새 선은 `auto: true`.
 - **한계**: 아주 비스듬한 복도는 중앙선이 어긋날 수 있음. 층 사이(엘리베이터·계단)는 없음.
 - 코드 `fm/map/js/cad/routeFinder.js`(계산) · `utilityLineEditor.js`(연결) · 시험 `apps/ws/test/route_test.js`(계산), `sb_map_route_test.js`(화면)
+
+
+## 14. 바닥 겹침은 바깥 둘레만 · 레이어 열쇠(잠금) (결정 248)
+- **바닥 겹침**: 바닥 점선은 면 아래 층(`#floor-user › g.floor-lines`)에 굵기 3px로 따로 깔고, 그 위에 흰 바닥 면을 덮음 → 겹친 바닥의 안쪽 선은 면에 가려지고 바깥 둘레 점선(보이는 굵기 1.5px)만 남음. 저장 데이터는 그대로, 점선을 눌러 상세 창을 여는 것도 그대로.
+- **열쇠(잠금)**: 레이어 메뉴의 방화구역·제연구획·바닥·전기·급수·가스·배수 줄 왼쪽 🔑 체크박스(표시 체크박스 왼쪽). 켜면 그 레이어 도형은 상세 창·삭제·라벨 이동이 막히고 「🔑 잠긴 레이어입니다」 토스트. 잠긴 배관은 삭제(확인창·Delete 키)·예전 배관 정리에서 제외. 심벌·인포·그리드·외벽에는 열쇠 없음.
+- **기억**: 이 기기 브라우저(`localStorage` `lotte_map_layer_locks`)에만. 서버·Supabase 변경 없음. 다른 사람·기기에는 영향 없음.
+- **한계**: 지우개(`erase`)가 잠긴 구역 위에 흰 칠을 하는 것은 막지 않음. 방화구역·제연구획 꼭짓점 이동은 원래 없음.
+- 코드 `zoneEditor.js`(`isLayerLocked`·`onLayerLockChange`·`renderPaintZone`), `utilityLineEditor.js`, `index.html`, `cad-tools.css` · 시험 `apps/ws/test/sb_map_lock_test.js`

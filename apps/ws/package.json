@@ -9,7 +9,7 @@
     "build:fm": "python tools/build_fm.py",
     "test:sql": "node test/sql_test.js && node test/offline_sql_test.js && node test/equip_sql_test.js",
     "test:migrate": "node test/migrate_test.js && node test/archive_test.js",
-    "test:sb": "python tools/build_fm.py && node test/sb_login_test.js && node test/sb_docs_test.js && node test/sb_climate_test.js && node test/sb_map_test.js && node test/store_book_test.js && node test/sb_map_book_test.js && node test/sb_map_mobile_test.js && node test/route_test.js && node test/sb_map_route_test.js && node test/sb_map_floor_test.js && node test/sb_spec_test.js && node test/back_test.js && node test/sb_equip_test.js && node test/offline_test.js"
+    "test:sb": "python tools/build_fm.py && node test/sb_login_test.js && node test/sb_docs_test.js && node test/sb_climate_test.js && node test/sb_map_test.js && node test/store_book_test.js && node test/sb_map_book_test.js && node test/sb_map_mobile_test.js && node test/route_test.js && node test/sb_map_route_test.js && node test/sb_map_floor_test.js && node test/sb_map_lock_test.js && node test/sb_spec_test.js && node test/back_test.js && node test/sb_equip_test.js && node test/offline_test.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.13",
