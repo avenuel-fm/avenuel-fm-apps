@@ -4094,7 +4094,12 @@ async function csSiteEndBtn(id) {
 }
 // 공사 완료: 끝난 현장을 여러 곳 골라 한 번에 뺌 (점검 기록·PDF는 지난 점검에 남음)
 function csDoneOpen() {
-  const sites = S.cs.sites; if (!sites.length) return toast('공사 완료할 현장이 없습니다');
+  if (!S.cs.sites.length) return toast('공사 완료할 현장이 없습니다');
+  // 결정 264: 먼저 준공 확인 — 예면 현장 고르기, 아니오면 그대로
+  dialog('<h3 class="ehdh">현장 최종 준공 확인 바랍니다</h3><div class="ehda"><button class="btn big" style="flex:1" id="csDn" onclick="closeDialog()">아니오</button><button class="btn big pri" style="flex:1" id="csDy" onclick="csDoneList()">예</button></div>');
+}
+function csDoneList() {
+  const sites = S.cs.sites;
   dialog('<h3 class="ehdh">공사 완료</h3><p class="ehdp">끝난 현장을 고르세요. 오늘 점검할 현장에서 빠지고, 지난 점검 기록·PDF는 그대로 남아 검색됩니다.</p><div class="card cslist">' +
     sites.map(s => '<label class="csdl"><input type="checkbox" value="' + h(s.id) + '" onchange="csDoneCnt()"><span><b>' + h(s.name) + '</b><small>' + h([s.work, s.co].filter(Boolean).join(' · ')) + '</small></span></label>').join('') + '</div>' +
     '<div class="ehda"><button class="btn big" style="flex:1" onclick="closeDialog()">취소</button><button class="btn big pri" style="flex:2" id="csDb" disabled onclick="csDoneGo()">현장을 고르세요</button></div>');

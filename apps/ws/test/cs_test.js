@@ -166,7 +166,12 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
 
   // 공사 완료 (결정 174): 골라서 뺌 → 오늘 목록에서 빠지고, 점검 기록은 지난 점검(날짜 아코디언)에 남아 검색됨
   await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와")');
-  await p.click('.csbtns .csdone'); await p.waitForSelector('.csdl');
+  // 결정 264: 먼저 준공 확인 창 — 아니오면 그대로, 예면 현장 고르기
+  await p.click('.csbtns .csdone'); await p.waitForSelector('#csDy');
+  ok(/최종 준공 확인/.test(await p.locator('.ehdh').innerText()) && await p.locator('.csdl').count() === 0, '공사 완료 → 「현장 최종 준공 확인 바랍니다」 예/아니오 창');
+  await p.click('#csDn'); await p.waitForFunction(() => !document.querySelector('#csDy'));
+  ok(await p.locator('.csdl').count() === 0 && await p.locator('.csrow:has-text("5F 리모와")').count() === 1, '아니오 → 창 닫힘, 현재 상태 유지');
+  await p.click('.csbtns .csdone'); await p.click('#csDy'); await p.waitForSelector('.csdl');
   ok(await p.locator('.csdl').count() === 2 && await p.locator('#csDb').isDisabled(), '공사 완료 창: 현장 2곳, 고르기 전엔 단추 꺼짐');
   await p.locator('.csdl:has-text("5F 리모와") input').check();
   ok(/선택한 1곳 공사 완료/.test(await p.locator('#csDb').innerText()), '고르면 「선택한 1곳 공사 완료」');
