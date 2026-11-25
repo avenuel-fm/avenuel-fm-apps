@@ -422,13 +422,25 @@
             alert(`[${page.circuit_name}] 위치에 대한 스팟 좌표가 학습 및 저장되었습니다.`);
         });
 
-        // 학습 모델 초기화
+        // 학습 모델 초기화 (목록 및 저장소 완전 초기화)
         DOM.btnResetModel.addEventListener('click', async () => {
-            if (confirm('학습된 모든 위치 패턴을 초기화하고 99.atr 기본 패턴으로 되돌리시겠습니까?')) {
-                state.spotModel = new SpotModelManager();
+            if (confirm('학습된 모든 위치 패턴을 초기화하시겠습니까?\n(등록된 위치 패턴 목록이 모두 삭제됩니다)')) {
+                state.spotModel.clear();
                 saveSpotModel();
                 renderPatternsTable();
-                alert('학습 모델이 초기화되었습니다.');
+                alert('학습된 모든 위치 패턴 목록이 초기화되었습니다.');
+            }
+        });
+
+        // 개별 위치 패턴 삭제 버튼 이벤트
+        DOM.patternsTableBody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-del-pattern');
+            if (!btn) return;
+            const key = btn.dataset.key;
+            if (confirm(`[${key}] 패턴을 삭제하시겠습니까?`)) {
+                state.spotModel.removePattern(key);
+                saveSpotModel();
+                renderPatternsTable();
             }
         });
     }
@@ -513,7 +525,7 @@
         if (list.length === 0) {
             DOM.patternsTableBody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; color: var(--text-sub); padding: 12px;">
+                    <td colspan="6" style="text-align: center; color: var(--text-sub); padding: 16px;">
                         등록된 학습 패턴이 없습니다. 예제 사진이나 .atr 보고서를 추가해 주세요.
                     </td>
                 </tr>
@@ -528,6 +540,9 @@
                 <td>(${item.spots[0].x}, ${item.spots[0].y})</td>
                 <td>(${item.spots[1].x}, ${item.spots[1].y})</td>
                 <td>(${item.spots[2].x}, ${item.spots[2].y})</td>
+                <td style="text-align: center;">
+                    <button type="button" class="btn-del-pattern" data-key="${escapeHtml(item.label)}" style="background: none; border: 1px solid var(--line); color: var(--text-sub); border-radius: var(--radius); padding: 2px 8px; cursor: pointer; font-size: 11px;">삭제</button>
+                </td>
             </tr>
         `).join('');
     }

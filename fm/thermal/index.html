@@ -13,7 +13,7 @@
 
   <!-- 페이지 헤더 -->
   <header class="page-header">
-    <h1 class="page-title">열화상 리포트 자동 작성 <span style="font-size: 13px; font-weight: normal; color: var(--text-sub); margin-left: 8px;">(v99.3 스팟복원)</span></h1>
+    <h1 class="page-title">열화상 리포트 자동 작성 <span style="font-size: 13px; font-weight: normal; color: var(--text-sub); margin-left: 8px;">(v99.4 패턴초기화)</span></h1>
     <div class="header-actions">
       <button type="button" id="btnReset" class="btn btn-secondary">새 문서 (초기화)</button>
       <button type="button" id="btnModelModal" class="btn btn-secondary">스팟 위치 학습 관리</button>
@@ -164,15 +164,16 @@
       <!-- 하단 온도 요약 표 및 키보드 조작 안내 -->
       <div class="temp-table-wrap">
         <table class="temp-table">
-          <thead>
-            <tr>
-              <th>Sp1 (R상)</th>
-              <th>Sp2 (S상)</th>
-              <th>Sp3 (T상)</th>
-              <th>상간 최대 온도차 (ΔT)</th>
-              <th>상태 판정</th>
-            </tr>
-          </thead>
+              <thead>
+                <tr>
+                  <th>위치 / 패턴명</th>
+                  <th style="width: 55px;">샘플수</th>
+                  <th>Sp1 (R)</th>
+                  <th>Sp2 (S)</th>
+                  <th>Sp3 (T)</th>
+                  <th style="width: 48px; text-align: center;">관리</th>
+                </tr>
+              </thead>
           <tbody>
             <tr>
               <td id="tblSp1" class="temp-val">--.- °C</td>
@@ -225,15 +226,16 @@
         <label class="form-label">학습된 위치 패턴 목록 (<span id="patternCount">0</span>개)</label>
         <div class="patterns-table-wrap">
           <table class="patterns-table">
-            <thead>
-              <tr>
-                <th>위치 / 패턴명</th>
-                <th style="width: 60px;">샘플수</th>
-                <th>Sp1 (R)</th>
-                <th>Sp2 (S)</th>
-                <th>Sp3 (T)</th>
-              </tr>
-            </thead>
+              <thead>
+                <tr>
+                  <th>위치 / 패턴명</th>
+                  <th style="width: 55px;">샘플수</th>
+                  <th>Sp1 (R)</th>
+                  <th>Sp2 (S)</th>
+                  <th>Sp3 (T)</th>
+                  <th style="width: 48px; text-align: center;">관리</th>
+                </tr>
+              </thead>
             <tbody id="patternsTableBody">
               <tr>
                 <td colspan="5" style="text-align: center; color: var(--text-sub); padding: 12px;">
