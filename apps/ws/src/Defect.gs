@@ -11,7 +11,7 @@ function hjFromOk_() {
   try { return GmailApp.getAliases().map(function (x) { return String(x).toLowerCase(); }).indexOf(HJ_FROM) >= 0; } catch (e) { return false; }
 }
 /** 편집기에서 한 번 실행 → Gmail 권한 허용 + 「nate 주소로 보내기」 가능 여부 확인 */
-function hjMailAuthCheck_() {
+function hjMailAuthCheck() {
   const ok = hjFromOk_();
   Logger.log('보내는 주소 ' + HJ_FROM + ' : ' + (ok ? 'Gmail에 등록됨 (그 주소로 보냄)' : 'Gmail에 없음 (구글 계정 주소로 보내고 답장만 nate 로 받음)') + ' · 오늘 남은 발송 수 ' + MailApp.getRemainingDailyQuota());
 }
