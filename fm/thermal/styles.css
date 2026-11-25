@@ -323,6 +323,10 @@ textarea:focus {
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
+.dropzone * {
+  pointer-events: none;
+}
+
 .dropzone.dragover {
   border-color: var(--navy);
   background-color: var(--tint);

@@ -274,20 +274,39 @@
             invalidatePdf();
         });
 
+        // 전역 파일 드롭 기본 동작 방지 (브라우저가 파일을 새 탭으로 여는 현상 차단)
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            window.addEventListener(eventName, (e) => e.preventDefault(), false);
+            document.body.addEventListener(eventName, (e) => e.preventDefault(), false);
+        });
+
         // 드롭존 & 파일 인풋
         DOM.dropZone.addEventListener('click', () => DOM.fileInput.click());
-        DOM.dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            DOM.dropZone.classList.add('dragover');
+        ['dragenter', 'dragover'].forEach(eventName => {
+            DOM.dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                DOM.dropZone.classList.add('dragover');
+            });
         });
-        DOM.dropZone.addEventListener('dragleave', () => DOM.dropZone.classList.remove('dragover'));
+        DOM.dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            DOM.dropZone.classList.remove('dragover');
+        });
         DOM.dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             DOM.dropZone.classList.remove('dragover');
-            if (e.dataTransfer.files) handleFiles(Array.from(e.dataTransfer.files));
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) {
+                handleFiles(Array.from(dt.files));
+            }
         });
         DOM.fileInput.addEventListener('change', (e) => {
-            if (e.target.files) handleFiles(Array.from(e.target.files));
+            if (e.target.files && e.target.files.length > 0) {
+                handleFiles(Array.from(e.target.files));
+            }
         });
 
         // 템플릿 수동 선택
@@ -572,15 +591,37 @@
                 let circuitName = file.name.replace(/\.[^/.]+$/, "").trim();
 
                 // [개선 2] 학습 모델에서 해당 회로명/위치명에 대한 최적 스팟 좌표 자동 예측 및 자동 이동
-                const predicted = state.spotModel.predict(circuitName, file.name);
+                let predicted = null;
+                try {
+                    if (state.spotModel && typeof state.spotModel.predict === 'function') {
+                        predicted = state.spotModel.predict(circuitName, file.name);
+                    }
+                } catch (pe) {
+                    console.warn('Predict error for', file.name, pe);
+                }
+
+                if (!Array.isArray(predicted) || predicted.length < 3 || !predicted[0]) {
+                    predicted = [
+                        { x: 65, y: 152 },
+                        { x: 150, y: 152 },
+                        { x: 235, y: 152 }
+                    ];
+                }
+
                 const isDefault = (predicted[0].x === 102 && predicted[0].y === 126);
 
                 // 학습된 패턴이 있거나, 원본에 스팟이 없으면 학습/예측 좌표로 자동 이동
                 if (!isDefault || !parsed.hasNativeSpots) {
-                    for (let i = 0; i < 3; i++) {
-                        parsed.spots[i].x = predicted[i].x;
-                        parsed.spots[i].y = predicted[i].y;
-                        parsed.spots[i].temp = parsed.calculator.getTempAt(predicted[i].x, predicted[i].y);
+                    if (Array.isArray(parsed.spots) && parsed.spots.length >= 3) {
+                        for (let i = 0; i < 3; i++) {
+                            if (parsed.spots[i] && predicted[i]) {
+                                parsed.spots[i].x = predicted[i].x;
+                                parsed.spots[i].y = predicted[i].y;
+                                if (parsed.calculator && typeof parsed.calculator.getTempAt === 'function') {
+                                    parsed.spots[i].temp = parsed.calculator.getTempAt(predicted[i].x, predicted[i].y);
+                                }
+                            }
+                        }
                     }
                 }
 
