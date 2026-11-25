@@ -85,6 +85,9 @@ async function startMode(p, f, fl) {
   ok(await f.evaluate(() => getComputedStyle(document.getElementById('floor-cl-controls')).display !== 'none' && document.getElementById('input-floor-width-px').value === '80'), '2) 바닥을 고르면 중심선 버튼·폭(80)·프리셋이 보임');
   await f.evaluate(() => toggleCenterlineFloor());
   ok(await f.evaluate(() => floorCenterlineOn && document.getElementById('btn-centerline-floor').classList.contains('active')), '3) 중심선 모드 켜짐');
+  const bh = await f.evaluate(() => document.getElementById('zone-guide-banner').getBoundingClientRect().height);
+  const emo = await f.evaluate(() => /[\u{1F300}-\u{1FAFF}☀-➿⬜]/u.test(document.getElementById('zone-guide-banner').textContent));
+  ok(bh < 70 && !emo, '3-1) 구역 그리기 줄이 한 줄(높이 ' + Math.round(bh) + 'px)이고 이모티콘 없음');
   // 직각 꺾임(ㄴ자): 한 덩어리, 꼭지점 6개
   await f.evaluate(() => { drawingZonePoints = [{ x: 9500, y: 4000 }, { x: 9800, y: 4000 }, { x: 9800, y: 4300 }]; finishDrawingZone(); });
   let z = await zones(f);
