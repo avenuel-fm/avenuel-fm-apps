@@ -876,6 +876,25 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_admin_set_menu', [tk, ['docs.work']])).ok && /사용 중지/.test(await callErr('ws_dw_list', ['emp', '', '', ''])) && /사용 중지/.test(await callErr('ws_dn_list', ['emp', '', '', ''])) && (await call('ws_dw_list', [tk, '', '', ''])).ok, '작업내역: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);
   ok((await call('ws_dn_delete', [tk, xn.item.id])).ok && (await call('ws_dn_list', [tk, '', '', ''])).list.length === 0 && (await call('ws_dn_delete', [tk, xn.item.id])).ok === false, '야간작업: 지움 (숨김) · 또 지우면 안내');
+  // ══ 하자점검 (27_defect.sql, 결정 266) ══
+  await db.exec(SQL('27_defect.sql')); await db.exec(SQL('27_defect.sql'));
+  const HP = n => { const p = 'dw_photo/' + ym + '/' + n + '.jpg'; return { url: PUB + p, path: p }; }, HS = n => { const p = 'dw_photo/' + ym + '/' + n + '.png'; return { url: PUB + p, path: p }; };
+  ok(/permission denied/.test(await asErr('anon', "select ws_hj_list('x','','','')")) && /permission denied/.test(await asErr('authenticated', 'select ws_hj_out(null)')), '하자점검: 비로그인·내부 함수 못 부름');
+  const hj = await call('ws_hj_save', [tk, J({ day: '', items: [{ n: ' B1 기계실 ', t: ' 천장 누수 ', photo: { file: HP('h1') } }, { n: 'B1 기계실 2', t: '', photo: null }, { n: '', t: '', photo: null }, { n: 'B1 기계실 3', t: '바닥 균열', photo: null }], signSite: { file: HS('s1') } })]);
+  ok(hj.ok && /^WS-HJ-\d{8}-001$/.test(hj.item.id) && hj.item.items.length === 3 && hj.item.items[0].n === 'B1 기계실' && hj.item.items[0].t === '천장 누수' && hj.item.items[0].photo.src.endsWith('h1.jpg') && hj.item.items[1].photo === null && hj.item.signSite.src.endsWith('s1.png') && hj.item.signFm === null, '하자점검: 저장 (빈 칸 뺌 · 사진 1 · 서명 1)');
+  ok((await one("select (due_day - work_day) d from dw_defect")).d === 10 && hj.item.due === (await one("select (work_day + 10)::text d from dw_defect")).d, '하자점검: 처리 기한 = 작성일 + 10일 (서버 계산)');
+  ok((await call('ws_hj_save', [tk, J({ items: [{ n: 'a', t: '' }] })])).ok === false && (await call('ws_hj_save', [tk, J({ items: [] })])).ok === false && (await call('ws_hj_save', [tk, J({ day: '2099-01-01', items: [{ n: 'a', t: 'x' }] })])).ok === false, '하자점검: 하자내용·일자 검사');
+  ok((await call('ws_hj_save', [tk, J({ items: Array.from({ length: 41 }, () => ({ n: 'a', t: 'x' })) })])).ok === false, '하자점검: 41칸 → 거부');
+  ok(/파일 정보/.test(await callErr('ws_hj_save', [tk, J({ items: [{ n: 'a', t: 'x', photo: { file: { url: 'https://evil/x.jpg', path: 'dw_photo/2026-11/a.jpg' } } }] })])), '하자점검: 버킷 밖 사진 주소 → 거부');
+  const hf0 = await xnf();
+  const hj2 = await call('ws_hj_save', [tk, J({ id: hj.item.id, day: hj.item.day, items: [{ n: 'B1 기계실', t: '천장 누수(수정)', photo: { id: hj.item.items[0].photo.id } }, { n: '2F', t: '도어 틀어짐', photo: { id: '00000000-0000-0000-0000-000000000000' } }], signFm: { file: HS('s2') } })]);
+  ok(hj2.ok && hj2.item.id === hj.item.id && hj2.item.items.length === 2 && hj2.item.items[0].photo.id === hj.item.items[0].photo.id && hj2.item.items[1].photo === null && hj2.item.signSite.id === hj.item.signSite.id && hj2.item.signFm.src.endsWith('s2.png') && await xnf() === hf0 + 1 && (await one('select count(*)::int n from dw_defect')).n === 1, '하자점검: 고치기 = 같은 번호 · 있던 사진·서명 유지 · 남의 파일 번호는 무시 · 서명 안 보내면 그대로');
+  const hj3 = await call('ws_hj_save', [tk, J({ id: hj.item.id, day: hj.item.day, items: [{ n: 'a', t: 'x' }], signSite: null })]);
+  ok(hj3.ok && hj3.item.signSite === null && hj3.item.signFm.id === hj2.item.signFm.id, '하자점검: 서명을 null 로 보내면 지움');
+  ok((await call('ws_hj_list', ['emp', '', '', ''])).list.length === 1 && (await call('ws_hj_list', [tk, 'zzz', '', ''])).list.length === 0 && (await call('ws_hj_list', [tk, 'x', '', ''])).list.length === 1, '하자점검: 직원도 목록 봄 · 글자 검색');
+  ok((await call('ws_admin_set_menu', [tk, ['inspect.defect']])).ok && /사용 중지/.test(await callErr('ws_hj_list', ['emp', '', '', ''])) && (await call('ws_hj_list', [tk, '', '', ''])).ok, '하자점검: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
+  await call('ws_admin_set_menu', [tk, []]);
+  ok((await call('ws_hj_delete', [tk, hj.item.id])).ok && (await call('ws_hj_list', [tk, '', '', ''])).list.length === 0 && (await call('ws_hj_delete', [tk, hj.item.id])).ok === false, '하자점검: 지움 (숨김) · 또 지우면 안내');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
