@@ -22,7 +22,6 @@ function render() {
   else if (S.view === 'att') html = renderAtt();
   else if (S.view === 'attup') html = renderAttUp();
   else if (S.view === 'inspect') html = renderInspect();
-  else if (S.view === 'thermal') html = renderThermal();
   else if (S.view === 'cad') html = renderCad();
   else if (S.view === 'fire') html = renderFire();
   else if (S.view === 'qr') html = renderQr();

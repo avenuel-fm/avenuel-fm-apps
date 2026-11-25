@@ -684,38 +684,6 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(ss3.entries.length === 0 && ss3.counts.G1 === 1 && ss4.entries.length === 0, '외부용 검색: 고른 지침이 없으면 결과 없이 건수만 · 빈 검색어는 빈 답');
   ok(/does not exist/.test(await asErr('anon', 'select ws_spec_pub_index()')), '외부용: 색인 통째로 주던 함수는 없앰');
   ok(pp.img === 'https://b/g1/12.jpg' && pp.pdf === '' && po.ok === false, '외부용: 쪽 그림만 (원본 PDF 주소 없음 · 이전 판 쪽은 안 줌)');
-  // ══ 열화상점검 (16_thermal.sql, 결정 166·168) — 작성기(fm/thermal)는 업무지원 통로로만 ══
-  await db.exec(SQL('16_thermal.sql')); await db.exec(SQL('16_thermal.sql'));
-  ok(/permission denied/.test(await asErr('authenticated', 'select * from thermal_kv')) || !(await as('authenticated', 'select * from thermal_kv')).length, '16_thermal.sql 두 번 실행 · 표는 직접 못 읽음');
-  ok(/permission denied/.test(await asErr('anon', "select ws_thermal_boot('x')")), '열화상: 비로그인(anon)은 못 부름');
-  await q("update staff set role = '직원' where staff_id = 'S003'");
-  const tpl = JSON.stringify({ path: 'thermal/2026-11/s.atr', url: 'https://b/s.atr', name: 's.atr' });
-  for (const role of ['직원', '파트장', '부소장', '관리자', '옵저버']) {
-    await q("update staff set role = $1 where staff_id = 'S003'", [role]);
-    const bo = await call('ws_thermal_boot', ['emp']), boss = role !== '직원' && role !== '파트장';
-    ok(bo.ok === true && bo.me.role === role && (await call('ws_thermal_set', ['emp', 'model', '{"a":1}'])).ok === true, '열화상(결정 212): ' + role + '도 열고 학습 값을 저장함');
-    const ts = await call('ws_thermal_set', ['emp', 'template', tpl]);
-    ok(ts.ok === boss && (boss || /양식 파일은 소장·부소장·관리자·옵저버만/.test(ts.error)), '열화상(결정 212): 양식 바꾸기는 ' + role + (boss ? '은 됨' : '은 막힘'));
-    if (boss) await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'thermal/2026-11/zz.atr', url: 'https://b/z', name: 'z' })]);
-  }
-  await call('ws_thermal_set', [tk, 'model', 'null']);
-  await q("update staff set role = '직원' where staff_id = 'S003'");
-  await q("delete from thermal_kv where k in ('model', 'template')");
-  const tb0 = await call('ws_thermal_boot', [tk]);
-  ok(tb0.ok && tb0.me.role === '소장' && tb0.model === null && tb0.template === null && tb0.reports.length === 0, '열화상: 처음엔 학습 값·양식·보고서 없음 · 나(이름·역할)');
-  ok((await call('ws_thermal_set', [tk, 'model', JSON.stringify({ avg_y: 125, samples: [] })])).ok && (await call('ws_thermal_boot', [tk])).model.avg_y === 125, '열화상: 학습 값 저장·읽기');
-  ok((await call('ws_thermal_set', [tk, 'x', '{}'])).ok === false && (await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'sign/a.atr' })])).ok === false, '열화상: 모르는 칸·thermal/ 밖 양식 경로는 막음');
-  ok((await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'thermal/2026-11/a.atr', url: 'https://b/a.atr', name: '양식.atr' })])).ok && (await call('ws_thermal_boot', [tk])).template.name === '양식.atr', '열화상: 양식 파일 저장');
-  ok((await call('ws_thermal_report', [tk, JSON.stringify({ title: '', path: 'thermal/x.atr', url: 'https://b/x' })])).ok === false && (await call('ws_thermal_report', [tk, JSON.stringify({ title: 'EPS', path: 'tbm_pdf/x', url: 'https://b/x' })])).ok === false, '열화상: 제목 없음·thermal/ 밖 경로는 막음');
-  const tr = await call('ws_thermal_report', [tk, JSON.stringify({ title: '2026년 4분기 EPS 1층', inspector: '홍길동', date: '2026-11-20', path: 'thermal/2026-11/r.atr', url: 'https://b/r.atr', pages: 3, max_dt: '4.2' })]);
-  const tb1 = await call('ws_thermal_boot', [tk]);
-  ok(tr.ok && tr.id > 0 && tb1.reports.length === 1 && tb1.reports[0].pages === 3 && Number(tb1.reports[0].max_dt) === 4.2 && !('editor' in tb1.reports[0]), '열화상: 보고서 기록 → 목록에 (만든 사람 이름은 안 내보냄)');
-  const tp = await call('ws_thermal_report', [tk, JSON.stringify({ title: 'PDF만', date: '2026-11-20', pdf_path: 'thermal/2026-11/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'https://drive.google.com/file/d/x/view', pages: 2 })]);
-  const tb2 = await call('ws_thermal_boot', [tk]);
-  ok(tp.ok && tb2.reports[0].pdf_url === 'https://b/a.pdf' && tb2.reports[0].drive_url.startsWith('https://drive.google.com') && tb2.reports[0].path === '', '열화상: PDF만 있는 기록(.atr 없이) · PDF·드라이브 주소가 목록에');
-  ok((await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'tbm_pdf/a.pdf', pdf_url: 'https://b/a.pdf' })])).ok === false && (await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'thermal/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'http://x' })])).ok === false, '열화상: PDF 경로가 thermal/ 밖 · 드라이브 주소가 https 아님 → 막음');
-  await db.exec(SQL('16_thermal.sql'));   // 이미 쓰던 표에 다시 실행해도 기록이 남음 (칸 더하기)
-  ok((await call('ws_thermal_boot', [tk])).reports.length === 2, '열화상: 16_thermal.sql 다시 실행해도 기록 유지');
   // ══ CAD 변환 도면 (18_cad.sql) — 전 직원이 보고 올림, 지우기는 소장만 ══
   await db.exec(SQL('18_cad.sql')); await db.exec(SQL('18_cad.sql'));
   ok(/permission denied/.test(await asErr('anon', "select ws_cad_list('x')")), 'CAD: 비로그인(anon)은 못 부름');

@@ -150,11 +150,3 @@ do $rg$ begin
 grant execute on function public.ws_menu(text), public.ws_admin_set_menu(text, text[]) to authenticated;
 exception when undefined_function or undefined_object then raise notice '건너뜀 (%): %', '15_menu.sql', sqlerrm; end $rg$;
 
--- 16_thermal.sql
-do $rg$ begin
-revoke all on function public.ws_thermal_can_(text), public.ws_thermal_boot(text), public.ws_thermal_set(text, text, jsonb),
-  public.ws_thermal_report(text, jsonb) from public, anon, authenticated;
-exception when undefined_function or undefined_object then raise notice '건너뜀 (%): %', '16_thermal.sql', sqlerrm; end $rg$;
-do $rg$ begin
-grant execute on function public.ws_thermal_boot(text), public.ws_thermal_set(text, text, jsonb), public.ws_thermal_report(text, jsonb) to authenticated;
-exception when undefined_function or undefined_object then raise notice '건너뜀 (%): %', '16_thermal.sql', sqlerrm; end $rg$;

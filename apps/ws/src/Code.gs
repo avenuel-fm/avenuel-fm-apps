@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.26.15', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.26.16', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -476,9 +476,6 @@ function api_(p) {
       const day = logDay_(p.day);
       if (sbLive_()) logWeatherMaybe_(day, p.wx === '1');   // 예약이 빠진 날: Supabase 화면이 일지를 열 때 날씨 채움 (구글 판 logGet 과 같음). wx=1 = 공조기 화면: 오후 1시 전에도, 날씨만
       out = { ok: true, day: day };   // 가동시간은 Supabase ws_log_ac 로 옮김 (결정 192) — 이 통로는 날씨 채우기만
-    } else if (p.api === 'thermaldrive') {
-      // 열화상 작성기(fm/thermal) PDF 저장 → 서버(Supabase)에 올린 PDF를 드라이브로 복사 (결정 168). 올린 파일 이름 모양만 받음
-      out = thermalDrive_(p.path, p.name);
     } else if (p.api === 'caddrive') {
       // CAD 변환 도면(DXF) 드라이브 사본: ws-files 의 cad/YYYY-MM/<32자>.dxf 만 → 시설팀 통합업무/20_업무지원/CAD변환파일/YYYY-MM
       out = cadDrive_(p.path, p.name);
@@ -492,27 +489,6 @@ function api_(p) {
     out = { ok: false, error: String(err.message || err) };
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
-}
-
-/** 열화상 PDF 드라이브 백업: Supabase ws-files 의 thermal/YYYY-MM/<32자>.pdf 만 → 시설팀 통합업무/20_업무지원/열화상점검/YYYY-MM. 같은 파일은 두 번 만들지 않음 */
-function thermalDrive_(path, name) {
-  const m = /^thermal\/(\d{4}-\d{2})\/[0-9a-f]{32}\.pdf$/.exec(String(path || ''));
-  if (!m) throw new Error('보고서 PDF 경로가 맞지 않습니다');
-  const nm = (String(name || '').replace(/[\\\/:*?"<>|]/g, ' ').replace(/[\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) || '열화상점검').replace(/(\.pdf)?$/i, '.pdf');
-  const folder = folderPath_(['시설팀 통합업무', '20_업무지원', '열화상점검', m[1]]);
-  const tag = 'thermal:' + path;
-  let id = '';
-  for (const it = folder.getFilesByName(nm); !id && it.hasNext();) { const x = it.next(); if (x.getDescription() === tag) id = x.getId(); }
-  if (!id) {
-    const blob = sbReq_('get', '/storage/v1/object/ws-files/' + path).getBlob();
-    const bytes = blob.getBytes();
-    if (bytes.length > 20 * 1024 * 1024) throw new Error('PDF가 너무 큽니다 (20MB 넘음)');
-    if (bytes.length < 5 || bytes[0] !== 37 || bytes[1] !== 80 || bytes[2] !== 68 || bytes[3] !== 70) throw new Error('PDF 파일이 아닙니다');
-    blob.setContentType('application/pdf');
-    id = saveBlob_(folder, blob, nm, tag);
-  }
-  DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return { ok: true, id: id, name: nm, url: driveUrl_(id) };
 }
 
 /** PC 변환기(CAD변환기.exe)의 업로드 — 업무지원 직원 PIN과 대조 (docs/설계/WS_CAD.md 10장, supabase/18_cad.sql)
