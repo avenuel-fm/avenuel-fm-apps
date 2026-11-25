@@ -55,11 +55,98 @@ class AtrGenerator {
     /**
      * 690x517 투명 Overlay PNG 생성
      */
-    static makeOverlayPng(width = 690, height = 517) {
+    /**
+     * 690x517 스팟 마커(Sp1~Sp3) 및 실측 온도 라벨 Overlay PNG 정밀 렌더링
+     */
+    static makeOverlayPng(spots, temps, width = 690, height = 517) {
         if (typeof document === 'undefined') return new Uint8Array();
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        const spList = spots || [
+            { id: 1, x: 104, y: 117, temp: 25.0 },
+            { id: 2, x: 165, y: 120, temp: 25.0 },
+            { id: 3, x: 227, y: 120, temp: 25.0 }
+        ];
+
+        const tList = temps || spList.map(s => (s.temp !== undefined ? s.temp : 25.0));
+        const sx = width / 320.0;
+        const sy = height / 240.0;
+        const spotColors = ['#FF9800', '#F44336', '#00E5FF'];
+
+        for (let i = 0; i < spList.length; i++) {
+            const sp = spList[i];
+            if (!sp) continue;
+            const tVal = (tList[i] !== undefined && tList[i] !== null) ? Number(tList[i]).toFixed(1) : (sp.temp !== undefined ? Number(sp.temp).toFixed(1) : '25.0');
+
+            const rawX = sp.x !== undefined ? sp.x : (100 + i * 60);
+            const rawY = sp.y !== undefined ? sp.y : 120;
+            const cx = Math.round(rawX * sx);
+            const cy = Math.round(rawY * sy);
+            const r = 14;
+            const strokeCol = spotColors[i % spotColors.length] || '#00E5FF';
+
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(cx - r - 6, cy); ctx.lineTo(cx + r + 6, cy);
+            ctx.moveTo(cx, cy - r - 6); ctx.lineTo(cx, cy + r + 6);
+            ctx.stroke();
+
+            ctx.strokeStyle = strokeCol;
+            ctx.lineWidth = 2.0;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(cx - r - 5, cy); ctx.lineTo(cx + r + 5, cy);
+            ctx.moveTo(cx, cy - r - 5); ctx.lineTo(cx, cy + r + 5);
+            ctx.stroke();
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            const text = `Sp${i + 1}: ${tVal}°C`;
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif';
+            const tw = ctx.measureText(text).width;
+            const bw = Math.round(tw + 14);
+            const bh = 24;
+
+            let bx = Math.round(cx - bw / 2);
+            let by = Math.round(cy - r - bh - 6);
+            if (by < 6) by = cy + r + 8;
+            bx = Math.max(6, Math.min(width - bw - 6, bx));
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+            if (typeof ctx.roundRect === 'function') {
+                ctx.beginPath();
+                ctx.roundRect(bx, by, bw, bh, 3);
+                ctx.fill();
+                ctx.strokeStyle = strokeCol;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            } else {
+                ctx.fillRect(bx, by, bw, bh);
+                ctx.strokeStyle = strokeCol;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(bx, by, bw, bh);
+            }
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(text, bx + 7, by + 17);
+            ctx.restore();
+        }
+
         return AtrGenerator.canvasToPngBytes(canvas);
     }
 
@@ -223,7 +310,7 @@ class AtrGenerator {
 
         // 2. 이미지 데이터 준비
         let thJpeg = await AtrGenerator.makeCleanThermalJpeg(item, 320, 240);
-        const overlayPng = AtrGenerator.makeOverlayPng(690, 517);
+        const overlayPng = AtrGenerator.makeOverlayPng(spots, temps, 690, 517);
 
         let visualBytes = null;
         if (item.visualBlob && item.visualBlob.arrayBuffer) {
