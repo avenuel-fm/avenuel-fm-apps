@@ -169,7 +169,8 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   await p.click('button:has-text("+ 등록")'); await p.locator('#aPre').waitFor();
   ok(await p.locator('.ckl').count() === 3 && await p.locator('#ak_hyd').isChecked() && !(await p.locator('#ak_fe').isChecked()) && !(await p.locator('#ak_air').isChecked()), '5) 등록 창: 종류 체크 3개, 지금 탭(소화전)만 미리 체크');
   const opts = await p.locator('#aFloor option').allInnerTexts();
-  ok(opts.length === 13 && opts[0] === 'B3' && opts[12] === '10F', '5-2) 층 선택 B3 ~ 10F (13개)');
+  ok(opts.length === 14 && opts[0] === 'B3' && opts[12] === '10F' && opts[13] === 'POPUP', '5-2) 층 선택 B3 ~ 10F + 맨 끝 POPUP (14개)');
+  ok(await p.evaluate(() => xlFloor('popup') === 'POPUP' && xlFloor('팝업') === 'POPUP' && xlFloor('POPUP층') === 'POPUP' && xlFloor('5F') === '5F' && xlFloor('11F') === ''), '5-2b) 엑셀 시트 이름 POPUP·팝업 → POPUP 층')
   ok(await p.locator('label:has-text("위치")').count() >= 1 && !(await p.locator('text=매장명').count()), '5-3) 「매장명」 대신 「위치」');
   await p.selectOption('#aFloor', '10F'); await p.fill('#aStore', ' 옥상  기계실 '); await p.fill('#aCount', '2');
   ok(/동측|옥상 기계실-소화전1 ~ 옥상 기계실-소화전2/.test(await p.locator('#aPre').innerText()) && !/소화기/.test(await p.locator('#aPre').innerText()), '5-4) 만들어지는 이름 미리보기 「옥상 기계실-소화전1 ~ 옥상 기계실-소화전2」');

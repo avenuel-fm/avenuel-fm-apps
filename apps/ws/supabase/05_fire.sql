@@ -57,7 +57,7 @@ $$;
 -- 층 순서
 create or replace function public.ws_floor_no(p text)
 returns int language sql immutable set search_path = public as $$
-  select coalesce(array_position(array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'], p), 99);   -- 층 B3~10F (결정 228)
+  select coalesce(array_position(array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'], p), 99);   -- 층 B3~10F · POPUP (결정 228·252)
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ declare
 begin
   -- Code.gs: Number(count) || 1 을 1~20 으로
   n := least(greatest(coalesce(nullif(case when coalesce(p_d->>'count', '') ~ '^\s*\d+(\.\d+)?\s*$' then floor((p_d->>'count')::numeric)::int end, 0), 1), 1), 20);
-  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
+  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
   if v_store = '' then return jsonb_build_object('ok', false, 'error', '위치를 적어 주세요.'); end if;   -- 칸 이름은 「위치」 (전: 매장명, 결정 228). 열 이름 store_name 은 그대로
   perform pg_advisory_xact_lock(hashtext('ws_fe'));
   select coalesce(max(case when no ~ '^\d+$' then no::int end), 0) into max_no from public.fire_ext where store_name = v_store;
