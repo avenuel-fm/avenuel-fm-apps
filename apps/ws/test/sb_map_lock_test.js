@@ -53,7 +53,7 @@ async function open(b, opts) {
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
   await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
   await p.waitForTimeout(600);
-  const f = p.frames().find(x => /\/map\/index\.html$/.test(x.url()));
+  const f = p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
   return [p, f, p.frameLocator('iframe.mapframe')];
 }
@@ -115,7 +115,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   await p.reload(); await p.locator('.grid6').waitFor();
   await p.click('.grid6 .tile:has-text("지도")');
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
-  const f2 = p.frames().find(x => /\/map\/index\.html$/.test(x.url()));
+  const f2 = p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
   ok(await f2.evaluate(() => document.querySelector('input.chk-lock[data-lock="floor"]').checked && document.querySelector('input.chk-lock[data-lock="power"]').checked && !document.querySelector('input.chk-lock[data-lock="fire"]').checked), '9) 다시 열어도 열쇠 상태 기억');
   // 풀면 열림
   await f2.evaluate(() => onLayerLockChange('floor', false));

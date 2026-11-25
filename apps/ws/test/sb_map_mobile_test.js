@@ -50,7 +50,7 @@ async function open(b, opts) {
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
   await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
   await p.waitForTimeout(600);
-  return [p, p.frames().find(x => /\/map\/index\.html$/.test(x.url())), p.frameLocator('iframe.mapframe')];
+  return [p, p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url())), p.frameLocator('iframe.mapframe')];
 }
 const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0; }, sel);
 

@@ -52,7 +52,7 @@ async function open(b, opts) {
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
   await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
   await p.waitForTimeout(600);
-  const f = p.frames().find(x => /\/map\/index\.html$/.test(x.url()));
+  const f = p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
   return [p, f, p.frameLocator('iframe.mapframe')];
 }

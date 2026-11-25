@@ -56,7 +56,7 @@ async function open(b, tok) {
   await p.waitForTimeout(500);
   return p;
 }
-const frameOf = p => p.frames().find(x => /\/map\/index\.html$/.test(x.url()));
+const frameOf = p => p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
 const book = (f = '1F') => JSON.parse(KV['lotte_store_book_' + f]);
 const idOf = (name, f) => Object.keys(book(f).items).find(k => book(f).items[k].name === name);
 const shot = (p, name) => p.screenshot({ path: path.join(process.env.SHOT_DIR || path.join(__dirname, '..'), name) });

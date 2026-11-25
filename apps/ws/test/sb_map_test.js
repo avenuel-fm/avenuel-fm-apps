@@ -78,7 +78,7 @@ async function open(b, tok, opts) {
   await p.locator('.grid6').waitFor();
   return p;
 }
-const mapFrame = p => p.frames().find(x => /\/map\/index\.html$/.test(x.url()));
+const mapFrame = p => p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
 async function openMap(p) {
   if (p.isMobile) await p.tap('.grid6 .tile:has-text("지도")'); else await p.click('.grid6 .tile:has-text("지도")');
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
