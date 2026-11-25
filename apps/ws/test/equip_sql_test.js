@@ -170,6 +170,8 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(fe.added.join() === '옥상 기계실-소화기1,옥상 기계실-소화기2' && fe.items.every(x => x.printed === false), '소화기: 층 10F · 이름 「위치-소화기1」 · 미인쇄');
   fe = await auth('ws_fe_add', [tk, J({ floor: 'B3', store: '주차장', count: 1 })]);
   ok(fe.items[0].floor === 'B3' && fe.items[fe.items.length - 1].floor === '10F', '소화기 목록은 B3부터 10F 순서');
+  fe = await auth('ws_fe_add', [tk, J({ floor: 'POPUP', store: '팝업시험', count: 1 })]);
+  ok(fe.ok && fe.items[fe.items.length - 1].floor === 'POPUP' && fe.items[fe.items.length - 1].name === '팝업시험-소화기1', '소화기: POPUP 층 등록 · 목록 맨 끝 (결정 252)');
   const feTok = fe.items.find(x => x.store === '주차장').token;
   fe = await auth('ws_qr_printed', [tk, 'fe', J(fe.items.filter(x => x.store === '주차장').map(x => x.id))]);
   ok(fe.items.find(x => x.store === '주차장').printed === true && fe.items.find(x => x.store === '옥상 기계실').printed === false, '소화기 인쇄 표시');

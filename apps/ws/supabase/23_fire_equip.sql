@@ -134,7 +134,7 @@ declare
   added text[] := '{}';
 begin
   if v_kind not in ('hyd', 'air') then return jsonb_build_object('ok', false, 'error', '종류를 골라 주세요.'); end if;
-  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
+  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
   if v_place = '' then return jsonb_build_object('ok', false, 'error', '위치를 적어 주세요. (예: 동측 계단 앞)'); end if;
   -- 대수 1~20 (소화기와 같음)
   n := least(greatest(coalesce(nullif(case when coalesce(p_d->>'count', '') ~ '^\s*\d+(\.\d+)?\s*$' then floor((p_d->>'count')::numeric)::int end, 0), 1), 1), 20);
