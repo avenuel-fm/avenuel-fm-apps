@@ -76,10 +76,10 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const [p, f, fl] = await open(b, { viewport: { width: 1280, height: 800 } });
   // 겹친 바닥 두 개: A(왼쪽 위), B(오른쪽, A와 일부 겹침)
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(200);
-  await fl.locator('#btn-zone-cat-floor').click();
+  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
   await draw(f, [{ x: 9500, y: 4000 }, { x: 9800, y: 4000 }, { x: 9800, y: 4400 }, { x: 9500, y: 4400 }]);
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(200);
-  await fl.locator('#btn-zone-cat-floor').click();
+  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
   await draw(f, [{ x: 9700, y: 4000 }, { x: 10000, y: 4000 }, { x: 10000, y: 4200 }, { x: 9700, y: 4200 }]);
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(300);
   await f.evaluate(() => { document.getElementById('chk-zone-filter-floor').click(); closeAllPopovers(); });
@@ -120,7 +120,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   // 풀면 열림
   await f2.evaluate(() => onLayerLockChange('floor', false));
   await f2.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(200);
-  await p.frameLocator('iframe.mapframe').locator('#btn-zone-cat-floor').click();
+  await p.frameLocator('iframe.mapframe').locator('#btn-zone-cat-floor').click(); await f2.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
   await draw(f2, [{ x: 9500, y: 4000 }, { x: 9800, y: 4000 }, { x: 9800, y: 4400 }, { x: 9500, y: 4400 }]);
   await f2.evaluate(() => { closeAllPopovers(); openZoneModal(getFloorZones('1F').find(z => z.category === 'floor')); });
   ok(await f2.evaluate(() => getComputedStyle(document.getElementById('zone-modal')).display !== 'none'), '10) 열쇠를 풀면 상세 창이 열림');

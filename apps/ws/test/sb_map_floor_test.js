@@ -89,7 +89,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   await p.waitForTimeout(200);
   ok(await f.evaluate(() => ['btn-zone-cat-floor', 'btn-zone-eraser', 'chk-zone-ortho'].every(id => { const e = document.getElementById(id); return e && e.getClientRects().length > 0; })), '4) 구역 그리기 줄에 「바닥」 · 「지우개」 · 직각 체크박스');
   ok(await f.evaluate(() => { const o = document.getElementById('chk-zone-ortho'), er = document.getElementById('btn-zone-eraser'), ro = o.getBoundingClientRect(), re = er.getBoundingClientRect(); return o.type === 'checkbox' && re.right <= ro.left + 1; }), '5) 지우개는 직각 왼쪽 · 직각은 체크박스');
-  await fl.locator('#btn-zone-cat-floor').click();
+  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
   const st = await f.evaluate(() => ({ cat: currentZoneCategory, geom: currentZoneGeometry, lineOff: document.getElementById('btn-zone-geom-line').disabled, polyOn: document.getElementById('btn-zone-geom-polygon').classList.contains('active'), act: document.getElementById('btn-zone-cat-floor').classList.contains('active') }));
   ok(st.cat === 'floor' && st.geom === 'polygon' && st.lineOff && st.polyOn && st.act, '6) 바닥은 면(영역)만 · 선은 고를 수 없음');
   await shot(p, 'shot_map_floor_bar.png');
@@ -146,6 +146,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   // ── 6) 직각 체크박스 ──
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(200);
   await fl.locator('#chk-zone-ortho').check();
+  await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });   // 점 찍기 방식으로 시험
   const og = await f.evaluate(() => {
     drawingZonePoints = [{ x: 10300, y: 5100 }]; updateZoneDrawingPreview(10400, 5130);
     const l = document.querySelector('#temp-zone-drawing-layer line');

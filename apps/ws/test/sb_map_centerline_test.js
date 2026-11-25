@@ -83,8 +83,10 @@ async function startMode(p, f, fl) {
   ok(await f.evaluate(() => getComputedStyle(document.getElementById('floor-cl-controls')).display === 'none'), '1) 바닥을 고르기 전에는 중심선 줄이 안 보임');
   await fl.locator('#btn-zone-cat-floor').click();
   ok(await f.evaluate(() => getComputedStyle(document.getElementById('floor-cl-controls')).display !== 'none' && document.getElementById('input-floor-width-px').value === '80'), '2) 바닥을 고르면 중심선 버튼·폭(80)·프리셋이 보임');
+  ok(await f.evaluate(() => floorCenterlineOn && document.getElementById('btn-centerline-floor').classList.contains('active')), '3) 바닥을 고르면 중심선 모드가 자동으로 켜짐');
   await f.evaluate(() => toggleCenterlineFloor());
-  ok(await f.evaluate(() => floorCenterlineOn && document.getElementById('btn-centerline-floor').classList.contains('active')), '3) 중심선 모드 켜짐');
+  ok(await f.evaluate(() => !floorCenterlineOn), '3-0) 버튼을 누르면 꺼짐 (예전 점 찍기 방식)');
+  await f.evaluate(() => toggleCenterlineFloor());
   const bh = await f.evaluate(() => document.getElementById('zone-guide-banner').getBoundingClientRect().height);
   const emo = await f.evaluate(() => /[\u{1F300}-\u{1FAFF}☀-➿⬜]/u.test(document.getElementById('zone-guide-banner').textContent));
   ok(bh < 70 && !emo, '3-1) 구역 그리기 줄이 한 줄(높이 ' + Math.round(bh) + 'px)이고 이모티콘 없음');
