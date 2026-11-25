@@ -1,6 +1,8 @@
 /* ── 기기 등록 (Supabase 이관 3-1, 시안 docs/시안/WS-Supabase_로그인) — 기기마다 처음 한 번, 시설팀 공용 계정 ── */
 function renderDevice() {
   const d = S.dev || {};
+  if (d.wait) return '<div class="wrap devwait" style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-3);text-align:center"><span class="spin" style="color:var(--blue);width:32px;height:32px"></span><b style="font-size:var(--size-l)">연결을 확인하는 중입니다</b><span style="color:var(--sub);line-height:1.6">기기 등록은 그대로 있습니다.<br>인터넷이 연결되면 저절로 이어집니다.</span></div>';
+  const why = window.WS_API && WS_API.gone ? '이 기기의 등록이 풀렸습니다. 다시 등록해 주세요.' : '등록했는데 이 화면이 또 나오면 브라우저 설정의<br>「창을 닫을 때 사이트 데이터 삭제」를 꺼 주세요.';
   return '<div class="devwrap"><div style="text-align:center;display:flex;flex-direction:column;gap:var(--sp-1)"><small style="color:var(--muted)">잠실점 에비뉴엘 · 시설팀</small><b style="font-size:var(--size-xl)">업무지원</b></div>' +
     '<form class="card devcard" onsubmit="event.preventDefault();deviceReg()"><b style="font-size:var(--size-l)">기기 등록</b>' +
     '<span class="devlead">이 휴대폰(PC)에서 <b>처음 한 번만</b> 합니다.<br>등록하면 다음부터는 PIN만 누릅니다.</span>' +
@@ -8,7 +10,8 @@ function renderDevice() {
     '<label class="devf">비밀번호<input class="inp" id="devP" type="password" autocomplete="current-password" required></label>' +
     '<span class="devmsg" role="alert">' + h(d.msg || '') + '</span>' +
     '<button class="btn pri big" type="submit" style="width:100%"' + (d.busy ? ' disabled' : '') + '>' + (d.busy ? '<span class="spin"></span>' : '기기 등록') + '</button></form>' +
-    '<small style="text-align:center;color:var(--muted);line-height:1.6">계정은 시설팀 관리자에게 받습니다<br>등록은 「환경설정 › 기기 등록 풀기」 전까지 유지됩니다</small></div>';
+    '<small style="text-align:center;color:var(--muted);line-height:1.6">계정은 시설팀 관리자에게 받습니다<br>등록은 「환경설정 › 기기 등록 풀기」 전까지 유지됩니다</small>' +
+    '<small class="devwhy" style="text-align:center;color:var(--muted);line-height:1.6">' + why + '</small></div>';
 }
 async function deviceReg() {
   const e = $('devE').value, p = $('devP').value;
