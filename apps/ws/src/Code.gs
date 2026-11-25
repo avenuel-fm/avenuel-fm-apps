@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.26.18', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.26.19', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -1022,7 +1022,7 @@ const LOG_METERS = ['시수', '중수', '식당시수', '식당온수', '식당�
 const LOG_NUMS = ['영업시간', '최저', '최고', '최고풍속', '미세먼지', '전기'].concat(LOG_METERS);
 const LOG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
 const LOG_DEPTS = ['전기방재', '기계건축'];
-const LOG_MAX_LINES = 10;   // 부서마다 10줄 (사용자 11-13). 비고 칸은 화면에서 뺌(결정 120), 시트 열·옛 값은 그대로
+const LOG_MAX_LINES = 15;   // 부서마다 기본 10줄, 줄 추가로 15줄까지 (사용자 11-13 · 11-25). 비고 칸은 화면에서 뺌(결정 120), 시트 열·옛 값은 그대로
 const LOG_WX = ['날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급'];   // 네이버 오후 1시 값이 들어가는 칸
 const LOG_WX_REGION = '09710101';   // 네이버 날씨 지역 번호: 서울 송파구 잠실동
 const LOG_TBM_DEPT = { '전방파트': '전기방재', '기건파트': '기계건축' };
@@ -1116,14 +1116,7 @@ function logSum_(map, from, to) {
 function logTbm_(day) {
   const out = {};
   LOG_DEPTS.forEach(function (d) { out[d] = []; });
-  if (!db_().getSheetByName('TBM')) return out;
-  const row = tbmRow_(day);
-  const works = row ? jsonOr_(row['작업표'], []) : (db_().getSheetByName('명일작업') ? nwSheet_(day).rows : []);
-  works.forEach(function (w) {
-    const d = LOG_TBM_DEPT[w.dept], t = cleanText_([w.place, w.work].map(function (x) { return String(x || '').trim(); }).filter(String).join(' '), 100);
-    if (d && t && out[d].length < LOG_MAX_LINES) out[d].push(t);
-  });
-  return out;
+  return out;   // 명일 작업 일정·TBM 표는 금일작업에 안 가져옴 (사용자 11-25, 결정 268). 주간작업 연동은 Supabase 판 (26_workhist.sql)
 }
 function logOut_(r) {
   if (!r) return null;

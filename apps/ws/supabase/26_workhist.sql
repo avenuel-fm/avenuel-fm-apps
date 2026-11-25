@@ -257,27 +257,18 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- ── 종합업무일지 연동: 그 근무일 주간작업(작업위치+작업내용)이 해당 파트 금일작업 줄 맨 앞에, 그다음 TBM 작업 표(없으면 명일 작업 예정). 같은 글은 한 번만. 파트마다 10줄 ──
+-- ── 종합업무일지 연동: 그 근무일 주간작업(작업위치+작업내용)이 해당 파트 금일작업 줄 맨 앞에, 같은 글은 한 번만. 파트마다 15줄까지. 명일 작업 일정·TBM 표는 안 가져옴 (사용자 11-25, 결정 268) ──
 create or replace function public.ws_log_tbm(p_day date)
 returns jsonb language sql stable security definer set search_path = public as $$
-  with w as (
-    select e, i from public.tbm t, jsonb_array_elements(t.works) with ordinality x(e, i) where t.work_day = p_day and not t.deleted
-    union all
-    select e, i from jsonb_array_elements(public.ws_nw_data(p_day)->'rows') with ordinality x(e, i)
-     where not exists (select 1 from public.tbm where work_day = p_day and not deleted)
-  ), l as (
+  with l as (
     select 0 o, (extract(epoch from d.saved_at) * 1000000)::bigint i, p dept,
            public.ws_clean(concat_ws(' ', nullif(btrim(d.floor), ''), d.content), 100) t
     from public.dw_day d, unnest(d.parts) p where d.work_day = p_day and not d.deleted
-    union all
-    select 1, i, case e->>'dept' when '전방파트' then '전기방재' when '기건파트' then '기계건축' end,
-           public.ws_clean(concat_ws(' ', nullif(btrim(e->>'place'), ''), nullif(btrim(e->>'work'), '')), 100)
-    from w
   ), u as (select distinct on (dept, t) dept, t, o, i from l where dept is not null and t <> '' order by dept, t, o, i
   ), n as (select dept, t, row_number() over (partition by dept order by o, i) k from u)
   select jsonb_build_object(
-    '전기방재', coalesce((select jsonb_agg(t order by k) from n where dept = '전기방재' and k <= 10), '[]'::jsonb),
-    '기계건축', coalesce((select jsonb_agg(t order by k) from n where dept = '기계건축' and k <= 10), '[]'::jsonb));
+    '전기방재', coalesce((select jsonb_agg(t order by k) from n where dept = '전기방재' and k <= 15), '[]'::jsonb),
+    '기계건축', coalesce((select jsonb_agg(t order by k) from n where dept = '기계건축' and k <= 15), '[]'::jsonb));
 $$;
 
 -- 권한: 도우미는 막음. 로그인 기기만 8개

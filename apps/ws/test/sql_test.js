@@ -219,7 +219,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q('insert into daily_log (log_date, electricity, business_hours) values ($1, 100, 10), ($2, 50, 12)', [prevY, yest]);   // 과거자료 (updated_at 없음)
   let lg = await call('ws_log_get', [tk, '']);
   ok(lg.ok && lg.day === D && lg.prevDay === prevY && lg.cur === null && lg.ver === '' && lg.vals.y['전기'] === 50 && lg.vals.p['전기'] === 100, '일지: 빈 날, 어제·전년 같은 날 값');
-  ok(lg.tbm['전기방재'][0] === '1층 등 교체' && lg.tbm['기계건축'].length === 0, '일지: TBM 작업 표에서 금일작업 (부서 이름 바꿈)');
+  ok(lg.tbm['전기방재'].length === 0 && lg.tbm['기계건축'].length === 0, '일지: TBM 작업 표·명일 작업 일정은 금일작업에 안 가져옴 (결정 268)');
   ok((await call('ws_log_get', [tk, '2099-01-01'])).day === D, '일지: 앞날 → 오늘');
   const base = { 영업시간: '11', 전기: '1,234.5', 날씨: '맑음', 미세먼지등급: '보통', 비고: '줄1\n줄2<x>', works: { 전기방재: ['a', ' ', 'b'], 기계건축: [] } };
   lg = await call('ws_log_save', [tk, D, J(Object.assign({}, base, { 전기: '12a' })), '', '{}']);
@@ -570,12 +570,15 @@ alter default privileges in schema public grant all on sequences to anon, authen
     ok(nm(await ls(X2)) === '-,-,-,-', '일지 서명란: 아무도 서명 안 한 날 → 빈 칸');
     await sign2('LS1', '주두리', null, '07:50'); await sign2('LS2', '주하나', null, '08:00'); await sign2('LS3', '주세찬', null, '08:05'); await sign2('LS4', '홍길동', boss, '08:30');
     v = await ls(X2);
-    ok(nm(v) === '주하나,주두리,홍길동,홍길동', '일지 서명란: 파트장·냉동장 없으면 주임(먼저 서명한 사람) · 부소장 없으면 소장이 두 칸 ' + nm(v));
+    ok(nm(v) === '주하나,주두리,-,홍길동', '일지 서명란: 파트장·냉동장 없으면 주임(먼저 서명한 사람) · 부소장 없으면 부소장 칸은 빈칸 ' + nm(v));
     await sign2('LS5', '냉다솜', null, '09:00'); await sign2('LS6', '부가람', null, '09:10');
     v = await ls(X2);
     ok(nm(v) === '주하나,냉다솜,부가람,홍길동', '일지 서명란: 냉동장이 주임보다 앞 · 부소장 칸은 부소장 ' + nm(v));
     await q("delete from signs where sign_id = 'LS4'");
     ok(nm(await ls(X2)) === '주하나,냉다솜,부가람,부가람', '일지 서명란: 소장 없으면 소장 칸에 부소장');
+    await q("insert into roster (ym, seq, section, role, name) values ('2026-10',8,'시설','시설부소장','마부장')"); await q("delete from signs where sign_id = 'LS6'");
+    await sign2('LS7', '마부장', null, '09:20'); await sign2('LS8', '홍길동', boss, '09:30');
+    ok(nm(await ls(X2)) === '주하나,냉다솜,마부장,홍길동', '일지 서명란: 근무표 직책이 「시설부소장」처럼 길어도 부소장 칸 · 소장·부소장 같이 나오면 각자 (결정 268)');
   }
 
   await db.exec(SQL('15_menu.sql')); await db.exec(SQL('15_menu.sql'));   // 메인 메뉴 켜기·끄기 (결정 148) — 지도·시방서가 부름
@@ -861,6 +864,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
     (await one('select count(*)::int n from dw_day')).n === 1, '주간작업: 고치기 = 같은 번호 · 있던 사진 유지 · 새 사진 한 번만 파일로 · 남의 파일 번호는 무시 · 없는 층은 비움');
   const xlg = (await call('ws_log_get', [tk, ''])).tbm;
   ok(xlg['전기방재'][0] === '복도 조명 안정기 교체(수정)' && xlg['기계건축'][0] === '복도 조명 안정기 교체(수정)', '일지 연동: 주간작업 → 두 파트 금일작업 (고친 글로)');
+  ok(xlg['전기방재'].length === 1 && !xlg['전기방재'].includes('1층 등 교체'), '일지 연동: 금일작업에는 주간작업만 (TBM 표 글은 안 들어옴)');
   const xd3 = await call('ws_dw_save', [tk, J({ parts: ['전기방재'], content: '복도 조명 안정기 교체(수정)', floor: '' })]);
   ok(xd3.ok && (await call('ws_log_get', [tk, ''])).tbm['전기방재'].filter(x => x === '복도 조명 안정기 교체(수정)').length === 1, '일지 연동: 같은 글은 한 줄만');
   ok((await call('ws_dw_delete', [tk, xd3.item.id])).ok && (await call('ws_dw_delete', [tk, xd3.item.id])).ok === false && (await call('ws_dw_list', ['emp', '', '', ''])).list.length === 1, '주간작업: 지움(숨김) · 또 지우면 안내 · 직원도 목록 봄');

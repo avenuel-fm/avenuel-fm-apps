@@ -688,7 +688,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
   assert(logSave(lt, '2026-11-12', base, '').conflict, '일지: 예전 ver로 저장하면 겹침 알림 (덮어쓰지 않음)');
   assert(!logSave(lt, '2026-11-13', base, '').ok, '일지: 앞날은 저장 안 됨');
   assert(!logSave(lt, '2026-11-12', Object.assign({}, base, { '시수': '12a' }), s.ver).ok, '일지: 숫자 칸에 글자 거부');
-  assert(!logSave(lt, '2026-11-12', Object.assign({}, base, { works: { '전기방재': Array(11).fill('x') } }), s.ver).ok, '일지: 작업 11줄 거부 (10줄까지)');
+  assert(!logSave(lt, '2026-11-12', Object.assign({}, base, { works: { '전기방재': Array(16).fill('x') } }), s.ver).ok, '일지: 작업 16줄 거부 (15줄까지)');
   const s2 = logSave(lt, '2026-11-01', { '시수': '200' }, '');
   g = logGet(lt, '2026-11-12'); assert(g.month.c['시수'] === 302, '일지: 과거자료와 같은 날을 앱에서 쓰면 앱 값 (106 → 200)');
   g = logGet(lt, '2026-11-11'); assert(g.day === '2026-11-11' && g.vals.y['시수'] == null && g.month.c['시수'] === 200, '일지: 지난 날 열기 · 빈 날은 0으로 셈');
@@ -708,7 +708,7 @@ assert(safeName_('a b/c_d(2)') === 'a-b-c-d-2', '이름 정리 규칙');
     { place: '2층', work: '사파이어 라운지 자동문 재결선', dept: '전방파트', risk: '감전', kind: '감전', p: 2, s: 2, fixes: ['전원 차단'] },
     { place: '', work: '옥상 배수구 청소', dept: '기건파트', risk: '추락' }, { place: 'B1', work: '바닥 보수', dept: '' }]), '삭제여부': 'N' });
   g = logGet(lt, '2026-11-09');
-  assert(g.tbm['전기방재'].join('|') === '2층 사파이어 라운지 자동문 재결선' && g.tbm['기계건축'].join('|') === '옥상 배수구 청소', '일지 TBM: 작업위치 + 작업내용만, 전방 → 전기방재 · 기건 → 기계건축, 부서 없는 줄 뺌');
+  assert(!g.tbm['전기방재'].length && !g.tbm['기계건축'].length, '일지 금일작업: TBM 작업 표가 있어도 안 가져옴 (결정 268, 주간작업만 Supabase 판에서)');
   assert(JSON.stringify(g.tbm).indexOf('감전') === -1 && JSON.stringify(g.tbm).indexOf('전원 차단') === -1, '일지 TBM: 위험요인·재해형태·개선조치는 안 가져옴');
   const jpgN = 'data:image/jpeg;base64,' + 'Q'.repeat(3000);
   assert(!logSave(lt, '2026-11-09', Object.assign({}, base, { night: 'data:image/png;base64,' + 'Q'.repeat(3000) }), '').ok, '일지 야간 그림: JPEG 아니면 거부');

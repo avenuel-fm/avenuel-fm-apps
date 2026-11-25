@@ -316,7 +316,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const n15 = count('ws_log_save_pdf'); await p.click('#lgSave');
   ok(await called('ws_log_save_pdf', n15) && await toast('저장하고 PDF도 만들었습니다'), '15) 일지 저장 = 저장 + PDF 한 번에 (결정 176)');
   const ls = last('ws_log_save_pdf').a;
-  ok(ls.p_day === D && ls.p_ver === '' && ls.p_d['전기'] === '1234' && ls.p_d.works['전기방재'][0] === '1층 등 교체' && Object.keys(ls.p_files).join() === 'pdf', '16) DB 함수에 숫자·금일작업(TBM에서) 넘김');
+  ok(ls.p_day === D && ls.p_ver === '' && ls.p_d['전기'] === '1234' && ls.p_d.works['전기방재'][0] === '1층 등 교체' && Object.keys(ls.p_files).join() === 'pdf', '16) DB 함수에 숫자·금일작업(서버가 준 주간작업) 넘김');
   ok(AC_N === 1, '17) 저장 뒤 공조기는 10분 기억 (구글 다시 안 부름)');
   const lp = ls, lu = UPLOADS.find(x => /^log_pdf\//.test(x.p));
   ok(lu && lp.p_files.pdf.path === lu.p && await p.locator('#lgBar button.pri').count() === 0, '18-19) PDF는 버킷 log_pdf/ 에, 저장 자리는 [PDF 보기]로');
