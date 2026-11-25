@@ -411,6 +411,7 @@ function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (body.action === 'checkSubmit') out = checkSubmit(body.qr, body.d);
+    else if (body.action === 'hjMail') out = hjMail_(body);   // 하자점검 메일 (Defect.gs, 결정 270)
     else if (/^cad(Login|Cats|Prepare|Finish)$/.test(body.action)) out = cadPc_(body);   // PC 변환기 업로드 (WS_CAD.md 10장): PIN 대조
     else throw new Error('알 수 없는 요청');
   } catch (err) {
