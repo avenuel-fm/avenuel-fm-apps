@@ -142,7 +142,7 @@ const RPC = {
     if (old) WN[WN.indexOf(old)] = item; else WN.push(item); return { ok: true, item };
   },
   ws_dn_delete: a => { WN.splice(WN.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
-  ws_hj_list: () => ({ ok: true, list: HJ.slice() }),
+  ws_hj_list: a => ({ ok: true, list: HJ.filter(x => !a.p_q || JSON.stringify(x).indexOf(a.p_q) !== -1) }),
   ws_hj_save: a => {
     const d = a.p_d, one = (x, old) => x && x.file ? { id: 'F' + (++WF), src: x.file.url } : x && x.id && old && old.id === x.id ? old : null, old = HJ.find(x => x.id === d.id);
     const item = { id: d.id || 'WS-HJ-' + (HJ.length + 1), day: d.day, due: new Date(Date.parse(d.day) + 10 * 864e5).toISOString().slice(0, 10), items: d.items.map((x, i) => ({ n: x.n, t: x.t, photo: one(x.photo, old && old.items[i] && old.items[i].photo) })),
@@ -634,6 +634,11 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(await p.locator('.csacc.whmo').count() === 1 && /\d{4}년 \d{1,2}월/.test(await p.locator('.csacc.whmo').innerText()) && await p.locator('.dfrow').count() === 1, 'H16) 저장된 목록: 월별 아코디언 (가장 최근 달은 펼침)');
   await p.click('.csacc.whmo'); const hcl = await p.locator('.dfrow').count(); await p.click('.csacc.whmo');
   ok(hcl === 0 && await p.locator('.dfrow').count() === 1, 'H17) 달 줄을 누르면 접고 펴짐');
+  ok(await p.locator('.dfq').count() === 1 && await p.evaluate(() => { const q = document.querySelector('.dfq'), c = document.getElementById('dfCnt'); return !!q && q.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING; }), 'H23) 목록 위쪽에 검색창');
+  await p.fill('.dfq', '없는말'); await p.waitForFunction(() => /찾는 하자점검서가 없습니다/.test(document.getElementById('dfList').innerText));
+  ok(/검색 결과 · 0건/.test(await p.locator('#dfCnt').innerText()) && await p.evaluate(() => document.activeElement.classList.contains('dfq')), 'H24) 검색: 없으면 안내 · 입력칸은 그대로(글자 끊김 없음)');
+  await p.fill('.dfq', '천장'); await p.waitForFunction(() => document.querySelectorAll('.dfrow').length === 1);
+  await p.fill('.dfq', ''); await p.waitForFunction(() => /저장된 하자점검서 · 1건/.test(document.getElementById('dfCnt').innerText));
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_defect.png'), fullPage: true });
   await p.locator('.whrow').click(); await p.waitForFunction(() => S.df.f.id);
   await p.locator('.dfact .whdel').waitFor();
@@ -648,6 +653,9 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(/형식/.test(await p.locator('#dfmm').innerText()) && GAS_MAIL.length === 0, 'H21) 받는 사람 형식이 틀리면 막고 안내');
   await p.fill('#dfMailTo', 'sm.lee@designeyeon.co.kr'); await p.click('#dfMailGo'); await p.waitForFunction(() => !document.getElementById('dfMailTo'));
   ok(GAS_MAIL.length === 1 && GAS_MAIL[0].action === 'hjMail' && GAS_MAIL[0].to === 'sm.lee@designeyeon.co.kr' && GAS_MAIL[0].id === 'WS-HJ-1' && !!GAS_MAIL[0].token && await p.evaluate(() => S.df.f.mail.to) === 'sm.lee@designeyeon.co.kr' && /마지막 메일/.test(await p.locator('.dfact + .rwhint').innerText()), 'H22) 보내기 → 구글 서버에 요청 · 화면에 마지막 발송 표시');
+  await p.evaluate(() => { go('inspect'); }); await p.evaluate(() => openDf()); await p.waitForFunction(() => S.view === 'df' && S.df.list);
+  ok(await p.evaluate(() => !S.df.f.id && !S.df.dirty) && await p.locator('.dfc').count() === 1 && await p.locator('.dfact').count() === 0, 'H25) 하자점검 메뉴를 다시 누르면 빈 양식 (전에 열었던 점검서 안 남음)');
+  await p.locator('.whrow').click(); await p.waitForFunction(() => S.df.f.id);
   await p.click('.whdel'); await p.waitForFunction(() => !S.df.f.id && S.df.list.length === 0);
   ok(HJ.length === 0 && count('ws_hj_delete') === 1, 'H15) 삭제 (되묻기 뒤) → 목록에서 사라짐');
   await p.evaluate(() => { TOASTQ.length = 0; }); await new Promise(r => setTimeout(r, 3500));   // 앞 알림 줄 비우기 (뒤 시험의 알림이 밀리지 않게)

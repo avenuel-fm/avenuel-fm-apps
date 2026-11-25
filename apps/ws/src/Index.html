@@ -567,7 +567,7 @@ select.lgin{text-align:center;padding:0}
 .whsplit{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:var(--sp-2)}.whsplit .whcol{min-width:0;padding-right:var(--sp-2)}.whsplit .whcol+.whcol{padding:0 0 0 var(--sp-2);border-left:1px solid var(--line2)}.whsplit .whpc:first-child{margin-top:0}
 .whck{display:flex;gap:var(--sp-4);min-height:var(--control-h);align-items:center}.whck label{display:flex;align-items:center;gap:var(--sp-1);font-size:var(--size-m)}
 .whtwo{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}.whmat{display:grid;grid-template-columns:1fr 72px 72px 44px;gap:var(--sp-1);margin-bottom:var(--sp-1)}.whdel{margin-top:var(--sp-3);color:var(--error);border-color:var(--error)}
-.dfact{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);margin-top:var(--sp-3)}.dfact .whdel{margin-top:0}.dfmailb{margin-left:auto}.dfrow{padding-left:var(--sp-3)}
+.dfact{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);margin-top:var(--sp-3)}.dfact .whdel{margin-top:0}.dfmailb{margin-left:auto}.dfq{margin-top:var(--sp-3)}.dfrow{padding-left:var(--sp-3)}
 .dfmail{border:1px solid var(--line2);border-radius:var(--r-m,8px);overflow:hidden;font-size:var(--size-s)}.dfmr{display:flex;gap:var(--sp-3);align-items:center;padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--line2)}.dfmr>span:first-child{flex:none;width:60px;color:var(--muted)}.dfmr .inp{flex:1;min-width:0}.dfmb{padding:var(--sp-3);background:var(--bg2,#F1F4F8);line-height:1.7}.dfms{margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--line2)}
 /* 하자점검 (WS_하자점검, 결정 266) */
 @media (min-width:768px){.whg.dfg{grid-template-columns:repeat(4,minmax(0,1fr))}}
@@ -4786,14 +4786,22 @@ function dfNew() { return { id: '', day: rwToday(), items: [{ n: '', t: '', phot
 function dfDue(day) { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 10); return d.toISOString().slice(0, 10); }
 async function openDf() {
   if (!window.WS_API) return toast('하자점검은 바로가기 앱(Supabase)에서만 열립니다');
-  S.df = S.df || { list: null, f: dfNew(), dirty: false, busy: false, pdfBusy: false, pdfUrl: null, keys: [], open: {} };
+  S.df = S.df || { list: null, f: dfNew(), dirty: false, busy: false, pdfBusy: false, pdfUrl: null, keys: [], open: {}, q: '' };
+  Object.assign(S.df, { f: dfNew(), dirty: false, pdfUrl: null, keys: [], q: '' });   // 메뉴를 누르면 늘 빈 양식 (전에 열었던 점검서 안 남음)
   go('df'); await dfLoad();
 }
 async function dfLoad() {
-  let r; try { r = await call('hjList', '', new Date(Date.now() - 730 * 864e5).toISOString().slice(0, 10), ''); } catch (e) { return; }
+  const q = S.df.q;
+  let r; try { r = await call('hjList', q, q ? '' : new Date(Date.now() - 730 * 864e5).toISOString().slice(0, 10), ''); } catch (e) { return; }
   if (!r.ok) return toast(r.error || '불러오지 못했습니다');
-  S.df.list = r.list; if (S.view === 'df') render();
+  if (q !== S.df.q) return;   // 그사이 검색어가 바뀜
+  S.df.list = r.list;
+  if (S.view !== 'df') return;
+  const L = $('dfList'); if (L) { L.innerHTML = dfListHtml(); const c = $('dfCnt'); if (c) c.textContent = dfCnt(); } else render();   // 검색 중에는 입력칸을 다시 그리지 않음 (글자 입력 끊김 방지)
 }
+let DFQT = null;
+function dfSearch(el) { const o = S.df; o.q = el.value.trim(); clearTimeout(DFQT); DFQT = setTimeout(dfLoad, 300); }
+function dfCnt() { const o = S.df; return (o.q ? '검색 결과 · ' : '저장된 하자점검서 · ') + (o.list ? o.list.length : '…') + '건'; }
 function dfDirty() {
   const o = S.df; o.dirty = true; o.pdfUrl = null;
   const e = $('dfState'); if (e) e.innerHTML = dfState();
@@ -4840,7 +4848,7 @@ function dfSignOk(key) {
 function dfAcc(key) { const o = S.df; const cur = key in o.open ? o.open[key] : key === o.dflt; o.open[key] = !cur; render(); }
 function dfListHtml() {
   const o = S.df; if (!o.list) return '<div class="banner b-gray">불러오는 중…</div>';
-  if (!o.list.length) return '<div class="banner b-gray">저장된 하자점검서가 없습니다</div>';
+  if (!o.list.length) return '<div class="banner b-gray">' + (o.q ? '찾는 하자점검서가 없습니다' : '저장된 하자점검서가 없습니다') + '</div>';
   const mons = []; o.list.forEach(x => { const m = x.day.slice(0, 7); let M = mons.find(y => y.m === m); if (!M) mons.push(M = { m, list: [] }); M.list.push(x); });   // 최근 날짜가 위
   o.dflt = 'm:' + mons[0].m;
   const row = x => '<button type="button" class="whrow dfrow' + (o.f.id === x.id ? ' on' : '') + '" onclick="dfEdit(&quot;' + x.id + '&quot;)"><b>' + h(x.day.slice(5).replace('-', '/')) + ' · ' + h(x.items[0] ? x.items[0].n : '') + '</b>' +
@@ -4867,7 +4875,8 @@ function renderDf() {
     '<div class="dfsgs">' + dfSignBox('signSite', '현장책임자 서명') + dfSignBox('signFm', '시설팀 서명') + '</div>' +
     '<small class="rwhint">처리 기한은 작성일(' + h(whDay(f.day)) + ') + 10일 = <b>' + h(whDay(dfDue(f.day))) + '</b> 로 자동 기입됩니다. PDF 생성을 누르면 먼저 저장합니다.</small>' +
     (f.id ? '<div class="dfact"><button type="button" class="btn sm whdel" onclick="dfDel()">이 하자점검서 삭제</button><button type="button" class="btn sm dfmailb" onclick="dfMail()">이메일 발송</button></div>' + (f.mail ? '<small class="rwhint">마지막 메일 ' + h(f.mail.at) + ' → ' + h(f.mail.to) + '</small>' : '') : '') + '</div>' +
-    '<div class="cssec">저장된 하자점검서 · ' + (o.list ? o.list.length : '…') + '건</div>' + dfListHtml() + bar + '</div>';
+    '<input class="inp dfq" type="search" maxlength="40" placeholder="날짜·현장명·하자내용으로 찾기" value="' + h(o.q) + '" oninput="dfSearch(this)" aria-label="하자점검서 검색">' +
+    '<div class="cssec" id="dfCnt">' + dfCnt() + '</div><div id="dfList">' + dfListHtml() + '</div>' + bar + '</div>';
 }
 function dfCheck() {
   const f = S.df.f; if (!f.items.some(x => x.t.trim())) { toast('하자내용을 입력해 주세요'); return false; } return true;
