@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.26.25', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.26.26', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -411,6 +411,7 @@ function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (body.action === 'checkSubmit') out = checkSubmit(body.qr, body.d);
+    else if (body.action === 'hjMail') out = hjMail_(body);   // 하자점검 메일 (Defect.gs, 결정 270)
     else if (/^cad(Login|Cats|Prepare|Finish)$/.test(body.action)) out = cadPc_(body);   // PC 변환기 업로드 (WS_CAD.md 10장): PIN 대조
     else throw new Error('알 수 없는 요청');
   } catch (err) {
