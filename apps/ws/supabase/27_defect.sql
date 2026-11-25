@@ -17,8 +17,6 @@ create table if not exists public.dw_defect (
   updated_at timestamptz not null default clock_timestamp(),
   deleted    boolean not null default false
 );
-alter table public.dw_defect add column if not exists pdf_file uuid;            -- 만든 PDF (files 표). 고쳐 저장하면 비움 (결정 270)
-alter table public.dw_defect add column if not exists mail_log jsonb not null default '[]'::jsonb;   -- 보낸 메일 [{at,to,by}]
 create index if not exists dw_defect_day on public.dw_defect (work_day desc, saved_at) where not deleted;
 alter table public.dw_defect enable row level security;   -- 정책 없음 = 표를 직접 못 읽음 (함수로만)
 
@@ -33,7 +31,6 @@ returns jsonb language sql stable security definer set search_path = public as $
     'items', coalesce((select jsonb_agg(jsonb_build_object('n', e->>'n', 't', e->>'t', 'photo', public.ws_hj_file(nullif(e->>'p', '')::uuid)) order by o)
                        from jsonb_array_elements(r.items) with ordinality u(e, o)), '[]'::jsonb),
     'signSite', public.ws_hj_file(r.sign_site), 'signFm', public.ws_hj_file(r.sign_fm),
-    'pdf', r.pdf_file is not null, 'mail', case when jsonb_array_length(r.mail_log) > 0 then r.mail_log->(jsonb_array_length(r.mail_log) - 1) else null end,
     'by', coalesce(r.saved_by, ''), 'at', to_char(r.updated_at at time zone 'Asia/Seoul', 'MM/DD HH24:MI'));
 $$;
 
@@ -120,7 +117,7 @@ begin
     insert into public.dw_defect (hj_id, work_day, due_day, items, sign_site, sign_fm, saved_by)
     values (r.hj_id, d, d + 10, res, sa, sf, me.name) returning * into r;
   else
-    update public.dw_defect set work_day = d, due_day = d + 10, items = res, sign_site = sa, sign_fm = sf, pdf_file = null, updated_at = clock_timestamp()
+    update public.dw_defect set work_day = d, due_day = d + 10, items = res, sign_site = sa, sign_fm = sf, updated_at = clock_timestamp()
      where hj_id = v_id returning * into r;
   end if;
   perform public.ws_log(me.name, case when v_id is null then '하자점검 저장' else '하자점검 수정' end, r.hj_id, d || ' · ' || jsonb_array_length(res) || '건');
@@ -140,58 +137,12 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- PDF 기록 (결정 270): 「PDF 생성」 때 화면이 만든 PDF 를 버킷에 올리고 번호만 넘김. 고쳐 저장하면 위 save 가 비움
-create or replace function public.ws_hj_pdf(p_token text, p_id text, p_file jsonb)
-returns jsonb language plpgsql volatile security definer set search_path = public as $$
-declare
-  me public.staff := public.ws_auth(p_token);
-  r public.dw_defect;
-  fid uuid;
-begin
-  perform public.ws_menu_guard(me.role, 'inspect.defect');
-  select * into r from public.dw_defect where hj_id = p_id and not deleted;
-  if r.hj_id is null then return jsonb_build_object('ok', false, 'error', '하자점검서를 찾지 못했습니다. 새로고침해 주세요.'); end if;
-  fid := public.ws_add_file('dw_photo', p_file, 'application/pdf', r.work_day || '_하자점검.pdf',
-    '점검/하자점검/' || to_char(r.work_day, 'YYYY') || '/' || to_char(r.work_day, 'YYYY-MM'), me.name);
-  update public.dw_defect set pdf_file = fid where hj_id = p_id returning * into r;
-  return jsonb_build_object('ok', true, 'item', public.ws_hj_out(r));
-end $$;
-
--- 메일 발송(구글 서버만 부름): 직원 확인 + 보낼 PDF 정보
-create or replace function public.ws_hj_mail_info(p_token text, p_id text)
-returns jsonb language plpgsql stable security definer set search_path = public as $$
-declare
-  me public.staff := public.ws_auth(p_token);
-  r public.dw_defect;
-  f public.files;
-begin
-  perform public.ws_menu_guard(me.role, 'inspect.defect');
-  select * into r from public.dw_defect where hj_id = p_id and not deleted;
-  if r.hj_id is null then return jsonb_build_object('ok', false, 'error', '하자점검서를 찾지 못했습니다. 새로고침해 주세요.'); end if;
-  if r.pdf_file is null then return jsonb_build_object('ok', false, 'error', 'PDF가 없습니다. 먼저 「PDF 생성」을 눌러 주세요.'); end if;
-  select * into f from public.files where id = r.pdf_file;
-  return jsonb_build_object('ok', true, 'by', me.name, 'day', r.work_day::text,
-    'file', jsonb_build_object('id', f.id, 'kind', f.kind, 'storage_path', f.storage_path, 'file_name', f.file_name, 'drive_folder', f.drive_folder, 'drive_id', f.drive_id));
-end $$;
-
-create or replace function public.ws_hj_mail_done(p_token text, p_id text, p_to text)
-returns jsonb language plpgsql volatile security definer set search_path = public as $$
-declare
-  me public.staff := public.ws_auth(p_token);
-  r public.dw_defect;
-begin
-  perform public.ws_menu_guard(me.role, 'inspect.defect');
-  update public.dw_defect set mail_log = (mail_log || jsonb_build_array(jsonb_build_object('at', to_char(clock_timestamp() at time zone 'Asia/Seoul', 'MM/DD HH24:MI'), 'to', left(p_to, 120), 'by', me.name)))
-   where hj_id = p_id and not deleted returning * into r;
-  if r.hj_id is null then return jsonb_build_object('ok', false, 'error', '하자점검서를 찾지 못했습니다.'); end if;
-  perform public.ws_log(me.name, '하자점검 메일 발송', p_id, left(p_to, 120));
-  return jsonb_build_object('ok', true, 'item', public.ws_hj_out(r));
-end $$;
-
 -- 권한: 도우미는 막음. 로그인 기기만 3개
 revoke all on function public.ws_hj_file(uuid), public.ws_hj_out(public.dw_defect),
-  public.ws_hj_list(text, text, text, text), public.ws_hj_save(text, jsonb), public.ws_hj_delete(text, text),
-  public.ws_hj_pdf(text, text, jsonb), public.ws_hj_mail_info(text, text), public.ws_hj_mail_done(text, text, text) from public, anon, authenticated;
+  public.ws_hj_list(text, text, text, text), public.ws_hj_save(text, jsonb), public.ws_hj_delete(text, text) from public, anon, authenticated;
 grant execute on function public.ws_hj_list(text, text, text, text), public.ws_hj_save(text, jsonb), public.ws_hj_delete(text, text) to authenticated;
-grant execute on function public.ws_hj_pdf(text, text, jsonb) to authenticated;
-grant execute on function public.ws_hj_mail_info(text, text), public.ws_hj_mail_done(text, text, text) to service_role;   -- 메일은 구글 서버만
+
+-- 이메일 발송·서버 PDF 보관은 뺐음 (결정 278 번복). 먼저 Run 한 적이 있으면 남은 함수만 지움 (열 pdf_file·mail_log 는 비어 있어 그대로 둠)
+drop function if exists public.ws_hj_pdf(text, text, jsonb);
+drop function if exists public.ws_hj_mail_info(text, text);
+drop function if exists public.ws_hj_mail_done(text, text, text);

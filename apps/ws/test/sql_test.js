@@ -895,17 +895,6 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(hj2.ok && hj2.item.id === hj.item.id && hj2.item.items.length === 2 && hj2.item.items[0].photo.id === hj.item.items[0].photo.id && hj2.item.items[1].photo === null && hj2.item.signSite.id === hj.item.signSite.id && hj2.item.signFm.src.endsWith('s2.png') && await xnf() === hf0 + 1 && (await one('select count(*)::int n from dw_defect')).n === 1, '하자점검: 고치기 = 같은 번호 · 있던 사진·서명 유지 · 남의 파일 번호는 무시 · 서명 안 보내면 그대로');
   const hj3 = await call('ws_hj_save', [tk, J({ id: hj.item.id, day: hj.item.day, items: [{ n: 'a', t: 'x' }], signSite: null })]);
   ok(hj3.ok && hj3.item.signSite === null && hj3.item.signFm.id === hj2.item.signFm.id, '하자점검: 서명을 null 로 보내면 지움');
-  // PDF 기록 · 메일 발송 정보 (결정 270)
-  const HPDF = { url: PUB + 'dw_photo/' + ym + '/pd1.pdf', path: 'dw_photo/' + ym + '/pd1.pdf' }, mi = (t, id) => as('service_role', 'select ws_hj_mail_info($1, $2) r', [t, id]).then(r => r[0].r);
-  ok(/PDF가 없습니다/.test((await mi(tk, hj.item.id)).error) && hj3.item.pdf === false && hj3.item.mail === null, '하자점검: PDF 만들기 전에는 메일 정보 없음');
-  const hpd = await call('ws_hj_pdf', [tk, hj.item.id, J(HPDF)]);
-  const hmi = await mi(tk, hj.item.id);
-  ok(hpd.ok && hpd.item.pdf === true && hmi.ok && hmi.file.storage_path === HPDF.path && hmi.file.kind === 'dw_photo' && /_하자점검\.pdf$/.test(hmi.file.file_name) && /^점검\/하자점검\/\d{4}\/\d{4}-\d{2}$/.test(hmi.file.drive_folder) && hmi.file.drive_id === null, '하자점검: PDF 기록 → 메일 정보에 버킷 경로·드라이브 폴더');
-  ok(/파일 정보/.test(await callErr('ws_hj_pdf', [tk, hj.item.id, J({ url: 'https://evil/x.pdf', path: 'dw_photo/2026-11/a.pdf' })])) && /permission denied/.test(await asErr('authenticated', "select ws_hj_mail_info('x','y')")) && /LOGIN/.test(await asErr('service_role', "select ws_hj_mail_info('nope','y')")), '하자점검: 버킷 밖 PDF 거부 · 메일 정보는 구글 서버만 · 로그인 번호표 확인');
-  const hmd = await as('service_role', 'select ws_hj_mail_done($1, $2, $3) r', [tk, hj.item.id, 'a@b.co']).then(r => r[0].r);
-  ok(hmd.ok && hmd.item.mail.to === 'a@b.co' && /^\d\d\/\d\d \d\d:\d\d$/.test(hmd.item.mail.at) && hmd.item.pdf === true && (await call('ws_hj_list', [tk, '', '', ''])).list[0].mail.to === 'a@b.co', '하자점검: 메일 발송 기록 (목록에도 마지막 발송)');
-  const hj4 = await call('ws_hj_save', [tk, J({ id: hj.item.id, day: hj.item.day, items: [{ n: 'a', t: 'x2' }] })]);
-  ok(hj4.ok && hj4.item.pdf === false && (await mi(tk, hj.item.id)).ok === false && hj4.item.mail.to === 'a@b.co', '하자점검: 고쳐 저장하면 PDF 비움(다시 생성 필요) · 발송 기록은 남음');
   ok((await call('ws_hj_list', ['emp', '', '', ''])).list.length === 1 && (await call('ws_hj_list', [tk, 'zzz', '', ''])).list.length === 0 && (await call('ws_hj_list', [tk, 'x', '', ''])).list.length === 1, '하자점검: 직원도 목록 봄 · 글자 검색');
   ok((await call('ws_admin_set_menu', [tk, ['inspect.defect']])).ok && /사용 중지/.test(await callErr('ws_hj_list', ['emp', '', '', ''])) && (await call('ws_hj_list', [tk, '', '', ''])).ok, '하자점검: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);

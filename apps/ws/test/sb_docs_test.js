@@ -40,7 +40,7 @@ const ehData = () => ({ ok: true, floor: '1F', floors: EH_F.map(f => ({ code: f,
 const STAFF = [{ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, { staff_id: 'S002', name: '김철수', part: '기건파트', role: '직원' }];
 const RISK = [{ words: '(기본)', risk: '손 다침', kind: '베임', p: 1, s: 2, fixes: [{ t: '보호장갑', on: true }] },
   { words: '분전반, 배선', risk: '감전', kind: '감전', p: 2, s: 3, fixes: [{ t: '전원 차단', on: true }] }];
-const GAS_MAIL = [], RW = [], WD = [], WN = [], HJ = []; let WF = 0;
+const RW = [], WD = [], WN = [], HJ = []; let WF = 0;
 const CSITE = { id: 'WS-CS-1', name: '5F 리모와', work: '인테리어', co: 'A사' }, CS = {};
 const feData = () => ({ ok: true, items: FE, execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const RPC = {
@@ -146,10 +146,9 @@ const RPC = {
   ws_hj_save: a => {
     const d = a.p_d, one = (x, old) => x && x.file ? { id: 'F' + (++WF), src: x.file.url } : x && x.id && old && old.id === x.id ? old : null, old = HJ.find(x => x.id === d.id);
     const item = { id: d.id || 'WS-HJ-' + (HJ.length + 1), day: d.day, due: new Date(Date.parse(d.day) + 10 * 864e5).toISOString().slice(0, 10), items: d.items.map((x, i) => ({ n: x.n, t: x.t, photo: one(x.photo, old && old.items[i] && old.items[i].photo) })),
-      signSite: one(d.signSite, old && old.signSite), signFm: one(d.signFm, old && old.signFm), pdf: false, mail: old ? old.mail : null, by: ME.name, at: '11/25 10:00' };
+      signSite: one(d.signSite, old && old.signSite), signFm: one(d.signFm, old && old.signFm), by: ME.name, at: '11/25 10:00' };
     if (old) HJ[HJ.indexOf(old)] = item; else HJ.push(item); return { ok: true, item };
   },
-  ws_hj_pdf: a => { const x = HJ.find(y => y.id === a.p_id); x.pdf = true; return { ok: true, item: x }; },
   ws_hj_delete: a => { HJ.splice(HJ.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
   /* 3-6 환경설정 */
   ws_admin_staff: () => ({ ok: true, toastSec: 2.6, staff: STAFF }),
@@ -222,10 +221,6 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
       GAS_PDF.push(u.searchParams.get('id'));
       const good = /^DRIVE/.test(u.searchParams.get('id'));
       return r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(good ? { ok: true, name: 'a.pdf', b64: Buffer.from('%PDF-1.4 drive').toString('base64') } : { ok: false, error: '볼 수 없는 파일입니다' }) });
-    }
-    if (r.request().method() === 'POST') {   // 하자점검 메일 (doPost hjMail)
-      const b = JSON.parse(r.request().postData()); GAS_MAIL.push(b); const it = HJ.find(y => y.id === b.id); it.mail = { at: '11/25 14:30', to: b.to, by: ME.name };
-      return r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, item: it }) });
     }
     WX_ASKED = u.searchParams.get('api') + ' ' + u.searchParams.get('day');   // ?api=logac = 날씨 빠진 날 채우기만 (기다리지 않음)
     r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, day: u.searchParams.get('day') }) });
@@ -622,7 +617,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const hs0 = count('ws_hj_save'), hu0 = UPLOADS.length;
   await p.click('#dfPdfB'); await p.waitForFunction(() => S.view === 'pdf');
   const hsa = last('ws_hj_save').a.p_d, hup = UPLOADS.slice(hu0);
-  ok(count('ws_hj_save') === hs0 + 1 && hup.length === 4 && hup.filter(u => /\.png$/.test(u.p)).length === 2 && hup.filter(u => /\.pdf$/.test(u.p)).length === 1 && hsa.items.length === 3 && hsa.items[0].photo.file && hsa.signSite.file && hsa.signFm.file && !('data' in hsa.items[0].photo), 'H10) PDF 생성 → 먼저 자동 저장 (사진 1·서명 2 파일로 올리고 주소만 넘김) → PDF 화면');
+  ok(count('ws_hj_save') === hs0 + 1 && hup.length === 3 && hup.filter(u => /\.png$/.test(u.p)).length === 2 && hsa.items.length === 3 && hsa.items[0].photo.file && hsa.signSite.file && hsa.signFm.file && !('data' in hsa.items[0].photo), 'H10) PDF 생성 → 먼저 자동 저장 (사진 1·서명 2 파일로 올리고 주소만 넘김) → PDF 화면');
   await p.evaluate(() => back()); await p.waitForFunction(() => S.view === 'df');
   ok(/PDF 보기/.test(await p.locator('#dfPdfB').innerText()) && await p.evaluate(() => !!S.df.f.id && !S.df.dirty) && /저장됨/.test(await p.locator('#dfState').innerText()), 'H11) 돌아오면 버튼이 「PDF 보기」 · 「저장됨」');
   const hs1 = count('ws_hj_save'); await p.click('#dfPdfB'); await p.waitForFunction(() => S.view === 'pdf'); await p.evaluate(() => back()); await p.waitForFunction(() => S.view === 'df');
@@ -642,17 +637,13 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_defect.png'), fullPage: true });
   await p.locator('.whrow').click(); await p.waitForFunction(() => S.df.f.id);
   await p.locator('.dfact .whdel').waitFor();
-  ok(await p.evaluate(() => { const a = document.querySelector('.dfact'), b = a.querySelector('.dfmailb'), d = a.querySelector('.whdel'); return b.getBoundingClientRect().left > d.getBoundingClientRect().left && /이메일 발송/.test(b.innerText); }), 'H18) 삭제 줄 오른쪽 끝에 「이메일 발송」');
-  await p.click('.dfmailb'); await new Promise(r => setTimeout(r, 300));
-  ok(await p.locator('#dfMailTo').count() === 0 && await toast('PDF'), 'H19) PDF 만들기 전에는 메일 팝업 대신 안내');
-  await p.click('#dfPdfB'); await p.waitForFunction(() => S.view === 'pdf'); await p.evaluate(() => back()); await p.waitForFunction(() => S.view === 'df' && S.df.f.pdf);
-  await p.click('.dfmailb'); await p.locator('#dfMailTo').waitFor();
-  const hmt = await p.locator('.dfmail').innerText();
-  ok(/max2122@nate\.com/.test(hmt) && /\[잠실점 에비뉴엘\] 하자내용 송부/.test(hmt) && /안녕하세요, 잠실점 에비뉴엘 시설팀입니다\./.test(hmt) && /금일 준공점검 하자내용을 아래 링크로 보내드립니다\./.test(hmt) && /drive\.google\.com\/file\/d\//.test(hmt) && /02-3213-2456 \/ 02-3213-2119 \/ 02-3213-2122/.test(hmt), 'H20) 메일 팝업: 보낸 사람 · 제목 · 본문 · 드라이브 링크 · 전화·메일 서명');
-  await p.fill('#dfMailTo', 'abc'); await p.click('#dfMailGo');
-  ok(/형식/.test(await p.locator('#dfmm').innerText()) && GAS_MAIL.length === 0, 'H21) 받는 사람 형식이 틀리면 막고 안내');
-  await p.fill('#dfMailTo', 'sm.lee@designeyeon.co.kr'); await p.click('#dfMailGo'); await p.waitForFunction(() => !document.getElementById('dfMailTo'));
-  ok(GAS_MAIL.length === 1 && GAS_MAIL[0].action === 'hjMail' && GAS_MAIL[0].to === 'sm.lee@designeyeon.co.kr' && GAS_MAIL[0].id === 'WS-HJ-1' && !!GAS_MAIL[0].token && await p.evaluate(() => S.df.f.mail.to) === 'sm.lee@designeyeon.co.kr' && /마지막 메일/.test(await p.locator('.dfact + .rwhint').innerText()), 'H22) 보내기 → 구글 서버에 요청 · 화면에 마지막 발송 표시');
+  ok(await p.evaluate(() => { const a = document.querySelector('.dfact'), b = a.querySelector('.dfdlb'), d = a.querySelector('.whdel'); return b.getBoundingClientRect().left > d.getBoundingClientRect().left && /PDF 내려받기/.test(b.innerText); }), 'H18) 삭제 줄 오른쪽 끝에 「PDF 내려받기」');
+  const hd0 = count('ws_hj_save'), hu2 = UPLOADS.length;
+  const [hjdl1] = await Promise.all([p.waitForEvent('download'), p.click('.dfdlb')]);
+  await p.waitForFunction(() => !!S.df.pdfUrl);
+  ok(/^2026-\d\d-\d\d_하자점검\.pdf$/.test(hjdl1.suggestedFilename()) && count('ws_hj_save') === hd0 + 1 && UPLOADS.length === hu2 && /PDF 보기/.test(await p.locator('#dfPdfB').innerText()), 'H19) PDF 내려받기: 파일로 저장(파일명 날짜_하자점검.pdf) · 저장 뒤 만든 PDF 를 그대로 · 버튼이 「PDF 보기」로');
+  const hd1 = count('ws_hj_save'); const [dl2] = await Promise.all([p.waitForEvent('download'), p.click('.dfdlb')]);
+  ok(count('ws_hj_save') === hd1 && !!dl2.suggestedFilename(), 'H20) 이미 만든 PDF 는 다시 만들지 않고 바로 내려받음');
   await p.evaluate(() => { go('inspect'); }); await p.evaluate(() => openDf()); await p.waitForFunction(() => S.view === 'df' && S.df.list);
   ok(await p.evaluate(() => !S.df.f.id && !S.df.dirty) && await p.locator('.dfc').count() === 1 && await p.locator('.dfact').count() === 0, 'H25) 하자점검 메뉴를 다시 누르면 빈 양식 (전에 열었던 점검서 안 남음)');
   await p.locator('.whrow').click(); await p.waitForFunction(() => S.df.f.id);

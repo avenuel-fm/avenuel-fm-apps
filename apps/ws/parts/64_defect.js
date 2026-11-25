@@ -70,7 +70,7 @@ function dfListHtml() {
   const mons = []; o.list.forEach(x => { const m = x.day.slice(0, 7); let M = mons.find(y => y.m === m); if (!M) mons.push(M = { m, list: [] }); M.list.push(x); });   // 최근 날짜가 위
   o.dflt = 'm:' + mons[0].m;
   const row = x => '<button type="button" class="whrow dfrow' + (o.f.id === x.id ? ' on' : '') + '" onclick="dfEdit(&quot;' + x.id + '&quot;)"><b>' + h(x.day.slice(5).replace('-', '/')) + ' · ' + h(x.items[0] ? x.items[0].n : '') + '</b>' +
-    '<span>' + h(x.items[0] ? x.items[0].t : '') + '</span><small>하자 ' + x.items.length + '건 · 처리 기한 ' + h(x.due.slice(5).replace('-', '/')) + (x.mail ? ' · 메일 ' + h(x.mail.at) : '') + '</small></button>';
+    '<span>' + h(x.items[0] ? x.items[0].t : '') + '</span><small>하자 ' + x.items.length + '건 · 처리 기한 ' + h(x.due.slice(5).replace('-', '/')) + '</small></button>';
   return '<div class="card rwres">' + mons.map(M => { const key = 'm:' + M.m, on = key in o.open ? o.open[key] : key === o.dflt;
     return '<button type="button" class="csacc whmo' + (on ? ' on' : '') + '" aria-expanded="' + on + '" onclick="dfAcc(&quot;' + key + '&quot;)"><b>' + M.m.slice(0, 4) + '년 ' + Number(M.m.slice(5)) + '월</b><span class="csn">' + M.list.length + '건</span><span class="csar" aria-hidden="true"></span></button>' + (on ? M.list.map(row).join('') : ''); }).join('') + '</div>';
 }
@@ -92,7 +92,7 @@ function renderDf() {
     '<div class="whg dfg">' + f.items.map((x, i) => dfCard(x, i, n)).join('') + '<button type="button" class="dfplus" onclick="dfAdd()"' + (n >= DF_MAX ? ' disabled' : '') + ' aria-label="하자 칸 추가 (' + n + ' / ' + DF_MAX + ')">+</button></div>' +
     '<div class="dfsgs">' + dfSignBox('signSite', '현장책임자 서명') + dfSignBox('signFm', '시설팀 서명') + '</div>' +
     '<small class="rwhint">처리 기한은 작성일(' + h(whDay(f.day)) + ') + 10일 = <b>' + h(whDay(dfDue(f.day))) + '</b> 로 자동 기입됩니다. PDF 생성을 누르면 먼저 저장합니다.</small>' +
-    (f.id ? '<div class="dfact"><button type="button" class="btn sm whdel" onclick="dfDel()">이 하자점검서 삭제</button><button type="button" class="btn sm dfmailb" onclick="dfMail()">이메일 발송</button></div>' + (f.mail ? '<small class="rwhint">마지막 메일 ' + h(f.mail.at) + ' → ' + h(f.mail.to) + '</small>' : '') : '') + '</div>' +
+    (f.id ? '<div class="dfact"><button type="button" class="btn sm whdel" onclick="dfDel()">이 하자점검서 삭제</button><button type="button" class="btn sm dfdlb" onclick="dfPdf(true)">PDF 내려받기</button></div>' : '') + '</div>' +
     '<input class="inp dfq" type="search" maxlength="40" placeholder="날짜·현장명·하자내용으로 찾기" value="' + h(o.q) + '" oninput="dfSearch(this)" aria-label="하자점검서 검색">' +
     '<div class="cssec" id="dfCnt">' + dfCnt() + '</div><div id="dfList">' + dfListHtml() + '</div>' + bar + '</div>';
 }
@@ -140,17 +140,10 @@ async function dfPrint() {
   await whFit($('print')); setTimeout(() => window.print(), 100);
 }
 function dfPdfShow() { const a = document.createElement('a'); a.href = S.df.pdfUrl; a.dataset.pv = JSON.stringify({ name: '하자 점검 확인서', sub: S.df.f.day }); pdfOpen(a); }
-async function dfPdfKeep(blob) {
-  const o = S.df, id = o.f.id; if (!id) return;
-  try {
-    const r = await call('hjPdf', id, blob); if (!r.ok) return toast(r.error || 'PDF를 서버에 남기지 못했습니다');
-    if (o.f.id === id && !o.dirty) o.f = JSON.parse(JSON.stringify(r.item));
-    if (o.list) { const i = o.list.findIndex(x => x.id === id); if (i >= 0) o.list[i] = r.item; }
-  } catch (e) { /* call() 이 알림을 띄움 */ }
-}
-async function dfPdf() {
+function dfPdfDl() { const o = S.df, a = document.createElement('a'); a.href = o.pdfUrl; a.download = o.f.day + '_하자점검.pdf'; document.body.appendChild(a); a.click(); a.remove(); }
+async function dfPdf(dl) {   // dl = 「PDF 내려받기」: PC·휴대폰에 파일로 저장
   const o = S.df; if (o.pdfBusy || !dfCheck()) return;
-  if (o.pdfUrl) return dfPdfShow();   // 이미 만든 PDF (고친 곳이 없을 때)
+  if (o.pdfUrl) return dl ? dfPdfDl() : dfPdfShow();   // 이미 만든 PDF (고친 곳이 없을 때)
   o.pdfBusy = true; render();
   if (!await dfSave(true)) { o.pdfBusy = false; render(); return; }   // PDF 생성 = 먼저 자동 저장
   const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;z-index:-1';
@@ -163,34 +156,8 @@ async function dfPdf() {
         html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, x: 0, y: 0, windowWidth: 794 },
         jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait', hotfixes: ['px_scaling'] }, pagebreak: { mode: ['css'] } }).from(wrap.querySelector('.whp')).outputPdf('blob');
     } finally { window.scrollTo(0, keepY); }
-    o.pdfUrl = URL.createObjectURL(blob); o.pdfBusy = false; dfPdfShow();
-    dfPdfKeep(blob);   // 서버에도 기록 (메일 발송용). 못 올려도 PDF 보기는 됨
+    o.pdfUrl = URL.createObjectURL(blob); o.pdfBusy = false;
+    if (dl) { render(); dfPdfDl(); toast('PDF를 내려받았습니다'); } else dfPdfShow();
   } catch (e) { o.pdfBusy = false; render(); toast('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e)); }
   wrap.remove();
-}
-
-/* 이메일 발송 (결정 270): 팝업에 받는 사람만 입력 → 구글 서버가 PDF 를 드라이브 링크로 보냄. 본문은 고정 */
-function dfMail() {
-  const o = S.df, f = o.f;
-  if (!f.id || o.dirty) return toast('고친 내용이 있습니다. 먼저 「PDF 생성」을 눌러 저장해 주세요');
-  if (!f.pdf) return toast('먼저 「PDF 생성」을 눌러 PDF를 만들어 주세요');
-  const sig = ['에비뉴엘 시설팀', 'T. 02-3213-2456 / 02-3213-2119 / 02-3213-2122', 'E. max2122@nate.com'];
-  const row = (k, v) => '<div class="dfmr"><span>' + k + '</span>' + v + '</div>';
-  dialog('<h2 class="ehdh">하자내용 메일 보내기</h2><div class="dfmail">' +
-    row('보낸 사람', '<span>잠실점 에비뉴엘 시설팀 &lt;max2122@nate.com&gt;</span>') +
-    row('받는 사람', '<input class="inp" id="dfMailTo" type="email" inputmode="email" autocomplete="email" placeholder="name@company.com" value="' + h(f.mail ? f.mail.to : '') + '">') +
-    row('제목', '<span>[잠실점 에비뉴엘] 하자내용 송부</span>') +
-    '<div class="dfmb">안녕하세요, 잠실점 에비뉴엘 시설팀입니다.<br>금일 준공점검 하자내용을 아래 링크로 보내드립니다.<br><br>· 하자점검서 : drive.google.com/file/d/… (' + h(f.day) + '_하자점검.pdf)<div class="dfms"><b>' + sig[0] + '</b><br>' + sig[1] + '<br>' + sig[2] + '</div></div></div>' +
-    '<div id="dfmm" role="alert" class="ehmsg"></div><div class="ehda"><button class="btn big" onclick="closeDialog()">취소</button><button class="btn big pri" id="dfMailGo" onclick="dfMailSend()">보내기</button></div>');
-  setTimeout(() => { const e = $('dfMailTo'); if (e) e.focus(); }, 50);
-}
-async function dfMailSend() {
-  const o = S.df, id = o.f.id, to = ($('dfMailTo').value || '').trim(), m = $('dfmm'), b = $('dfMailGo');
-  if (!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(to)) { m.textContent = '받는 사람 이메일 형식이 맞지 않습니다.'; return; }
-  m.textContent = ''; b.disabled = true; b.innerHTML = '<span class="spin"></span>';
-  let r; try { r = await call('hjMail', id, to); } catch (e) { r = null; }
-  if (!r || !r.ok) { b.disabled = false; b.textContent = '보내기'; if (r) m.textContent = r.error || '메일을 보내지 못했습니다'; else m.textContent = '메일을 보내지 못했습니다. 연결을 확인하고 다시 눌러 주세요.'; return; }
-  closeDialog(); toast('메일을 보냈습니다');
-  if (r.item) { if (o.f.id === id && !o.dirty) o.f = JSON.parse(JSON.stringify(r.item)); if (o.list) { const i = o.list.findIndex(x => x.id === id); if (i >= 0) o.list[i] = r.item; } }
-  render();
 }
