@@ -193,7 +193,7 @@ function renderFloorUtilityLines() {
             labelGroup.setAttribute('class', 'util-spec-badge-group');
             labelGroup.style.cursor = 'pointer';
 
-            // 이름표 글자: 고친 글자(labelText, 여러 줄)가 있으면 그것, 없으면 「전기 (50A)」 (결정 304)
+            // 이름표 글자: 고친 글자(labelText, 여러 줄)가 있으면 그것, 없으면 「전기 (50A)」 (결정 308)
             const textLines = utilLabelLines(line);
             const approxWidth = Math.max(Math.max(...textLines.map(utilTextWidth)) + 16, 54);
             const boxH = 22 + (textLines.length - 1) * UTIL_LABEL_LINE;
@@ -268,7 +268,7 @@ function renderFloorUtilityLines() {
         };
 
         polyline.addEventListener('click', clickHandler);
-        if (labelGroup) labelGroup.addEventListener('click', e => e.stopPropagation());   // 이름표 한 번 누름은 아무것도 안 함 (더블클릭 고치기와 안 부딪히게, 결정 304)
+        if (labelGroup) labelGroup.addEventListener('click', e => e.stopPropagation());   // 이름표 한 번 누름은 아무것도 안 함 (더블클릭 고치기와 안 부딪히게, 결정 308)
 
         // 마우스 호버 시 라벨 노출
         polyline.addEventListener('mouseenter', () => {
@@ -307,7 +307,7 @@ function layoutUtilLabels() {
         const lab = g.querySelector('.util-spec-badge-group');
         return lab && g._pts && g.style.display !== 'none' && lab.style.display !== 'none';
     });
-    // 손으로 옮긴 이름표(labelPos)는 그 자리에 고정하고 먼저 자리를 차지함 (결정 304)
+    // 손으로 옮긴 이름표(labelPos)는 그 자리에 고정하고 먼저 자리를 차지함 (결정 308)
     groups.sort((a, b) => (b._line && b._line.labelPos ? 1 : 0) - (a._line && a._line.labelPos ? 1 : 0));
     groups.forEach(g => {
         const lab = g.querySelector('.util-spec-badge-group');
@@ -334,7 +334,7 @@ function layoutUtilLabels() {
     });
 }
 
-// ================= 이름표 고치기 · 옮기기 (결정 304) =================
+// ================= 이름표 고치기 · 옮기기 (결정 308) =================
 // 더블클릭 → 그 자리에서 고침(Enter 줄바꿈 · 바깥 누르면 저장 · Esc 취소), 끌면 옮김. 저장: line.labelText(줄은 \n) · line.labelPos({x,y})
 var UTIL_LABEL_LINE = 14;
 function utilDefaultLabel(line) { return line.specText ? `${line.subTypeLabel || ''} (${line.specText})` : (line.subTypeLabel || '설비'); }
@@ -687,7 +687,7 @@ function finishUtilityLine() {
     highlightUtilityLinesForStore(finalStore);
 }
 
-// 복도가 끊긴 자리를 빨간 점선·동그라미로 8초 보여 줌 (결정 304)
+// 복도가 끊긴 자리를 빨간 점선·동그라미로 8초 보여 줌 (결정 308)
 function showRouteGap(gap) {
     const svgEl = mapContainer?.querySelector('svg');
     if (!svgEl || !gap) return;
@@ -703,7 +703,7 @@ function showRouteGap(gap) {
     setTimeout(() => g.remove(), 8000);
 }
 
-// 매장·기능실 도형을 옮기거나 키운 뒤 붙어 있는 자동 연결선을 다시 그림 (결정 304). 길을 못 찾으면 예전 선 그대로
+// 매장·기능실 도형을 옮기거나 키운 뒤 붙어 있는 자동 연결선을 다시 그림 (결정 308). 길을 못 찾으면 예전 선 그대로
 function rerouteLinesForStore(store) {
     if (!store || typeof routeBetweenStores !== 'function') return 0;
     const floor = FLOORS[currentFloorIdx], id = String(store.id);

@@ -258,7 +258,7 @@ var lastCreatedStoreId = null;
             btnPopoverDelete.style.display = 'inline-flex';
 
             modalOverlay.classList.remove('as-toast-overlay');
-            modalOverlay.classList.add('as-side-overlay');   // 창은 오른쪽 아래, 지도는 그대로 만짐 (결정 304)
+            modalOverlay.classList.add('as-side-overlay');   // 창은 오른쪽 아래, 지도는 그대로 만짐 (결정 308)
             modalOverlay.style.display = 'flex';
             statusModal.style.display = 'none';
             editModal.style.display = 'flex';
@@ -442,7 +442,7 @@ var lastCreatedStoreId = null;
             if (shapeChanged && typeof rerouteLinesForStore === 'function' && rerouteLinesForStore(editedStore)) syncSvgCache();   // 붙은 연결선도 새 자리로
         }
 
-        // ================= 직접 그린 도형 크기 조절·옮기기 (수정 창이 열린 동안, 결정 304) =================
+        // ================= 직접 그린 도형 크기 조절·옮기기 (수정 창이 열린 동안, 결정 308) =================
         var shapeEdit = null;   // { store, origD }
 
         // 도형 모양이 바뀐 것을 저장 (직접 그린 도형만, 보기 전용은 화면만)

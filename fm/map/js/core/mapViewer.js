@@ -666,7 +666,7 @@ var storeFilterMode = 'all'; // 'all' | 'store' | 'utility'
             try { bb = pathEl && pathEl.getBBox(); } catch (e) { /* 화면에 없으면 그대로 한 줄 */ }
             if (!bb || !bb.width) return;
             const width = t => { one.textContent = t; return one.getComputedTextLength(); };
-            // 기운 도형: 글자도 긴 변 따라 기울여 한 줄로 가운데. 넘치면 가운데·기울기 그대로 도형을 키움 (결정 304)
+            // 기운 도형: 글자도 긴 변 따라 기울여 한 줄로 가운데. 넘치면 가운데·기울기 그대로 도형을 키움 (결정 308)
             const pts = typeof rtPathPoints === 'function' ? rtPathPoints(pathEl) : parseSvgPathPoints(pathEl.getAttribute('d'));
             const tilt = storeTilt(pts);
             if (tilt) {

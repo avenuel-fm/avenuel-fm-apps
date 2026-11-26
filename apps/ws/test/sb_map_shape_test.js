@@ -1,4 +1,4 @@
-// 지도 도형 고치기 시험 (결정 304): 기운 도형 글자 · 도형 크기·자리 · 바닥이 매장 피하기 · 연결선 다시 그리기 · 끊긴 복도 표시 · 모서리 자석
+// 지도 도형 고치기 시험 (결정 308): 기운 도형 글자 · 도형 크기·자리 · 바닥이 매장 피하기 · 연결선 다시 그리기 · 끊긴 복도 표시 · 모서리 자석
 // 실행: node test/sb_map_shape_test.js
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');

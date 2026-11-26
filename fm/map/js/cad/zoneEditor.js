@@ -711,7 +711,7 @@ function bringZoneLayersToFront() {
                 return;
             }
 
-            // 바닥이 매장·기능실을 침범하면 그 자리를 빼고 둘레 2px 밖으로 (결정 304). 여러 조각이 되면 조각마다 바닥 하나
+            // 바닥이 매장·기능실을 침범하면 그 자리를 빼고 둘레 2px 밖으로 (결정 308). 여러 조각이 되면 조각마다 바닥 하나
             let floorRings = null;
             if (currentZoneCategory === 'floor' && currentZoneGeometry === 'polygon') {
                 try { floorRings = floorAvoidStores([drawingZonePoints.map(p => [p.x, p.y])]).map(r => r.map(q => ({ x: Math.round(q[0] * 10) / 10, y: Math.round(q[1] * 10) / 10 }))); }

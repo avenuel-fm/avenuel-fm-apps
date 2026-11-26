@@ -92,7 +92,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   for (let x = 9810; x <= 9990; x += 2) { const c = await px(x, 3999); if (dark(c)) outerDark++; }
   ok(innerDark === 0, '1) 겹친 바닥의 안쪽 선은 안 보임 (검은 점 ' + innerDark + '개)');
   ok(outerDark > 10, '2) 바깥 둘레 점선은 보임 (검은 점 ' + outerDark + '개)');
-  // 결정 304: 매장을 침범한 바닥은 매장 자리를 빼고 둘레 2px 밖으로 (전: 매장 위로 점선이 지나감)
+  // 결정 308: 매장을 침범한 바닥은 매장 자리를 빼고 둘레 2px 밖으로 (전: 매장 위로 점선이 지나감)
   const avoid = await f.evaluate(() => {
     const stores = Array.from(document.querySelectorAll('.store-polygon')).map(rtPathPoints);
     const floors = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor');

@@ -108,7 +108,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const css = await f.evaluate(() => { const g = document.querySelector('#utility-lines-layer .util-line-item-group'); const col = id => getComputedStyle(document.querySelector('#utility-lines-layer polyline[data-id="' + id + '"]')).stroke; return { power: col('u1'), water: col('u2') }; });
   ok(css.power === 'rgb(220, 38, 38)' && css.water !== 'rgb(220, 38, 38)', '11) 전기는 붉은색, 수도는 아님 (' + css.power + ' / ' + css.water + ')');
   ok(await f.evaluate(() => UTIL_SPECS_CONFIG.power.color === '#dc2626'), '12) 새로 그리는 전기선 색도 붉은색');
-  // 이름표 고치기·옮기기 (결정 304)
+  // 이름표 고치기·옮기기 (결정 308)
   let dialogs = 0; p.on('dialog', () => { dialogs++; });   // 처리(수락)는 위의 open 에서
   await f.evaluate(() => { const L = getFloorUtilityLines('1F'); L.push({ id: 'u6', subType: 'power', subTypeLabel: 'power', className: 'util-line-eps', color: '#000', sourceName: 'S9', targetName: 'E9', auto: true, points: [{ x: 9700, y: 4300 }, { x: 9700, y: 4600 }] }); saveFloorUtilityLines('1F', L); renderFloorUtilityLines(); });
   await f.evaluate(() => highlightUtilityLinesForStore({ id: '', name: 'S9' }));

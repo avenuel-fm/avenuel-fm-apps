@@ -120,7 +120,7 @@
             return adjusted;
         }
 
-        // ================= 매장 도형 도우미 (결정 304) =================
+        // ================= 매장 도형 도우미 (결정 308) =================
         // 점들을 감싸는 가장 작은 (기울어질 수 있는) 네모 → { cx, cy, ang(라디안, 변 u 방향), w(u 쪽 길이), h }
         function minAreaRect(pts) {
             if (!pts || pts.length < 3) return null;
@@ -163,7 +163,7 @@
             return 'M ' + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') + ' Z';
         }
 
-        // 그릴 때 매장·기능실 모서리(먼저)·변에 자석처럼 붙기 (화면 12px 안, 결정 304)
+        // 그릴 때 매장·기능실 모서리(먼저)·변에 자석처럼 붙기 (화면 12px 안, 결정 308)
         var SHAPE_SNAP_PX = 12;
         var shapeSnapCache = new WeakMap();
         function shapeSnapPolys() {
@@ -196,7 +196,7 @@
             return best || { x, y, isSnapped: false };
         }
 
-        // 바닥 면에서 매장·기능실 자리를 빼고 둘레 2px 띄움 (결정 304). rings: [[x,y],...] 목록 → 남은 바깥 고리 목록
+        // 바닥 면에서 매장·기능실 자리를 빼고 둘레 2px 띄움 (결정 308). rings: [[x,y],...] 목록 → 남은 바깥 고리 목록
         var FLOOR_STORE_GAP = 2;
         function floorAvoidStores(rings) {
             if (typeof polygonClipping === 'undefined' || !rings.length) return rings;
