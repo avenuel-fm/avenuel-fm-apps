@@ -10,12 +10,14 @@ function atGrp(v) { return atIsDay(v) ? '주' : v === '야' ? '야' : v === '비
 function atWd(d) { return WEEK[new Date(d + 'T12:00:00+09:00').getDay()]; }
 function atKo(d) { return Number(d.slice(0, 4)) + '년 ' + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + atWd(d) + ')'; }
 function atTitle(sec) { return sec.indexOf('관') === 0 ? '관리파트' : /^공사장/.test(sec) ? sec.replace(/^공사장(?=\S)/, '공사장 ') : /^[가-힣]{4}$/.test(sec) ? sec.slice(0, 2) + '·' + sec.slice(2) : sec; }
+const AT_PART = { '전방파트': '전기·방재', '기건파트': '기계·건축' };   // 직원 파트가 엑셀 구역보다 먼저 (사용자 11-26)
 /* 엑셀 줄 → 조직도 구역: 소장 = 사업소장, 나머지는 엑셀 구역 순서대로 (5장) */
 function atGroups(people) {
   const out = [{ t: '사업소장', p: [] }];
+  people.forEach(x => { const t = atTitle(x.sec); if (x.role !== '소장' && !out.some(o => o.t === t)) out.push({ t, p: [] }); });   // 구역 순서는 엑셀 순서 (파트로 옮겨도)
   people.forEach((x, i) => {
     if (x.role === '소장') return out[0].p.push(Object.assign({ i }, x));
-    const t = atTitle(x.sec); let g = out.find(o => o.t === t);
+    const t0 = atTitle(x.sec), t = (!/^관리파트$|^공사장/.test(t0) && AT_PART[x.part]) || t0; let g = out.find(o => o.t === t);
     if (!g) { g = { t, p: [] }; out.push(g); }
     g.p.push(Object.assign({ i }, x));
   });

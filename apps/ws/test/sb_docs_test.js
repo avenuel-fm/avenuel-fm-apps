@@ -259,6 +259,12 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const pu = UPLOADS.find(x => /^tbm_pdf\//.test(x.p)), tp = last('ws_tbm_save_pdf').a;
   ok(pu && pu.type === 'application/pdf' && /\.pdf$/.test(pu.p) && tp.p_files.pdf.path === pu.p && tp.p_sign_ids.join() === 'SG1', '11) PDF를 버킷 tbm_pdf/ 에 올리고 서명 번호 넘김');
   ok(await p.locator('a.btn', { hasText: 'PDF 보기' }).first().getAttribute('href') === tp.p_files.pdf.url, '12) [PDF 보기] = 버킷 공개 주소');
+  { await p.evaluate(() => { window.__pr = 0; window.print = () => { window.__pr++; }; });
+    const btns = await p.locator('.nwbar').first().locator('.btn').allInnerTexts();
+    await p.click('.nwbar button:has-text("인쇄 (A4)")'); await p.waitForFunction(() => window.__pr === 1);
+    const pr = await p.evaluate(() => ({ pg: document.querySelectorAll('#print .tbp .pg').length, a4: /size:A4 landscape/.test(document.getElementById('print').innerHTML) }));
+    ok(/PDF 보기/.test(btns[btns.length - 2]) && /인쇄 \(A4\)/.test(btns[btns.length - 1]) && pr.pg === 2 && pr.a4, '12-1) TBM [PDF 보기] 오른쪽 [인쇄 (A4)] → A4 가로 2쪽 인쇄 ' + JSON.stringify(pr));
+    await p.evaluate(() => { document.getElementById('print').innerHTML = ''; }); }
   // ── 앱 안 PDF 보기 (계정 선택 창 없이) ──
   const pages0 = c.pages().length;
   await p.click('.nwbar a.btn:has-text("PDF 보기")');

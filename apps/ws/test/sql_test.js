@@ -295,6 +295,22 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const hd = await call('ws_att_holiday', [tk, '홍길동', J(['토', '월', '월', '없음']), '']);
   ok(hd.ok && hd.people[0].hol === '월,토', '기본 휴일: 요일 정리 (겹침·없는 요일 빼고 순서대로) → ' + hd.people[0].hol);
   ok((await call('ws_att_holiday', [tk, '홍길동', '[]', D])).people[0].hol === '', '기본 휴일 비우기');
+  // 파트 · 직원 삭제 (사용자 11-26): 소장·관리파트만. 관리파트 직원 박가짜(T09, 번호 규칙 S### 밖이라 뒤 시험에 안 걸림)
+  await q("insert into staff (staff_id, name, part, role, pin_salt, pin_hash) values ('T09', '박가짜', '관리', '직원', 'saltT09', $1)", [sha('saltT09' + '1357')]);
+  await q("insert into roster (ym, seq, section, role, name, days) values ($1, 99, '관리', '기사', '박가짜', '[]')", [ym]);
+  const pk = (await login('1357', 'at9', 'https://x/sign/p.png', 'sign/2026-11/p.png')).token;
+  let ag = await call('ws_att_get', [pk, D]);
+  ok(ag.canStaff && !ag.canBoss && ag.people.find(x => x.name === '김철수').part === '기건파트' && ag.people.find(x => !x.name).part === null, '관리파트 직원: 파트·삭제 권한 · 사람마다 직원 파트 (로그인 직원 아니면 null)');
+  ok(!(await call('ws_att_get', [kk, D])).canStaff && /소장·관리파트만/.test((await call('ws_att_part', [kk, '김철수', '전방파트', D])).error), '일반 직원: 파트 못 바꿈');
+  ok(/전방파트나 기건파트/.test((await call('ws_att_part', [pk, '김철수', '관리', D])).error), '파트는 전방·기건만');
+  ag = await call('ws_att_part', [pk, '김철수', '전방파트', D]);
+  ok(ag.ok && ag.people.find(x => x.name === '김철수').part === '전방파트', '관리파트 직원이 김철수 → 전방파트');
+  await call('ws_att_part', [pk, '김철수', '기건파트', D]);
+  ok(/소장·관리파트만/.test((await call('ws_att_remove', [kk, '박가짜', D])).error) && /내 계정/.test((await call('ws_att_remove', [pk, '박가짜', D])).error), '직원 삭제: 일반 직원·자기 자신 막음');
+  ag = await call('ws_att_remove', [tk, '박가짜', D]);
+  const gone = await one("select active, pin_hash, (select count(*)::int from ws_sessions where staff_id = 'T09') n, (select count(*)::int from roster where name = '박가짜' and not deleted) r from staff where staff_id = 'T09'");
+  ok(ag.ok && !ag.people.some(x => x.name === '박가짜') && gone.active === false && gone.pin_hash === null && gone.n === 0 && gone.r === 0, '직원 삭제: 근무표에서 빠짐 · 사용 중지 · PIN 지움 · 기기 표 지움');
+  ok(!(await login('1357', 'at9')).ok, '삭제한 직원은 PIN으로 로그인 못 함');
   // ══ 3-4 소화기 (05_fire.sql) ══
   await db.exec(SQL('05_fire.sql')); await db.exec(SQL('05_fire.sql'));
   ok(true, '05_fire.sql 실행됨 (두 번)');
