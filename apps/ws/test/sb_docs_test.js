@@ -503,7 +503,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.click('.rwvh >> text="닫기"'); ok(await p.locator('.rwv').count() === 0, 'R10) 닫기');
   await p.locator('.rwx').first().click();
   await p.waitForFunction(() => document.querySelectorAll('.rwt').length === 1);
-  ok(count('ws_rw_delete') === 1, 'R11) 소장·관리자는 ✕로 지움 (되묻기 뒤)');
+  ok(count('ws_rw_delete') === 1, 'R11) ✕로 지움 (되묻기 뒤, 전 직원)');
 
 
   // ── 주간/야간 작업내역 (결정 240) ──
