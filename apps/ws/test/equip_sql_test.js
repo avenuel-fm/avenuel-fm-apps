@@ -180,6 +180,14 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(fe.items[0].floor === 'B3' && fe.items[fe.items.length - 1].floor === '10F', '소화기 목록은 B3부터 10F 순서');
   fe = await auth('ws_fe_add', [tk, J({ floor: 'POPUP', store: '팝업시험', count: 1 })]);
   ok(fe.ok && fe.items[fe.items.length - 1].floor === 'POPUP' && fe.items[fe.items.length - 1].name === '팝업시험-소화기1', '소화기: POPUP 층 등록 · 목록 맨 끝 (결정 252)');
+  // 엑셀 등록(auto): 위치 없이 「층+종류+두 자리 번호」, 지운 번호는 다시 씀 (결정 296)
+  let ax = await auth('ws_eq_add', [tk, J({ kind: 'hyd', floor: '6F', auto: true, count: 3 })]);
+  ok(ax.ok && ax.added.join() === '6F소화전01,6F소화전02,6F소화전03' && ax.items.filter(x => x.floor === '6F').every(x => x.place === '6F'), '엑셀 등록: 6F소화전01~03 (위치 = 층)');
+  await auth('ws_eq_delete', [tk, J([ax.items.find(x => x.name === '6F소화전02').id]), 'hyd']);
+  ax = await auth('ws_eq_add', [tk, J({ kind: 'hyd', floor: '6F', auto: true, count: 2 })]);
+  ok(ax.added.join() === '6F소화전02,6F소화전04', '엑셀 등록: 지운 번호(02)를 먼저 다시 쓰고 이어서 04');
+  ax = await auth('ws_eq_add', [tk, J({ kind: 'air', floor: 'B1', auto: true })]);
+  ok(ax.added.join() === 'B1공기호흡기01', '엑셀 등록: 공기호흡기 B1공기호흡기01');
   const feTok = fe.items.find(x => x.store === '주차장').token;
   fe = await auth('ws_qr_printed', [tk, 'fe', J(fe.items.filter(x => x.store === '주차장').map(x => x.id))]);
   ok(fe.items.find(x => x.store === '주차장').printed === true && fe.items.find(x => x.store === '옥상 기계실').printed === false, '소화기 인쇄 표시');

@@ -49,6 +49,10 @@ const RPC = {
   ws_eq_add: a => {
     const d = a.p_d, place = norm(d.place), n = Math.max(1, Math.min(20, Math.floor(Number(d.count)) || 1)), names = [];
     if (place === '오류시험') return { ok: false, error: '시험용 오류입니다.' };
+    if (d.auto) {   // 엑셀 등록: 층+종류+두 자리 번호, 비어 있는 가장 작은 번호
+      for (let i = 0; i < n; i++) { let k = 1; while (EQ.some(e => e.kind === d.kind && e.floor === d.floor && e.place === d.floor && e.no === k)) k++; const name = d.floor + KN[d.kind] + String(k).padStart(2, '0'); EQ.push({ id: 'WS-EQ-' + (EQ.length + 1), kind: d.kind, floor: d.floor, place: d.floor, no: k, name, token: 'qa' + String(EQ.length + 1).padStart(10, '0'), printed: false }); names.push(name); }
+      return Object.assign(list(d.kind), { added: names });
+    }
     if (!place) return { ok: false, error: '위치를 적어 주세요. (예: 동측 계단 앞)' };
     const m = EQ.filter(x => x.kind === d.kind && x.place === place).reduce((x, y) => Math.max(x, y.no), 0);
     for (let i = 1; i <= n; i++) { const name = place + '-' + KN[d.kind] + (m + i); EQ.push({ id: 'WS-EQ-' + (EQ.length + 1), kind: d.kind, floor: d.floor, place, no: m + i, name, token: 'q' + String(EQ.length + 1).padStart(11, 'z'), printed: false }); names.push(name); }
@@ -170,7 +174,8 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   ok(await p.evaluate(() => qrUrl('abcdefghjkmn')).then(u => /\?eq=abcdefghjkmn$/.test(u)), '4) 소화전 QR 주소는 ?eq=');
   await shot(p, 'b_qr_tab');
   // 등록 창: 종류 체크박스 · 층 B3~10F · 위치
-  await p.click('button:has-text("+ 등록")'); await p.locator('#aPre').waitFor();
+  ok(!(await p.locator('button:has-text("+ 등록")').count()), '5-0) QR 관리 탭에 [+ 등록] 버튼 없음 (등록은 엑셀로, 결정 296)');
+  await p.evaluate(() => addDialog()); await p.locator('#aPre').waitFor();
   ok(await p.locator('.ckl').count() === 3 && await p.locator('#ak_hyd').isChecked() && !(await p.locator('#ak_fe').isChecked()) && !(await p.locator('#ak_air').isChecked()), '5) 등록 창: 종류 체크 3개, 지금 탭(소화전)만 미리 체크');
   const opts = await p.locator('#aFloor option').allInnerTexts();
   ok(opts.length === 14 && opts[0] === 'B3' && opts[12] === '10F' && opts[13] === 'POPUP', '5-2) 층 선택 B3 ~ 10F + 맨 끝 POPUP (14개)');
@@ -197,7 +202,7 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   ok(await p.locator('.seg button.on').innerText() === '공기호흡기' && await p.locator('.fe input:checked').count() === 2 && /출력 \(2\)/.test(await p.locator('.tools').innerText()), '8) 등록 뒤: 그 종류 탭으로, 층·위치가 펼쳐지고 방금 만든 2개가 미리 체크됨 → 바로 [출력 (2)]');
   ok(await p.locator('.fe .chip:text-is("미인쇄")').count() === 2, '8-2) 방금 만든 것은 「미인쇄」');
   // 소화기+소화전 한꺼번에
-  await p.click('button:has-text("+ 등록")'); await p.selectOption('#aFloor', 'B3'); await p.fill('#aStore', '주차장 A'); await p.fill('#aCount', '1');
+  await p.evaluate(() => addDialog()); await p.selectOption('#aFloor', 'B3'); await p.fill('#aStore', '주차장 A'); await p.fill('#aCount', '1');
   await p.check('#ak_fe'); await p.check('#ak_hyd'); await p.uncheck('#ak_air');
   const fa = count('ws_fe_add'), ea = count('ws_eq_add');
   await p.click('#aBtn'); await p.locator('.toast', { hasText: '소화기 1대 · 소화전 1개 등록' }).waitFor();
@@ -394,11 +399,13 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
 
   // ── 매장별 소화기 수량 엑셀 올리기·내려받기 (결정 244) ──
   const XLS = { '1F': [[], ['NO.', '브랜드명', '소화기 개수'], ['1', '카페', '3'], ['2', '신규 매장', '2'], ['', '계', '5']], '5F': [[], ['NO.', '브랜드명', '소화기 개수'], ['1', ' 꼼  데 ', '1'], ['2', '없는수량', ''], ['', '계', '1']], '메모': [['x']] };
-  const FX = 'window.XLSX={read:()=>({SheetNames:' + JSON.stringify(Object.keys(XLS)) + ',Sheets:' + JSON.stringify(XLS) + '}),utils:{sheet_to_json:w=>w,book_new:()=>({SheetNames:[],Sheets:{}}),aoa_to_sheet:a=>a,book_append_sheet:(wb,w,n)=>{wb.SheetNames.push(n);wb.Sheets[n]=w;}},writeFile:(wb,n)=>{window.__xl={name:n,sheets:wb.SheetNames,rows:wb.Sheets};}};';
+  const FX = 'window.XLSX={read:()=>{const X=window.__XLS||' + JSON.stringify(XLS) + ';return {SheetNames:Object.keys(X),Sheets:X};},utils:{sheet_to_json:w=>w,book_new:()=>({SheetNames:[],Sheets:{}}),aoa_to_sheet:a=>a,book_append_sheet:(wb,w,n)=>{wb.SheetNames.push(n);wb.Sheets[n]=w;}},writeFile:(wb,n)=>{window.__xl={name:n,sheets:wb.SheetNames,rows:wb.Sheets};}};';
   const xc = await mk(TK, FX), xp2 = await xc.newPage(); xp2.on('pageerror', e => errs.push(e.message)); xp2.on('dialog', d => d.accept());
   await xp2.goto(BASE + 'app.html'); await xp2.locator('.grid6').waitFor();
   await xp2.evaluate(() => openStatus()); await xp2.locator('.tree').waitFor();
-  ok(/엑셀 올리기/.test(await xp2.locator('.wrap.list').innerText()) && /엑셀 내려받기/.test(await xp2.locator('.wrap.list').innerText()), '42) 매장별 현황 첫 화면에 [엑셀 올리기] [엑셀 내려받기]');
+  ok(!/엑셀 올리기/.test(await xp2.locator('.wrap.list').innerText()), '42) ② 매장별 현황에는 엑셀 버튼이 없음 (QR 관리로 옮김, 결정 296)');
+  await xp2.evaluate(() => openQr()); await xp2.locator('.seg button.on:text-is("소화기")').waitFor(); await xp2.locator('.wrap.list label:has-text("엑셀 올리기")').waitFor();
+  ok(/엑셀 내려받기/.test(await xp2.locator('.wrap.list').innerText()), '42-1) QR 관리 › 소화기 탭에 [엑셀 올리기] [엑셀 내려받기]');
   await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화기.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
   const nAdd0 = count('ws_fe_add');
   await xp2.locator('.dialog h2:has-text("엑셀 올리기")').waitFor();
@@ -413,18 +420,34 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   await xp2.locator('.dialog h2:has-text("엑셀 올리기")').waitFor();
   ok(/등록할 것 없음/.test(await xp2.locator('.dialog').innerText()) && await xp2.locator('#xlGo').isDisabled() && !/대 초과/.test(await xp2.locator('.dialog').innerText()), '46) 같은 파일을 다시 올리면 「등록할 것 없음」(중복 등록 안 됨)');
   await xp2.click('.dialog button:text-is("취소")');
-  await xp2.evaluate(() => { S.floor = '5F'; go('floor'); }); await xp2.locator('.store').first().waitFor();
-  ok(/5F 엑셀 올리기/.test(await xp2.locator('.wrap.list').innerText()), '47) 층 화면에는 「5F 엑셀 올리기」');
-  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화기.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
-  await xp2.locator('.dialog h2:has-text("엑셀 올리기")').waitFor();
-  ok(/엑셀 올리기 — 5F\b/.test(await xp2.locator('.dialog h2').innerText()) && !/카페/.test(await xp2.locator('.dialog').innerText()), '48) 층 화면에서 올리면 그 층 시트만 읽음');
-  await xp2.click('.dialog button:text-is("취소")');
-  await xp2.click('button:has-text("5F 엑셀 내려받기")'); await xp2.waitForFunction(() => window.__xl);
+  ok(await xp2.locator('.ac-h:has-text("5F")').count() === 1, '47) 등록 뒤 QR 목록을 다시 읽음 (5F 층 생김)');
+  await xp2.evaluate(() => xlDown('5F')); await xp2.waitForFunction(() => window.__xl);
   const xd = await xp2.evaluate(() => window.__xl);
   ok(xd.name === '소화기 현황_5F.xlsx' && xd.sheets.join() === '5F' && JSON.stringify(xd.rows['5F'].slice(1)) === JSON.stringify([['NO.', '브랜드명', '소화기 개수'], [1, '꼼 데', 1], ['', '계', { t: 'n', f: 'SUM(C3:C3)', v: 1 }]]), '49) 내려받기: 올린 양식과 같은 칸 (시트 이름=층, NO·브랜드명·소화기 개수, 계) ' + JSON.stringify(xd.rows['5F']));
-  await xp2.evaluate(() => { window.__xl = null; go('status'); }); await xp2.locator('.tree').waitFor();
+  await xp2.evaluate(() => { window.__xl = null; });
   await xp2.click('button:has-text("엑셀 내려받기")'); await xp2.waitForFunction(() => window.__xl);
-  const xs = (await xp2.evaluate(() => window.__xl)).sheets.join(); ok(/^(B3,)?1F,5F(,10F)?$/.test(xs), '50) 첫 화면에서 내려받으면 등록된 층 모두, 층 순서대로 ' + xs);
+  const xs = (await xp2.evaluate(() => window.__xl)).sheets.join(); ok(/^(B3,)?1F,5F(,10F)?$/.test(xs), '50) 소화기 탭에서 내려받으면 등록된 층 모두, 층 순서대로 ' + xs);
+
+  // ── QR 관리 › 소화전·공기호흡기 탭 엑셀 (결정 296): 개수만, 「층+종류+두 자리 번호」 이름 ──
+  await xp2.evaluate(() => { window.__XLS = { B1F: [[], ['NO.', '소화전 개수', '공기호흡기 개수'], ['1', '2', '1']], '3F': [[], ['NO.', '소화전 개수', '공기호흡기 개수'], ['1', '2', '0'], ['', '.', '']], 메모: [['x']] }; });
+  await xp2.click('.seg button:text-is("소화전")'); await xp2.locator('.wrap.list label:has-text("엑셀 올리기")').waitFor();
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화전공기호흡기 현황_전체.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기 — 소화전")').waitFor();
+  const hv = await xp2.locator('.dialog').innerText();
+  ok(/B1[\s\S]*2개[\s\S]*0개[\s\S]*\+2 등록/.test(hv) && /3F[\s\S]*2개[\s\S]*1개[\s\S]*\+1 등록/.test(hv) && /B1소화전01/.test(hv) && /등록하기 \(\+3개\)/.test(hv), '59) 소화전 탭 미리보기: 시트 B1F→B1, 소화전 칸만, 지금 개수와 비교 (+3), 이름 예 B1소화전01');
+  n0 = count('ws_eq_add'); await xp2.click('#eqxGo'); await called('ws_eq_add', n0 + 1); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  const eqa = CALLS.filter(c => c.fn === 'ws_eq_add').slice(n0).map(c => c.a.p_d.kind + '|' + c.a.p_d.floor + '|' + c.a.p_d.auto + '|' + c.a.p_d.count).join();
+  ok(eqa === 'hyd|B1|true|2,hyd|3F|true|1' && EQ.some(e => e.name === 'B1소화전02') && EQ.some(e => e.name === '3F소화전01'), '60) 등록하기 → 위치 없이 자동 이름으로 부족분만 ' + eqa);
+  await xp2.click('.seg button:text-is("공기호흡기")'); await xp2.locator('.wrap.list label:has-text("엑셀 올리기")').waitFor();
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화전공기호흡기 현황_전체.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기 — 공기호흡기")').waitFor();
+  ok(/등록하기 \(\+1개\)/.test(await xp2.locator('.dialog').innerText()), '61) 공기호흡기 탭: 같은 파일에서 공기호흡기 칸만 (+1)');
+  n0 = count('ws_eq_add'); await xp2.click('#eqxGo'); await called('ws_eq_add', n0); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  ok(EQ.some(e => e.name === 'B1공기호흡기01'), '62) B1공기호흡기01 등록');
+  await xp2.evaluate(() => { window.__xl = null; }); await xp2.click('button:has-text("엑셀 내려받기")'); await xp2.waitForFunction(() => window.__xl);
+  const ed2 = await xp2.evaluate(() => window.__xl);
+  ok(ed2.name === '소화전공기호흡기 현황_전체.xlsx' && ed2.sheets[0] === 'B1F' && JSON.stringify(ed2.rows.B1F.slice(1)) === JSON.stringify([['NO.', '소화전 개수', '공기호흡기 개수'], [1, 2, 1]]), '63) 내려받기: 올린 양식 그대로 (B1F 시트, 소화전·공기호흡기 개수) ' + JSON.stringify(ed2.sheets));
+  await xp2.evaluate(() => openStatus()); await xp2.locator('.tree').waitFor();
 
   // ── 층 화면에서 소화기 삭제 (결정 250) ──
   await xp2.evaluate(() => { S.floor = '1F'; go('floor'); }); await xp2.locator('.store').first().waitFor();

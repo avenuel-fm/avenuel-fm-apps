@@ -131,8 +131,11 @@ declare
   tok text;
   b bytea;
   v_name text;
+  v_no int;
+  v_auto boolean := coalesce(p_d->>'auto', '') in ('true', '1');   -- 엑셀 등록: 위치 없이 「층+종류+두 자리 번호」 (결정 296)
   added text[] := '{}';
 begin
+  if v_auto then v_place := v_floor; end if;
   if v_kind not in ('hyd', 'air') then return jsonb_build_object('ok', false, 'error', '종류를 골라 주세요.'); end if;
   if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
   if v_place = '' then return jsonb_build_object('ok', false, 'error', '위치를 적어 주세요. (예: 동측 계단 앞)'); end if;
@@ -148,9 +151,16 @@ begin
       exit when not exists (select 1 from public.fire_equip where qr_token = tok) and not exists (select 1 from public.fire_ext where qr_token = tok)
             and not exists (select 1 from public.eh_devices where qr_token = tok);
     end loop;
-    v_name := v_place || '-' || public.ws_eq_kind_name(v_kind) || (max_no + i);
+    if v_auto then   -- 지운 번호는 다시 씀: 그 층·종류에서 비어 있는 가장 작은 번호 (지도 심벌과 같은 규칙)
+      select min(g) into v_no from generate_series(1, 999) g
+        where not exists (select 1 from public.fire_equip x where x.kind = v_kind and x.floor = v_floor and x.place = v_floor and x.active and x.no = g);
+      v_name := v_floor || public.ws_eq_kind_name(v_kind) || lpad(v_no::text, 2, '0');
+    else
+      v_no := max_no + i;
+      v_name := v_place || '-' || public.ws_eq_kind_name(v_kind) || v_no;
+    end if;
     insert into public.fire_equip (eq_id, kind, floor, place, no, name, qr_token, active, created_at, created_by)
-    values ('WS-EQ-' || day_key || '-' || lpad((seq + i)::text, 3, '0'), v_kind, v_floor, v_place, max_no + i, v_name, tok, true, clock_timestamp(), me.name);
+    values ('WS-EQ-' || day_key || '-' || lpad((seq + i)::text, 3, '0'), v_kind, v_floor, v_place, v_no, v_name, tok, true, clock_timestamp(), me.name);
     added := added || v_name;
   end loop;
   perform public.ws_log(me.name, public.ws_eq_kind_name(v_kind) || ' 등록', '', v_floor || ' · ' || array_to_string(added, ', '));
