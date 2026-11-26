@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.26.38', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.26.39', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -1361,6 +1361,10 @@ function atBoss_(me, rows) {
   if (['소장', '부소장'].indexOf(me['역할']) !== -1) return true;
   return rows.some(function (p) { return p.name === me['이름'] && AT_BOSS.indexOf(p.role) !== -1; });
 }
+/** 파트 바꾸기·직원 삭제: 대표 3명 + 그 달 엑셀 관리파트 인원 (사용자 11-26) */
+function atStaffBoss_(me, rows) {
+  return atBoss_(me, rows) || rows.some(function (p) { return p.name === me['이름'] && String(p.sec || '').indexOf('관') === 0; });
+}
 /** 그날 고치기: 대표 3명 + 그날이나 전날 야간 근무자 (야간은 아침 8시 30분에 끝나 다음 날 아침 게시판도 그 사람이 맞춤) */
 function atCanFix_(me, date, rows, fixes, hol) {
   if (atBoss_(me, rows)) return true;
@@ -1419,7 +1423,8 @@ function attGet(token, date) {
   atTabs_();
   const d = date || workDay_(Date.now());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { ok: false, error: '날짜 형식이 맞지 않습니다' };
-  const ym = d.slice(0, 7), rows = atMonthRows_(ym), fixes = atFixes_(ym), hol = atHolidays_();
+  const ym = d.slice(0, 7), rows = atMonthRows_(ym), fixes = atFixes_(ym), hol = atHolidays_(), parts = {};
+  staffRows_().forEach(function (st) { if (st['사용여부'] !== 'N' && parts[st['이름']] == null) parts[st['이름']] = String(st['파트명'] || ''); });
   const months = readTable_('근무표').rows.filter(function (r) { return r['삭제여부'] !== 'Y'; }).map(function (r) { return r['월']; })
     .filter(function (m, i, a) { return a.indexOf(m) === i; }).sort();
   const last = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
@@ -1431,11 +1436,11 @@ function attGet(token, date) {
   return {
     ok: true, date: d, today: workDay_(Date.now()), months: months, ju: rows.length ? ju : [],
     upBy: rows.length ? rows[0].by : '', upAt: rows.length ? rows[0].at : '',
-    canFix: rows.length ? atCanFix_(me, d, rows, fixes, hol) : false, canBoss: atBoss_(me, rows),
+    canFix: rows.length ? atCanFix_(me, d, rows, fixes, hol) : false, canBoss: atBoss_(me, rows), canStaff: atStaffBoss_(me, rows),
     people: rows.map(function (p) {
       const f = p.name ? fixes[d + '|' + p.name] : null;
       return { sec: p.sec, role: p.role, name: p.name, v: p.name ? atValue_(p, d, fixes, hol) : '', raw: String(p.days[Number(d.slice(8, 10)) - 1] || ''),
-        fix: f ? { by: f.by, at: f.at } : null, hol: p.name ? String(hol[p.name] || '') : '' };
+        fix: f ? { by: f.by, at: f.at } : null, hol: p.name ? String(hol[p.name] || '') : '', part: p.name && parts[p.name] != null ? parts[p.name] : null };
     })
   };
 }
@@ -1506,6 +1511,41 @@ function attHoliday(token, name, days, date) {
   if (cur) updateRow_('기본휴일', cur._row, patch); else appendRow_('기본휴일', patch);
   atChanged_();
   log_(me['이름'], '기본 휴일', name, list || '없음');
+  return attGet(token, date || '');
+}
+
+/** 파트 (전방파트 → 전기·방재, 기건파트 → 기계·건축 쪽에 보임) — 직원 탭 파트명을 바꿈 (사용자 11-26) */
+function attPart(token, name, part, date) {
+  const me = auth_(token);
+  atTabs_();
+  const ym = String(date || workDay_(Date.now())).slice(0, 7);
+  if (!atStaffBoss_(me, atMonthRows_(ym))) return { ok: false, error: '파트는 소장·관리파트만 바꿀 수 있습니다' };
+  if (['전방파트', '기건파트'].indexOf(part) === -1) return { ok: false, error: '전방파트나 기건파트를 골라 주세요' };
+  const live = readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N' && s['이름'] === name; });
+  if (!live.length) return { ok: false, error: '로그인 직원 목록에 없는 이름입니다' };
+  live.forEach(function (s) { updateRow_('직원', s._row, { '파트명': part, '수정일시': now_() }); });
+  CacheService.getScriptCache().remove('staff');
+  log_(me['이름'], '파트 바꿈', name, part);
+  return attGet(token, date || '');
+}
+
+/** 직원 삭제: 이 달부터 근무표에서 빼고, 직원 사용 중지 + PIN 지움(기기 표도 바로 막힘) (사용자 11-26). 서명·점검 기록은 남김 */
+function attRemove(token, name, date) {
+  const me = auth_(token);
+  atTabs_();
+  const ym = String(date || workDay_(Date.now())).slice(0, 7), rows = atMonthRows_(ym);
+  if (!atStaffBoss_(me, rows)) return { ok: false, error: '직원 삭제는 소장·관리파트만 할 수 있습니다' };
+  if (name === me['이름']) return { ok: false, error: '내 계정은 지울 수 없습니다' };
+  if (!rows.some(function (p) { return p.name && p.name === name; })) return { ok: false, error: '그 달 근무표에 없는 이름입니다' };
+  readTable_('근무표').rows.forEach(function (r) { if (r['이름'] === name && r['월'] >= ym && r['삭제여부'] !== 'Y') updateRow_('근무표', r._row, { '삭제여부': 'Y' }); });
+  const ids = [];
+  readTable_('직원').rows.forEach(function (s) {
+    if (s['사용여부'] === 'N' || s['이름'] !== name) return;
+    updateRow_('직원', s._row, { '사용여부': 'N', 'pin_hash': '', 'pin_salt': '', '수정일시': now_() }); ids.push(s['staff_id']);
+  });
+  CacheService.getScriptCache().remove('staff');
+  atChanged_();
+  log_(me['이름'], '직원 삭제', ids.join(','), name + ' (출근현황)');
   return attGet(token, date || '');
 }
 

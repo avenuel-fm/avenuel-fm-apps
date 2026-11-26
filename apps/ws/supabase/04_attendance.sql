@@ -24,6 +24,13 @@ returns boolean language sql stable security definer set search_path = public as
               else exists (select 1 from jsonb_array_elements(p_rows) e where e->>'name' = me.name and e->>'role' in ('소장', '부소장', '총무')) end;
 $$;
 
+-- 파트 바꾸기·직원 삭제: 소장·부소장·총무 + 그 달 엑셀 관리파트 인원 (사용자 11-26)
+create or replace function public.ws_at_staff_boss(me public.staff, p_ym text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.ws_at_boss(me, p_ym)
+      or exists (select 1 from public.roster where ym = p_ym and not deleted and name = me.name and section like '관%');
+$$;
+
 -- 그날 고치기: 대표 3명 + 그날이나 전날 야간 근무자 (야간은 아침 8시 30분에 끝나 다음 날 아침 게시판도 그 사람이 맞춤)
 create or replace function public.ws_at_can_fix(me public.staff, p_date date)
 returns boolean language plpgsql stable security definer set search_path = public as $$
@@ -62,6 +69,7 @@ begin
     'upBy', coalesce(first_.uploaded_by, ''),
     'upAt', coalesce(to_char(first_.uploaded_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS'), ''),
     'canFix', n > 0 and public.ws_at_can_fix(me, d), 'canBoss', public.ws_at_boss(me, v_ym),
+    'canStaff', public.ws_at_staff_boss(me, v_ym),
     'people', coalesce((select jsonb_agg(jsonb_build_object(
         'sec', coalesce(r.section, ''), 'role', coalesce(r.role, ''), 'name', coalesce(r.name, ''),
         'v', case when coalesce(r.name, '') <> '' then public.ws_at_value(r.name, r.days, d) else '' end,
@@ -70,7 +78,8 @@ begin
                        'at', to_char(c.changed_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS')) end
                 from public.roster_changes c where c.day = d and c.name = r.name and not c.deleted and coalesce(r.name, '') <> ''
                 order by c.changed_at desc, c.id desc limit 1),
-        'hol', case when coalesce(r.name, '') <> '' then coalesce((select weekday from public.default_holidays h where h.name = r.name), '') else '' end
+        'hol', case when coalesce(r.name, '') <> '' then coalesce((select weekday from public.default_holidays h where h.name = r.name), '') else '' end,
+        'part', (select st.part from public.staff st where st.active and st.name = r.name and coalesce(r.name, '') <> '' order by st.staff_id limit 1)
       ) order by r.seq) from public.roster r where r.ym = v_ym and not r.deleted), '[]'::jsonb));
 end $$;
 
@@ -161,10 +170,48 @@ begin
   return public.ws_att_data(me, coalesce(p_date, ''));
 end $$;
 
+-- 파트 (전방파트 → 전기·방재, 기건파트 → 기계·건축 쪽에 보임) — 직원 표의 파트를 바꿈 (사용자 11-26)
+create or replace function public.ws_att_part(p_token text, p_name text, p_part text, p_date text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare
+  me public.staff := public.ws_auth(p_token);
+  v_ym text := coalesce(to_char(public.ws_date(p_date), 'YYYY-MM'), left(coalesce(nullif(p_date, ''), public.ws_work_day()::text), 7));
+begin
+  if not public.ws_at_staff_boss(me, v_ym) then return jsonb_build_object('ok', false, 'error', '파트는 소장·관리파트만 바꿀 수 있습니다'); end if;
+  if coalesce(p_part, '') not in ('전방파트', '기건파트') then return jsonb_build_object('ok', false, 'error', '전방파트나 기건파트를 골라 주세요'); end if;
+  update public.staff set part = p_part, updated_at = now() where active and name = p_name;
+  if not found then return jsonb_build_object('ok', false, 'error', '로그인 직원 목록에 없는 이름입니다'); end if;
+  perform public.ws_log(me.name, '파트 바꿈', p_name, p_part);
+  return public.ws_att_data(me, coalesce(p_date, ''));
+end $$;
+
+-- 직원 삭제: 이 달부터 근무표에서 빼고, 직원 사용 중지 + PIN 지움 + 기기 로그인 표 모두 지움 (사용자 11-26). 서명·점검 기록은 남김
+create or replace function public.ws_att_remove(p_token text, p_name text, p_date text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare
+  me public.staff := public.ws_auth(p_token);
+  v_ym text := coalesce(to_char(public.ws_date(p_date), 'YYYY-MM'), left(coalesce(nullif(p_date, ''), public.ws_work_day()::text), 7));
+  ids text[];
+begin
+  if not public.ws_at_staff_boss(me, v_ym) then return jsonb_build_object('ok', false, 'error', '직원 삭제는 소장·관리파트만 할 수 있습니다'); end if;
+  if p_name = me.name then return jsonb_build_object('ok', false, 'error', '내 계정은 지울 수 없습니다'); end if;
+  if not exists (select 1 from public.roster where ym = v_ym and not deleted and coalesce(name, '') <> '' and name = p_name) then
+    return jsonb_build_object('ok', false, 'error', '그 달 근무표에 없는 이름입니다');
+  end if;
+  update public.roster set deleted = true where name = p_name and ym >= v_ym and not deleted;
+  with s as (update public.staff set active = false, pin_hash = null, pin_salt = null, updated_at = now() where active and name = p_name returning staff_id)
+  select coalesce(array_agg(staff_id), '{}') into ids from s;
+  delete from public.ws_sessions where staff_id = any (ids);
+  perform public.ws_log(me.name, '직원 삭제', array_to_string(ids, ','), p_name || ' (출근현황)');
+  return public.ws_att_data(me, coalesce(p_date, ''));
+end $$;
+
 -- 권한: 도우미는 막고, 화면이 부르는 4개만 로그인 기기(authenticated)에
 revoke all on function public.ws_at_is_day(text), public.ws_at_boss(public.staff, text, jsonb), public.ws_at_can_fix(public.staff, date),
   public.ws_att_data(public.staff, text), public.ws_att_get(text, text), public.ws_att_put(text, text, jsonb, jsonb),
-  public.ws_att_fix(text, text, text, text), public.ws_att_holiday(text, text, jsonb, text)
+  public.ws_att_fix(text, text, text, text), public.ws_att_holiday(text, text, jsonb, text),
+  public.ws_at_staff_boss(public.staff, text), public.ws_att_part(text, text, text, text), public.ws_att_remove(text, text, text)
   from public, anon, authenticated;
 grant execute on function public.ws_att_get(text, text), public.ws_att_put(text, text, jsonb, jsonb),
-  public.ws_att_fix(text, text, text, text), public.ws_att_holiday(text, text, jsonb, text) to authenticated;
+  public.ws_att_fix(text, text, text, text), public.ws_att_holiday(text, text, jsonb, text),
+  public.ws_att_part(text, text, text, text), public.ws_att_remove(text, text, text) to authenticated;

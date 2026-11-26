@@ -207,19 +207,38 @@ async function atFixSave(i, v) {
   const x = S.at.r.people[i]; closeDialog();
   try { const r = await call('attFix', S.at.r.date, x.name, v); if (!r.ok) return toast(r.error); S.at = { r }; render(); toast(x.name + ' → ' + (v === '(되돌림)' ? '엑셀 값' : atLbl(v))); } catch (e) {}
 }
-/* 기본 휴일 (6장): 소장·부소장·총무만 고침, 다른 사람은 보기만 */
-function atHolOpen(i, sel) {
-  const r = S.at.r, x = r.people[i], cur = sel || (x.hol ? x.hol.split(',') : []), ed = r.canBoss;
-  S.at.hol = cur;
+/* 기본 휴일 (6장): 소장·부소장·총무만 고침, 다른 사람은 보기만. 파트·직원 삭제는 소장·관리파트만 (사용자 11-26) */
+function atHolOpen(i, sel, part) {
+  const r = S.at.r, x = r.people[i], cur = sel || (x.hol ? x.hol.split(',') : []), ed = r.canBoss, st = r.canStaff && x.part != null;
+  S.at.hol = cur; S.at.part = part !== undefined ? part : x.part;
+  const ck = (v, t, s) => { const on = S.at.part === v; return '<label class="atpt' + (on ? ' on' : '') + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="atHolOpen(' + i + ',S.at.hol,\'' + v + '\')"><span><b>' + t + '</b><small>' + s + '</small></span></label>'; };
   dialog('<div style="display:flex;align-items:center;margin-bottom:var(--sp-1)"><div class="fname"><b style="font-size:var(--size-l)">' + h(x.name) + ' · ' + h(atRole(x.role)) + ' — 기본 휴일</b><small>' + (ed ? '매주 쉬는 요일을 고르세요 (여러 개)' : '소장·부소장·총무만 고칠 수 있습니다') + '</small></div><button class="back" onclick="closeDialog()" aria-label="닫기">✕</button></div>' +
     '<div class="atwk" style="margin-top:var(--sp-2)">' + WEEK.map(w => '<button class="' + (cur.indexOf(w) !== -1 ? 'sel' : '') + '" aria-pressed="' + (cur.indexOf(w) !== -1) + '"' + (ed ? ' onclick="atHolTog(' + i + ',\'' + w + '\')"' : ' disabled') + ' style="' + (w === '일' ? 'color:var(--red)' : w === '토' ? 'color:var(--blue)' : '') + '">' + w + '</button>').join('') + '</div>' +
     '<div class="atchk" style="margin-top:var(--sp-2)">지금: <b>' + (cur.length ? cur.join(' · ') : '없음') + '</b><br>엑셀에서 이 요일이 빈 칸(출근)이면 「휴」로 봅니다. 엑셀에 다른 값(연·9-7 등)이 있으면 엑셀 값이 먼저입니다.</div>' +
-    '<div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-3)"><button class="btn" style="flex:1" onclick="closeDialog()">닫기</button>' + (ed ? '<button class="btn pri" style="flex:1" onclick="atHolSave(' + i + ')">저장</button>' : '') + '</div>');
+    (st ? '<div class="atpth">파트</div><div class="atptn">고른 파트 쪽 인원으로 보입니다 (하나만)</div><div class="atpts">' + ck('전방파트', '전방파트', '전기·방재') + ck('기건파트', '기건파트', '기계·건축') + '</div>' : '') +
+    '<div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-4)"><button class="btn" style="flex:1" onclick="closeDialog()">닫기</button>' + (ed || st ? '<button class="btn pri" style="flex:1" onclick="atHolSave(' + i + ')">저장</button>' : '') + '</div>' +
+    (r.canStaff ? '<div class="atdel"><button class="btn del" onclick="atDelAsk(' + i + ')">직원 삭제</button><small>소장·관리파트만 보입니다</small></div>' : ''));
 }
-function atHolTog(i, w) { const c = S.at.hol.slice(), k = c.indexOf(w); if (k === -1) c.push(w); else c.splice(k, 1); atHolOpen(i, c); }
+function atHolTog(i, w) { const c = S.at.hol.slice(), k = c.indexOf(w); if (k === -1) c.push(w); else c.splice(k, 1); atHolOpen(i, c, S.at.part); }
 async function atHolSave(i) {
+  const r0 = S.at.r, x = r0.people[i], hol = S.at.hol, part = S.at.part; closeDialog();
+  try {
+    let r = r0;
+    if (r0.canBoss && hol.join(',') !== x.hol) { r = await call('attHoliday', x.name, hol, r0.date); if (!r.ok) return toast(r.error); }
+    if (r0.canStaff && x.part != null && part !== x.part) { r = await call('attPart', x.name, part, r0.date); if (!r.ok) return toast(r.error); }
+    S.at = { r }; render(); toast(x.name + ' 저장');
+  } catch (e) {}
+}
+function atDelAsk(i) {
+  const x = S.at.r.people[i];
+  dialog('<div class="fname"><b style="font-size:var(--size-l)">' + h(x.name) + ' 직원을 삭제할까요?</b></div>' +
+    '<div class="atchk" style="margin-top:var(--sp-3);line-height:1.8">• 출근현황에서 빠집니다<br>• PIN이 지워져 다시 로그인할 수 없습니다<br>• 기기 로그인 인증이 모두 끊깁니다<br><span style="color:var(--muted)">지난 서명·점검 기록은 그대로 남습니다</span></div>' +
+    '<div style="margin-top:var(--sp-2);font-size:var(--size-s);color:#B3261E;font-weight:500">되돌릴 수 없습니다</div>' +
+    '<div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-4)"><button class="btn" style="flex:1" onclick="atHolOpen(' + i + ')">취소</button><button class="btn delpri" style="flex:1" onclick="atDel(' + i + ')">삭제</button></div>');
+}
+async function atDel(i) {
   const x = S.at.r.people[i]; closeDialog();
-  try { const r = await call('attHoliday', x.name, S.at.hol, S.at.r.date); if (!r.ok) return toast(r.error); S.at = { r }; render(); toast(x.name + ' 기본 휴일 저장'); } catch (e) {}
+  try { const r = await call('attRemove', x.name, S.at.r.date); if (!r.ok) return toast(r.error); S.at = { r }; render(); toast(x.name + ' 직원 삭제'); } catch (e) {}
 }
 /* 그림 (5장): 가로 1200px 판을 2배로 그려 PNG — 명일 작업처럼 내려받고 그림도 보여 줌 */
 function atImgHtml(r) {
