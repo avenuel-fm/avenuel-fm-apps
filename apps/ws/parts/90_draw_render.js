@@ -39,7 +39,7 @@ function render() {
   else if (S.view === 'risk' && isBoss()) html = renderRisk();
   else html = renderMain();
   if (S.view !== 'map') document.body.classList.remove('mapfull');
-  if (PARENT[S.view] && S.token && S.user && S.view !== 'map') {   // 아래 뒤로 버튼 (위 < 는 뺌, 결정 102). 저장 줄이 있으면 그 줄 맨 왼쪽에 (WS-25)
+  if (PARENT[S.view] && S.token && S.user && S.view !== 'map' && S.view !== 'cad') {   // 지도·CAD는 자체 왼쪽 아래 뒤로만. 아래 뒤로 버튼 (위 < 는 뺌, 결정 102). 저장 줄이 있으면 그 줄 맨 왼쪽에 (WS-25)
     const h2 = withBack(html);
     html = h2 !== html ? h2 : html + '<div class="wrap backbar"><button class="btn big" onclick="back()">' + ICON.back + '뒤로</button></div>';
   }
