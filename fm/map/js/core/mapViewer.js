@@ -616,7 +616,7 @@ var storeFilterMode = 'all'; // 'all' | 'store' | 'utility'
             if (layer) layer.style.display = on ? '' : 'none';
         }
 
-        // 직접 그린 매장·기능실 이름: 옆 매장(업체 도면)과 같은 글자 20·보통, 도형 안 가장 큰 가로·세로 네모의 정중앙, 길면 줄 나눠 가운데 (결정 300, 전: 결정 160)
+        // 직접 그린 매장·기능실 이름: 옆 매장(업체 도면)과 같은 글자 20·보통, 도형 안 가장 큰 가로·세로 네모의 정중앙, 길면 줄 나눠 가운데 (결정 302, 전: 결정 160)
         var STORE_LABEL_SIZE = 20, STORE_LABEL_LINE = 24, STORE_LABEL_PAD = 6;
         // 도형 안에 들어가는 가장 큰 가로·세로 네모 (사각형이면 자기 자신). 이름이 한 줄에 들어가는 네모가 있으면 그중 가장 큰 것
         function storeLabelBox(pathEl, needW, needH) {

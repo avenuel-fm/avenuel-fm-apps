@@ -101,7 +101,7 @@ const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); r
   ok(lab.size === '20' && lab.weight === '400' && lab.anchor === 'middle' && lab.n >= 2 && lab.fits && lab.mid && lab.all.replace(/\s/g, '') === '아주긴이름의새로운기능실공간', '12) 새 매장 글자 20·보통(옆 매장과 같음) · 길면 다음 줄 · 사각형 정중앙 (' + lab.n + '줄)');
   await f.evaluate(() => selectFloor(currentFloorIdx, true)); await p.waitForTimeout(400);
   ok(await f.evaluate(id => currentStores.find(x => x.bookId === id).textElement.querySelectorAll('tspan').length >= 2, cs), '13) 다시 열어도 줄바꿈 유지');
-  // 삼각형·ㄱ자: 도형 안 가장 큰 네모의 가운데 (결정 300)
+  // 삼각형·ㄱ자: 도형 안 가장 큰 네모의 가운데 (결정 302)
   const shp = await f.evaluate(() => {
     const ns = 'http://www.w3.org/2000/svg', svg = document.querySelector('#map-container svg'), g = document.createElementNS(ns, 'g'); svg.appendChild(g);
     const put = (d, name) => { const pa = document.createElementNS(ns, 'path'), t = document.createElementNS(ns, 'text'); pa.setAttribute('d', d); g.append(pa, t); layoutStoreLabel(t, name, pa);
