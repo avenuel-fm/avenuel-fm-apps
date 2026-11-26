@@ -57,7 +57,7 @@ $$;
 -- 층 순서
 create or replace function public.ws_floor_no(p text)
 returns int language sql immutable set search_path = public as $$
-  select coalesce(array_position(array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'], p), 99);   -- 층 B3~10F · POPUP (결정 228·252)
+  select coalesce(array_position(array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'], p), 99);   -- 층 B3~10F · POPUP (결정 228·260)
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -204,6 +204,20 @@ begin
     'photo', public.ws_file_url(c.photo_file_id), 'signA', public.ws_file_url(c.memo_file_id), 'signB', public.ws_file_url(c.name_file_id));
 end $$;
 
+
+-- 점검 기록 삭제 (결정 290): 로그인한 직원 모두. 줄은 남기고 「삭제됨」 표시만 → 그 달 「미입력」으로 돌아가 QR로 다시 입력할 수 있음
+create or replace function public.ws_fe_check_delete(p_token text, p_check_id text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare
+  me public.staff := public.ws_auth(p_token);
+  c public.fire_checks;
+begin
+  update public.fire_checks set deleted = true where check_id = coalesce(p_check_id, '') and not deleted returning * into c;
+  if c.check_id is null then return jsonb_build_object('ok', false, 'error', '점검 기록을 찾지 못했습니다. 화면을 새로 고쳐 주세요.'); end if;
+  perform public.ws_log(me.name, '소화기 점검 기록 삭제', '', c.fe_name || ' · ' || c.ym);
+  return jsonb_build_object('ok', true, 'ym', c.ym);
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- QR 점검 입력 — 비로그인도 부름 (Code.gs checkInit · checkSubmit)
 -- ---------------------------------------------------------------------------
@@ -303,8 +317,8 @@ revoke all on function public.ws_set_num(text, numeric), public.ws_set_text(text
   public.ws_is_qr(text), public.ws_fe_by_qr(text), public.ws_floor_no(text), public.ws_fe_list_(), public.ws_fe_list(text), public.ws_fe_add(text, jsonb),
   public.ws_fe_delete(text, jsonb), public.ws_label_save(text, numeric, numeric), public.ws_fe_status_(text), public.ws_fe_status(text, text),
   public.ws_fe_detail(text, text), public.ws_check_init(text), public.ws_check_file(text, jsonb, text), public.ws_check_submit(text, jsonb, jsonb),
-  public.ws_qr_upload_ok(text)
+  public.ws_qr_upload_ok(text), public.ws_fe_check_delete(text, text)
   from public, anon, authenticated;
 grant execute on function public.ws_fe_list(text), public.ws_fe_add(text, jsonb), public.ws_fe_delete(text, jsonb), public.ws_label_save(text, numeric, numeric),
-  public.ws_fe_status(text, text), public.ws_fe_detail(text, text) to authenticated;
+  public.ws_fe_status(text, text), public.ws_fe_detail(text, text), public.ws_fe_check_delete(text, text) to authenticated;
 grant execute on function public.ws_check_init(text), public.ws_check_submit(text, jsonb, jsonb), public.ws_qr_upload_ok(text) to anon, authenticated;

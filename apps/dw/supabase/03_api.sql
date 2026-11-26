@@ -141,7 +141,7 @@ begin
   d := r.data;
   perform public.dw_store_patch_(sid, jsonb_build_object(
     'tenant', coalesce(d->>'tenant', ''), 'location', coalesce(d->>'location', ''), 'storeType', coalesce(d->>'storeType', ''),
-    'contractor', coalesce(d->>'contractorCompany', ''), 'openDate', coalesce(d->>'openDate', ''),
+    'contractor', coalesce(d->>'contractorCompany', ''), 'openDate', coalesce(d->>'openDate', ''), 'exitDate', coalesce(d->>'exitDate', ''),
     'periodStart', coalesce(d->>'periodStart', ''), 'periodEnd', coalesce(d->>'periodEnd', ''), 'fireCheckDate', coalesce(d->>'fireCheckDate', ''),
     'chiefOk', case when d->>'chiefOk' = 'Y' then 'Y' else '' end, 'docMissing', public.dw_doc_missing_(d),
     'currentRound', r.round::text, 'lastReviewDate', coalesce(d->>'reviewDate', ''), 'updatedAt', nowt));
@@ -861,3 +861,9 @@ grant execute on function
 to authenticated;
 -- 원격 서명 링크는 로그인 없이 (기기 등록 안 한 사람)
 grant execute on function public.dw_sign_info(text), public.dw_sign_submit(text, jsonb) to anon, authenticated;
+
+
+-- 1.9.7 이미 퇴점일을 넣어 둔 매장도 대시보드에 바로 나오게 (마지막 차수 값으로 한 번 채움, 여러 번 실행해도 같음)
+update public.dw_stores s set data = s.data || jsonb_build_object('exitDate', coalesce(r.data->>'exitDate', ''))
+from (select distinct on (store_id) store_id, data from public.dw_reviews order by store_id, round desc) r
+where r.store_id = s.id and coalesce(s.data->>'exitDate', '') <> coalesce(r.data->>'exitDate', '');

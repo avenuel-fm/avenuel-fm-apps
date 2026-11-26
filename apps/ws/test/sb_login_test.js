@@ -38,7 +38,7 @@ const FAKE = `window.supabase = { createClient() {
   const post = (u, b) => fetch(u, { method: 'POST', body: JSON.stringify(b) }).then(r => r.json());
   return {
     auth: {
-      async getSession() { return { data: { session: get() } }; },
+      async getSession() { if (localStorage.getItem('fake_sb_fail')) return { data: { session: null }, error: { message: 'Failed to fetch' } }; return { data: { session: get() } }; },
       async signInWithPassword(c) {
         if (c.email === 'team@avenuel-fm.app' && c.password === 'team-pass-1') { localStorage.setItem(K, JSON.stringify({ user: { email: c.email } })); return { error: null }; }
         return { error: { message: 'Invalid login credentials' } };
@@ -76,6 +76,7 @@ const srv = http.createServer((req, res) => {
   await p.goto('http://localhost:' + PORT + '/ws/app.html');
   await p.locator('.devcard').waitFor();
   ok(await p.locator('.key').count() === 0, '1) 처음 열면 기기 등록 화면 (PIN 화면 아님)');
+  ok(/사이트 데이터 삭제/.test(await p.locator('.devwhy').innerText()), '1-1) 처음(기록 없음)엔 「닫을 때 사이트 데이터 삭제」 끄기 안내');
   await p.fill('#devE', 'team@avenuel-fm.app'); await p.fill('#devP', 'wrong');
   await p.click('.devcard button[type=submit]'); await p.waitForFunction(() => document.querySelector('.devmsg') && document.querySelector('.devmsg').textContent);
   ok(/맞지 않습니다/.test(await p.locator('.devmsg').innerText()) && await p.inputValue('#devE') === 'team@avenuel-fm.app', '2) 틀리면 빨간 안내, 이메일은 남음');
@@ -84,6 +85,14 @@ const srv = http.createServer((req, res) => {
   ok(await p.locator('.devchip').count() === 1, '3) 등록하면 PIN 화면 + 「등록된 기기」');
   await p.reload(); await p.locator('.key').first().waitFor();
   ok(await p.locator('.devcard').count() === 0, '4) 다시 열어도 기기 등록을 묻지 않음 (기억)');
+  // 결정 286: 등록 기록은 남았는데 켤 때 새로 받기만 실패 → 등록 화면 대신 「연결 확인 중」, 되면 저절로 PIN
+  await p.evaluate(() => { localStorage.setItem('ws_sb_auth', '{}'); localStorage.setItem('fake_sb_fail', '1'); });
+  await p.reload(); await p.locator('.devwait').waitFor();
+  ok(await p.locator('.devcard').count() === 0, '4-1) 불러오기 실패면 등록 화면이 아니라 「연결을 확인하는 중」');
+  await p.evaluate(() => localStorage.removeItem('fake_sb_fail'));
+  await p.locator('.key').first().waitFor({ timeout: 8000 });
+  ok(true, '4-2) 연결되면 저절로 PIN 화면 (다시 등록 안 함)');
+  await p.evaluate(() => localStorage.removeItem('ws_sb_auth'));
   for (const k of '1234') await p.click(`.key:text-is("${k}")`);
   await p.locator('#spad canvas.i').waitFor();
   ok(true, '5) PIN 맞으면 근무일 첫 서명 화면');
@@ -102,6 +111,8 @@ const srv = http.createServer((req, res) => {
   await p.screenshot({ path: 'shot_sb_set.png', fullPage: true });
   await p.click('button:text-is("기기 등록 풀기")'); await p.locator('.devcard').waitFor();
   ok(await p.evaluate(() => !localStorage.getItem('fake_sb_session') && !localStorage.getItem('ws_token')), '10) 등록 풀면 기기 등록 화면, 표도 지움');
+  await p.evaluate(() => localStorage.setItem('ws_dev_at', '2026-11-26')); await p.reload(); await p.locator('.devcard').waitFor();   // 서버에서 풀린 경우 흉내
+  ok(/등록이 풀렸습니다/.test(await p.locator('.devwhy').innerText()), '10-1) 등록한 날은 남고 로그인만 없으면 「등록이 풀렸습니다」 안내');
   ok(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), '11) 휴대폰 옆으로 넘침 없음');
   await p.screenshot({ path: 'shot_sb_device.png' });
   const z = await p.evaluate(async () => {   // 사진 줄이기: 3000×2000 → 긴 쪽 1200 이하 JPEG
