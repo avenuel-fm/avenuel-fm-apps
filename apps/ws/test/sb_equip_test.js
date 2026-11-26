@@ -22,6 +22,7 @@ const norm = s => String(s || '').replace(/\s+/g, ' ').trim();   // DB 함수 ws
 const SPEC = { hyd: [{ k: 'ext', label: '외관', ok: '정상', bad: '이상', hint: '사진 찍기' }, { k: 'leak', label: '누수 여부', ok: '누수 없음', bad: '누수 있음', hint: '사진 찍기' }, { k: 'clean', label: '청소 상태', ok: '양호', bad: '불량', hint: '사진 찍기' }],
   air: [{ k: 'charge', label: '충전량', ok: '정상', bad: '이상', gauge: true, hint: '압력계 사진 찍기' }, { k: 'reg', label: '압력조절기', ok: '정상', bad: '이상', gauge: true, hint: '압력계 사진 찍기' }, { k: 'ext', label: '외관', ok: '정상', bad: '이상', hint: '전체 사진 찍기' }] };
 const CALLS = [], UPLOADS = [];
+const FE_CK = { '카페-소화기1': 'CK1', '카페-소화기2': 'CK2' };   // 소화기 이번 달 점검 기록 (이름 → 점검번호)
 const DONE = {};   // 토큰 → 이번 달 점검 {checkId, state}
 const photoUrl = k => '/storage/v1/object/public/ws-files/equip/' + T1 + '/' + YM + '/' + k + '.jpg';
 const byFloor = (a, b) => FLS.indexOf(a.floor) - FLS.indexOf(b.floor) || String(a.place || a.store).localeCompare(String(b.place || b.store)) || a.no - b.no;
@@ -32,8 +33,11 @@ const status = () => { const items = stItems(), n = s => items.filter(i => i.sta
 const RPC = {
   ws_bootstrap: () => ({ ok: true, user: ME, toastSec: 1, needSign: false, docs: { day: D, signs: 1 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 }, window: { start: 1, end: 5 }, day: 14, ym: YM } }),
   ws_fe_list: () => feList(),
+  ws_fe_detail: a => { const n = Object.keys(FE_CK).find(k => FE_CK[k] === a.p_check_id); return n ? { ok: true, name: n, floor: '1F', ym: YM, state: '이상없음', at: D + ' 10:00', late: false, photo: '', signA: '', signB: '' } : { ok: false, error: '입력 내용을 찾지 못했습니다.' }; },
+  ws_fe_check_delete: a => { const n = Object.keys(FE_CK).find(k => FE_CK[k] === a.p_check_id); if (!n) return { ok: false, error: '점검 기록을 찾지 못했습니다.' }; delete FE_CK[n]; return { ok: true, ym: YM }; },
+  ws_eq_check_delete: a => { const k = Object.keys(DONE).find(x => DONE[x].checkId === a.p_check_id); if (!k) return { ok: false, error: '점검 기록을 찾지 못했습니다.' }; delete DONE[k]; return { ok: true, ym: YM }; },
   ws_fe_delete: a => { let n = 0; for (const id of a.p_ids) { const i = FE.findIndex(e => e.id === id); if (i >= 0) { FE.splice(i, 1); n++; } } return Object.assign(feList(), { count: n }); },
-  ws_fe_status: () => ({ ok: true, ym: YM, curYm: YM, day: 14, window: { start: 1, end: 5 }, isCurrent: true, months: [YM], items: FE.map(e => Object.assign({}, e, e.name === '카페-소화기1' ? { state: 'ok', checkId: 'CK1', at: D + ' 10:00', late: false } : { state: 'miss', checkId: '', at: '', late: false })), counts: { ok: 0, bad: 0, wait: 0, miss: FE.length, total: FE.length } }),
+  ws_fe_status: () => ({ ok: true, ym: YM, curYm: YM, day: 14, window: { start: 1, end: 5 }, isCurrent: true, months: [YM], items: FE.map(e => Object.assign({}, e, FE_CK[e.name] ? { state: 'ok', checkId: FE_CK[e.name], at: D + ' 10:00', late: false } : { state: 'miss', checkId: '', at: '', late: false })), counts: { ok: 0, bad: 0, wait: 0, miss: FE.length, total: FE.length } }),
   ws_fe_add: a => {
     const d = a.p_d, store = norm(d.store), n = Math.max(1, Math.min(20, Math.floor(Number(d.count)) || 1)), names = [];
     if (!store) return { ok: false, error: '위치를 적어 주세요.' };
@@ -278,7 +282,23 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   const dl = await p.locator('.dialog').innerText();
   await shot(p, 'e_detail');
   ok(/점검자 홍길동/.test(dl) && /누수 있음/.test(dl) && /배관 이음부 물방울/.test(dl) && await p.locator('.dialog img').count() === 3, '14) 항목을 누르면 점검자·항목별 정상/이상·이상 내용·사진 3장');
-  await p.click('.dialog .back'); delete DONE[T1];
+  // 점검 내용 팝업 (결정 290): PC는 지금 크기 + 아래 [점검 기록 삭제] [닫기]
+  let box = await p.locator('.dialog').boundingBox();
+  ok(box.width <= 521 && await p.locator('.dialog .df button').allInnerTexts().then(x => x.join() === '점검 기록 삭제,닫기'), '14-1) PC: 팝업 너비 그대로(520) · 아래 [점검 기록 삭제] [닫기] ' + Math.round(box.width));
+  await p.click('.dialog button:text-is("점검 기록 삭제")'); await p.locator('#ddBtn').waitFor();
+  ok(/동측 계단 앞/.test(await p.locator('.dialog').innerText()) && /「미입력」으로 돌아가고/.test(await p.locator('.dialog').innerText()), '14-2) 삭제 확인 창: 이름 · 미입력으로 돌아간다는 안내');
+  await p.click('.dialog button:text-is("취소")'); await p.locator('.dialog .df').waitFor();
+  ok(count('ws_eq_check_delete') === 0, '14-3) 취소 → 점검 내용 팝업으로 돌아감 (안 지움)');
+  // 휴대폰 크기: 화면에 꽉, 아래 버튼 줄이 화면 안에 보임
+  await p.setViewportSize({ width: 390, height: 700 }); await p.waitForTimeout(150);
+  box = await p.locator('.dialog').boundingBox(); const fb = await p.locator('.dialog .df').boundingBox();
+  ok(Math.abs(box.width - 390) < 2 && Math.abs(box.height - 700) < 2 && fb.y + fb.height <= 701 && await p.locator('.dialog .db').evaluate(e => e.scrollHeight > e.clientHeight), '14-4) 휴대폰: 팝업이 화면에 꽉 · 버튼 줄은 화면 안 · 사진은 안에서 스크롤 ' + JSON.stringify([box.width, box.height, fb.y + fb.height]));
+  await shot(p, 'e_detail_m');
+  await p.setViewportSize({ width: 1280, height: 900 });
+  n0 = count('ws_eq_check_delete');
+  await p.click('.dialog button:text-is("점검 기록 삭제")'); await p.click('#ddBtn'); await called('ws_eq_check_delete', n0); await p.locator('.dialog').waitFor({ state: 'detached' });
+  await p.locator('.feb:has-text("동측 계단 앞") .chip:has-text("미입력")').waitFor();
+  ok(last('ws_eq_check_delete').a.p_check_id === 'WS-EC-1' && !DONE[T1], '14-5) 삭제 → 그 점검번호만 지우고 목록이 「미입력」으로');
 
   // ── 앱에는 점검 입력이 없음 (조회만) — 입력은 QR을 찍은 휴대폰 화면 eq.html 에서만 (결정 230) ──
   await p.evaluate(() => openHyd()); await p.locator('.floor').first().waitFor();
@@ -419,6 +439,16 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   ok(/소화기 3대 삭제/.test(ask) && /카페-소화기1/.test(ask) && /신규 매장-소화기1/.test(ask) && /점검을 이미 입력한 1대도 지워집니다/.test(ask), '54) 확인 창: 지울 이름 목록 + 점검 입력 있는 1대도 지워진다는 안내');
   n0 = count('ws_fe_delete'); await xp2.click('#fdBtn'); await called('ws_fe_delete', n0); await xp2.locator('.dialog').waitFor({ state: 'detached' });
   ok(last('ws_fe_delete').a.p_ids.length === 3 && !(await xp2.locator('text=신규 매장').count()) && !/지울 소화기를 눌러/.test(await xp2.locator('.wrap.list').innerText()) && await xp2.locator('button:text-is("소화기 삭제")').count() === 1, '55) 삭제 → 3대 지움, 목록 새로 읽고 삭제 모드 끝, 층 화면 그대로');
+
+  // ── ② 소화기 점검 내용 팝업에서 점검 기록 삭제 (결정 290) ──
+  await xp2.click('.feb:has-text("카페-소화기2")'); await xp2.locator('.dialog .df').waitFor();
+  ok(/카페-소화기2/.test(await xp2.locator('.dialog .dh').innerText()), '56) ② 점검완료 소화기를 누르면 점검 내용 팝업 (제목 줄 고정)');
+  n0 = count('ws_fe_check_delete');
+  await xp2.click('.dialog button:text-is("점검 기록 삭제")'); await xp2.click('#ddBtn'); await called('ws_fe_check_delete', n0); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  await xp2.locator('.feb:has-text("카페-소화기2") .chip:has-text("미입력")').waitFor();
+  ok(last('ws_fe_check_delete').a.p_check_id === 'CK2' && await xp2.locator('.feb:has-text("카페-소화기2")').isDisabled(), '57) 삭제 → 소화기는 남고 「미입력」 (누를 수 없음), 층 화면 그대로');
+  const lc = await mk(''), lp = await lc.newPage(); await lp.goto(BASE + 'app.html'); await lp.waitForTimeout(800);
+  ok(!(await lp.locator('.grid6').count()) && !(await lp.locator('text=점검 기록 삭제').count()), '58) 로그인 안 하면 앱 화면(삭제 버튼)이 안 열림 — 서버도 로그인 표 없으면 거절');
 
   ok(!errs.length, '41) 화면 오류 없음 ' + (errs.length ? JSON.stringify(errs) : ''));
   await b.close(); srv.close();

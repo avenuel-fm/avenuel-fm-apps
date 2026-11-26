@@ -358,6 +358,14 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const dt = await call('ws_fe_detail', [tk, cs.checkId]);
   ok(dt.ok && /p2\.jpg$/.test(dt.photo) && /m2\.png$/.test(dt.signA) && /n2\.png$/.test(dt.signB) && dt.state === '이상없음', '점검 내용 보기: 새 사진·손글씨 주소');
   ok((await call('ws_fe_detail', [tk, 'nope'])).ok === false, '점검 내용: 없는 번호 → 안내');
+  // 점검 기록 삭제 (결정 290)
+  ok(/permission denied/.test(await asErr('anon', "select ws_fe_check_delete('x', 'C1')")), '점검 기록 삭제: 비로그인은 못 부름');
+  ok(/LOGIN/.test(await asErr('authenticated', "select ws_fe_check_delete('틀린표', 'C1')")), '점검 기록 삭제: 틀린 표 → LOGIN');
+  ok((await call('ws_fe_check_delete', [tk, 'nope'])).ok === false, '점검 기록 삭제: 없는 번호 → 안내');
+  const fcd = await call('ws_fe_check_delete', [tk, cs.checkId]);
+  const fs2 = await call('ws_fe_status', [tk, fs.ym]), it2 = fs2.items.find(x => x.id === mine[0].id);
+  ok(fcd.ok && fcd.ym === fs.ym && it2 && it2.state !== 'ok' && it2.checkId === '' && (await call('ws_fe_detail', [tk, cs.checkId])).ok === false, '점검 기록 삭제 → 소화기는 남고 그 달 「미입력」, 내용 보기 안 됨');
+  ok((await call('ws_fe_check_delete', [tk, cs.checkId])).ok === false && (await one("select deleted from fire_checks where check_id = $1", [cs.checkId])).deleted === true, '점검 기록 삭제: 줄은 남고 삭제됨 표시 · 두 번은 안 됨');
   // ══ 3-5 전열필증 (06_eh.sql) ══
   await db.exec(SQL('06_eh.sql')); await db.exec(SQL('06_eh.sql'));
   ok(true, '06_eh.sql 실행됨 (두 번)');
