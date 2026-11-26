@@ -70,7 +70,7 @@ const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 3);
 const before = (f, a, b) => f.evaluate(([a, b]) => !!(document.querySelector(a).compareDocumentPosition(document.querySelector(b)) & Node.DOCUMENT_POSITION_FOLLOWING), [a, b]);
 
 const zones = f => f.evaluate(() => getFloorZones('1F').filter(z => z.category === 'floor'));
-const line = (f, pts) => f.evaluate(pts => { toggleAddZoneMode && 0; drawingZonePoints = pts; finishDrawingZone(); }, pts);
+const line = (f, pts) => f.evaluate(pts => { toggleAddZoneMode && 0; drawingZonePoints = pts; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); }, pts);
 async function startMode(p, f, fl) {
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(150);
   await fl.locator('#btn-zone-cat-floor').click();
@@ -91,7 +91,7 @@ async function startMode(p, f, fl) {
   const emo = await f.evaluate(() => /[\u{1F300}-\u{1FAFF}☀-➿⬜]/u.test(document.getElementById('zone-guide-banner').textContent));
   ok(bh < 70 && !emo, '3-1) 구역 그리기 줄이 한 줄(높이 ' + Math.round(bh) + 'px)이고 이모티콘 없음');
   // 직각 꺾임(ㄴ자): 한 덩어리, 꼭지점 6개
-  await f.evaluate(() => { drawingZonePoints = [{ x: 9500, y: 4000 }, { x: 9800, y: 4000 }, { x: 9800, y: 4300 }]; finishDrawingZone(); });
+  await f.evaluate(() => { drawingZonePoints = [{ x: 9500, y: 4000 }, { x: 9800, y: 4000 }, { x: 9800, y: 4300 }]; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); });
   let z = await zones(f);
   ok(z.length === 1 && z[0].points.length === 6, '4) ㄱ자 중심선 → 도형 1개, 꼭지점 6개(꺾임 안쪽 홈 없음) — ' + z.length + '개/' + (z[0] && z[0].points.length) + '점');
   const ys = z[0].points.map(q => q.y), xs = z[0].points.map(q => q.x);
@@ -99,24 +99,24 @@ async function startMode(p, f, fl) {
   // 같은 중심선을 겹쳐 또 그림 → 도형 1개 유지, 중심선 선분 늘지 않음
   const cl0 = z[0].cl.length;
   await startMode(p, f, fl);
-  await f.evaluate(() => { drawingZonePoints = [{ x: 9500, y: 4000 }, { x: 9800, y: 4000 }]; finishDrawingZone(); });
+  await f.evaluate(() => { drawingZonePoints = [{ x: 9500, y: 4000 }, { x: 9800, y: 4000 }]; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); });
   z = await zones(f);
   ok(z.length === 1 && z[0].cl.length === cl0, '6) 같은 자리에 다시 그려도 도형 1개 · 중심선 ' + cl0 + '개 그대로(겹친 중심선 하나로) — ' + z.length + '개/' + z[0].cl.length);
   // 대각선 교차
   await startMode(p, f, fl);
-  await f.evaluate(() => { drawingZonePoints = [{ x: 9600, y: 3900 }, { x: 9900, y: 4200 }]; finishDrawingZone(); });
+  await f.evaluate(() => { drawingZonePoints = [{ x: 9600, y: 3900 }, { x: 9900, y: 4200 }]; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); });
   z = await zones(f);
   ok(z.length === 1, '7) 대각선 중심선이 기존 바닥과 겹쳐 하나로 합쳐짐 — ' + z.length + '개');
   const diag = z[0].points.some(q => Math.abs(q.x - 9600 - 28.3) < 1.5 && Math.abs(q.y - 3900 + 28.3) < 1.5 || Math.abs(q.x - 9600 + 28.3) < 1.5);
   ok(diag, '8) 대각선 띠 모서리가 45도 방향으로 나옴');
   // 따로 떨어진 새 바닥은 합쳐지지 않음
   await startMode(p, f, fl);
-  await f.evaluate(() => { drawingZonePoints = [{ x: 10500, y: 4700 }, { x: 10800, y: 4700 }]; finishDrawingZone(); });
+  await f.evaluate(() => { drawingZonePoints = [{ x: 10500, y: 4700 }, { x: 10800, y: 4700 }]; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); });
   z = await zones(f);
   ok(z.length === 2, '9) 떨어진 곳에 그리면 별도 도형 (' + z.length + '개)');
   // 급한 꺾임(예각)도 오류·뾰족한 튀어나옴 없이
   await startMode(p, f, fl);
-  await f.evaluate(() => { drawingZonePoints = [{ x: 10000, y: 5200 }, { x: 10400, y: 5200 }, { x: 10000, y: 5230 }]; finishDrawingZone(); });
+  await f.evaluate(() => { drawingZonePoints = [{ x: 10000, y: 5200 }, { x: 10400, y: 5200 }, { x: 10000, y: 5230 }]; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); });
   z = await zones(f);
   const sharp = z.find(q => q.points.some(pt => pt.y >= 5200 && pt.x < 10100));
   const far = sharp ? Math.max(...sharp.points.map(pt => pt.x - 10400)) : 9999;
@@ -136,7 +136,7 @@ async function startMode(p, f, fl) {
   ok(await f.evaluate(() => drawingZonePoints.length) === 1, '14) Backspace: 직전 점만 취소');
   // 잠금: 바닥 레이어가 잠기면 그려지지 않음
   const nBefore = (await zones(f)).length;
-  await f.evaluate(() => { onLayerLockChange('floor', true); drawingZonePoints = [{ x: 9000, y: 3900 }, { x: 9100, y: 3900 }]; finishDrawingZone(); });
+  await f.evaluate(() => { onLayerLockChange('floor', true); drawingZonePoints = [{ x: 9000, y: 3900 }, { x: 9100, y: 3900 }]; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); });
   ok((await zones(f)).length === nBefore, '15) 🔑 바닥 잠금이면 중심선으로도 안 그려짐');
   await shot(p, 'shot_map_centerline.png');
   ok(!p.errs.length, '16) 화면 오류 없음 ' + p.errs.join('|'));

@@ -56,7 +56,7 @@ async function open(b, opts) {
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
   return [p, f, p.frameLocator('iframe.mapframe')];
 }
-const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDrawingZone(); }, pts);
+const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); }, pts);
 
 (async () => {
   const b = await chromium.launch();
@@ -81,7 +81,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const fl1 = await f.evaluate(() => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor'); const a = rtPathPoints(document.querySelector('#a')); return { n: z.length, inside: z.some(q => q.points.some(pt => isPointInsidePolygon(pt, a))), cut: z.some(q => q.points.some(pt => Math.abs(pt.y - 4302) < 0.01)) }; });
   ok(fl1.n === 1 && !fl1.inside && fl1.cut, '2) 바닥(면)이 매장을 침범하면 매장 둘레 2px 밖으로 다시 그림 ' + JSON.stringify(fl1));
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(150);
-  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (!floorCenterlineOn) toggleCenterlineFloor(); drawingZonePoints = [{ x: 9600, y: 3950 }, { x: 9600, y: 4150 }]; finishCenterlineFloor(); });
+  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (!floorCenterlineOn) toggleCenterlineFloor(); drawingZonePoints = [{ x: 9600, y: 3950 }, { x: 9600, y: 4150 }]; finishCenterlineFloor(); if (isZoneDrawingMode) exitAddZoneMode(); });
   const fl2 = await f.evaluate(() => { const a = rtPathPoints(document.querySelector('#a')); return getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor').every(q => q.points.every(pt => !isPointInsidePolygon(pt, a))); });
   ok(fl2, '2-1) 복도 중심선으로 그린 바닥도 매장 안으로 안 들어감');
   await f.evaluate(() => { if (isZoneDrawingMode) toggleAddZoneMode(); });
@@ -160,6 +160,41 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
     const m = document.querySelector('#route-gap-mark line'); return { ok: r.ok, gap: r.gap, mark: !!m, n: getFloorUtilityLines(FLOORS[currentFloorIdx].code).length }; }, [I, U]);
   ok(!gap.ok && gap.mark && gap.n === 1, '10) 복도가 끊기면 선을 안 그리고 끊긴 자리를 빨간 점선으로 표시 ' + JSON.stringify({ ok: gap.ok, mark: gap.mark, n: gap.n }));
   ok(gap.gap && gap.gap[0].x < 9910 && gap.gap[1].x > 10040 && Math.abs(gap.gap[0].y - gap.gap[1].y) < 20, '10-1) 표시는 두 바닥 사이 틈 (' + JSON.stringify(gap.gap) + ')');
+
+  // 12) 구역 그리기: 완료·취소 뒤에도 그리기 상태 · 바닥은 기능실을 꿰뚫지 못함 (결정 310)
+  await f.evaluate(() => { if (!isZoneDrawingMode) toggleAddZoneMode(); });
+  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
+  const zc = await f.evaluate(u => {
+    const code = FLOORS[currentFloorIdx].code, n0 = getFloorZones(code).length;
+    drawingZonePoints = [{ x: 9700, y: 4470 }, { x: 9900, y: 4470 }, { x: 9900, y: 4510 }, { x: 9700, y: 4510 }]; finishDrawingZone();
+    const after = { mode: isZoneDrawingMode, pts: drawingZonePoints.length, banner: getComputedStyle(document.getElementById('zone-guide-banner') || document.body).display };
+    const added = getFloorZones(code).slice(n0), ut = rtPathPoints(currentStores.find(s => s.id === u).polygonElement);
+    drawingZonePoints = [{ x: 9300, y: 4300 }]; handleZoneCancelOrEsc();
+    const esc1 = { mode: isZoneDrawingMode, pts: drawingZonePoints.length };
+    handleZoneCancelOrEsc();
+    return { after, esc1, esc2: isZoneDrawingMode, n: added.length, inside: added.some(z => z.points.some(pt => isPointInsidePolygon(pt, ut))), gap: Math.min(...added.flatMap(z => z.points.map(pt => distancePointToPolygon(pt, ut)))) };
+  }, U);
+  ok(zc.after.mode && zc.after.pts === 0, '12) 구역 완료 뒤에도 그리기 상태 그대로 ' + JSON.stringify(zc.after));
+  ok(zc.esc1.mode && zc.esc1.pts === 0 && !zc.esc2, '12-1) 점 찍는 중 취소 → 점만 지우고 그리기 상태 · 점 없을 때 취소 → 보기 상태');
+  ok(zc.n === 2 && !zc.inside && zc.gap >= 1.9, '12-2) 바닥은 기능실(EPS)을 꿰뚫지 못하고 둘레 2px 밖 두 조각 ' + JSON.stringify({ n: zc.n, inside: zc.inside, gap: zc.gap }));
+
+  // 13) 팔레트: 로즈·라벤더 뺌 · 매장명 탭 기본은 첫 번째 색
+  const pal = await f.evaluate(i => {
+    const cols = Array.from(document.querySelectorAll('#edit-modal .color-swatch[data-color]')).map(b => b.dataset.color);
+    const st = currentStores.find(s => s.id === i); st.fillColor = '#cbdbe9'; openEditModalForStore(st);
+    const on = document.querySelector('#edit-modal .color-swatch.active')?.dataset.color; cancelStoreEdit();
+    return { cols, on };
+  }, I);
+  ok(pal.cols.length === 7 && !pal.cols.includes('#fee2e2') && !pal.cols.includes('#ede9fe'), '13) 팔레트에서 로즈·라벤더 뺌 (' + pal.cols.join(' ') + ')');
+  ok(pal.on === '#e6f0fc', '13-1) 매장명 탭은 기능실 색이던 도형도 첫 번째 색으로 열림 (' + pal.on + ')');
+
+  // 14) 매장 그리기: 기존 매장(아그라 9450~9750) 안쪽까지 들어가 그려도 2px 띄움
+  const N = await mkStore([{ x: 9700, y: 4150 }, { x: 9800, y: 4150 }, { x: 9800, y: 4250 }, { x: 9700, y: 4250 }], '새옆매장');
+  const nb = await bbox(await dOf(N));
+  ok(Math.abs(nb.x0 - 9752) < 0.11 && Math.abs(nb.x1 - 9800) < 0.11 && Math.abs(nb.y0 - 4150) < 0.11, '14) 기존 매장 안까지 그려도 기존 매장 선에서 2px 떨어진 새 매장 ' + JSON.stringify(nb));
+  const N2 = await mkStore([{ x: 9800.5, y: 4150 }, { x: 9860, y: 4150 }, { x: 9860, y: 4250 }, { x: 9800.5, y: 4250 }], '붙인매장');
+  const nb2 = await bbox(await dOf(N2));
+  ok(Math.abs(nb2.x0 - 9802) < 0.11 && Math.abs(nb2.x1 - 9860) < 0.11, '14-1) 2px 보다 가깝게 붙여 그리면 2px 로 맞춤 ' + JSON.stringify(nb2));
 
   ok(!p.errs.length, '11) 화면 오류 없음 ' + p.errs.join('|'));
   await shot(p, 'shot_map_shape.png');
