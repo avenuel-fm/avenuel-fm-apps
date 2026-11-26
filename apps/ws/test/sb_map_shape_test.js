@@ -85,6 +85,13 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const fl2 = await f.evaluate(() => { const a = rtPathPoints(document.querySelector('#a')); return getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor').every(q => q.points.every(pt => !isPointInsidePolygon(pt, a))); });
   ok(fl2, '2-1) 복도 중심선으로 그린 바닥도 매장 안으로 안 들어감');
   await f.evaluate(() => { if (isZoneDrawingMode) toggleAddZoneMode(); });
+  // 2-2) 매장을 꿰뚫어 지나가는 바닥은 그린 대로 (결정 310)
+  await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(150);
+  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
+  await draw(f, [{ x: 9350, y: 4150 }, { x: 9850, y: 4150 }, { x: 9850, y: 4200 }, { x: 9350, y: 4200 }]);
+  const fl3 = await f.evaluate(() => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor'), q = z[z.length - 1]; return { n: q.points.length, pts: JSON.stringify(q.points) }; });
+  ok(fl3.n === 4 && fl3.pts === JSON.stringify([{ x: 9350, y: 4150 }, { x: 9850, y: 4150 }, { x: 9850, y: 4200 }, { x: 9350, y: 4200 }]), '2-2) 매장을 꿰뚫어 지나가는 바닥은 자르지 않고 그린 대로 ' + fl3.pts);
+  await f.evaluate(() => { if (isZoneDrawingMode) toggleAddZoneMode(); });
 
   // 직접 그린 매장 S, 기능실 U (바닥 위)
   const mkStore = (pts, name, util) => f.evaluate(([pts, name, util]) => {

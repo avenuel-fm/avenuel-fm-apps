@@ -202,9 +202,11 @@
             if (typeof polygonClipping === 'undefined' || !rings.length) return rings;
             let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
             rings.forEach(r => r.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }));
-            const g = FLOOR_STORE_GAP, cut = [];
+            const g = FLOOR_STORE_GAP, cut = [], drawn = rings.map(r => [r]);
             shapeSnapPolys().forEach(c => {
                 if (c.pts.length < 3 || c.x1 < x0 - g || c.x0 > x1 + g || c.y1 < y0 - g || c.y0 > y1 + g) return;
+                // 바닥이 매장을 꿰뚫어(매장이 둘 이상으로 나뉨) 지나가면 자르지 않고 그린 대로 (결정 310)
+                if (polygonClipping.difference([[c.pts.map(p => [p.x, p.y])]], drawn).length >= 2) return;
                 cut.push([c.pts.map(p => [p.x, p.y])]);
                 c.pts.forEach((p, i) => {           // 변 양쪽 2px 띠 + 꼭짓점 네모 = 2px 키운 모양
                     const q = c.pts[(i + 1) % c.pts.length], L = Math.hypot(q.x - p.x, q.y - p.y);
