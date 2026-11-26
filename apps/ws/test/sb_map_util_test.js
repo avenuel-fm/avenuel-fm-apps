@@ -108,6 +108,47 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const css = await f.evaluate(() => { const g = document.querySelector('#utility-lines-layer .util-line-item-group'); const col = id => getComputedStyle(document.querySelector('#utility-lines-layer polyline[data-id="' + id + '"]')).stroke; return { power: col('u1'), water: col('u2') }; });
   ok(css.power === 'rgb(220, 38, 38)' && css.water !== 'rgb(220, 38, 38)', '11) 전기는 붉은색, 수도는 아님 (' + css.power + ' / ' + css.water + ')');
   ok(await f.evaluate(() => UTIL_SPECS_CONFIG.power.color === '#dc2626'), '12) 새로 그리는 전기선 색도 붉은색');
+  // 이름표 고치기·옮기기 (결정 304)
+  let dialogs = 0; p.on('dialog', () => { dialogs++; });   // 처리(수락)는 위의 open 에서
+  await f.evaluate(() => { const L = getFloorUtilityLines('1F'); L.push({ id: 'u6', subType: 'power', subTypeLabel: 'power', className: 'util-line-eps', color: '#000', sourceName: 'S9', targetName: 'E9', auto: true, points: [{ x: 9700, y: 4300 }, { x: 9700, y: 4600 }] }); saveFloorUtilityLines('1F', L); renderFloorUtilityLines(); });
+  await f.evaluate(() => highlightUtilityLinesForStore({ id: '', name: 'S9' }));
+  const lab = () => f.evaluate(() => { const l = document.querySelector('#utility-lines-layer .util-line-item-group[data-id="u6"] .util-spec-badge-group'), r = l.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: +l.querySelector('rect').getAttribute('height'), lines: [...l.querySelectorAll('tspan')].map(t => t.textContent), tf: l.getAttribute('transform') }; });
+  const fr = await (await p.$('iframe.mapframe')).boundingBox();
+  let L0 = await lab();
+  await p.mouse.click(fr.x + L0.x, fr.y + L0.y);
+  ok(dialogs === 0, '14) 이름표 한 번 누름: 삭제 확인창 안 뜸');
+  await p.mouse.dblclick(fr.x + L0.x, fr.y + L0.y);
+  const ed = p.frameLocator('iframe.mapframe').locator('#util-label-editor');
+  ok(await ed.count() === 1 && dialogs === 0, '15) 더블클릭 → 고치는 칸이 뜸');
+  const h1 = await ed.evaluate(e => e.offsetHeight);
+  await ed.press('End'); await ed.press('Enter'); await ed.type('2번 EPS → 까르띠에');
+  const h2 = await ed.evaluate(e => e.offsetHeight);
+  ok(h2 > h1, '16) Enter로 다음 줄 · 칸이 커짐 (' + h1 + ' → ' + h2 + ')');
+  await ed.evaluate(e => e.blur());   // 바깥 누르면(포커스가 빠지면) 저장
+  const s5 = await f.evaluate(() => getFloorUtilityLines('1F').find(l => l.id === 'u6'));
+  ok(s5.labelText === 'power\n2번 EPS → 까르띠에', '17) 저장: ' + JSON.stringify(s5.labelText));
+  await f.evaluate(() => highlightUtilityLinesForStore({ id: '', name: 'S9' }));
+  L0 = await lab();
+  ok(L0.lines.length === 2 && L0.h === 36, '18) 이름표 두 줄 · 상자 높이 22 → 36 (' + L0.lines.join('/') + ', ' + L0.h + ')');
+  await p.mouse.move(fr.x + L0.x, fr.y + L0.y); await p.mouse.down(); await p.mouse.move(fr.x + L0.x + 60, fr.y + L0.y + 40, { steps: 5 }); await p.mouse.up();
+  const s5b = await f.evaluate(() => getFloorUtilityLines('1F').find(l => l.id === 'u6'));
+  ok(s5b.labelPos && s5b.labelPos.x > 9740, '19) 끌어서 옮긴 자리 저장 (' + JSON.stringify(s5b.labelPos) + ')');
+  await f.evaluate(() => { renderFloorUtilityLines(); highlightUtilityLinesForStore({ id: '', name: 'S9' }); });
+  const L1 = await lab();
+  ok(L1.tf === `translate(${s5b.labelPos.x.toFixed(1)},${s5b.labelPos.y.toFixed(1)})`, '20) 다시 그려도 옮긴 자리 그대로 (' + L1.tf + ')');
+  ok(await f.evaluate(() => document.querySelector('#utility-lines-layer .util-line-item-group[data-id="u6"] .util-label-link').style.display !== 'none'), '21) 옮긴 이름표와 선을 가는 선으로 이음');
+  await p.mouse.dblclick(fr.x + L1.x, fr.y + L1.y);
+  await ed.press('Escape');
+  ok(await ed.count() === 0 && (await f.evaluate(() => getFloorUtilityLines('1F').find(l => l.id === 'u6').labelText)) === s5.labelText, '22) Esc는 고치지 않고 닫음');
+  await p.mouse.dblclick(fr.x + L1.x, fr.y + L1.y);
+  await ed.fill(''); await ed.evaluate(e => e.blur());
+  ok(!(await f.evaluate(() => 'labelText' in getFloorUtilityLines('1F').find(l => l.id === 'u6'))), '23) 글자를 다 지우면 원래 이름표로');
+  await f.evaluate(() => { onLayerLockChange('power', true); highlightUtilityLinesForStore({ id: '', name: 'S9' }); });
+  const L2 = await lab();
+  await p.mouse.dblclick(fr.x + L2.x, fr.y + L2.y);
+  ok(await ed.count() === 0, '24) 전기 레이어를 잠그면 고치기 안 됨');
+  await f.evaluate(() => onLayerLockChange('power', false));
   ok(!p.errs.length, '13) 화면 오류 없음 ' + p.errs.join('|'));
   await b.close(); srv.close();
   if (fail) { console.log('\n실패 ' + fail + '건'); process.exit(1); }
