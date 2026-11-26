@@ -4,7 +4,7 @@
 --  · 손으로 쓴 신청서 사진을 찍는 대로 바로 저장 (사진 한 장 = 한 줄). 날짜 태그 · 업체명(직접 입력, 선택) · 위치(버튼, 선택)
 --  · 사진 파일은 화면이 버킷 risk_photo/ 에 먼저 올리고 주소·경로만 넘김 (글자가 읽히게 2400px·85% — 일반 사진보다 덜 줄임)
 --  · cid = 기기가 사진마다 만든 고유 번호. 응답만 못 받고 다시 보내도 한 번만 저장
---  · 보기·올리기: 전 직원 · 지우기: 소장·관리자만. 지운 사진은 숨김 처리만 (파일은 그대로)
+--  · 보기·올리기·지우기: 전 직원 (지우기 전 직원으로, 사용자 11-27). 지운 사진은 숨김 처리만 (파일은 그대로) · 누가 지웠는지 변경기록에 남김
 -- ============================================================================
 create table if not exists public.rw_photos (
   rk_id      text primary key,                 -- WS-RK-YYYYMMDD-###
@@ -41,7 +41,7 @@ declare
 begin
   perform public.ws_menu_guard(me.role, 'docs.risk');
   if q = '' and f is null and t is null then f := public.ws_work_day() - 60; end if;
-  return jsonb_build_object('ok', true, 'admin', me.role in ('관리자', '소장'), 'floors', to_jsonb(public.ws_rw_floors()),
+  return jsonb_build_object('ok', true, 'admin', true, 'floors', to_jsonb(public.ws_rw_floors()),
     'list', coalesce((select jsonb_agg(public.ws_rw_out(x) order by x.photo_day desc, x.saved_at) from (
         select * from public.rw_photos p
         where not p.deleted and (f is null or p.photo_day >= f) and (t is null or p.photo_day <= t)
@@ -81,7 +81,7 @@ begin
   return jsonb_build_object('ok', true, 'item', public.ws_rw_out(r));
 end $$;
 
--- 지우기 (소장·관리자만). 숨김 처리
+-- 지우기 (전 직원, 사용자 11-27). 숨김 처리
 create or replace function public.ws_rw_delete(p_token text, p_id text)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare
@@ -89,7 +89,6 @@ declare
   r public.rw_photos;
 begin
   perform public.ws_menu_guard(me.role, 'docs.risk');
-  if me.role not in ('관리자', '소장') then return jsonb_build_object('ok', false, 'error', '사진 삭제는 소장·관리자만 할 수 있습니다.'); end if;
   update public.rw_photos set deleted = true where rk_id = p_id and not deleted returning * into r;
   if r.rk_id is null then return jsonb_build_object('ok', false, 'error', '사진을 찾지 못했습니다. 새로고침해 주세요.'); end if;
   perform public.ws_log(me.name, '위험작업신청서 사진 삭제', p_id, r.photo_day || ' · ' || r.company);

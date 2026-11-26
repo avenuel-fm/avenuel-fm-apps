@@ -866,11 +866,10 @@ alter default privileges in schema public grant all on sequences to anon, authen
   let rkl = await call('ws_rw_list', [tk, '', '', '']);
   ok(rkl.ok && rkl.admin && rkl.list.length === 2 && rkl.list[0].id === rka.item.id && rkl.floors.length === 11, '위험작업: 목록 (같은 날은 저장한 순서)');
   ok((await call('ws_rw_list', [tk, '인테리어', '', ''])).list.length === 1 && (await call('ws_rw_list', [tk, '3f', '', ''])).list.length === 1 && (await call('ws_rw_list', [tk, 'zzz', '', ''])).list.length === 0, '위험작업: 업체명·위치 글자로 검색');
-  ok((await call('ws_rw_list', ['emp', '', '', ''])).admin === false, '위험작업: 직원은 삭제 권한 없음 표시');
-  ok((await call('ws_rw_delete', ['emp', rka.item.id])).ok === false, '위험작업: 직원은 지울 수 없음');
+  ok((await call('ws_rw_list', ['emp', '', '', ''])).admin === true, '위험작업: 직원도 지우기 버튼 보임 (사용자 11-27)');
   ok((await call('ws_admin_set_menu', [tk, ['docs.risk']])).ok && /사용 중지/.test(await callErr('ws_rw_list', ['emp', '', '', ''])) && (await call('ws_rw_list', [tk, '', '', ''])).ok, '위험작업: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);
-  ok((await call('ws_rw_delete', [tk, rka.item.id])).ok && (await call('ws_rw_list', [tk, '', '', ''])).list.length === 1 && (await call('ws_rw_delete', [tk, rka.item.id])).ok === false, '위험작업: 소장은 지움 (숨김 처리) · 지운 것을 또 지우면 안내');
+  ok((await call('ws_rw_delete', ['emp', rka.item.id])).ok && (await call('ws_rw_list', [tk, '', '', ''])).list.length === 1 && (await call('ws_rw_delete', [tk, rka.item.id])).ok === false, '위험작업: 직원도 지움 (숨김 처리) · 지운 것을 또 지우면 안내');
 
   // ══ 주간/야간 작업내역 (26_workhist.sql, 결정 240) ══
   await db.exec(SQL('26_workhist.sql')); await db.exec(SQL('26_workhist.sql'));
