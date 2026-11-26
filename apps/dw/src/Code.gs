@@ -6,7 +6,7 @@
  */
 
 var APP = {
-  VERSION: '1.9.6',
+  VERSION: '1.9.7',
   STORE_LABEL: '잠실점 에비뉴엘',
   DOC_PREFIX: '에비뉴엘컨펌',
   ROLES: ['소장', '부소장'],
@@ -70,7 +70,8 @@ var STORE_COLS = [
   ['sendLog', '발송기록'],
   ['defectSent', '하자발송'],
   ['sigPending', '서명요청'],
-  ['fireDoc', '방재실협의서']
+  ['fireDoc', '방재실협의서'],
+  ['exitDate', '퇴점일'] // 1.9.7 대시보드 퇴점일 (맨 끝에만 추가)
 ];
 
 /**
@@ -1175,6 +1176,7 @@ function syncStoreFromReviews_(storeId, now) {
     storeType: last.storeType,
     contractor: last.contractorCompany,
     openDate: last.openDate,
+    exitDate: last.exitDate || '',
     periodStart: last.periodStart,
     periodEnd: last.periodEnd,
     fireCheckDate: last.fireCheckDate,

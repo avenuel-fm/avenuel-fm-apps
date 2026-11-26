@@ -187,7 +187,10 @@ async def main():
         print('대시보드 D-day · 컨펌')
         await page.click('[data-act=dash]')
         await page.wait_for_selector('.tbl')
+        while await page.locator('.macc:not(.open) .macc-h').count():  # 새 달 묶음은 접힌 채로 생김
+            await page.locator('.macc:not(.open) .macc-h').first.click()
         body = await page.inner_text('#dashBody')
+        check('퇴점일' in body, '대시보드 표에 퇴점일 칸')
         check('D-5' in body and '합동점검 D-3' in body, '오픈 D-5 · 합동점검 D-3 표시')
         check((await page.inner_text('.kpi.soon .n')) == '1', 'KPI "7일 내 오픈" 1')
         await page.screenshot(path=OUT / 'v1_dashboard.png')

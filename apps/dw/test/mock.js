@@ -26,7 +26,7 @@
     var store = db.stores.filter(function (s) { return s.id === id; })[0];
     var rs = db.reviews.filter(function (r) { return r.storeId === id; }).sort(function (a, b) { return a.round - b.round; });
     var last = rs[rs.length - 1]; if (!last) return;
-    Object.assign(store, { tenant: last.tenant, location: last.location, storeType: last.storeType, contractor: last.contractorCompany, openDate: last.openDate, periodStart: last.periodStart, periodEnd: last.periodEnd, fireCheckDate: last.fireCheckDate, chiefOk: last.chiefOk ? 'Y' : '', docMissing: docMissing_(last).join(', '), currentRound: last.round, lastReviewDate: last.reviewDate, updatedAt: now() });
+    Object.assign(store, { tenant: last.tenant, location: last.location, storeType: last.storeType, contractor: last.contractorCompany, openDate: last.openDate, exitDate: last.exitDate || '', periodStart: last.periodStart, periodEnd: last.periodEnd, fireCheckDate: last.fireCheckDate, chiefOk: last.chiefOk ? 'Y' : '', docMissing: docMissing_(last).join(', '), currentRound: last.round, lastReviewDate: last.reviewDate, updatedAt: now() });
   }
   function addLog(db, id, entry) {
     var st = db.stores.filter(function (x) { return x.id === id; })[0]; if (!st) return;
