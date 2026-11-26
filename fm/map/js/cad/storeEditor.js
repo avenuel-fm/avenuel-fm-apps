@@ -242,7 +242,7 @@ var lastCreatedStoreId = null;
             if (editNameInput) editNameInput.value = store.name || '';
 
             let currentColor = store.fillColor || store.polygonElement?.getAttribute('fill') || (type === 'utility' ? '#cbdbe9' : '#e6f0fc');
-            if (type !== 'utility' && currentColor.toLowerCase() === '#cbdbe9') currentColor = '#e6f0fc';   // 매장명 탭 기본은 첫 번째 색 (결정 310)
+            if (type !== 'utility' && currentColor.toLowerCase() === '#cbdbe9') currentColor = '#e6f0fc';   // 매장명 탭 기본은 첫 번째 색 (결정 314)
             selectEditColor(currentColor);
 
             // 기능실 라디오 버튼 상태 동기화
@@ -760,7 +760,7 @@ var lastCreatedStoreId = null;
             }
 
             // 기존 도형과 겹침 방지 및 8px 평행 간격 자동 보정
-            // 기존 매장·기능실과 겹친 부분을 빼고 둘레 2px 띄움. 둘로 나뉘면 큰 쪽만 (결정 310)
+            // 기존 매장·기능실과 겹친 부분을 빼고 둘레 2px 띄움. 둘로 나뉘면 큰 쪽만 (결정 314)
             try {
                 const rings = avoidStoreShapes([drawingPoints.map(p => [p.x, p.y])], false);
                 if (!rings.length) { showToast('그린 도형이 모두 기존 매장 안이라 남는 곳이 없습니다.', 2000); return; }

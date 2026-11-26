@@ -128,7 +128,7 @@
             return best || { x, y, isSnapped: false };
         }
 
-        // 그린 면에서 매장·기능실 자리를 빼고 둘레 2px 띄움 (결정 308·310). rings: [[x,y],...] 목록 → 남은 바깥 고리 목록
+        // 그린 면에서 매장·기능실 자리를 빼고 둘레 2px 띄움 (결정 308·314). rings: [[x,y],...] 목록 → 남은 바깥 고리 목록
         // passStores: 바닥이면 true → 매장을 꿰뚫어 지나가면 그 매장은 자르지 않음(기능실은 늘 자름). 매장 그리기는 false
         var FLOOR_STORE_GAP = 2;
         function floorAvoidStores(rings) { return avoidStoreShapes(rings, true); }
@@ -139,7 +139,7 @@
             const g = FLOOR_STORE_GAP, cut = [], drawn = rings.map(r => [r]);
             shapeSnapPolys().forEach(c => {
                 if (c.pts.length < 3 || c.x1 < x0 - g || c.x0 > x1 + g || c.y1 < y0 - g || c.y0 > y1 + g) return;
-                // 바닥이 매장을 꿰뚫어(매장이 둘 이상으로 나뉨) 지나가면 자르지 않고 그린 대로. 기능실은 꿰뚫을 수 없음 (결정 310)
+                // 바닥이 매장을 꿰뚫어(매장이 둘 이상으로 나뉨) 지나가면 자르지 않고 그린 대로. 기능실은 꿰뚫을 수 없음 (결정 314)
                 const isUtil = (currentStores.find(s => s.polygonElement === c.el) || {}).type === 'utility';
                 if (passStores && !isUtil && polygonClipping.difference([[c.pts.map(p => [p.x, p.y])]], drawn).length >= 2) return;
                 cut.push([c.pts.map(p => [p.x, p.y])]);

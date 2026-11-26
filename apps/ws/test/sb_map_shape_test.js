@@ -85,7 +85,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const fl2 = await f.evaluate(() => { const a = rtPathPoints(document.querySelector('#a')); return getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor').every(q => q.points.every(pt => !isPointInsidePolygon(pt, a))); });
   ok(fl2, '2-1) 복도 중심선으로 그린 바닥도 매장 안으로 안 들어감');
   await f.evaluate(() => { if (isZoneDrawingMode) toggleAddZoneMode(); });
-  // 2-2) 매장을 꿰뚫어 지나가는 바닥은 그린 대로 (결정 310)
+  // 2-2) 매장을 꿰뚫어 지나가는 바닥은 그린 대로 (결정 314)
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(150);
   await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
   await draw(f, [{ x: 9350, y: 4150 }, { x: 9850, y: 4150 }, { x: 9850, y: 4200 }, { x: 9350, y: 4200 }]);
@@ -161,7 +161,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   ok(!gap.ok && gap.mark && gap.n === 1, '10) 복도가 끊기면 선을 안 그리고 끊긴 자리를 빨간 점선으로 표시 ' + JSON.stringify({ ok: gap.ok, mark: gap.mark, n: gap.n }));
   ok(gap.gap && gap.gap[0].x < 9910 && gap.gap[1].x > 10040 && Math.abs(gap.gap[0].y - gap.gap[1].y) < 20, '10-1) 표시는 두 바닥 사이 틈 (' + JSON.stringify(gap.gap) + ')');
 
-  // 12) 구역 그리기: 완료·취소 뒤에도 그리기 상태 · 바닥은 기능실을 꿰뚫지 못함 (결정 310)
+  // 12) 구역 그리기: 완료·취소 뒤에도 그리기 상태 · 바닥은 기능실을 꿰뚫지 못함 (결정 314)
   await f.evaluate(() => { if (!isZoneDrawingMode) toggleAddZoneMode(); });
   await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
   const zc = await f.evaluate(u => {
