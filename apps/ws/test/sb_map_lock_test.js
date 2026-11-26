@@ -92,9 +92,15 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   for (let x = 9810; x <= 9990; x += 2) { const c = await px(x, 3999); if (dark(c)) outerDark++; }
   ok(innerDark === 0, '1) 겹친 바닥의 안쪽 선은 안 보임 (검은 점 ' + innerDark + '개)');
   ok(outerDark > 10, '2) 바깥 둘레 점선은 보임 (검은 점 ' + outerDark + '개)');
-  let overStore = 0;
-  for (let y = 4110; y <= 4290; y += 2) { const c = await px(9499, y); if (dark(c)) overStore++; }
-  ok(overStore > 10, '2-2) 바닥 점선이 매장(아그라) 위에서도 끊기지 않고 보임 (검은 점 ' + overStore + '개)');
+  // 결정 304: 매장을 침범한 바닥은 매장 자리를 빼고 둘레 2px 밖으로 (전: 매장 위로 점선이 지나감)
+  const avoid = await f.evaluate(() => {
+    const stores = Array.from(document.querySelectorAll('.store-polygon')).map(rtPathPoints);
+    const floors = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor');
+    let inside = 0, minGap = Infinity;
+    floors.forEach(z => z.points.forEach(p => stores.forEach(s => { if (isPointInsidePolygon(p, s)) inside++; else minGap = Math.min(minGap, distancePointToPolygon(p, s)); })));
+    return { inside, minGap: Math.round(minGap * 100) / 100, n: floors.length };
+  });
+  ok(avoid.inside === 0 && avoid.minGap >= 1.9, '2-2) 매장(아그라)을 침범한 바닥은 매장 밖 2px 로 다시 그려짐 ' + JSON.stringify(avoid));
   const hit = await f.evaluate(() => ({ lines: document.querySelectorAll('#floor-outline-layer .floor-lines polygon.user-floor-line').length, fills: document.querySelectorAll('#floor-user polygon, #floor-outline-layer polygon[fill]:not([fill="none"]):not(mask polygon)').length, order: !!(document.querySelector('#vendor-stores-layer').compareDocumentPosition(document.querySelector('#floor-outline-layer')) & Node.DOCUMENT_POSITION_FOLLOWING) }));
   ok(hit.lines === 2 && hit.fills === 0 && hit.order, '3) 점선 2개 · 색 있는 면 없음(투명) · 점선 층이 매장보다 위 ' + JSON.stringify(hit));
   await shot(p, 'shot_map_floor_union.png');

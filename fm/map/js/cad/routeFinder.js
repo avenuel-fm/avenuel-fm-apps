@@ -138,6 +138,36 @@ function rtLineFree(g, a, b) {                         // 곧은 선이 바닥 �
     return true;
 }
 
+// 복도가 끊겼을 때 끊긴 자리: 출발 쪽에서 닿는 바닥과 도착 쪽에서 닿는 바닥 사이 가장 가까운 두 점 [a, b] (결정 304)
+function rtGap(g, st, en) {
+    const N = g.W * g.H, side = new Uint8Array(N), q = new Int32Array(N);
+    const flood = (seeds, v) => {
+        let h = 0, t = 0;
+        seeds.forEach(e => { if (!side[e.cell]) { side[e.cell] = v; q[t++] = e.cell; } });
+        while (h < t) {
+            const i = q[h++], c = i % g.W;
+            [c > 0 ? i - 1 : -1, c < g.W - 1 ? i + 1 : -1, i - g.W, i + g.W].forEach(j => { if (j >= 0 && j < N && g.free[j] && !side[j]) { side[j] = v; q[t++] = j; } });
+        }
+    };
+    flood(st, 1); flood(en, 2);
+    const from = new Int32Array(N).fill(-1);       // 출발 쪽 바닥에서 아무 칸이나 건너 도착 쪽 바닥까지 가장 가까운 곳
+    let h = 0, t = 0;
+    for (let i = 0; i < N; i++) if (side[i] === 1) { from[i] = i; q[t++] = i; }
+    while (h < t) {
+        const i = q[h++], c = i % g.W;
+        for (const j of [c > 0 ? i - 1 : -1, c < g.W - 1 ? i + 1 : -1, i - g.W, i + g.W]) {
+            if (j < 0 || j >= N || from[j] >= 0) continue;
+            from[j] = from[i];
+            if (side[j] === 2) {
+                const at = k => { const cc = k % g.W; return { x: Math.round(g.cx(cc) * 10) / 10, y: Math.round(g.cy((k - cc) / g.W) * 10) / 10 }; };
+                return [at(from[j]), at(j)];
+            }
+            q[t++] = j;
+        }
+    }
+    return null;
+}
+
 // 계산 본체: 시작·도착 매장 모양(점 목록), 다른 매장들, 복도(바닥) 면들 → { ok, points } 또는 { ok:false, error }
 function routeCompute(fromPoly, toPoly, otherPolys, corridorPolys) {
     if (!corridorPolys.length) return { ok: false, error: '이 층에 복도(바닥)가 없습니다. 구역 추가/편집에서 「바닥」으로 복도를 먼저 그려 주세요.' };
@@ -145,7 +175,7 @@ function routeCompute(fromPoly, toPoly, otherPolys, corridorPolys) {
     const st = rtExits(fromPoly, g, g.free, 1, 2), en = rtExits(toPoly, g, g.free, 2, 1);
     if (!st.length || !en.length) return { ok: false, error: (!st.length ? '출발' : '도착') + ' 매장에서 복도로 이어지는 곳을 찾지 못했습니다.' };
     const found = rtSearch(g, g.free, st, en);
-    if (!found) return { ok: false, error: '두 매장 사이를 잇는 복도가 끊겨 있습니다.' };
+    if (!found) return { ok: false, error: '두 매장 사이를 잇는 복도가 끊겨 있습니다. 빨간 점선 자리에 바닥을 이어 그려 주세요.', gap: rtGap(g, st, en) };
     const { cells, start, end } = found;
     const pts = cells.map(i => { const c = i % g.W, r = (i - c) / g.W; return { x: g.cx(c), y: g.cy(r), c, r }; });
     // 입구에서 곧게 나가도록 첫·끝 줄을 입구 좌표에 맞춤 (칸 가운데와 입구는 반 칸 이내로 어긋남)

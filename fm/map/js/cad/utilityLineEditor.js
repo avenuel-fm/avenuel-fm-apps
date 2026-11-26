@@ -656,6 +656,7 @@ function finishUtilityLine() {
     const res = routeBetweenStores(utilLineTargetStore, utilLineSourceStore);   // 기능실 → 매장 순서의 점
     if (!res.ok) {
         showToast(res.error, 2800);
+        if (res.gap) showRouteGap(res.gap);
         utilLineTargetStore = null; utilLineSourceStore = null;   // 선은 안 그리고 처음부터 다시 고르게
         updateUtilLineGuideUI();
         return;
@@ -684,6 +685,40 @@ function finishUtilityLine() {
     const finalStore = utilLineSourceStore;
     exitUtilityLineDrawingMode();
     highlightUtilityLinesForStore(finalStore);
+}
+
+// 복도가 끊긴 자리를 빨간 점선·동그라미로 8초 보여 줌 (결정 304)
+function showRouteGap(gap) {
+    const svgEl = mapContainer?.querySelector('svg');
+    if (!svgEl || !gap) return;
+    svgEl.querySelector('#route-gap-mark')?.remove();
+    const ns = 'http://www.w3.org/2000/svg', k = 1 / (typeof scale !== 'undefined' && scale ? scale : 1);
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('id', 'route-gap-mark');
+    g.style.pointerEvents = 'none';
+    const [a, b] = gap, mk = (tag, at) => { const e = document.createElementNS(ns, tag); Object.entries(at).forEach(([n, v]) => e.setAttribute(n, v)); g.appendChild(e); };
+    mk('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#dc2626', 'stroke-width': 3 * k, 'stroke-dasharray': `${8 * k} ${5 * k}` });
+    [a, b].forEach(p => mk('circle', { cx: p.x, cy: p.y, r: 9 * k, fill: 'rgba(220,38,38,.15)', stroke: '#dc2626', 'stroke-width': 2 * k }));
+    svgEl.appendChild(g);
+    setTimeout(() => g.remove(), 8000);
+}
+
+// 매장·기능실 도형을 옮기거나 키운 뒤 붙어 있는 자동 연결선을 다시 그림 (결정 304). 길을 못 찾으면 예전 선 그대로
+function rerouteLinesForStore(store) {
+    if (!store || typeof routeBetweenStores !== 'function') return 0;
+    const floor = FLOORS[currentFloorIdx], id = String(store.id);
+    const lines = getFloorUtilityLines(floor.code), byId = sid => currentStores.find(s => String(s.id) === String(sid));
+    let n = 0, fail = 0, gap = null;
+    lines.forEach(l => {
+        if (!l.auto || (String(l.sourceStoreId) !== id && String(l.targetStoreId) !== id)) return;
+        const src = byId(l.sourceStoreId), tgt = byId(l.targetStoreId);
+        if (!src?.polygonElement || !tgt?.polygonElement) return;
+        const res = routeBetweenStores(tgt, src);
+        if (res.ok) { l.points = res.points; n++; } else { fail++; gap = gap || res.gap; }
+    });
+    if (n) { saveFloorUtilityLines(floor.code, lines); renderFloorUtilityLines(); }
+    if (fail) { showToast(`연결선 ${fail}개는 길을 못 찾아 예전 자리 그대로입니다.`, 2800); if (gap) showRouteGap(gap); }
+    return n;
 }
 
 // ================= UI 가이드 배너 및 라디오 버튼 4종 =================
