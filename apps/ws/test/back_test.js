@@ -51,6 +51,9 @@ const srv = http.createServer((req, res) => {
   await back();
   ok(await view() === 'docs' && !(await p.locator('#layer > *').count()), '7) 대화창이 열려 있으면 뒤로가기는 대화창만 닫음');
   await back(); ok(await view() === 'main', '8) 그다음 뒤로가기는 화면 이동');
+  await p.evaluate(() => go('cad')); await settle();
+  ok(await p.locator('button:has-text("뒤로")').count() === 1 && await p.locator('.mapback').count() === 1, '8-2) CAD 화면: 뒤로 단추는 왼쪽 아래 하나만');
+  await back();
   ok(!errs.length, '9) 화면 오류 없음 ' + errs.join(' / '));
   await b.close(); srv.close();
   console.log(fail ? '\n뒤로가기 시험 실패 ' + fail + '개' : '\n뒤로가기 시험 통과'); process.exit(fail ? 1 : 0);
