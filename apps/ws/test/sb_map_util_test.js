@@ -69,7 +69,7 @@ const pixel = (f, x, y) => f.evaluate(async ([x, y]) => {
 }, [x, y]);
 const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 3);
 const before = (f, a, b) => f.evaluate(([a, b]) => !!(document.querySelector(a).compareDocumentPosition(document.querySelector(b)) & Node.DOCUMENT_POSITION_FOLLOWING), [a, b]);
-const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDrawingZone(); }, pts);
+const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); }, pts);
 
 (async () => {
   const b = await chromium.launch();
