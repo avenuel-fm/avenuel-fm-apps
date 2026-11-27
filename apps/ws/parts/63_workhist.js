@@ -35,10 +35,10 @@ function whMat(i, key, el) { S.wh.d.f.mats[i][key] = el.value; whDirty(); }
 function whMatAdd() { const m = S.wh.d.f.mats; if (m.length >= 20) return toast('자재는 20줄까지 넣을 수 있습니다'); m.push({ n: '', q: '', u: '' }); whDirty(); render(); }
 function whMatRm(i) { const m = S.wh.d.f.mats; m.splice(i, 1); if (!m.length) m.push({ n: '', q: '', u: '' }); whDirty(); render(); }
 
-/* 사진 칸 (스크린샷의 「회의 사진」 칸 모양): 제목 · 큰 4:3 칸 · 아래 카메라/파일 버튼 */
-function whBtns(k, fld, i) {
-  const pick = cam => '<label class="btn whbt">' + (cam ? ICON.cam + ' 카메라' : ICON.folder + ' 파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : '') + ' hidden onchange="whAdd(\'' + k + '\',\'' + fld + '\',this,' + i + ')"></label>';
-  return '<div class="whbs">' + pick(1) + pick(0) + '</div>';
+/* 사진 칸 (하자점검 칸 모양, 사용자 11-26): 큰 4:3 칸 — 비었으면 안에 [카메라] · 아래 [파일] */
+function whCell(k, fld, L, i) {
+  const pick = cam => '<label class="btn dfbt' + (cam ? ' dfcam' : '') + '">' + (cam ? ICON.cam + ' 카메라' : ICON.folder + ' 파일') + '<input type="file" accept="image/*"' + (cam ? ' capture="environment"' : '') + ' hidden onchange="whAdd(\'' + k + '\',\'' + fld + '\',this,' + i + ')"></label>';
+  return (L[i] ? whTile(k, fld, L[i], i) : '<div class="whim dfph">' + pick(1) + '</div>') + '<div class="whbs">' + pick(0) + '</div>';
 }
 function whTile(k, fld, p, i) {
   return '<div class="wht"><button type="button" class="whim" onclick="whView(\'' + k + '\',\'' + fld + '\',' + i + ')" aria-label="사진 ' + (i + 1) + ' 크게 보기"><img src="' + h(p.src) + '" alt=""></button>' +
@@ -46,7 +46,7 @@ function whTile(k, fld, p, i) {
 }
 function whSlots(k, fld, title, max) {   // 주간: 칸 하나에 사진 한 장, 칸마다 카메라/파일 (예전에 더 넣어 둔 사진은 칸을 더 보여 줌)
   const L = S.wh[k].f[fld], n = Math.max(max, L.length);
-  return '<div class="whcol">' + Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + (L[i] ? whTile(k, fld, L[i], i) : '<div class="whim empty">사진 없음</div>') + whBtns(k, fld, i) + '</div>').join('') + '</div>';
+  return Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + whCell(k, fld, L, i) + '</div>').join('');
 }
 const WH_MAX = 20;
 function whMin(fld) { return fld === 'pledge' ? 1 : 2; }
@@ -54,7 +54,7 @@ function whAddCell(fn, n, max) { return '<button type="button" class="whadd" onc
 function whMulti(k, fld, title) {   // 야간: 주간과 같은 칸 모양, ＋로 20칸까지, 휴대폰 2열 · PC 4열. 각서는 1칸 + 오른쪽 ＋ 칸
   const o = S.wh[k], L = o.f[fld], n = Math.max(whMin(fld), L.length, (o.sl && o.sl[fld]) || 0), cell = fld === 'pledge', add = 'whPlus(\'' + k + '\',\'' + fld + '\')';
   return '<div class="whsec"><h4>' + title + '<small>' + L.length + '장 / ' + WH_MAX + '장</small></h4><div class="whg">' +
-    Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + (L[i] ? whTile(k, fld, L[i], i) : '<div class="whim empty">사진 없음</div>') + whBtns(k, fld, i) + '</div>').join('') +
+    Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + whCell(k, fld, L, i) + '</div>').join('') +
     (cell && n < WH_MAX ? whAddCell(add, n, WH_MAX) : '') + '</div>' +
     (cell ? '' : '<button type="button" class="btn whplus" onclick="' + add + '"' + (n >= WH_MAX ? ' disabled' : '') + '>' + ICON.plus + ' 사진 칸 추가 (' + n + ' / ' + WH_MAX + ')</button>') + '</div>';
 }
@@ -66,7 +66,7 @@ function whRest(k) {
     const L = x.pics, n = Math.min(WH_RPIC, Math.max(2, L.length, x.n || 0)), fld = 'r' + j;
     return '<div class="whst"><div class="whsh"><b>매장 ' + (j + 1) + '</b><input class="inp" maxlength="30" placeholder="매장명 입력" value="' + h(x.name) + '" oninput="whRestName(' + j + ',this)" aria-label="매장 ' + (j + 1) + ' 매장명">' +
       '<button type="button" class="btn sm whsx" onclick="whRestRm(' + j + ')">' + ICON.x + ' 매장 빼기</button></div><div class="whg">' +
-      Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + (WH_RLAB[i] || '사진 ' + (i + 1)) + '</h4>' + (L[i] ? whTile(k, fld, L[i], i) : '<div class="whim empty">사진 없음</div>') + whBtns(k, fld, i) + '</div>').join('') +
+      Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + (WH_RLAB[i] || '사진 ' + (i + 1)) + '</h4>' + whCell(k, fld, L, i) + '</div>').join('') +
       (n < WH_RPIC ? whAddCell('whRestPlus(' + j + ')', n, WH_RPIC) : '') + '</div></div>';
   }).join('') + '<button type="button" class="btn whplus" onclick="whRestAdd()"' + (R.length >= WH_RMAX ? ' disabled' : '') + '>' + ICON.plus + ' 매장 추가 (' + R.length + '곳)</button></div>';
 }
@@ -79,7 +79,7 @@ function whPos(fld) { return fld === 'fire' || /^r\d+$/.test(fld); }   // 칸 �
 function whFireN(f, sl) { return Math.min(WH_MAX, Math.max(2, Math.ceil(f.fire.length / 2), sl || 0)); }
 function whFire(k) {   // 방염집기 1곳 = 집기사진 + 방염서류 (각각 카메라/파일). 짝은 저장 순서로 이어 붙여 보관(2칸씩)
   const o = S.wh[k], L = o.f.fire, n = whFireN(o.f, o.sl && o.sl.fire), c = L.filter(Boolean).length;
-  const part = (t, i) => '<div class="whfp"><b>' + t + '</b>' + (L[i] ? whTile(k, 'fire', L[i], i) : '<div class="whim empty">사진 없음</div>') + whBtns(k, 'fire', i) + '</div>';
+  const part = (t, i) => '<div class="whfp"><b>' + t + '</b>' + whCell(k, 'fire', L, i) + '</div>';
   return '<div class="whsec"><h4>방염집기<small>사진 ' + c + '장 / ' + WH_MAX * 2 + '장</small></h4><div class="whg whfg">' +
     Array.from({ length: n }, (_, j) => '<div class="whpc"><h4>방염집기 ' + (j + 1) + '</h4>' + '<div class="whfr">' + part('집기사진', 2 * j) + part('방염서류', 2 * j + 1) + '</div></div>').join('') + '</div>' +
     '<button type="button" class="btn whplus" onclick="whPlus(\'' + k + '\',\'fire\')"' + (n >= WH_MAX ? ' disabled' : '') + '>' + ICON.plus + ' 방염집기 추가 (' + n + ' / ' + WH_MAX + ')</button></div>';
@@ -93,7 +93,7 @@ function whFormD(f) {
     '<label class="rwlb">작업자</label><input class="inp" maxlength="60" placeholder="예: 홍길동, 김철수" value="' + h(f.workers) + '" oninput="whIn(\'workers\',this)">' +
     '<div class="rwlb">작업위치 (버튼으로 선택)</div>' + whFloors(f) +
     '<label class="rwlb">작업내용</label><textarea class="inp" rows="3" maxlength="300" oninput="whIn(\'content\',this)">' + h(f.content) + '</textarea>' +
-    '<div class="whsplit">' + whSlots('d', 'before', '작업 전', 2) + whSlots('d', 'after', '작업 후', 2) + '</div>' +
+    '<div class="whg whg2">' + whSlots('d', 'before', '작업 전', 2) + whSlots('d', 'after', '작업 후', 2) + '</div>' +
     '<div class="rwlb">사용자재 (이름 · 수량 · 단위)</div>' + f.mats.map((m, i) => '<div class="whmat"><input class="inp" maxlength="30" placeholder="자재 이름" value="' + h(m.n) + '" oninput="whMat(' + i + ',\'n\',this)" aria-label="자재 이름">' +
       '<input class="inp" maxlength="10" inputmode="decimal" placeholder="수량" value="' + h(m.q) + '" oninput="whMat(' + i + ',\'q\',this)" aria-label="수량"><input class="inp" maxlength="10" placeholder="단위" value="' + h(m.u) + '" oninput="whMat(' + i + ',\'u\',this)" aria-label="단위">' +
       '<button type="button" class="btn sm" onclick="whMatRm(' + i + ')" aria-label="자재 줄 지우기">' + ICON.x + '</button></div>').join('') +

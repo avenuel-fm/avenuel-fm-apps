@@ -35,6 +35,28 @@ var lastCreatedStoreId = null;
                     selectEditColor('#e6f0fc');
                 }
             }
+            applyTypeShape(type);
+        }
+
+        // 탭을 바꾸면 모양도 그 종류 규칙으로 (결정 316): 기능실 = 매장 옆이면 붙고 3px · 매장 침범은 그린 대로, 매장 = 기존 도형과 2px.
+        // 수정 창이 열린 직접 그린 도형만, 저장 때 남음(닫으면 되돌림)
+        function applyTypeShape(type) {
+            const se = typeof shapeEdit !== 'undefined' ? shapeEdit : null;
+            if (!se || se.store !== activeSelectedStore) return;
+            const p = se.store.polygonElement;
+            const raw = se.store.rawPts || parseSvgPathPoints(se.origD);
+            let pts;
+            try {
+                if (type === 'utility') pts = utilityShapeFor(raw, p);
+                else if (se.store.rawPts) {
+                    const rs = avoidStoreShapes([raw.map(q => [q.x, q.y])], false, null, p);
+                    pts = rs.length ? rs.reduce((a, r) => ringArea(r) > ringArea(a) ? r : a).map(q => ({ x: Math.round(q[0] * 10) / 10, y: Math.round(q[1] * 10) / 10 })) : raw;
+                } else pts = parseSvgPathPoints(se.origD);
+            } catch (err) { console.warn('모양 다시 계산 실패', err); return; }
+            if (pts.length < 3) return;
+            p.setAttribute('d', pointsToPathD(pts));
+            shapeRelabel(se.store, true);
+            drawShapeHandles();
         }
 
         function onSelectUtilityRadio(val) {
@@ -114,6 +136,7 @@ var lastCreatedStoreId = null;
 
         // 매장/기능실 선택 및 모달 열기
         function selectAndHighlightStore(storeItem) {
+            if (shapeEdit && shapeEdit.store === storeItem) return;   // 고치는 중인 도형을 누르거나 끈 것은 선택이 아님
             // 이미 선택된 매장을 다시 클릭한 경우: 상세 팝업창 닫기 및 선택 취소 (토글)
             if (activeSelectedStore && activeSelectedStore.id === storeItem.id && statusModal && statusModal.style.display !== 'none') {
                 closeAllPopovers();
@@ -240,7 +263,8 @@ var lastCreatedStoreId = null;
 
             if (editNameInput) editNameInput.value = store.name || '';
 
-            const currentColor = store.fillColor || store.polygonElement?.getAttribute('fill') || (type === 'utility' ? '#cbdbe9' : '#e6f0fc');
+            let currentColor = store.fillColor || store.polygonElement?.getAttribute('fill') || (type === 'utility' ? '#cbdbe9' : '#e6f0fc');
+            if (type !== 'utility' && currentColor.toLowerCase() === '#cbdbe9') currentColor = '#e6f0fc';   // 매장명 탭 기본은 첫 번째 색 (결정 314)
             selectEditColor(currentColor);
 
             // 기능실 라디오 버튼 상태 동기화
@@ -257,9 +281,11 @@ var lastCreatedStoreId = null;
             btnPopoverDelete.style.display = 'inline-flex';
 
             modalOverlay.classList.remove('as-toast-overlay');
+            modalOverlay.classList.add('as-side-overlay');   // 창은 오른쪽 아래, 지도는 그대로 만짐 (결정 308)
             modalOverlay.style.display = 'flex';
             statusModal.style.display = 'none';
             editModal.style.display = 'flex';
+            startShapeEdit(store);
             if (editNameInput) {
                 editNameInput.focus();
                 editNameInput.select();
@@ -277,7 +303,8 @@ var lastCreatedStoreId = null;
         }
 
         function closeAllPopovers() {
-            modalOverlay.classList.remove('as-toast-overlay');
+            endShapeEdit();   // 저장 안 하고 닫으면 모양·자리 되돌림
+            modalOverlay.classList.remove('as-toast-overlay', 'as-side-overlay');
             modalOverlay.style.display = 'none';
             statusModal.style.display = 'none';
             editModal.style.display = 'none';
@@ -355,6 +382,8 @@ var lastCreatedStoreId = null;
             }
 
             pushUndoState('매장 정보 수정');
+            const editedStore = activeSelectedStore;
+            const shapeChanged = commitShapeEdit();
 
             const floor = FLOORS[currentFloorIdx];
             const oldName = activeSelectedStore.name;
@@ -433,6 +462,117 @@ var lastCreatedStoreId = null;
             renderStoreList(currentStores);
             closeAllPopovers();
             showToast(`'${StoreBook.show(newName)}' ${isUtil ? '기능실' : '매장'} 정보가 저장되었습니다.`, 1500);
+            if (shapeChanged && typeof rerouteLinesForStore === 'function' && rerouteLinesForStore(editedStore)) syncSvgCache();   // 붙은 연결선도 새 자리로
+        }
+
+        // ================= 직접 그린 도형 크기 조절·옮기기 (수정 창이 열린 동안, 결정 308) =================
+        var shapeEdit = null;   // { store, origD }
+
+        // 도형 모양이 바뀐 것을 저장 (직접 그린 도형만, 보기 전용은 화면만)
+        function persistCustomShape(pathEl) {
+            if (!pathEl || mapStore.readOnly()) return;
+            const d = pathEl.getAttribute('d'), pts = parseSvgPathPoints(d);
+            if (pts.length < 3) return;
+            const cx = pts.reduce((a, p) => a + p.x, 0) / pts.length, cy = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+            const floor = FLOORS[currentFloorIdx], id = String(pathEl.getAttribute('data-store-id'));
+            const list = getCustomStores(floor.code), cs = list.find(c => String(c.id) === id);
+            if (cs) { cs.pathData = d; cs.x = cx; cs.y = cy; saveCustomStores(floor.code, list); }
+            const s = currentStores.find(x => x.polygonElement === pathEl);
+            if (s) { s.pathData = d; s.x = cx; s.y = cy; }
+        }
+
+        function shapeRelabel(store, noGrow) {
+            if (store.textElement && store.polygonElement) layoutStoreLabel(store.textElement, StoreBook.show(store.name), store.polygonElement, noGrow);
+        }
+
+        function startShapeEdit(store) {
+            endShapeEdit();
+            const p = store && store.polygonElement;
+            if (!store || !store.isCustom || !p || mapStore.readOnly()) return;
+            shapeEdit = { store, origD: p.getAttribute('d') };
+            p.classList.remove('selected');            // 원래 색 그대로 보이게
+            p.classList.add('shape-editing');
+            if (store.groupElement) store.groupElement.classList.remove('selected');
+            if (store.textElement) store.textElement.style.pointerEvents = 'none';
+            p.onmousedown = e => shapeDrag(e, (pts, dx, dy) => pts.map(q => ({ x: q.x + dx, y: q.y + dy })));
+            drawShapeHandles();
+        }
+
+        function endShapeEdit() {
+            const se = shapeEdit;
+            if (!se) return;
+            shapeEdit = null;
+            const p = se.store.polygonElement;
+            if (p) {
+                if (p.getAttribute('d') !== se.origD) { p.setAttribute('d', se.origD); shapeRelabel(se.store, true); }
+                p.classList.remove('shape-editing');
+                p.onmousedown = null;
+            }
+            if (se.store.textElement) se.store.textElement.style.pointerEvents = '';
+            mapContainer.querySelector('#shape-edit-handles')?.remove();
+        }
+
+        // 저장 때: 바뀐 모양을 남기고 끝냄 → 바뀌었으면 true
+        function commitShapeEdit() {
+            const se = shapeEdit;
+            if (!se) return false;
+            const d = se.store.polygonElement.getAttribute('d'), changed = d !== se.origD;
+            se.origD = d;
+            endShapeEdit();
+            if (changed) persistCustomShape(se.store.polygonElement);
+            return changed;
+        }
+
+        // 점선 테두리 + 모서리 네 개 손잡이 (화면에서 늘 같은 크기)
+        function drawShapeHandles() {
+            const svgEl = mapContainer.querySelector('svg');
+            svgEl?.querySelector('#shape-edit-handles')?.remove();
+            if (!svgEl || !shapeEdit) return;
+            const pts = parseSvgPathPoints(shapeEdit.store.polygonElement.getAttribute('d'));
+            if (pts.length < 3) return;
+            const xs = pts.map(q => q.x), ys = pts.map(q => q.y);
+            const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+            const k = 1 / (typeof scale !== 'undefined' && scale ? scale : 1), ns = 'http://www.w3.org/2000/svg';
+            const g = document.createElementNS(ns, 'g');
+            g.setAttribute('id', 'shape-edit-handles');
+            const mk = (tag, at) => { const e = document.createElementNS(ns, tag); Object.entries(at).forEach(([n, v]) => e.setAttribute(n, v)); g.appendChild(e); return e; };
+            mk('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: 'none', stroke: '#2563eb', 'stroke-width': 1.5 * k, 'stroke-dasharray': `${6 * k} ${4 * k}`, 'pointer-events': 'none' });
+            const H = 10 * k;
+            [[x0, y0, 'nwse'], [x1, y0, 'nesw'], [x1, y1, 'nwse'], [x0, y1, 'nesw']].forEach(([cx, cy, cur], i) => {
+                const h = mk('rect', { x: cx - H / 2, y: cy - H / 2, width: H, height: H, class: 'shape-handle', 'stroke-width': 1.5 * k, 'data-corner': i });
+                h.style.cursor = cur + '-resize';
+                const ox = i === 0 || i === 3 ? x1 : x0, oy = i < 2 ? y1 : y0;   // 맞은편 모서리가 기준
+                h.onmousedown = e => shapeDrag(e, (pts0, dx, dy, ev) => {
+                    const w = cx - ox, hh = cy - oy;
+                    let fx = w ? (w + dx) / w : 1, fy = hh ? (hh + dy) / hh : 1;
+                    if (!ev.shiftKey) fx = fy = Math.max(0.05, (fx * Math.abs(w) + fy * Math.abs(hh)) / (Math.abs(w) + Math.abs(hh)));   // 그린 모양 그대로 (Shift 는 가로·세로 따로)
+                    fx = Math.max(0.05, fx); fy = Math.max(0.05, fy);
+                    return pts0.map(q => ({ x: ox + (q.x - ox) * fx, y: oy + (q.y - oy) * fy }));
+                });
+            });
+            svgEl.appendChild(g);
+        }
+
+        // 끌기 공통: apply(시작 점들, 지도 dx, dy, 이벤트) → 새 점들
+        function shapeDrag(e, apply) {
+            if (e.button !== 0 || !shapeEdit) return;
+            e.stopPropagation(); e.preventDefault();       // 지도 끌기 대신 도형 끌기
+            const se = shapeEdit, p = se.store.polygonElement;
+            const pts0 = parseSvgPathPoints(p.getAttribute('d')), sx = e.clientX, sy = e.clientY;
+            const ctm = p.getScreenCTM(), k = ctm && ctm.a ? ctm.a : 1;
+            let moved = false;
+            const move = ev => {
+                if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return;
+                moved = true;
+                p.setAttribute('d', pointsToPathD(apply(pts0, (ev.clientX - sx) / k, (ev.clientY - sy) / k, ev)));
+                shapeRelabel(se.store, true);
+                drawShapeHandles();
+            };
+            const up = () => {
+                window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+                if (moved) shapeRelabel(se.store, true);
+            };
+            window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
         }
 
         // 매장/기능실 도형 및 정보 즉시 삭제 (상단 토스트 1초간 표시, 삭제된 도형은 바닥 색상 흰색(#ffffff)으로 영구 보존)
@@ -642,7 +782,25 @@ var lastCreatedStoreId = null;
             }
 
             // 기존 도형과 겹침 방지 및 8px 평행 간격 자동 보정
-            drawingPoints = adjustStorePolygonClearance(drawingPoints);
+            // 기존 매장·기능실과 겹친 부분을 빼고 둘레 2px 띄움. 둘로 나뉘면 큰 쪽만 (결정 314)
+            // 닫힌 외벽 밖은 잘라 냄 (결정 316). 기능실 탭을 고르면 이 모양(rawPts)에서 다시 계산
+            let rawPts = drawingPoints.slice();
+            try {
+                const toPts = r => r.map(q => ({ x: Math.round(q[0] * 10) / 10, y: Math.round(q[1] * 10) / 10 }));
+                const inWall = clipRingsToWall([drawingPoints.map(p => [p.x, p.y])], 0);
+                if (!inWall.length) { showToast('그린 도형이 모두 외벽 밖입니다.', 2000); return; }
+                if (inWall.length > 1 || Math.abs(ringArea(inWall[0]) - ringArea(drawingPoints.map(p => [p.x, p.y]))) > 1) {
+                    rawPts = toPts(inWall.reduce((a, r) => ringArea(r) > ringArea(a) ? r : a));
+                    showToast('외벽 밖으로 나간 부분은 잘라 냈습니다.', 1500);
+                }
+                drawingPoints = rawPts;
+                const rings = avoidStoreShapes([drawingPoints.map(p => [p.x, p.y])], false);
+                if (!rings.length) { showToast('그린 도형이 모두 기존 매장 안이라 남는 곳이 없습니다.', 2000); return; }
+                const big = rings.reduce((a, r) => ringArea(r) > ringArea(a) ? r : a);
+                const moved = rings.length > 1 || Math.abs(ringArea(big) - ringArea(drawingPoints.map(p => [p.x, p.y]))) > 0.5;
+                if (moved) drawingPoints = toPts(big);
+                if (moved) showToast('기존 도형과 겹치지 않게 2px 띄워 그렸습니다.', 1500);
+            } catch (err) { console.warn('매장 피하기 실패, 그린 그대로', err); }
 
             pushUndoState('매장 추가');
 
@@ -683,8 +841,8 @@ var lastCreatedStoreId = null;
             const newText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             newText.setAttribute('font-family', 'Pretendard, sans-serif');
             newText.setAttribute('font-size', String(STORE_LABEL_SIZE));
-            newText.setAttribute('font-weight', '600');
-            newText.setAttribute('fill', '#0f172a');
+            newText.setAttribute('font-weight', '400');
+            newText.setAttribute('fill', '#000000');
             newText.setAttribute('text-anchor', 'middle');
             newText.setAttribute('x', centroidX.toFixed(2));
             newText.setAttribute('y', (centroidY + 6).toFixed(2)); // 살짝 텍스트 베이스라인 보정
@@ -733,7 +891,8 @@ var lastCreatedStoreId = null;
                 groupElement: newGroup,
                 shapeKey: shapeKey,
                 shapeW: width,
-                shapeH: height
+                shapeH: height,
+                rawPts: rawPts
             };
 
             // 커스텀 생성 매장 목록에 저장 (새로고침 시 복원)

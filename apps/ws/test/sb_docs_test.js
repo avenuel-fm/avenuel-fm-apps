@@ -40,7 +40,7 @@ const ehData = () => ({ ok: true, floor: '1F', floors: EH_F.map(f => ({ code: f,
 const STAFF = [{ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, { staff_id: 'S002', name: '김철수', part: '기건파트', role: '직원' }];
 const RISK = [{ words: '(기본)', risk: '손 다침', kind: '베임', p: 1, s: 2, fixes: [{ t: '보호장갑', on: true }] },
   { words: '분전반, 배선', risk: '감전', kind: '감전', p: 2, s: 3, fixes: [{ t: '전원 차단', on: true }] }];
-const RW = [], WD = [], WN = []; let WF = 0;
+const RW = [], WD = [], WN = [], HJ = []; let WF = 0;
 const CSITE = { id: 'WS-CS-1', name: '5F 리모와', work: '인테리어', co: 'A사' }, CS = {};
 const feData = () => ({ ok: true, items: FE, execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const RPC = {
@@ -142,6 +142,14 @@ const RPC = {
     if (old) WN[WN.indexOf(old)] = item; else WN.push(item); return { ok: true, item };
   },
   ws_dn_delete: a => { WN.splice(WN.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
+  ws_hj_list: a => ({ ok: true, list: HJ.filter(x => !a.p_q || JSON.stringify(x).indexOf(a.p_q) !== -1) }),
+  ws_hj_save: a => {
+    const d = a.p_d, one = (x, old) => x && x.file ? { id: 'F' + (++WF), src: x.file.url } : x && x.id && old && old.id === x.id ? old : null, old = HJ.find(x => x.id === d.id);
+    const item = { id: d.id || 'WS-HJ-' + (HJ.length + 1), day: d.day, due: new Date(Date.parse(d.day) + 10 * 864e5).toISOString().slice(0, 10), items: d.items.map((x, i) => ({ n: x.n, t: x.t, photo: one(x.photo, old && old.items[i] && old.items[i].photo) })),
+      signSite: one(d.signSite, old && old.signSite), signFm: one(d.signFm, old && old.signFm), by: ME.name, at: '11/25 10:00' };
+    if (old) HJ[HJ.indexOf(old)] = item; else HJ.push(item); return { ok: true, item };
+  },
+  ws_hj_delete: a => { HJ.splice(HJ.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
   /* 3-6 환경설정 */
   ws_admin_staff: () => ({ ok: true, toastSec: 2.6, staff: STAFF }),
   ws_risk_get: () => ({ ok: true, rows: RISK }),
@@ -251,6 +259,12 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const pu = UPLOADS.find(x => /^tbm_pdf\//.test(x.p)), tp = last('ws_tbm_save_pdf').a;
   ok(pu && pu.type === 'application/pdf' && /\.pdf$/.test(pu.p) && tp.p_files.pdf.path === pu.p && tp.p_sign_ids.join() === 'SG1', '11) PDF를 버킷 tbm_pdf/ 에 올리고 서명 번호 넘김');
   ok(await p.locator('a.btn', { hasText: 'PDF 보기' }).first().getAttribute('href') === tp.p_files.pdf.url, '12) [PDF 보기] = 버킷 공개 주소');
+  { await p.evaluate(() => { window.__pr = 0; window.print = () => { window.__pr++; }; });
+    const btns = await p.locator('.nwbar').first().locator('.btn').allInnerTexts();
+    await p.click('.nwbar button:has-text("인쇄 (A4)")'); await p.waitForFunction(() => window.__pr === 1);
+    const pr = await p.evaluate(() => ({ pg: document.querySelectorAll('#print .tbp .pg').length, a4: /size:A4 landscape/.test(document.getElementById('print').innerHTML) }));
+    ok(/PDF 보기/.test(btns[btns.length - 2]) && /인쇄 \(A4\)/.test(btns[btns.length - 1]) && pr.pg === 2 && pr.a4, '12-1) TBM [PDF 보기] 오른쪽 [인쇄 (A4)] → A4 가로 2쪽 인쇄 ' + JSON.stringify(pr));
+    await p.evaluate(() => { document.getElementById('print').innerHTML = ''; }); }
   // ── 앱 안 PDF 보기 (계정 선택 창 없이) ──
   const pages0 = c.pages().length;
   await p.click('.nwbar a.btn:has-text("PDF 보기")');
@@ -308,7 +322,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const n15 = count('ws_log_save_pdf'); await p.click('#lgSave');
   ok(await called('ws_log_save_pdf', n15) && await toast('저장하고 PDF도 만들었습니다'), '15) 일지 저장 = 저장 + PDF 한 번에 (결정 176)');
   const ls = last('ws_log_save_pdf').a;
-  ok(ls.p_day === D && ls.p_ver === '' && ls.p_d['전기'] === '1234' && ls.p_d.works['전기방재'][0] === '1층 등 교체' && Object.keys(ls.p_files).join() === 'pdf', '16) DB 함수에 숫자·금일작업(TBM에서) 넘김');
+  ok(ls.p_day === D && ls.p_ver === '' && ls.p_d['전기'] === '1234' && ls.p_d.works['전기방재'][0] === '1층 등 교체' && Object.keys(ls.p_files).join() === 'pdf', '16) DB 함수에 숫자·금일작업(서버가 준 주간작업) 넘김');
   ok(AC_N === 1, '17) 저장 뒤 공조기는 10분 기억 (구글 다시 안 부름)');
   const lp = ls, lu = UPLOADS.find(x => /^log_pdf\//.test(x.p));
   ok(lu && lp.p_files.pdf.path === lu.p && await p.locator('#lgBar button.pri').count() === 0, '18-19) PDF는 버킷 log_pdf/ 에, 저장 자리는 [PDF 보기]로');
@@ -368,7 +382,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const af = last('ws_att_fix').a;
   ok(af.p_date === D && af.p_name === '김철수' && af.p_value === '연', '23) DB 함수에 날짜·이름·상태 넘김');
   await p.evaluate(() => { S.at.hol = ['토', '월']; return atHolSave(S.at.r.people.findIndex(x => x.name === '김철수')); });
-  ok(last('ws_att_holiday').a.p_days.join() === '토,월' && await toast('기본 휴일 저장'), '24) 기본 휴일 저장');
+  ok(last('ws_att_holiday').a.p_days.join() === '토,월' && await toast('김철수 저장'), '24) 기본 휴일 저장 (알림 「이름 저장」)');
   const xr = await p.evaluate(() => run('attPut', S.token, S.at.r.date.slice(0, 7), [{ sec: '전기', role: '소장', name: '홍길동', days: [''] }],
     'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + btoa('PK' + 'x'.repeat(200))));
   const xu = UPLOADS.find(x => /^roster_xlsx\//.test(x.p)), xp = last('ws_att_put').a;
@@ -489,7 +503,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.click('.rwvh >> text="닫기"'); ok(await p.locator('.rwv').count() === 0, 'R10) 닫기');
   await p.locator('.rwx').first().click();
   await p.waitForFunction(() => document.querySelectorAll('.rwt').length === 1);
-  ok(count('ws_rw_delete') === 1, 'R11) 소장·관리자는 ✕로 지움 (되묻기 뒤)');
+  ok(count('ws_rw_delete') === 1, 'R11) ✕로 지움 (되묻기 뒤, 전 직원)');
 
 
   // ── 주간/야간 작업내역 (결정 240) ──
@@ -509,7 +523,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
     xwa.parts[0] === '전기방재' && xwa.floor === '2F' && xwa.mats[0].n === '안정기 32W' && xwa.mats[0].u === '개', 'W2) 저장: 사진 2장 버킷 dw_photo/ 에 올림 · 파트·위치·자재 줄을 함께 넘김');
   ok(await p.locator('.whrow').count() === 1 && await p.evaluate(() => !S.wh.d.f.id && !S.wh.d.f.before.length && !S.wh.d.f.content), 'W3) 저장 뒤 빈 양식 · 목록에 한 줄');
   await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.d.f.id && S.wh.d.f.before.length === 2);
-  await p.locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('c1')]);
+  await p.locator('.whpc').nth(0).locator('.whbs input').setInputFiles([xjf('c1')]);
   await new Promise(r => setTimeout(r, 800));
   ok(await p.evaluate(() => S.wh.d.f.before.length) === 2 && await p.evaluate(() => !!S.wh.d.f.before[0].data), 'W4) 작업 전 사진은 2칸 (이미 찬 칸에 다시 고르면 바꿈)');
   const xnu2 = UPLOADS.length; await p.click('#whBar .btn.pri'); await p.waitForFunction(() => !S.wh.d.busy && !S.wh.d.dirty);
@@ -528,12 +542,12 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
     await p.locator('.whsec').nth(0).locator('.whpc').nth(i).locator('input[type=file]').nth(1).setInputFiles([xjf('n' + (i + 1))]);
     await p.waitForFunction(n => S.wh.n.f.photos.length === n, i + 1);
   }
-  const xfc = p.locator('.whsec').nth(1).locator('.whpc').nth(0);   // 방염집기 1: 입력 4개 = 집기 카메라·파일 / 서류 카메라·파일
-  await xfc.locator('input[type=file]').nth(1).setInputFiles([xjf('f1')]);
+  const xfc = p.locator('.whsec').nth(1).locator('.whpc').nth(0);   // 방염집기 1: 집기·서류 칸마다 [파일]은 칸 아래 (.whbs)
+  await xfc.locator('.whbs input').nth(0).setInputFiles([xjf('f1')]);
   await p.waitForFunction(() => S.wh.n.f.photos.length === 5 && S.wh.n.f.fire.length === 1);
   const xn0 = count('ws_dn_save'); await p.evaluate(() => whSave());
   ok(count('ws_dn_save') === xn0 && await toast('방염집기 1에 방염서류 사진도 넣어 주세요'), 'W8a) 방염집기 한쪽 사진만 있으면 저장 막고 안내');
-  await xfc.locator('input[type=file]').nth(3).setInputFiles([xjf('f2')]);
+  await xfc.locator('.whbs input').nth(1).setInputFiles([xjf('f2')]);
   await p.waitForFunction(() => S.wh.n.f.fire.length === 2 && S.wh.n.f.fire[1]);
   const xs0 = p.locator('.whsec').nth(0), xcnt = () => xs0.locator('.whpc').count();
   ok(await xcnt() === 5 && await p.locator('.whsec').nth(1).locator('.whpc').count() === 2, 'W8b) 야간: 현장 사진 5장 → 칸 5개 · 방염집기는 빈 칸 2개 (처음 2칸) · 한 곳에 사진 입력 2개');
@@ -543,7 +557,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const xvp = p.viewportSize(); await p.setViewportSize({ width: 1100, height: 900 });
   const xpc = await p.evaluate(() => { const g = document.querySelector('.whfg'), q = g.querySelector('.whpc'), t = q.querySelectorAll('.whfp'); return { cols: getComputedStyle(g).gridTemplateColumns.split(' ').length, side: Math.abs(t[0].getBoundingClientRect().top - t[1].getBoundingClientRect().top) < 3 && t[1].getBoundingClientRect().left > t[0].getBoundingClientRect().left }; });
   await p.setViewportSize(xvp);
-  ok(xpc.cols === 3 && xpc.side, 'W8d) PC: 방염집기 묶음 3열 · 집기사진|방염서류 가로 나란히');
+  ok(xpc.cols === 4 && xpc.side, 'W8d) PC: 사진 4열 (방염집기 한 곳 = 2칸, 집기사진|방염서류 가로 나란히)');
   ok(await p.evaluate(() => whPages('n').split('class="pg"').length - 1) === 3, 'W9) 야간 쪽 수: 내용+현장 사진 · 각서 · 방염서류 1장 = 3쪽 (각서 없으면 「미첨부」 쪽)');
   await p.evaluate(() => whPrint()); await new Promise(r => setTimeout(r, 400));
   ok(/각서 미첨부/.test(await p.evaluate(() => $('print').innerText)) && await p.evaluate(() => $('print').querySelectorAll('.fa img,.fb img').length) === 2, 'W10) 인쇄: 각서 미첨부 표시 · 방염집기 한 곳이 한 쪽(집기사진 + 방염서류)');
@@ -591,6 +605,76 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const xrr = await p.evaluate(() => window.XR);
   ok(xrr.f === "2026-11-22" && xrr.t === "2026-11-28" && xrr.n.join() === "X2" && xrr.ps.length === 2, 'W18) 주간보고: 기준일 주(일~토)·고른 파트의 작업만 엑셀 만들기에 넘김');
   WD.length = 0;
+  // ── 하자점검 (결정 266) ──
+  await p.evaluate(() => go('inspect'));
+  ok(/하자점검/.test(await p.locator('.wrap.list .row').last().innerText()), 'H0) 점검 그룹 맨 아래에 「하자점검」');
+  await p.evaluate(() => openDf()); await p.waitForFunction(() => S.df && S.df.list);
+  ok(await p.locator('.dfc').count() === 1 && await p.locator('.dfplus').count() === 1 && await p.locator('.dfc .dfcam input[type=file]').count() === 1 && await p.locator('.dfc .whbs input[type=file]').count() === 1 && !/사진 없음/.test(await p.locator('.dfc').innerText()), 'H1) 하자 칸 1개 + 「+」 · 현장명·하자내용 · 카메라(사진 자리 한가운데)·파일 · 「사진 없음」 글자 없음');
+  const hbar = await p.locator('#dfBar .btn').allInnerTexts();
+  ok(hbar.length === 4 && /뒤로/.test(hbar[0]) && /인쇄 A4/.test(hbar[1]) && /PDF 생성/.test(hbar[2]) && /저장/.test(hbar[3]), 'H2) 아래 버튼: 뒤로 · 인쇄 A4 · PDF 생성 · 저장 ' + hbar.join('|'));
+  await p.locator('.dfc').first().locator('input.inp').fill('B1 기계실'); await p.locator('.dfc').first().locator('textarea').fill('천장 누수 자국');
+  await p.locator('.dfc').first().locator('input[type=file]').nth(1).setInputFiles([xjf('h1')]);
+  await p.waitForFunction(() => S.df.f.items[0].photo);
+  ok(await p.locator('.dfc').first().locator('.dfph img').count() === 1 && await p.locator('.dfc').first().locator('.dfcam').count() === 0, 'H3) 사진을 넣으면 사진 칸에 사진이 붙음');
+  await p.click('.dfplus'); await p.click('.dfplus');
+  const hnm = await p.evaluate(() => S.df.f.items.map(x => x.n).join('|'));
+  ok(hnm === 'B1 기계실|B1 기계실 2|B1 기계실 3', 'H4) 「+」 → 새 칸 현장명 = 첫 칸 현장명 + 순서 숫자 ' + hnm);
+  await p.locator('.dfc').nth(1).locator('textarea').fill('배관 보온재 탈락');
+  const hvp = p.viewportSize(); await p.setViewportSize({ width: 390, height: 800 });
+  const hc1 = await p.evaluate(() => getComputedStyle(document.querySelector('.dfg')).gridTemplateColumns.split(' ').length);
+  await p.setViewportSize({ width: 1100, height: 900 });
+  const hc2 = await p.evaluate(() => getComputedStyle(document.querySelector('.dfg')).gridTemplateColumns.split(' ').length);
+  await p.setViewportSize(hvp);
+  ok(hc1 === 2 && hc2 === 4, 'H5) 휴대폰 2열 · PC 4열 (' + hc1 + ' · ' + hc2 + ')');
+  for (const key of ['signSite', 'signFm']) {
+    await p.locator('.dfsb').nth(key === 'signSite' ? 0 : 1).click(); await p.locator('#dfsp').waitFor();
+    const bx = await p.locator('#dfsp canvas.i').boundingBox();
+    await p.mouse.move(bx.x + 20, bx.y + 40); await p.mouse.down(); for (let i = 0; i < 14; i++) await p.mouse.move(bx.x + 20 + i * 18, bx.y + (i % 2 ? 140 : 40)); await p.mouse.up();
+    await p.click('.dialog .btn.pri'); await p.waitForFunction(k => S.df.f[k] && S.df.f[k].data, key);
+  }
+  ok(await p.locator('.dfsb img').count() === 2 && await p.evaluate(() => /^data:image\/png/.test(S.df.f.signSite.data) && /^data:image\/png/.test(S.df.f.signFm.data)), 'H6) 서명 2개: 눌러서 손글씨 창 → 확인하면 서명 칸에 그림');
+  await p.locator('.dfsb').first().click(); await p.locator('#dfsp').waitFor(); await p.click('.dialog .btn.pri');
+  ok(await p.locator('#dfsm').innerText().then(x => /너무 짧/.test(x)), 'H7) 서명 안 쓰고 확인 → 막고 안내'); await p.click('.dialog .btn >> text="취소"');
+  await p.evaluate(() => dfPrint()); await new Promise(r => setTimeout(r, 400));
+  const hpr = await p.evaluate(() => { const t = $('print'), due = dfDue(S.df.f.day); return { pg: t.querySelectorAll('.pg').length, cells: t.querySelectorAll('.cell').length, cols: /repeat\(4,/.test(t.querySelector('.gr').getAttribute('style')) ? 4 : 0, tx: t.innerText, due, sg: t.querySelectorAll('.sgb img').length, trs: t.querySelectorAll('tr').length }; });
+  ok(hpr.pg === 1 && hpr.cells === 3 && hpr.cols === 4 && hpr.trs === 4 && /위 하자 내용을 확인했으며 기한 내 처리하겠습니다\./.test(hpr.tx) && hpr.tx.indexOf(hpr.due.slice(0, 4) + '년 ' + Number(hpr.due.slice(5, 7)) + '월 ' + Number(hpr.due.slice(8)) + '일') !== -1 && hpr.sg === 2 && /현장책임자/.test(hpr.tx) && /시설팀/.test(hpr.tx), 'H8) 인쇄: 1쪽 · 사진 4열 · 하자내용 표 · 확인 문구 · 처리 기한(작성일 +10일) · 서명 2칸 ' + JSON.stringify(hpr).slice(0, 160));
+  ok(await p.evaluate(() => dfDue('2026-11-25') === '2026-12-05' && dfDue('2026-12-25') === '2027-01-04'), 'H9) 처리 기한 = 작성일 + 10일 (달·해 넘김)');
+  await p.evaluate(() => { window.html2pdf = function () { const o = { set() { return o; }, from() { return o; }, outputPdf() { return Promise.resolve(new Blob(['%PDF-1.4 ' + 'x'.repeat(300)], { type: 'application/pdf' })); } }; return o; }; });
+  const hs0 = count('ws_hj_save'), hu0 = UPLOADS.length;
+  await p.click('#dfPdfB'); await p.waitForFunction(() => S.view === 'pdf');
+  const hsa = last('ws_hj_save').a.p_d, hup = UPLOADS.slice(hu0);
+  ok(count('ws_hj_save') === hs0 + 1 && hup.length === 3 && hup.filter(u => /\.png$/.test(u.p)).length === 2 && hsa.items.length === 3 && hsa.items[0].photo.file && hsa.signSite.file && hsa.signFm.file && !('data' in hsa.items[0].photo), 'H10) PDF 생성 → 먼저 자동 저장 (사진 1·서명 2 파일로 올리고 주소만 넘김) → PDF 화면');
+  await p.evaluate(() => back()); await p.waitForFunction(() => S.view === 'df');
+  ok(/PDF 보기/.test(await p.locator('#dfPdfB').innerText()) && await p.evaluate(() => !!S.df.f.id && !S.df.dirty) && /저장됨/.test(await p.locator('#dfState').innerText()), 'H11) 돌아오면 버튼이 「PDF 보기」 · 「저장됨」');
+  const hs1 = count('ws_hj_save'); await p.click('#dfPdfB'); await p.waitForFunction(() => S.view === 'pdf'); await p.evaluate(() => back()); await p.waitForFunction(() => S.view === 'df');
+  ok(count('ws_hj_save') === hs1, 'H12) 「PDF 보기」는 다시 저장하지 않고 그 PDF를 엶');
+  await p.locator('.dfc').first().locator('textarea').fill('천장 누수 자국 (수정)');
+  ok(/PDF 생성/.test(await p.locator('#dfPdfB').innerText()) && /저장 안 함/.test(await p.locator('#dfState').innerText()), 'H13) 고치면 다시 「PDF 생성」 · 「저장 안 함」');
+  const hu1 = UPLOADS.length; await p.click('#dfBar .btn.pri'); await p.waitForFunction(() => !S.df.busy && !S.df.f.id && S.df.list.length === 1);
+  ok(UPLOADS.length === hu1 && !!last('ws_hj_save').a.p_d.items[0].photo.id && !!last('ws_hj_save').a.p_d.signSite.id && last('ws_hj_save').a.p_d.id === 'WS-HJ-1' && HJ.length === 1 && await p.locator('.dfc').count() === 1, 'H14) 저장: 있던 사진·서명은 번호만 · 같은 번호로 덮어씀 · 빈 양식으로');
+  ok(await p.locator('.csacc.whmo').count() === 1 && /\d{4}년 \d{1,2}월/.test(await p.locator('.csacc.whmo').innerText()) && await p.locator('.dfrow').count() === 1, 'H16) 저장된 목록: 월별 아코디언 (가장 최근 달은 펼침)');
+  await p.click('.csacc.whmo'); const hcl = await p.locator('.dfrow').count(); await p.click('.csacc.whmo');
+  ok(hcl === 0 && await p.locator('.dfrow').count() === 1, 'H17) 달 줄을 누르면 접고 펴짐');
+  ok(await p.locator('.dfq').count() === 1 && await p.evaluate(() => { const q = document.querySelector('.dfq'), c = document.getElementById('dfCnt'); return !!q && q.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING; }), 'H23) 목록 위쪽에 검색창');
+  await p.fill('.dfq', '없는말'); await p.waitForFunction(() => /찾는 하자점검서가 없습니다/.test(document.getElementById('dfList').innerText));
+  ok(/검색 결과 · 0건/.test(await p.locator('#dfCnt').innerText()) && await p.evaluate(() => document.activeElement.classList.contains('dfq')), 'H24) 검색: 없으면 안내 · 입력칸은 그대로(글자 끊김 없음)');
+  await p.fill('.dfq', '천장'); await p.waitForFunction(() => document.querySelectorAll('.dfrow').length === 1);
+  await p.fill('.dfq', ''); await p.waitForFunction(() => /저장된 하자점검서 · 1건/.test(document.getElementById('dfCnt').innerText));
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_defect.png'), fullPage: true });
+  await p.locator('.whrow').click(); await p.waitForFunction(() => S.df.f.id);
+  await p.locator('.dfact .whdel').waitFor();
+  ok(await p.evaluate(() => { const a = document.querySelector('.dfact'), b = a.querySelector('.dfdlb'), d = a.querySelector('.whdel'); return b.getBoundingClientRect().left > d.getBoundingClientRect().left && /PDF 내려받기/.test(b.innerText); }), 'H18) 삭제 줄 오른쪽 끝에 「PDF 내려받기」');
+  const hd0 = count('ws_hj_save'), hu2 = UPLOADS.length;
+  const [hjdl1] = await Promise.all([p.waitForEvent('download'), p.click('.dfdlb')]);
+  await p.waitForFunction(() => !!S.df.pdfUrl);
+  ok(/^2026-\d\d-\d\d_하자점검\.pdf$/.test(hjdl1.suggestedFilename()) && count('ws_hj_save') === hd0 + 1 && UPLOADS.length === hu2 && /PDF 보기/.test(await p.locator('#dfPdfB').innerText()), 'H19) PDF 내려받기: 파일로 저장(파일명 날짜_하자점검.pdf) · 저장 뒤 만든 PDF 를 그대로 · 버튼이 「PDF 보기」로');
+  const hd1 = count('ws_hj_save'); const [dl2] = await Promise.all([p.waitForEvent('download'), p.click('.dfdlb')]);
+  ok(count('ws_hj_save') === hd1 && !!dl2.suggestedFilename(), 'H20) 이미 만든 PDF 는 다시 만들지 않고 바로 내려받음');
+  await p.evaluate(() => { go('inspect'); }); await p.evaluate(() => openDf()); await p.waitForFunction(() => S.view === 'df' && S.df.list);
+  ok(await p.evaluate(() => !S.df.f.id && !S.df.dirty) && await p.locator('.dfc').count() === 1 && await p.locator('.dfact').count() === 0, 'H25) 하자점검 메뉴를 다시 누르면 빈 양식 (전에 열었던 점검서 안 남음)');
+  await p.locator('.whrow').click(); await p.waitForFunction(() => S.df.f.id);
+  await p.click('.whdel'); await p.waitForFunction(() => !S.df.f.id && S.df.list.length === 0);
+  ok(HJ.length === 0 && count('ws_hj_delete') === 1, 'H15) 삭제 (되묻기 뒤) → 목록에서 사라짐');
   await p.evaluate(() => { TOASTQ.length = 0; }); await new Promise(r => setTimeout(r, 3500));   // 앞 알림 줄 비우기 (뒤 시험의 알림이 밀리지 않게)
 
   // ── 환경설정 (3-6) ──

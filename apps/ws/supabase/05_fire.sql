@@ -57,7 +57,7 @@ $$;
 -- 층 순서
 create or replace function public.ws_floor_no(p text)
 returns int language sql immutable set search_path = public as $$
-  select coalesce(array_position(array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'], p), 99);   -- 층 B3~10F (결정 228)
+  select coalesce(array_position(array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'], p), 99);   -- 층 B3~10F · POPUP (결정 228·260)
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ declare
 begin
   -- Code.gs: Number(count) || 1 을 1~20 으로
   n := least(greatest(coalesce(nullif(case when coalesce(p_d->>'count', '') ~ '^\s*\d+(\.\d+)?\s*$' then floor((p_d->>'count')::numeric)::int end, 0), 1), 1), 20);
-  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
+  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
   if v_store = '' then return jsonb_build_object('ok', false, 'error', '위치를 적어 주세요.'); end if;   -- 칸 이름은 「위치」 (전: 매장명, 결정 228). 열 이름 store_name 은 그대로
   perform pg_advisory_xact_lock(hashtext('ws_fe'));
   select coalesce(max(case when no ~ '^\d+$' then no::int end), 0) into max_no from public.fire_ext where store_name = v_store;
@@ -166,7 +166,7 @@ declare
   items jsonb;
   first_ym text;
 begin
-  -- 지운 소화기는 지운 달 앞에서만 보이고, 지운 달이라도 그달 점검 기록이 있으면 보임
+  -- 지운 소화기는 지운 달 앞(지난달까지)에서만 보임 — 지운 달부터는 점검 기록이 있어도 안 보임 (결정 250)
   select coalesce(jsonb_agg(jsonb_build_object(
       'id', f.fe_id, 'floor', f.floor, 'store', f.store_name, 'name', f.name, 'no', coalesce(case when f.no ~ '^\d+$' then f.no::int end, 0),
       'state', case when c.check_id is not null then case when c.state = '이상있음' then 'bad' else 'ok' end
@@ -176,7 +176,7 @@ begin
   from public.fire_ext f
   left join lateral (select * from public.fire_checks x where x.fe_id = f.fe_id and x.ym = p_ym and not x.deleted order by x.entered_at desc limit 1) c on true
   where coalesce(f.created_at, '-infinity') < m_next
-    and (f.active or (f.deleted_at >= m_start and (f.deleted_at >= m_next or c.check_id is not null)));
+    and (f.active or (f.deleted_at >= m_start and f.deleted_at >= m_next));
   select least(cur_ym, coalesce(min(to_char(created_at at time zone 'Asia/Seoul', 'YYYY-MM')), cur_ym)) into first_ym from public.fire_ext;
   return jsonb_build_object('ok', true, 'ym', p_ym, 'curYm', cur_ym, 'day', v_day, 'window', jsonb_build_object('start', w_start, 'end', w_end),
     'isCurrent', p_ym = cur_ym, 'items', items,
@@ -202,6 +202,20 @@ begin
   if c.check_id is null then return jsonb_build_object('ok', false, 'error', '입력 내용을 찾지 못했습니다.'); end if;
   return jsonb_build_object('ok', true, 'name', c.fe_name, 'floor', c.floor, 'ym', c.ym, 'state', c.state, 'at', public.ws_kst(c.entered_at), 'late', c.late,
     'photo', public.ws_file_url(c.photo_file_id), 'signA', public.ws_file_url(c.memo_file_id), 'signB', public.ws_file_url(c.name_file_id));
+end $$;
+
+
+-- 점검 기록 삭제 (결정 290): 로그인한 직원 모두. 줄은 남기고 「삭제됨」 표시만 → 그 달 「미입력」으로 돌아가 QR로 다시 입력할 수 있음
+create or replace function public.ws_fe_check_delete(p_token text, p_check_id text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare
+  me public.staff := public.ws_auth(p_token);
+  c public.fire_checks;
+begin
+  update public.fire_checks set deleted = true where check_id = coalesce(p_check_id, '') and not deleted returning * into c;
+  if c.check_id is null then return jsonb_build_object('ok', false, 'error', '점검 기록을 찾지 못했습니다. 화면을 새로 고쳐 주세요.'); end if;
+  perform public.ws_log(me.name, '소화기 점검 기록 삭제', '', c.fe_name || ' · ' || c.ym);
+  return jsonb_build_object('ok', true, 'ym', c.ym);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -303,8 +317,8 @@ revoke all on function public.ws_set_num(text, numeric), public.ws_set_text(text
   public.ws_is_qr(text), public.ws_fe_by_qr(text), public.ws_floor_no(text), public.ws_fe_list_(), public.ws_fe_list(text), public.ws_fe_add(text, jsonb),
   public.ws_fe_delete(text, jsonb), public.ws_label_save(text, numeric, numeric), public.ws_fe_status_(text), public.ws_fe_status(text, text),
   public.ws_fe_detail(text, text), public.ws_check_init(text), public.ws_check_file(text, jsonb, text), public.ws_check_submit(text, jsonb, jsonb),
-  public.ws_qr_upload_ok(text)
+  public.ws_qr_upload_ok(text), public.ws_fe_check_delete(text, text)
   from public, anon, authenticated;
 grant execute on function public.ws_fe_list(text), public.ws_fe_add(text, jsonb), public.ws_fe_delete(text, jsonb), public.ws_label_save(text, numeric, numeric),
-  public.ws_fe_status(text, text), public.ws_fe_detail(text, text) to authenticated;
+  public.ws_fe_status(text, text), public.ws_fe_detail(text, text), public.ws_fe_check_delete(text, text) to authenticated;
 grant execute on function public.ws_check_init(text), public.ws_check_submit(text, jsonb, jsonb), public.ws_qr_upload_ok(text) to anon, authenticated;

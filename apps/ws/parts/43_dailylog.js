@@ -2,7 +2,7 @@
 const LG_METERS = [['시수', '에비뉴엘 시수'], ['중수', '에비뉴엘 중수'], ['식당시수', '직원식당 시수'], ['식당온수', '직원식당 온수'], ['식당가스', '직원식당 가스'], ['식당분전반', '직원식당 분전반'],
   ['식기세척분전반', '식기세척실 분전반'], ['매점분전반', '직원식당 매점 분전반']];   // 급탕·환탕·급탕탱크·실온수는 안 씀 (사용자 11-13)
 const LG_FIELDS = ['영업시간', '날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급', '전기', '비고'].concat(LG_METERS.map(m => m[0]));
-const LG_DEPTS = ['전기방재', '기계건축'], LG_LINES = 10, LG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
+const LG_DEPTS = ['전기방재', '기계건축'], LG_LINES = 10, LG_MAX = 15, LG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
 const lgPc = () => window.innerWidth >= 1024;
 async function openLog() { S.lg = null; go('log'); await loadLog(''); }
 async function loadLog(day) {
@@ -14,10 +14,10 @@ function lgSet(r) {
   const f = {}, cur = r.cur || {};
   LG_FIELDS.forEach(k => { f[k] = cur[k] || ''; });
   const works = {};
-  LG_DEPTS.forEach(d => { const w = (cur.works && cur.works[d]) || []; works[d] = Array.from({ length: LG_LINES }, (_, i) => w[i] || ''); });
-  // 그날 금일작업이 아직 비었으면 TBM 작업 표로 채워 둠 (10줄까지, 저장은 직원이 [저장])
+  LG_DEPTS.forEach(d => { const w = (cur.works && cur.works[d]) || []; works[d] = Array.from({ length: Math.min(LG_MAX, Math.max(LG_LINES, w.length)) }, (_, i) => w[i] || ''); });
+  // 그날 금일작업이 아직 비었으면 서버가 준 주간작업으로 채워 둠 (저장은 직원이 [저장]). 명일 작업 일정·TBM 표는 서버가 안 줌 (결정 268)
   const tbm = r.tbm || {}, auto = LG_DEPTS.every(d => !works[d].some(x => x)) && LG_DEPTS.some(d => (tbm[d] || []).length);
-  if (auto) LG_DEPTS.forEach(d => { works[d] = Array.from({ length: LG_LINES }, (_, i) => (tbm[d] || [])[i] || ''); });
+  if (auto) LG_DEPTS.forEach(d => { const a = tbm[d] || []; works[d] = Array.from({ length: Math.min(LG_MAX, Math.max(LG_LINES, a.length)) }, (_, i) => a[i] || ''); });
   S.lg = { srv: r, day: r.day, f, works, ver: r.ver, by: r.by, pdf: r.pdf, dirty: auto, busy: false };
   if (S.view === 'log') render();
   // Supabase 판: 공조기·에어커튼은 구글을 거쳐 늦게 옴(6~9초) → 일지를 먼저 보여 주고 그 칸만 나중에 채움
@@ -63,8 +63,11 @@ function lgSheet(edit) {
   const dd = s.day, wd = '일월화수목금토'[new Date(dd + 'T12:00:00+09:00').getDay()], pwd = '일월화수목금토'[new Date(s.prevDay + 'T12:00:00+09:00').getDay()];
   const ko = d => Number(d.slice(0, 4)) + '년 ' + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일';
   const pE = s.vals.p['전기'], cE = lgCur('전기'), yE = s.vals.y['전기'], r1 = lgRate(cE, pE), r2 = lgRate(cE, yE);
-  const work = d => '<div class="lgwork"><div class="lgsec">금일작업 · ' + d + '</div><ol>' + g.works[d].map((t, i) => '<li><span class="n">' + (i + 1) + '</span>' +
-    (edit ? '<input class="lgin" maxlength="100" data-d="' + d + '" data-i="' + i + '" value="' + h(t) + '" placeholder=" " oninput="lgWork(this)" aria-label="' + d + ' ' + (i + 1) + '번">' : '<span>' + h(t) + '</span>') + '</li>').join('') + '</ol></div>';
+  // 10줄 넘으면 줄 높이를 줄여 B4 한 장에 그대로 들어가게 함
+  const lh = n => n > LG_LINES ? Math.max(18, Math.floor(LG_LINES * 28 / n)) : 28;
+  const work = d => '<div class="lgwork"><div class="lgsec">금일작업 · ' + d + '</div><ol style="--lh:' + lh(g.works[d].length) + 'px;--fs:' + (g.works[d].length > LG_LINES ? 12.5 : 13.5) + 'px">' + g.works[d].map((t, i) => '<li><span class="n">' + (i + 1) + '</span>' +
+    (edit ? '<input class="lgin" maxlength="100" data-d="' + d + '" data-i="' + i + '" value="' + h(t) + '" placeholder=" " oninput="lgWork(this)" aria-label="' + d + ' ' + (i + 1) + '번">' : '<span>' + h(t) + '</span>') + '</li>').join('') + '</ol>' +
+    (edit && g.works[d].length < LG_MAX ? '<button class="btn sm lgadd" onclick="lgAddLine(\'' + d + '\')">+ 줄 추가</button>' : '') + '</div>';
   return '<div class="lgs">' +
     '<div class="lghead"><div><h1>에비뉴엘 종합업무일지</h1><div class="d">' + ko(dd) + ' (' + wd + ') · 잠실점 에비뉴엘 시설관리</div></div>' +
     '<table class="lgsign"><tr><th>전방책임자</th><th>기건책임자</th><th>시설부소장</th><th>시설소장</th></tr><tr>' +
@@ -106,6 +109,11 @@ function lgIn(el) {
   document.querySelectorAll('[data-bars]').forEach(b => { const m = b.dataset.bars; if (m === k) b.innerHTML = lgBars(m); });
   if (k === '영업시간') $('lgHours').textContent = lgF(lgSum('month', '영업시간'));
   if (k === '전기') { const c = lgCur('전기'); [['lgE1', s.vals.p['전기']], ['lgE2', s.vals.y['전기']]].forEach(([id, p]) => { const r = lgRate(c, p), e = $(id); e.textContent = r[0]; e.className = r[1]; }); }
+}
+function lgAddLine(d) {
+  const w = S.lg.works[d]; if (w.length >= LG_MAX) return;
+  w.push(''); $('lgSheet').innerHTML = lgSheet(true);
+  const e = document.querySelector('.lgin[data-d="' + d + '"][data-i="' + (w.length - 1) + '"]'); if (e) e.focus();
 }
 function lgWork(el) { S.lg.works[el.dataset.d][Number(el.dataset.i)] = el.value; lgDirty(); }
 function lgPayload() {

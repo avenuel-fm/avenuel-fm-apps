@@ -209,12 +209,12 @@ const texts = (p, sel) => p.locator(sel).allInnerTexts();
   await e3.locator('.strow:has-text("시방서 검색") .menuseg button:has-text("꺼짐")').click();
   await e3.waitForFunction(() => /끔/.test((document.querySelector('.toast') || {}).textContent || ''));
   ok(JSON.stringify(MENU_OFF) === '["map","spec"]' && await e3.locator('.strow:has-text("시방서 검색") .menuseg button.on').innerText() === '꺼짐', 'M6) 소장이 시방서 검색 「꺼짐」 → 설정 저장');
-  // 아코디언: 점검을 펼치면 하위 4개 · 열화상점검만 끄면 저장되고, 직원은 이름만 보이는 막힌 줄 (결정 208)
+  // 아코디언: 점검을 펼치면 하위 5개(하자점검 추가) · 열화상점검만 끄면 저장되고, 직원은 이름만 보이는 막힌 줄 (결정 208)
   await e3.locator('.menuacc:has-text("점검")').click();
-  ok(await e3.locator('.menusub .menuseg').count() === 4, 'M8) 점검 펼침: 하위 메뉴 4개 켜기·끄기');
+  ok(await e3.locator('.menusub .menuseg').count() === 5, 'M8) 점검 펼침: 하위 메뉴 5개 켜기·끄기');
   await e3.locator('.menusub:has-text("열화상점검") .menuseg button:has-text("꺼짐")').click();
   await e3.waitForFunction(() => /열화상점검 끔/.test((document.querySelector('.toast') || {}).textContent || ''));
-  ok(JSON.stringify(MENU_OFF) === '["map","spec","inspect.thermal"]' && /3개 켜짐/.test(await e3.locator('.menuacc:has-text("점검")').innerText()), 'M9) 열화상점검 꺼짐 저장 · 점검 「하위 4개 중 3개 켜짐」');
+  ok(JSON.stringify(MENU_OFF) === '["map","spec","inspect.thermal"]' && /4개 켜짐/.test(await e3.locator('.menuacc:has-text("점검")').innerText()), 'M9) 열화상점검 꺼짐 저장 · 점검 「하위 5개 중 4개 켜짐」');
   ROLE = '직원'; const e4 = await open(b); await e4.evaluate(() => go('inspect'));
   ok(await e4.locator('.row:has-text("열화상점검")').isDisabled() && await e4.locator('.row:has-text("소화기/소화전/공기호흡기 점검")').isEnabled(), 'M10) 직원: 꺼진 하위 메뉴만 막힘');
   MENU_OFF = ['inspect']; await e4.evaluate(() => { S.menuOff = ['inspect']; render(); });

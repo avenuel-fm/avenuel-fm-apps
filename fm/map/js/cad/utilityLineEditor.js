@@ -1,10 +1,10 @@
 /* ==========================================================================
-   utilityLineEditor.js - 기능실(자) - 매장(모) 설비 배관/간선(전기, 수도, 가스, 배수) CAD 엔진
+   utilityLineEditor.js - 매장(자) ← 기능실(모) 설비 배관/간선(전기, 수도, 가스, 배수). 선은 길찾기로 자동 (결정 246)
    ========================================================================== */
 
 var isUtilLineDrawingMode = false;
-var utilLineSourceStore = null;    // 시작 기능실(자)
-var utilLineTargetStore = null;    // 도착 매장(모)
+var utilLineSourceStore = null;    // 자 = 매장 (결정 246. 예전에는 기능실이 자)
+var utilLineTargetStore = null;    // 모 = 기능실. 흐름은 모 → 자
 var utilLineSelectedType = 'power';// 'power'(전기) | 'water'(수도) | 'gas'(가스) | 'drain'(배수)
 var utilLineInputValue = '50';     // 입력 규격 (전기: A, 수도: mm, 배수: mm, 가스: 비활성)
 var utilLineDrawingPoints = [];    // 선분 점 목록 [{x, y}, ...]
@@ -24,9 +24,9 @@ var UTIL_SPECS_CONFIG = {
     power: {
         id: 'power',
         label: '전기',
-        color: '#2563eb', // 파란색
+        color: '#dc2626', // 붉은색 (결정 254)
         className: 'util-line-eps',
-        direction: 'forward', // 자 -> 모
+        direction: 'forward', // 모 -> 자 (점 순서가 기능실 → 매장)
         unit: 'A',
         defaultVal: '50',
         disabledInput: false,
@@ -37,7 +37,7 @@ var UTIL_SPECS_CONFIG = {
         label: '수도',
         color: '#0284c7', // 파란색/하늘색
         className: 'util-line-water',
-        direction: 'forward', // 자 -> 모
+        direction: 'forward', // 모 -> 자 (점 순서가 기능실 → 매장)
         unit: 'mm',
         defaultVal: '25',
         disabledInput: false,
@@ -48,7 +48,7 @@ var UTIL_SPECS_CONFIG = {
         label: '가스',
         color: '#eab308', // 노란색
         className: 'util-line-gas',
-        direction: 'forward', // 자 -> 모
+        direction: 'forward', // 모 -> 자 (점 순서가 기능실 → 매장)
         unit: '',
         defaultVal: '',
         disabledInput: true, // 입력칸 비활성화
@@ -59,7 +59,7 @@ var UTIL_SPECS_CONFIG = {
         label: '배수',
         color: '#0f172a', // 검은색
         className: 'util-line-drain',
-        direction: 'reverse', // 모 -> 자
+        direction: 'forward', // 모 -> 자
         unit: 'mm',
         defaultVal: '50',
         disabledInput: false,
@@ -110,6 +110,36 @@ function getMidPointOfPoints(points) {
     };
 }
 
+// 같은 기능실–같은 매장 사이 선이 여럿이면 선 사이 1px 간격으로 나란히 (선 굵기 3px + 간격 1px = 가운데끼리 4px). 저장 위치는 그대로, 그릴 때만 옮김 (결정 254)
+var UTIL_LINE_PITCH = 4;
+function offsetPolyline(pts, d) {
+    const p = pts.filter((q, i) => i === 0 || q.x !== pts[i - 1].x || q.y !== pts[i - 1].y);
+    if (!d || p.length < 2) return pts;
+    const nrm = [];
+    for (let i = 0; i < p.length - 1; i++) {
+        const dx = p[i + 1].x - p[i].x, dy = p[i + 1].y - p[i].y, len = Math.hypot(dx, dy) || 1;
+        nrm.push({ x: -dy / len, y: dx / len });
+    }
+    const out = [{ x: p[0].x + nrm[0].x * d, y: p[0].y + nrm[0].y * d }];
+    for (let j = 1; j < p.length - 1; j++) {
+        const a = nrm[j - 1], b = nrm[j], k = 1 + a.x * b.x + a.y * b.y;
+        const m = k > 0.2 ? { x: (a.x + b.x) * d / k, y: (a.y + b.y) * d / k } : { x: a.x * d, y: a.y * d };   // 뾰족한 꺾임은 모서리 안 뻗게
+        out.push({ x: p[j].x + m.x, y: p[j].y + m.y });
+    }
+    const l = nrm[nrm.length - 1], e = p[p.length - 1];
+    out.push({ x: e.x + l.x * d, y: e.y + l.y * d });
+    return out;
+}
+function utilPairOffsets(lines) {
+    const groups = {}, off = {};
+    lines.forEach(l => { const k = (l.sourceStoreId || l.sourceName || '') + '|' + (l.targetStoreId || l.targetName || ''); (groups[k] = groups[k] || []).push(l); });
+    Object.values(groups).forEach(g => {
+        g.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        g.forEach((l, i) => { off[l.id] = (i - (g.length - 1) / 2) * UTIL_LINE_PITCH; });
+    });
+    return off;
+}
+
 // ================= 도면 위 라인 및 스펙 라벨 렌더링 =================
 function renderFloorUtilityLines() {
     const svgEl = mapContainer?.querySelector('svg');
@@ -120,9 +150,11 @@ function renderFloorUtilityLines() {
     layer.innerHTML = '';
     const floor = FLOORS[currentFloorIdx];
     const lines = getFloorUtilityLines(floor.code);
+    const pairOff = utilPairOffsets(lines.filter(l => l.points && l.points.length >= 2));
 
     lines.forEach(line => {
         if (!line.points || line.points.length < 2) return;
+        const drawPts = offsetPolyline(line.points, pairOff[line.id] || 0);
 
         // 레이어 필터 가시성 확인
         const sub = line.subType || 'power';
@@ -134,7 +166,7 @@ function renderFloorUtilityLines() {
 
         // 1. 선분(Polyline)
         const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-        const ptsStr = line.points.map(p => `${p.x},${p.y}`).join(' ');
+        const ptsStr = drawPts.map(p => `${+p.x.toFixed(2)},${+p.y.toFixed(2)}`).join(' ');
         polyline.setAttribute('points', ptsStr);
         polyline.setAttribute('class', `util-feeder-line ${line.className || 'util-line-eps'}`);
         polyline.setAttribute('data-id', line.id);
@@ -154,37 +186,58 @@ function renderFloorUtilityLines() {
         }
 
         // 2. 스펙 라벨(Badge)
-        const midPt = getMidPointOfPoints(line.points);
+        const midPt = getMidPointOfPoints(drawPts);
         let labelGroup = null;
         if (midPt) {
             labelGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             labelGroup.setAttribute('class', 'util-spec-badge-group');
             labelGroup.style.cursor = 'pointer';
 
-            const specStr = line.specText ? `${line.subTypeLabel || ''} (${line.specText})` : (line.subTypeLabel || '설비');
-            const approxWidth = Math.max(specStr.length * 9 + 16, 54);
+            // 이름표 글자: 고친 글자(labelText, 여러 줄)가 있으면 그것, 없으면 「전기 (50A)」 (결정 308)
+            const textLines = utilLabelLines(line);
+            const approxWidth = Math.max(Math.max(...textLines.map(utilTextWidth)) + 16, 54);
+            const boxH = 22 + (textLines.length - 1) * UTIL_LABEL_LINE;
 
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', midPt.x - approxWidth / 2);
-            rect.setAttribute('y', midPt.y - 11);
+            rect.setAttribute('x', -approxWidth / 2);
+            rect.setAttribute('y', -boxH / 2);
             rect.setAttribute('width', approxWidth);
-            rect.setAttribute('height', 22);
+            rect.setAttribute('height', boxH);
             rect.setAttribute('rx', 5);
             rect.setAttribute('fill', isSelected ? '#ef4444' : 'rgba(15, 23, 42, 0.9)');
             rect.setAttribute('stroke', isSelected ? '#ffffff' : (line.color || '#2563eb'));
             rect.setAttribute('stroke-width', '1.5');
 
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('x', midPt.x);
-            text.setAttribute('y', midPt.y + 4);
+            text.setAttribute('x', 0);
+            text.setAttribute('y', 4 - (textLines.length - 1) * UTIL_LABEL_LINE / 2);
             text.setAttribute('fill', '#ffffff');
             text.setAttribute('font-size', '11');
             text.setAttribute('font-weight', '700');
             text.setAttribute('text-anchor', 'middle');
-            text.textContent = specStr;
+            textLines.forEach((t, i) => {
+                const ts = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                ts.setAttribute('x', 0);
+                if (i) ts.setAttribute('dy', String(UTIL_LABEL_LINE));
+                ts.textContent = t;
+                text.appendChild(ts);
+            });
 
             labelGroup.appendChild(rect);
             labelGroup.appendChild(text);
+            labelGroup.setAttribute('transform', `translate(${midPt.x},${midPt.y})`);   // 실제 자리는 layoutUtilLabels 가 겹치지 않게 다시 정함 (결정 258)
+            labelGroup._w = approxWidth;
+            labelGroup._h = boxH;
+            g._pts = drawPts;
+            g._line = line;
+            bindUtilLabelEdit(labelGroup, line, g);
+            labelGroup.style.cursor = utilLabelEditable(line) ? 'move' : 'default';
+            const link = document.createElementNS('http://www.w3.org/2000/svg', 'line');   // 이름표가 선에서 떨어졌을 때 잇는 가는 선
+            link.setAttribute('class', 'util-label-link');
+            link.setAttribute('stroke', line.color || '#2563eb'); link.setAttribute('stroke-width', '1'); link.setAttribute('pointer-events', 'none');
+            link.style.display = 'none';
+            g._link = link;
+            g.appendChild(link);
         }
 
         // 활성/하이라이트 상태 동기화
@@ -199,11 +252,12 @@ function renderFloorUtilityLines() {
                 if (labelGroup) labelGroup.style.display = 'block';
             } else {
                 polyline.classList.add('inactive');
-                polyline.style.opacity = '0.12';
+                g.style.display = isSelected ? '' : 'none';   // 연결 안 된 선은 안 보임 (결정 254)
                 if (labelGroup) labelGroup.style.display = 'none';
             }
         } else {
-            polyline.style.opacity = isSelected ? '1' : '0.4';
+            polyline.style.opacity = '1';
+            g.style.display = isSelected ? '' : 'none';   // 평소에는 선이 안 보임. 매장·기능실을 누르면 연결선만 보임
             if (labelGroup) labelGroup.style.display = isSelected ? 'block' : 'none';
         }
 
@@ -214,7 +268,7 @@ function renderFloorUtilityLines() {
         };
 
         polyline.addEventListener('click', clickHandler);
-        if (labelGroup) labelGroup.addEventListener('click', clickHandler);
+        if (labelGroup) labelGroup.addEventListener('click', e => e.stopPropagation());   // 이름표 한 번 누름은 아무것도 안 함 (더블클릭 고치기와 안 부딪히게, 결정 308)
 
         // 마우스 호버 시 라벨 노출
         polyline.addEventListener('mouseenter', () => {
@@ -230,16 +284,160 @@ function renderFloorUtilityLines() {
         if (labelGroup) g.appendChild(labelGroup);
         layer.appendChild(g);
     });
+    layoutUtilLabels();
+}
+
+// 보이는 선들의 이름표가 서로 겹치지 않게 자리를 정함 (결정 258): 선 따라 가운데 → 35% → 65% → 20% → 80%, 다 막히면 아래위로 24px씩 쌓음
+function utilPointAt(pts, f) {
+    let total = 0; const seg = [];
+    for (let i = 0; i < pts.length - 1; i++) { const l = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y); seg.push(l); total += l; }
+    let d = total * f;
+    for (let i = 0; i < seg.length; i++) {
+        if (d <= seg[i] || i === seg.length - 1) { const t = seg[i] ? Math.min(1, d / seg[i]) : 0; return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, y: pts[i].y + (pts[i + 1].y - pts[i].y) * t }; }
+        d -= seg[i];
+    }
+    return pts[0];
+}
+function layoutUtilLabels() {
+    const layer = mapContainer?.querySelector('#utility-lines-layer');
+    if (!layer) return;
+    const placed = [], PAD = 2;
+    const hit = (x, y, w, h) => placed.some(r => Math.abs(x - r.x) < (w + r.w) / 2 + PAD && Math.abs(y - r.y) < (h + r.h) / 2 + PAD);
+    const groups = Array.from(layer.querySelectorAll('.util-line-item-group')).filter(g => {
+        const lab = g.querySelector('.util-spec-badge-group');
+        return lab && g._pts && g.style.display !== 'none' && lab.style.display !== 'none';
+    });
+    // 손으로 옮긴 이름표(labelPos)는 그 자리에 고정하고 먼저 자리를 차지함 (결정 308)
+    groups.sort((a, b) => (b._line && b._line.labelPos ? 1 : 0) - (a._line && a._line.labelPos ? 1 : 0));
+    groups.forEach(g => {
+        const lab = g.querySelector('.util-spec-badge-group');
+        const w = lab._w || 54, h = lab._h || 22;
+        let pos = null, anchor = null;
+        const fixed = g._line && g._line.labelPos;
+        if (fixed) { pos = { x: fixed.x, y: fixed.y }; anchor = utilPointAt(g._pts, 0.5); }
+        for (const f of fixed ? [] : [0.5, 0.35, 0.65, 0.2, 0.8]) {
+            const p = utilPointAt(g._pts, f);
+            if (!hit(p.x, p.y, w, h)) { pos = p; anchor = p; break; }
+        }
+        if (!pos) {
+            const base = utilPointAt(g._pts, 0.5); anchor = base;
+            for (let k = 1; k < 40 && !pos; k++) for (const sg of [1, -1]) { const y = base.y + sg * k * (h + PAD); if (!hit(base.x, y, w, h)) { pos = { x: base.x, y }; break; } }
+            pos = pos || base;
+        }
+        placed.push({ x: pos.x, y: pos.y, w, h });
+        lab.setAttribute('transform', `translate(${pos.x.toFixed(1)},${pos.y.toFixed(1)})`);
+        if (g._link) {
+            const moved = Math.hypot(pos.x - anchor.x, pos.y - anchor.y) > 1;
+            g._link.style.display = moved ? '' : 'none';
+            if (moved) { g._link.setAttribute('x1', anchor.x); g._link.setAttribute('y1', anchor.y); g._link.setAttribute('x2', pos.x); g._link.setAttribute('y2', pos.y); }
+        }
+    });
+}
+
+// ================= 이름표 고치기 · 옮기기 (결정 308) =================
+// 더블클릭 → 그 자리에서 고침(Enter 줄바꿈 · 바깥 누르면 저장 · Esc 취소), 끌면 옮김. 저장: line.labelText(줄은 \n) · line.labelPos({x,y})
+var UTIL_LABEL_LINE = 14;
+function utilDefaultLabel(line) { return line.specText ? `${line.subTypeLabel || ''} (${line.specText})` : (line.subTypeLabel || '설비'); }
+function utilLabelLines(line) { return (line.labelText || utilDefaultLabel(line)).split('\n'); }
+function utilTextWidth(t) {
+    const c = utilTextWidth._c || (utilTextWidth._c = document.createElement('canvas').getContext('2d'));
+    c.font = '700 11px Pretendard, sans-serif';
+    return c.measureText(t).width || t.length * 9;
+}
+function updateUtilityLineLabel(lineId, patch) {
+    const floor = FLOORS[currentFloorIdx];
+    if (typeof pushUndoState === 'function') pushUndoState('설비 연결선 이름표');
+    const lines = getFloorUtilityLines(floor.code), l = lines.find(x => x.id === lineId);
+    if (!l) return;
+    Object.keys(patch).forEach(k => { if (patch[k] === null) delete l[k]; else l[k] = patch[k]; });
+    saveFloorUtilityLines(floor.code, lines);
+}
+function utilLabelEditable(line) { return !mapStore.readOnly() && !isLayerLocked(line.subType || 'power'); }
+function bindUtilLabelEdit(lab, line, g) {
+    lab.addEventListener('mousedown', e => {
+        if (e.button !== 0 || !utilLabelEditable(line)) return;
+        e.stopPropagation();                          // 지도 끌기 대신 이름표 끌기
+        const ctm = lab.parentNode.getScreenCTM(), k = ctm ? ctm.a : 1;
+        const m = /translate\(([-\d.]+),\s*([-\d.]+)\)/.exec(lab.getAttribute('transform') || '');
+        const x0 = m ? +m[1] : 0, y0 = m ? +m[2] : 0, sx = e.clientX, sy = e.clientY;
+        let moved = false, nx = x0, ny = y0;
+        const move = ev => {
+            const dx = ev.clientX - sx, dy = ev.clientY - sy;
+            if (!moved && Math.hypot(dx, dy) < 4) return;
+            moved = true;
+            nx = x0 + dx / k; ny = y0 + dy / k;
+            lab.setAttribute('transform', `translate(${nx.toFixed(1)},${ny.toFixed(1)})`);
+            if (g._link) {
+                const a = utilPointAt(g._pts, 0.5);
+                g._link.style.display = '';
+                g._link.setAttribute('x1', a.x); g._link.setAttribute('y1', a.y); g._link.setAttribute('x2', nx); g._link.setAttribute('y2', ny);
+            }
+        };
+        const up = () => {
+            window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+            if (!moved) return;
+            updateUtilityLineLabel(line.id, { labelPos: { x: Math.round(nx * 10) / 10, y: Math.round(ny * 10) / 10 } });
+            line.labelPos = { x: nx, y: ny };
+            layoutUtilLabels();
+        };
+        window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    });
+    lab.addEventListener('dblclick', e => {
+        e.stopPropagation(); e.preventDefault();
+        if (!utilLabelEditable(line)) return;
+        openUtilLabelEditor(lab, line);
+    });
+}
+function openUtilLabelEditor(lab, line) {
+    document.getElementById('util-label-editor')?.remove();
+    const r = lab.querySelector('rect').getBoundingClientRect(), ctm = lab.getScreenCTM(), k = ctm ? ctm.a : 1;
+    const ta = document.createElement('textarea');
+    ta.id = 'util-label-editor';
+    ta.value = utilLabelLines(line).join('\n');
+    ta.spellcheck = false;
+    const fs = Math.max(11 * k, 12), lh = UTIL_LABEL_LINE / 11 * fs;
+    Object.assign(ta.style, {
+        position: 'fixed', zIndex: 3000, resize: 'none', overflow: 'hidden', boxSizing: 'border-box', margin: 0,
+        background: '#1e293b', color: '#fff', border: '2px solid #38bdf8', borderRadius: '6px', boxShadow: '0 0 0 3px rgba(56,189,248,.35)',
+        font: `700 ${fs}px/${lh}px Pretendard, sans-serif`, textAlign: 'center', padding: '3px 8px', outline: 'none', whiteSpace: 'pre'
+    });
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const fit = () => {                               // 줄 수·글자 길이에 맞춰 상자 크기
+        const ls = ta.value.split('\n'), w = Math.max(...ls.map(utilTextWidth)) * fs / 11 + 24, h = ls.length * lh + 10;
+        ta.style.width = Math.max(w, r.width) + 'px'; ta.style.height = h + 'px';
+        ta.style.left = (cx - Math.max(w, r.width) / 2) + 'px'; ta.style.top = (cy - h / 2) + 'px';
+    };
+    let done = false;
+    const finish = save => {
+        if (done) return; done = true;
+        const v = ta.value.replace(/\s+$/, '').split('\n').map(s => s.replace(/\s+$/, '')).join('\n');
+        ta.remove();
+        if (!save) return;
+        const same = !v.trim() || v === utilDefaultLabel(line);
+        if (same ? !line.labelText : v === line.labelText) return;
+        updateUtilityLineLabel(line.id, { labelText: same ? null : v });
+        renderFloorUtilityLines();
+    };
+    ta.addEventListener('input', fit);
+    ta.addEventListener('keydown', e => {
+        e.stopPropagation();                          // 지도 단축키(Delete·Esc·Enter)와 안 부딪히게
+        if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    ta.addEventListener('blur', () => finish(true));
+    ['mousedown', 'click', 'dblclick', 'wheel'].forEach(t => ta.addEventListener(t, e => e.stopPropagation()));
+    document.body.appendChild(ta);
+    fit(); ta.focus(); ta.select();
 }
 
 // ================= 선분 선택 및 삭제 기능 =================
 function selectUtilLineForDelete(line) {
     activeSelectedUtilLineId = line.id;
     renderFloorUtilityLines();
-    if (mapStore.readOnly()) return;   // 보기 전용: 선택(라벨 보기)만
+    if (mapStore.readOnly()) return;
+    if (isLayerLocked(line.subType || 'power')) { warnLayerLocked(); return; }   // 보기 전용: 선택(라벨 보기)만
 
     const specDesc = line.specText ? ` (${line.specText})` : '';
-    const confirmMsg = `[설비 연결선 선택]\n기능실(자): ${line.sourceName || '기능실'}\n매장(모): ${line.targetName || '매장'}\n구분: ${line.subTypeLabel || ''}${specDesc}\n\n이 연결선을 삭제하시겠습니까?`;
+    const confirmMsg = `[설비 연결선 선택]\n매장(자): ${line.sourceName || '매장'}\n기능실(모): ${line.targetName || '기능실'}\n구분: ${line.subTypeLabel || ''}${specDesc}\n\n이 연결선을 삭제하시겠습니까?`;
 
     if (confirm(confirmMsg)) {
         const floor = FLOORS[currentFloorIdx];
@@ -258,6 +456,8 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { activeSelectedUtilLineId = null; renderFloorUtilityLines(); return; }
     if (e.key === 'Delete' && !mapStore.readOnly()) {
         const floor = FLOORS[currentFloorIdx];
+        const sel = getFloorUtilityLines(floor.code).find(l => l.id === activeSelectedUtilLineId);
+        if (sel && isLayerLocked(sel.subType || 'power')) { warnLayerLocked(); return; }
         deleteUtilityLine(floor.code, activeSelectedUtilLineId);
         activeSelectedUtilLineId = null;
         renderFloorUtilityLines();
@@ -274,18 +474,7 @@ function highlightUtilityLinesForStore(store) {
     if (!layer) return;
 
     const allGroups = layer.querySelectorAll('.util-line-item-group');
-    if (!store) {
-        allGroups.forEach(g => {
-            const line = g.querySelector('.util-feeder-line');
-            const badge = g.querySelector('.util-spec-badge-group');
-            if (line) {
-                line.classList.remove('highlighted', 'inactive');
-                line.style.opacity = '0.4';
-            }
-            if (badge) badge.style.display = 'none';
-        });
-        return;
-    }
+    if (!store) { clearUtilityLineHighlight(); return; }
 
     let connectedCount = 0;
     allGroups.forEach(g => {
@@ -307,17 +496,18 @@ function highlightUtilityLinesForStore(store) {
             line.classList.add('highlighted');
             line.classList.remove('inactive');
             line.style.opacity = '1';
-            line.style.display = 'block';
+            g.style.display = '';
             if (badge) badge.style.display = 'block';
             connectedCount++;
         } else {
             line.classList.remove('highlighted');
             line.classList.add('inactive');
-            line.style.opacity = '0.08';
+            g.style.display = 'none';
             if (badge) badge.style.display = 'none';
         }
     });
 
+    layoutUtilLabels();
     if (connectedCount > 0) {
         showToast(`🔗 연결된 설비 라인 ${connectedCount}개가 표시됩니다.`, 1200);
     }
@@ -334,47 +524,47 @@ function clearUtilityLineHighlight() {
         const badge = g.querySelector('.util-spec-badge-group');
         if (line) {
             line.classList.remove('highlighted', 'inactive');
-            line.style.opacity = '0.4';
+            line.style.opacity = '1';
         }
+        g.style.display = (activeSelectedUtilLineId && g.getAttribute('data-id') === activeSelectedUtilLineId) ? '' : 'none';   // 평소엔 안 보임
         if (badge) badge.style.display = 'none';
     });
+    layoutUtilLabels();
 }
 
 // ================= 설비 라인 드로잉 모드 시작/종료 =================
-function startUtilityLineDrawingMode(sourceStore = null) {
+function startUtilityLineDrawingMode(preStore = null) {
     // 1. 기능실 등록 여부 사전 가드 체크
     if (!hasAnyUtilityStores()) {
         showToast('⚠️ 도면에 등록된 기능실이 없습니다. [매장 추가/편집]에서 기능실을 먼저 등록해주세요.', 3000);
         return;
     }
-
     isUtilLineDrawingMode = true;
     utilLineDrawingPoints = [];
-    utilLineSourceStore = (sourceStore && sourceStore.type === 'utility') ? sourceStore : null;
+    utilLineSourceStore = null;
     utilLineTargetStore = null;
-
-    // 소스 기능실이 주어졌을 때 타입 자동 감지
-    if (sourceStore && sourceStore.type === 'utility' && sourceStore.name) {
-        const nm = sourceStore.name.toUpperCase();
-        if (nm.includes('EPS')) setUtilLineType('power');
-        else if (nm.includes('PS')) setUtilLineType('water');
-        else if (nm.includes('PD')) setUtilLineType('drain');
-        else if (nm.includes('가스')) setUtilLineType('gas');
-    }
-
-    // 소스 기능실 중심점을 첫 번째 점으로 등록
-    if (utilLineSourceStore) {
-        const center = getStoreCenter(utilLineSourceStore);
-        if (center) utilLineDrawingPoints.push(center);
-    }
-
+    purgeLegacyUtilityLines();
     showUtilLineGuideBanner();
-    const promptMsg = utilLineSourceStore ? 
-        `자[${utilLineSourceStore.name}] 선택됨. 경로를 그린 뒤 도착 매장(모)을 클릭하세요.` : 
-        '도면에서 시작할 기능실(자)을 먼저 클릭하세요.';
-    showToast(promptMsg, 2500);
+    if (preStore) { handleUtilLineMapClick(null, preStore); return; }   // 기능실 창의 「매장 연결선」에서 온 경우
+    showToast('매장(자)과 기능실(모)을 차례로 누르면 선이 길을 따라 자동으로 그려집니다.', 2500);
 }
 
+// 예전 방식(손으로 꺾어 그린) 배관은 길찾기 방식으로 바뀌며 지움 (결정 246). 자동으로 그린 선은 auto 표시가 있음
+function purgeLegacyUtilityLines() {
+    if (mapStore.readOnly()) return;
+    let total = 0;
+    FLOORS.forEach(f => { total += getFloorUtilityLines(f.code).filter(l => !l.auto && !isLayerLocked(l.subType || 'power')).length; });
+    if (!total) return;
+    if (!confirm('예전 방식으로 그린 배관 ' + total + '개가 있습니다.\n배관 연결이 길 따라 자동으로 그리는 방식으로 바뀌어서 이 선들을 지웁니다. (기록에서 「이 날로 되돌리기」로 되살릴 수 있습니다)\n\n지울까요?')) return;
+    if (typeof pushUndoState === 'function') pushUndoState('예전 배관 지움');
+    FLOORS.forEach(f => {
+        const all = getFloorUtilityLines(f.code), keep = all.filter(l => l.auto || isLayerLocked(l.subType || 'power'));
+        if (keep.length !== all.length) saveFloorUtilityLines(f.code, keep);
+    });
+    activeSelectedUtilLineId = null;
+    renderFloorUtilityLines();
+    showToast('예전 배관 ' + total + '개를 지웠습니다.', 2000);
+}
 function exitUtilityLineDrawingMode() {
     isUtilLineDrawingMode = false;
     utilLineDrawingPoints = [];
@@ -441,95 +631,94 @@ function removeTempDrawingLine() {
     if (tempPoly) tempPoly.remove();
 }
 
-// 뷰포트 클릭 시 점 추가 또는 매장 연결 완료 (직각 스냅 적용)
+// 매장(자)·기능실(모)을 누르면 둘이 모였을 때 길찾기로 선을 그림. 누르는 순서는 상관없음
 function handleUtilLineMapClick(svgPt, targetStore = null) {
     if (!isUtilLineDrawingMode) return false;
-
-    // 1. 소스 기능실(자)이 아직 선택되지 않은 상태
-    if (!utilLineSourceStore) {
-        if (targetStore) {
-            if (targetStore.type !== 'utility') {
-                showToast(`⚠️ [${targetStore.name}] 매장은 기능실이 아닙니다. 시작할 기능실(자: EPS, PS 등)을 먼저 선택하세요.`, 2500);
-                return true;
-            }
-            utilLineSourceStore = targetStore;
-            const center = getStoreCenter(targetStore) || svgPt;
-            utilLineDrawingPoints.push(center);
-            updateUtilLineGuideUI();
-            showToast(`자[${targetStore.name}] 선택 완료! 도면을 클릭하여 경로를 그린 후 도착 매장(모)을 클릭하세요.`, 2000);
-            return true;
-        } else {
-            showToast('⚠️ 먼저 공급할 기능실(자)을 클릭하여 선택해주세요.', 1500);
-            return true;
-        }
-    }
-
-    // 2. 소스 기능실(자)이 이미 있고, 다른 매장(모)을 클릭한 경우 -> 연결 완료!
-    if (utilLineDrawingPoints.length >= 1 && targetStore && targetStore !== utilLineSourceStore) {
+    if (!targetStore) { showToast('도면의 매장 또는 기능실을 눌러 주세요.', 1500); return true; }
+    if (targetStore.type === 'utility') {
         utilLineTargetStore = targetStore;
-        const endCenter = getStoreCenter(targetStore) || svgPt;
-        const lastPt = utilLineDrawingPoints[utilLineDrawingPoints.length - 1];
-        const finalPt = typeof snapToOrtho === 'function' ? snapToOrtho(endCenter, lastPt) : endCenter;
-        utilLineDrawingPoints.push(finalPt);
-        finishUtilityLine();
-        return true;
+        const nm = (targetStore.name || '').toUpperCase();   // 기능실 이름으로 종류 자동
+        if (nm.includes('EPS')) setUtilLineType('power');
+        else if (nm.includes('PS')) setUtilLineType('water');
+        else if (nm.includes('PD')) setUtilLineType('drain');
+        else if (nm.includes('가스')) setUtilLineType('gas');
+    } else {
+        utilLineSourceStore = targetStore;
     }
-
-    // 3. 중간 꺾임점 추가 (직각 스냅 적용)
-    let ptToAdd = svgPt;
-    if (utilLineDrawingPoints.length > 0) {
-        const lastPt = utilLineDrawingPoints[utilLineDrawingPoints.length - 1];
-        ptToAdd = typeof snapToOrtho === 'function' ? snapToOrtho(svgPt, lastPt) : svgPt;
-    }
-
-    utilLineDrawingPoints.push(ptToAdd);
-    updateTempDrawingLine();
     updateUtilLineGuideUI();
+    if (utilLineSourceStore && utilLineTargetStore) { finishUtilityLine(); return true; }
+    showToast(utilLineTargetStore ? '이제 연결할 매장(자)을 눌러 주세요.' : '이제 연결할 기능실(모)을 눌러 주세요.', 1800);
     return true;
 }
 
-// 라인 완성 및 저장
 function finishUtilityLine() {
-    if (utilLineDrawingPoints.length < 2) {
-        showToast('최소 2개 이상의 점이 필요합니다.', 1500);
+    if (!utilLineSourceStore || !utilLineTargetStore) { showToast('매장(자)과 기능실(모)을 모두 눌러 주세요.', 1500); return; }
+    const res = routeBetweenStores(utilLineTargetStore, utilLineSourceStore);   // 기능실 → 매장 순서의 점
+    if (!res.ok) {
+        showToast(res.error, 2800);
+        if (res.gap) showRouteGap(res.gap);
+        utilLineTargetStore = null; utilLineSourceStore = null;   // 선은 안 그리고 처음부터 다시 고르게
+        updateUtilLineGuideUI();
         return;
     }
-
     const floor = FLOORS[currentFloorIdx];
     const cfg = UTIL_SPECS_CONFIG[utilLineSelectedType] || UTIL_SPECS_CONFIG.power;
-
-    const inputEl = document.getElementById('input-util-spec-val');
     let specText = '';
     if (!cfg.disabledInput) {
-        const rawVal = inputEl?.value?.trim() || utilLineInputValue || cfg.defaultVal;
+        const rawVal = document.getElementById('input-util-spec-val')?.value?.trim() || utilLineInputValue || cfg.defaultVal;
         specText = rawVal ? `${rawVal}${cfg.unit}` : '';
     } else {
         specText = '가스배관';
     }
-
     const newLine = {
         id: `util-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        sourceType: utilLineSourceStore?.name || '기능실',
-        subType: cfg.id,
-        subTypeLabel: cfg.label,
-        specText: specText,
-        className: cfg.className,
-        color: cfg.color,
-        direction: cfg.direction,
-        sourceStoreId: utilLineSourceStore?.id || '',
-        sourceName: utilLineSourceStore?.name || '기능실',
-        targetStoreId: utilLineTargetStore?.id || '',
-        targetName: utilLineTargetStore?.name || '매장',
-        points: [...utilLineDrawingPoints]
+        auto: true,
+        sourceType: utilLineSourceStore.name || '매장',
+        subType: cfg.id, subTypeLabel: cfg.label, specText, className: cfg.className, color: cfg.color,
+        direction: 'forward',
+        sourceStoreId: utilLineSourceStore.id || '', sourceName: utilLineSourceStore.name || '매장',
+        targetStoreId: utilLineTargetStore.id || '', targetName: utilLineTargetStore.name || '기능실',
+        points: res.points
     };
-
     addUtilityLine(floor.code, newLine);
-    showToast(`✅ 자[${newLine.sourceName}] ➔ 모[${newLine.targetName}] ${newLine.subTypeLabel} 연결 완료!`, 2000);
-
-    // 완성된 라인 즉시 하이라이트 표시
-    const finalTarget = utilLineTargetStore;
+    showToast(`✅ 기능실[${newLine.targetName}] ➔ 매장[${newLine.sourceName}] ${newLine.subTypeLabel} 연결 완료!`, 2000);
+    const finalStore = utilLineSourceStore;
     exitUtilityLineDrawingMode();
-    if (finalTarget) highlightUtilityLinesForStore(finalTarget);
+    highlightUtilityLinesForStore(finalStore);
+}
+
+// 복도가 끊긴 자리를 빨간 점선·동그라미로 8초 보여 줌 (결정 308)
+function showRouteGap(gap) {
+    const svgEl = mapContainer?.querySelector('svg');
+    if (!svgEl || !gap) return;
+    svgEl.querySelector('#route-gap-mark')?.remove();
+    const ns = 'http://www.w3.org/2000/svg', k = 1 / (typeof scale !== 'undefined' && scale ? scale : 1);
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('id', 'route-gap-mark');
+    g.style.pointerEvents = 'none';
+    const [a, b] = gap, mk = (tag, at) => { const e = document.createElementNS(ns, tag); Object.entries(at).forEach(([n, v]) => e.setAttribute(n, v)); g.appendChild(e); };
+    mk('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#dc2626', 'stroke-width': 3 * k, 'stroke-dasharray': `${8 * k} ${5 * k}` });
+    [a, b].forEach(p => mk('circle', { cx: p.x, cy: p.y, r: 9 * k, fill: 'rgba(220,38,38,.15)', stroke: '#dc2626', 'stroke-width': 2 * k }));
+    svgEl.appendChild(g);
+    setTimeout(() => g.remove(), 8000);
+}
+
+// 매장·기능실 도형을 옮기거나 키운 뒤 붙어 있는 자동 연결선을 다시 그림 (결정 308). 길을 못 찾으면 예전 선 그대로
+function rerouteLinesForStore(store) {
+    if (!store || typeof routeBetweenStores !== 'function') return 0;
+    const floor = FLOORS[currentFloorIdx], id = String(store.id);
+    const lines = getFloorUtilityLines(floor.code), byId = sid => currentStores.find(s => String(s.id) === String(sid));
+    let n = 0, fail = 0, gap = null;
+    lines.forEach(l => {
+        if (!l.auto || (String(l.sourceStoreId) !== id && String(l.targetStoreId) !== id)) return;
+        const src = byId(l.sourceStoreId), tgt = byId(l.targetStoreId);
+        if (!src?.polygonElement || !tgt?.polygonElement) return;
+        const res = routeBetweenStores(tgt, src);
+        if (res.ok) { l.points = res.points; n++; } else { fail++; gap = gap || res.gap; }
+    });
+    if (n) { saveFloorUtilityLines(floor.code, lines); renderFloorUtilityLines(); }
+    if (fail) { showToast(`연결선 ${fail}개는 길을 못 찾아 예전 자리 그대로입니다.`, 2800); if (gap) showRouteGap(gap); }
+    return n;
 }
 
 // ================= UI 가이드 배너 및 라디오 버튼 4종 =================
@@ -604,8 +793,8 @@ function updateUtilLineGuideUI() {
             <!-- 자 -> 모 표시 및 점선 이동 연출 -->
             <div style="display:flex; align-items:center; gap:6px; font-weight:700; font-size:13px; color:#0f172a;">
                 <span>설비연결:</span>
-                <span style="padding:2px 8px; border-radius:4px; background:${utilLineSourceStore ? '#eff6ff' : '#f1f5f9'}; color:${utilLineSourceStore ? '#2563eb' : '#64748b'}; border:1px solid ${utilLineSourceStore ? '#bfdbfe' : '#e2e8f0'};">
-                    자[${srcText}]
+                <span style="padding:2px 8px; border-radius:4px; background:${utilLineTargetStore ? '#eff6ff' : '#f1f5f9'}; color:${utilLineTargetStore ? '#2563eb' : '#64748b'}; border:1px solid ${utilLineTargetStore ? '#bfdbfe' : '#e2e8f0'};">
+                    모 기능실[${tgtText}]
                 </span>
                 <!-- 점선 흐름 연출 인디케이터 -->
                 <div style="display:inline-flex; align-items:center; gap:2px; padding:0 4px; overflow:hidden;">
@@ -614,8 +803,8 @@ function updateUtilLineGuideUI() {
                     </div>
                     <span style="color:${cfg.color}; font-size:12px; font-weight:900;">➔</span>
                 </div>
-                <span style="padding:2px 8px; border-radius:4px; background:${utilLineTargetStore ? '#eff6ff' : '#f1f5f9'}; color:${utilLineTargetStore ? '#2563eb' : '#64748b'}; border:1px solid ${utilLineTargetStore ? '#bfdbfe' : '#e2e8f0'};">
-                    모[${tgtText}]
+                <span style="padding:2px 8px; border-radius:4px; background:${utilLineSourceStore ? '#eff6ff' : '#f1f5f9'}; color:${utilLineSourceStore ? '#2563eb' : '#64748b'}; border:1px solid ${utilLineSourceStore ? '#bfdbfe' : '#e2e8f0'};">
+                    자 매장[${srcText}]
                 </span>
             </div>
 
@@ -627,16 +816,11 @@ function updateUtilLineGuideUI() {
             <!-- 규격 입력 -->
             ${inputFieldHtml}
 
-            <!-- 직각 스냅 버튼 -->
-            <button type="button" class="zone-toggle-btn btn-toggle-ortho ${isOrtho ? 'active' : ''}" onclick="toggleGlobalOrthoMode()" title="직각 스냅 (단축키: Shift 누른 채 클릭)">
-                📐 직각 (Shift)
-            </button>
 
-            <span class="zone-pts-badge">${utilLineDrawingPoints.length}점</span>
+            <span class="zone-pts-badge">길은 자동</span>
         </div>
 
         <div style="display:flex; align-items:center; gap:8px;">
-            <button class="btn-guide-finish" onclick="finishUtilityLine()">완료 (Enter)</button>
             <button class="btn-guide-close" onclick="exitUtilityLineDrawingMode()">취소 (ESC)</button>
         </div>
     `;

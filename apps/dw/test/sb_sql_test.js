@@ -89,7 +89,9 @@ if (require.main === module) (async () => {
   ok(r.store.docMissing === '설계도면(CAD)' && r.store.contractor === '가나건설' && r.store.currentRound === 1, '매장 요약: 미제출 서류·시공업체·차수');
   const ph = JSON.parse(R1.notesPhotos);
   ok(ph.length === 1 && ph[0].id === 'p1' && ph[0].a === 1.3 && ph[0].x === 5000 && ph[0].w === 20 && ph[0].r === 0, '사진 목록 검사 (Code.gs sanitizePhotos_)');
-  ok(Object.keys(r.store).length === 25 && r.store.fireDoc === '', '매장 25칸 모두 (빈 칸은 "")');
+  ok(Object.keys(r.store).length === 26 && r.store.fireDoc === '' && r.store.exitDate === '', '매장 26칸 모두 (빈 칸은 "")');
+  r = await call('dw_save_review', { p_a: A, p_review: Object.assign({}, rv, { storeId: sid, round: 1, exitDate: '2027-06-30' }), p_finalize: false });
+  ok(r.store.exitDate === '2027-06-30', '매장 요약: 퇴점일');
   r = await call('dw_save_review', { p_a: A, p_review: rv, p_finalize: false });
   ok(r.store.id === sid && r.reviews.length === 1, '같은 clientId 로 다시 저장 → 같은 매장 (두 번 눌러도 하나)');
   ok(/서명 이미지가 너무 큽니다/.test(await callErr('dw_save_review', { p_a: A, p_review: Object.assign({}, rv, { safetySig: 'data:image/png;base64,' + 'A'.repeat(46000) }), p_finalize: false })), '서명 그림 너무 크면 거절');

@@ -22,7 +22,6 @@ function render() {
   else if (S.view === 'att') html = renderAtt();
   else if (S.view === 'attup') html = renderAttUp();
   else if (S.view === 'inspect') html = renderInspect();
-  else if (S.view === 'thermal') html = renderThermal();
   else if (S.view === 'cad') html = renderCad();
   else if (S.view === 'fire') html = renderFire();
   else if (S.view === 'qr') html = renderQr();
@@ -33,13 +32,14 @@ function render() {
   else if (S.view === 'csck') html = renderCsCk();
   else if (S.view === 'rw') html = renderRw();
   else if (S.view === 'wh') html = renderWh();
+  else if (S.view === 'df') html = renderDf();
   else if (S.view === 'status') html = renderStatus();
   else if (S.view === 'floor') html = S.st ? renderFloor() : renderStatus();
   else if (S.view === 'set' && isBoss()) html = renderSet();
   else if (S.view === 'risk' && isBoss()) html = renderRisk();
   else html = renderMain();
   if (S.view !== 'map') document.body.classList.remove('mapfull');
-  if (PARENT[S.view] && S.token && S.user && S.view !== 'map') {   // 아래 뒤로 버튼 (위 < 는 뺌, 결정 102). 저장 줄이 있으면 그 줄 맨 왼쪽에 (WS-25)
+  if (PARENT[S.view] && S.token && S.user && S.view !== 'map' && S.view !== 'cad') {   // 지도·CAD는 자체 왼쪽 아래 뒤로만. 아래 뒤로 버튼 (위 < 는 뺌, 결정 102). 저장 줄이 있으면 그 줄 맨 왼쪽에 (WS-25)
     const h2 = withBack(html);
     html = h2 !== html ? h2 : html + '<div class="wrap backbar"><button class="btn big" onclick="back()">' + ICON.back + '뒤로</button></div>';
   }
@@ -53,8 +53,13 @@ function render() {
 (async function start() {
   render();   // 「불러오는 중」 — 저장된 표를 확인하는 동안 PIN 화면을 보이지 않음 (결정 48)
   if (window.WS_API) {   // 바로가기 앱: 기기 등록(시설팀 공용 계정 Supabase 로그인)이 먼저 (Supabase 이관 3-1)
-    try { S.device = await WS_API.device(); } catch (e) { S.device = null; }
+    for (;;) {   // 등록 기록을 새로 받다 실패하면 등록 화면 대신 3초마다 다시 시도 (결정 286)
+      try { S.device = await WS_API.device(); break; }
+      catch (e) { S.device = null; if (e.message !== 'RETRY') break; S.dev = { wait: true }; S.view = 'device'; render(); await new Promise(r => setTimeout(r, 3000)); }
+    }
+    S.dev = null;
     if (!S.device) { S.view = 'device'; render(); return; }
+    S.view = 'loading';
   }
   if (!tokenAlive(S.token)) {
     store('ws_token', null); S.token = '';

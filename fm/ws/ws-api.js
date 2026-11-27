@@ -96,10 +96,6 @@
     mapDays: (token) => rpc('ws_map_days', { p_token: token }),
     mapAt: (token, at) => rpc('ws_map_at', { p_token: token, p_at: at }),
     mapRestore: (token, day) => rpc('ws_map_restore', { p_token: token, p_day: day }),
-    /* ── 열화상점검 (supabase/16_thermal.sql, 결정 168): 작성기(fm/thermal)가 WS_THERMAL 통로로 부름 ── */
-    thermalBoot: (token) => rpc('ws_thermal_boot', { p_token: token }),
-    thermalSet: (token, k, v) => rpc('ws_thermal_set', { p_token: token, p_k: k, p_v: v }),
-    thermalReport: (token, r) => rpc('ws_thermal_report', { p_token: token, p_r: r }),
     /* ── CAD 변환된 도면 (supabase/18_cad.sql): 뷰어(fm/cad)가 WS_CAD 통로로 부름 ── */
     cadList: (token) => rpc('ws_cad_list', { p_token: token }),
     cadSave: (token, r) => rpc('ws_cad_save', { p_token: token, p_r: r }),
@@ -171,6 +167,8 @@
     },
     attFix: (token, date, name, value) => rpc('ws_att_fix', { p_token: token, p_date: date, p_name: name, p_value: value }),
     attHoliday: (token, name, days, date) => rpc('ws_att_holiday', { p_token: token, p_name: name, p_days: days || [], p_date: date || '' }),
+    attPart: (token, name, part, date) => rpc('ws_att_part', { p_token: token, p_name: name, p_part: part, p_date: date || '' }),
+    attRemove: (token, name, date) => rpc('ws_att_remove', { p_token: token, p_name: name, p_date: date || '' }),
 
     /* ── 3-4 소화기 (supabase/05_fire.sql). QR 점검 입력은 check-sb.html 이 따로 부름 ── */
     feList: async token => fePage(await rpc('ws_fe_list', { p_token: token })),
@@ -186,6 +184,8 @@
     eqDelete: async (token, ids, kind) => eqPage(await rpc('ws_eq_delete', { p_token: token, p_ids: ids || [], p_kind: kind || 'hyd' })),
     eqStatus: (token, ym) => rpc('ws_eq_status', { p_token: token, p_ym: ym || '' }),
     eqDetail: (token, id) => rpc('ws_eq_detail', { p_token: token, p_check_id: String(id || '') }),
+    eqCheckDelete: (token, id) => rpc('ws_eq_check_delete', { p_token: token, p_check_id: String(id || '') }),   // 점검 기록 삭제 (결정 290)
+    feCheckDelete: (token, id) => rpc('ws_fe_check_delete', { p_token: token, p_check_id: String(id || '') }),
     /** QR 관리 v2 (결정 228): 위치 이름 고치기(QR 그대로) · 인쇄함 표시 — kind: fe 소화기 · hyd 소화전 · air 공기호흡기 */
     qrRename: async (token, kind, floor, oldP, newP) => (kind === 'fe' ? fePage : eqPage)(await rpc('ws_qr_rename', { p_token: token, p_kind: kind, p_floor: floor, p_old: oldP, p_new: newP })),
     qrPrinted: async (token, kind, ids) => (kind === 'fe' ? fePage : eqPage)(await rpc('ws_qr_printed', { p_token: token, p_kind: kind, p_ids: ids || [] })),
@@ -247,6 +247,15 @@
     dnList: (token, q, from, to) => rpc('ws_dn_list', { p_token: token, p_q: q || '', p_from: from || '', p_to: to || '' }),
     dnSave: async (token, d) => rpc('ws_dn_save', { p_token: token, p_d: Object.assign({}, d, { photos: await dwPics(d.photos), fire: await dwPics(d.fire), pledge: await dwPics(d.pledge), rest: await dwRest(d.rest) }) }),
     dnDelete: (token, id) => rpc('ws_dn_delete', { p_token: token, p_id: String(id || '') }),
+
+    /* ── 하자점검 (supabase/27_defect.sql): 사진·서명은 버킷 dw_photo/ 에 먼저 올리고 {file} 로 넘김 ── */
+    hjList: (token, q, from, to) => rpc('ws_hj_list', { p_token: token, p_q: q || '', p_from: from || '', p_to: to || '' }),
+    async hjSave(token, d) {
+      const one = async (p, ext) => p && p.data ? { file: await upload('dw_photo', dataUrlToBlob(p.data), ext) } : p && p.id ? { id: p.id } : null;
+      const items = []; for (const it of d.items || []) items.push({ n: it.n, t: it.t, photo: await one(it.photo, 'jpg') });
+      return rpc('ws_hj_save', { p_token: token, p_d: { id: d.id, day: d.day, items, signSite: await one(d.signSite, 'png'), signFm: await one(d.signFm, 'png') } });
+    },
+    hjDelete: (token, id) => rpc('ws_hj_delete', { p_token: token, p_id: String(id || '') }),
 
     /* ── 3-6 환경설정 (supabase/08_settings.sql, 소장만). 위험성 목록은 시트 대신 여기서 고침 ── */
     adminStaff: token => rpc('ws_admin_staff', { p_token: token }),
@@ -443,19 +452,23 @@
     sb, upload, compressImage, dataUrlToBlob,
     /** 기기 등록 상태: 등록됐으면 { email, at } , 아니면 null */
     async device() {
-      const { data } = await sb.auth.getSession();
+      const { data, error } = await sb.auth.getSession();
       const s = data && data.session;
-      let at = ''; try { at = localStorage.getItem('ws_dev_at') || ''; } catch (e) {}
+      let at = '', kept = false; try { at = localStorage.getItem('ws_dev_at') || ''; kept = !!localStorage.getItem('ws_sb_auth'); } catch (e) {}
+      // 등록 기록은 남았는데 새로 받기만 실패(인터넷 늦음 등) → 등록 화면 대신 다시 시도 (결정 286). 서버가 무효로 본 기록은 supabase-js 가 이미 지움
+      if (!s && error && kept) throw new Error('RETRY');
+      this.gone = !s && !!at;   // 등록한 날은 남았는데 로그인만 없음 = 브라우저가 지운 게 아니라 서버에서 풀림 (등록 화면 안내용)
       return s ? { email: s.user.email || '', at } : null;   // at = 이 기기에서 등록한 날 (계정 전체의 마지막 로그인이 아님)
     },
     async register(email, password) {
       const { error } = await sb.auth.signInWithPassword({ email: String(email || '').trim(), password: String(password || '') });
-      if (!error) try { localStorage.setItem('ws_dev_at', new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10)); } catch (e) {}
+      if (!error) try { localStorage.setItem('ws_dev_at', new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10)); navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch (e) {}   // persist: 저장 공간이 모자랄 때 브라우저가 먼저 지우지 않게 (닫을 때 삭제 설정은 못 막음)
       if (error) throw new Error(/invalid/i.test(error.message) ? '이메일 또는 비밀번호가 맞지 않습니다. 관리자에게 확인해 주세요.' : '등록하지 못했습니다: ' + error.message);
     },
     async unregister(token) {
       try { if (token) await rpc('ws_logout', { p_token: token }); } catch (e) { /* 표가 이미 없어도 등록은 풂 */ }
       await sb.auth.signOut();
+      try { localStorage.removeItem('ws_dev_at'); } catch (e) {}
     },
     run(fn, ...args) {
       if (!API[fn]) return Promise.reject(new Error('아직 옮기지 않은 기능입니다 (Supabase 이관 중): ' + fn));

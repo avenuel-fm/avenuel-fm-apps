@@ -95,8 +95,8 @@ function ymLabel(ym) { return Number(ym.slice(0, 4)) + '년 ' + Number(ym.slice(
 
 /* ── 화면 이동 (뒤로 가기 지원) ── */
 function go(view, push) {
-  S.view = view;
-  if (push !== false) { try { google.script.history.push({ v: view }, { }); } catch (e) {} }
+  const cur = S.view; S.view = view;
+  if (push !== false) hist(view, cur);
   render();
   window.scrollTo(0, 0);
   if (view === 'fire' && !(S.fireAt && Date.now() - S.fireAt < 60000)) refreshFire();
@@ -105,9 +105,30 @@ function go(view, push) {
 async function refreshFire() { try { const r = await call('bootstrap'); S.fire = r.fire; S.user = r.user; S.fireAt = Date.now(); if (S.view === 'fire') render(); } catch (e) {} }
 // 소화전·공기호흡기 이번 달 숫자 (실패해도 메뉴는 그대로)
 async function refreshEq() { try { const e = await run('eqStatus', S.token, ''); if (e && e.ok) { S.eqc = e; S.eqAt = Date.now(); if (S.view === 'fire') render(); } } catch (e) {} }
-try { google.script.history.setChangeHandler(e => { const v = e.state && e.state.v; if (v && S.token) { S.view = v; render(); } }); } catch (e) {}
-const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', thermal: 'inspect', cs: 'inspect', csck: 'cs', qr: 'fire', hyd: 'fire', hydfl: 'hyd', status: 'fire', floor: 'status', docs: 'main', set: 'main', risk: 'set', map: 'main', cad: 'main', spec: 'main', tbm: 'docs', nw: 'docs', log: 'docs', rw: 'docs', wh: 'docs', ahu: 'docs', clim: 'docs', use: 'docs', rep: 'docs', kw: 'set', uhr: 'use', att: 'docs', attup: 'att' };
-function back() { if (S.view === 'pdf') return go((S.pdf && S.pdf.from) || 'main'); if (S.view === 'csck') return csLeave(); if (S.view === 'risk' && S.rk && S.rk.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'wh' && S.wh && (S.wh.d.dirty || S.wh.n.dirty) && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'log' && !lgLeaveOk()) return; if (S.view === 'ahu' && !ahuLeaveOk()) return; if ((S.view === 'clim' || S.view === 'use') && !clLeaveOk()) return; if (S.view === 'rep') return repBack(); if (S.view === 'uhr') return uhBack(); if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
+// 브라우저 기본 기록으로 안드로이드·아이폰 뒤로가기 지원 (결정 244). 구글 웹앱·바로가기 주소 양쪽에서 같이 됨.
+// HS = 화면 기록 거울. 메인이 바닥 — 메인에서는 기록을 더 쌓지 않아 뒤로가기가 앱을 바로 끝냄.
+let HS = ['main'], histIgn = 0;
+function histSkip() { histIgn++; setTimeout(() => { histIgn = 0; }, 700); }
+function hist(view, cur) {
+  try {
+    if (view === cur) history.replaceState({ v: view }, '');
+    else if (HS.length > 1 && HS[HS.length - 2] === view) { HS.pop(); histSkip(); history.back(); }
+    else if (view === 'main') { const n = HS.length - 1; HS = ['main']; if (n > 0) { histSkip(); history.go(-n); } }
+    else { HS.push(view); history.pushState({ v: view }, ''); }
+  } catch (e) {}
+}
+function histReset() { const n = HS.length - 1; HS = ['main']; if (n > 0) { try { histSkip(); history.go(-n); } catch (e) {} } }
+window.addEventListener('popstate', () => {
+  if (histIgn > 0) { histIgn--; return; }
+  if (!S.token || !S.user) return;
+  const open = document.querySelector('#layer > *') || (S.sp && S.sp.big);
+  if (S.view === 'main' || HS.length <= 1) { if (!open) return; }
+  try { history.pushState({ v: S.view }, ''); } catch (e) {}   // 이미 한 칸 물러났으므로 현재 화면 기록을 되돌려 놓고, 실제 이동은 아래 버튼과 같은 흐름
+  if (open) { if (S.sp && S.sp.big) spBigClose(); else closeDialog(); return; }
+  back();
+});
+const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', cs: 'inspect', df: 'inspect', csck: 'cs', qr: 'fire', hyd: 'fire', hydfl: 'hyd', status: 'fire', floor: 'status', docs: 'main', set: 'main', risk: 'set', map: 'main', cad: 'main', spec: 'main', tbm: 'docs', nw: 'docs', log: 'docs', rw: 'docs', wh: 'docs', ahu: 'docs', clim: 'docs', use: 'docs', rep: 'docs', kw: 'set', uhr: 'use', att: 'docs', attup: 'att' };
+function back() { if (S.view === 'pdf') return go((S.pdf && S.pdf.from) || 'main'); if (S.view === 'csck') return csLeave(); if (S.view === 'risk' && S.rk && S.rk.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'wh' && S.wh && (S.wh.d.dirty || S.wh.n.dirty) && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'df' && S.df && S.df.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'log' && !lgLeaveOk()) return; if (S.view === 'ahu' && !ahuLeaveOk()) return; if ((S.view === 'clim' || S.view === 'use') && !clLeaveOk()) return; if (S.view === 'rep') return repBack(); if (S.view === 'uhr') return uhBack(); if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
 
 function topbar(sub, title) {
   const u = S.user || {};

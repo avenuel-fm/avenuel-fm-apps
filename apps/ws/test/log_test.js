@@ -36,7 +36,13 @@ async function open(b, opt) {
   ok(ly, '가동 칸 = 에너지 사용량 아래, 금일작업 위');
   ok(!(await p.locator('.lgtools,.lgchip').count()), '종이 위 문구·TBM 줄 없음');
   const wv = (d, i) => p.inputValue('.lgin[data-d="' + d + '"][data-i="' + i + '"]');
-  ok(await wv('전기방재', 0) === '2층 자동문 재결선' && await wv('전기방재', 9) === 'B9 순찰' && await wv('기계건축', 0) === '옥상 배수구 청소' && (await p.locator('#lgState').innerText()).indexOf('저장 안 함') !== -1, '새 날: TBM 작업 표로 금일작업 채워 둠 (10줄까지, 11번부터 뺌)');
+  ok(await wv('전기방재', 0) === '' && await wv('기계건축', 0) === '' && (await p.locator('.nwstate.dirty').count()) === 0, '새 날: 금일작업은 빈칸 (명일 작업 일정·TBM 표에서 안 가져옴, 사용자 11-25)');
+  await p.locator('.lgadd').first().click();
+  ok(await p.locator('.lgwork li').count() === 21 && await wv('전기방재', 10) === '' && await p.locator('.lgwork li .lgin').nth(10).evaluate(e => document.activeElement === e), '줄 추가: 11번째 줄이 생기고 바로 입력할 수 있음');
+  for (let i = 0; i < 4; i++) await p.locator('.lgadd').first().click();
+  ok(await p.locator('.lgwork li').count() === 25 && await p.locator('.lgadd').count() === 1, '줄 추가: 15줄까지 (넘으면 버튼 없어짐)');
+  const fit = await p.evaluate(() => { const s = document.querySelector('.lgs'); return s.scrollHeight <= 1120; });
+  ok(fit, '15줄이어도 종이(1120px) 한 장 안에 들어감');
   ok(await p.locator('#lgNight').count() === 0 && !/야간 일일 작업 현황/.test(await p.locator('.lgwrap').innerText()), '야간 일일 작업 현황 칸(그림 올리기)은 없음 (결정 240)');
   const set = (k, v) => p.locator('.lgin[data-k="' + k + '"]').fill(v);
   await set('영업시간', '9.5'); await set('날씨', '흐림'); await set('최저', '8'); await set('최고', '16'); await set('미세먼지', '38');
@@ -51,7 +57,7 @@ async function open(b, opt) {
   await p.click('#lgSave'); await p.waitForFunction(() => S.lg && !S.lg.busy && !S.lg.dirty);
   const tk = await p.evaluate(() => S.token);
   let g = await run('logGet', tk, day);
-  ok(g.cur && g.cur['시수'] === '102' && g.cur.works['전기방재'][0] === '공사장 안전 점검' && g.cur.works['전기방재'].length === 10, '저장 → 일지 시트 (10줄)');
+  ok(g.cur && g.cur['시수'] === '102' && g.cur.works['전기방재'][0] === '공사장 안전 점검' && g.cur.works['전기방재'].length === 1, '저장 → 일지 시트 (빈 줄은 뺌)');
   ok(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), '옆으로 넘침 없음 (1600px)');
   await p.screenshot({ path: 'shot_log_pc.png', fullPage: true });
   // 다른 PC에서 먼저 고치면 덮어쓰지 않음

@@ -311,22 +311,10 @@ returns jsonb language sql stable security definer set search_path = public as $
   from public.daily_log where log_date between p_from and p_to and not deleted;
 $$;
 
--- 그 근무일 TBM 작업 표(없으면 명일 작업 예정)의 작업위치 + 작업내용, 부서마다 10줄 (Code.gs logTbm_)
+-- 금일작업에 가져오는 자료 (결정 268): 명일 작업 일정·TBM 표는 안 가져옴 → 여기서는 빈 답. 주간작업 연동은 26_workhist.sql 이 이 함수를 다시 정의함 (03 → 26 순서로 실행)
 create or replace function public.ws_log_tbm(p_day date)
 returns jsonb language sql stable security definer set search_path = public as $$
-  with w as (
-    select e, i from public.tbm t, jsonb_array_elements(t.works) with ordinality x(e, i) where t.work_day = p_day and not t.deleted
-    union all
-    select e, i from jsonb_array_elements(public.ws_nw_data(p_day)->'rows') with ordinality x(e, i)
-     where not exists (select 1 from public.tbm where work_day = p_day and not deleted)
-  ), l as (
-    select case e->>'dept' when '전방파트' then '전기방재' when '기건파트' then '기계건축' end dept,
-           public.ws_clean(concat_ws(' ', nullif(btrim(e->>'place'), ''), nullif(btrim(e->>'work'), '')), 100) t, i
-    from w
-  ), n as (select dept, t, row_number() over (partition by dept order by i) k from l where dept is not null and t <> '')
-  select jsonb_build_object(
-    '전기방재', coalesce((select jsonb_agg(t order by k) from n where dept = '전기방재' and k <= 10), '[]'::jsonb),
-    '기계건축', coalesce((select jsonb_agg(t order by k) from n where dept = '기계건축' and k <= 10), '[]'::jsonb));
+  select jsonb_build_object('전기방재', '[]'::jsonb, '기계건축', '[]'::jsonb);
 $$;
 
 -- 일지 날짜: 고른 날(앞날은 안 됨), 없거나 틀리면 오늘 근무일
@@ -339,7 +327,7 @@ $$;
 -- 일지 서명란 (사용자 11-19, 결정 162): 그날 로그인 서명한 사람 중에서. 같은 순위가 여럿이면 먼저 서명한 사람
 --  · 전방책임자 = 전기·방재 파트장 > 전기·방재 주임
 --  · 기건책임자 = 기계·건축 파트장 > 냉동장 > 기계·건축 주임
---  · 시설부소장 = 부소장 > 소장 · 시설소장 = 소장 > 부소장
+--  · 시설부소장 = 부소장만 · 시설소장 = 소장 > 부소장 (소장·부소장이 같이 나오면 각자 칸, 사용자 11-25 결정 268)
 --  직책은 직원 탭 역할(소장·부소장) · 그 달 근무표 구역·직책. 근무표가 없으면 직원 탭 「파트장」 + 파트
 create or replace function public.ws_log_signs(p_day date)
 returns jsonb language sql stable security definer set search_path = public as $$
@@ -358,9 +346,9 @@ returns jsonb language sql stable security definer set search_path = public as $
                 when rrole = '' and srole = '파트장' and spart ~ '기건|기계|건축' then 1
                 when rrole like '%냉동%' then 2
                 when rrole like '%주임%' and rsec ~ '기계|건축' then 3 end mech,
-           case when srole = '부소장' or rrole = '부소장' then 1 when srole = '소장' or rrole = '소장' then 2 end vice,
-           case when srole = '소장' or rrole = '소장' then 1 when srole = '부소장' or rrole = '부소장' then 2 end boss
-    from sg)
+           case when v then 1 end vice,
+           case when srole = '소장' or (rrole like '%소장%' and not v) then 1 when v then 2 end boss
+    from (select sg.*, (srole = '부소장' or rrole like '%부소장%') v from sg) x)
   select jsonb_build_object(
     'front', (select jsonb_build_object('name', name, 'img', img) from rk where front is not null order by front, signed_at limit 1),
     'mech', (select jsonb_build_object('name', name, 'img', img) from rk where mech is not null order by mech, signed_at limit 1),
@@ -421,7 +409,7 @@ begin
   foreach k in array array['전기방재', '기계건축'] loop
     works := works || jsonb_build_object(k, (select coalesce(jsonb_agg(c order by i), '[]'::jsonb) from (select public.ws_clean(t, 100) c, i
       from jsonb_array_elements_text(case when jsonb_typeof(p_d->'works'->k) = 'array' then p_d->'works'->k else '[]'::jsonb end) with ordinality u(t, i)) z where c <> ''));
-    if jsonb_array_length(works->k) > 10 then return jsonb_build_object('ok', false, 'error', k || ' 작업은 10줄까지 넣을 수 있습니다'); end if;
+    if jsonb_array_length(works->k) > 15 then return jsonb_build_object('ok', false, 'error', k || ' 작업은 15줄까지 넣을 수 있습니다'); end if;
   end loop;
   if coalesce(p_files, '{}'::jsonb) ? 'night' then
     night := public.ws_add_file('log_night', p_files->'night', 'image/jpeg', d || '_야간작업_001.jpg',

@@ -50,7 +50,7 @@ async function open(b, opts) {
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
   await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
   await p.waitForTimeout(600);
-  return [p, p.frames().find(x => /\/map\/index\.html$/.test(x.url())), p.frameLocator('iframe.mapframe')];
+  return [p, p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url())), p.frameLocator('iframe.mapframe')];
 }
 const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0; }, sel);
 
@@ -97,10 +97,21 @@ const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); r
   await f.evaluate(id => openEditModalForStore(currentStores.find(s => s.bookId === id)), cs);
   await fl.locator('#edit-name').fill('아주 긴 이름의 새로운 기능실 공간');
   await fl.locator('#edit-modal button:has-text("저장")').click(); await p.waitForTimeout(300);
-  const lab = await f.evaluate(id => { const s = currentStores.find(x => x.bookId === id), t = s.textElement, bx = s.polygonElement.getBBox(); const lines = Array.from(t.querySelectorAll('tspan')); return { size: t.getAttribute('font-size'), anchor: t.getAttribute('text-anchor'), n: lines.length, fits: lines.every(l => l.getComputedTextLength() <= bx.width), left: lines.every(l => Math.abs(parseFloat(l.getAttribute('x')) - bx.x - 4) < 0.1), all: lines.map(l => l.textContent).join('') }; }, cs);
-  ok(lab.size === '15' && lab.anchor === 'start' && lab.n >= 2 && lab.fits && lab.left && lab.all.replace(/\s/g, '') === '아주긴이름의새로운기능실공간', '12) 새 매장 글자 15 · 도형보다 길면 다음 줄 · 왼쪽 정렬 (' + lab.n + '줄)');
+  const lab = await f.evaluate(id => { const s = currentStores.find(x => x.bookId === id), t = s.textElement, bx = s.polygonElement.getBBox(); const lines = Array.from(t.querySelectorAll('tspan')); return { size: t.getAttribute('font-size'), anchor: t.getAttribute('text-anchor'), n: lines.length, fits: lines.every(l => l.getComputedTextLength() <= bx.width), mid: lines.every(l => Math.abs(parseFloat(l.getAttribute('x')) - bx.x - bx.width / 2) < 0.1), weight: t.getAttribute('font-weight'), all: lines.map(l => l.textContent).join('') }; }, cs);
+  ok(lab.size === '20' && lab.weight === '400' && lab.anchor === 'middle' && lab.n >= 2 && lab.fits && lab.mid && lab.all.replace(/\s/g, '') === '아주긴이름의새로운기능실공간', '12) 새 매장 글자 20·보통(옆 매장과 같음) · 길면 다음 줄 · 사각형 정중앙 (' + lab.n + '줄)');
   await f.evaluate(() => selectFloor(currentFloorIdx, true)); await p.waitForTimeout(400);
   ok(await f.evaluate(id => currentStores.find(x => x.bookId === id).textElement.querySelectorAll('tspan').length >= 2, cs), '13) 다시 열어도 줄바꿈 유지');
+  // 삼각형·ㄱ자: 도형 안 가장 큰 네모의 가운데 (결정 302)
+  const shp = await f.evaluate(() => {
+    const ns = 'http://www.w3.org/2000/svg', svg = document.querySelector('#map-container svg'), g = document.createElementNS(ns, 'g'); svg.appendChild(g);
+    const put = (d, name) => { const pa = document.createElementNS(ns, 'path'), t = document.createElementNS(ns, 'text'); pa.setAttribute('d', d); g.append(pa, t); layoutStoreLabel(t, name, pa);
+      const tb = t.getBBox(), pts = [[tb.x, tb.y], [tb.x + tb.width, tb.y], [tb.x, tb.y + tb.height], [tb.x + tb.width, tb.y + tb.height]];
+      return { inside: pts.every(([x, y]) => { const q = svg.createSVGPoint(); q.x = x; q.y = y; return pa.isPointInFill(q); }), x: +t.getAttribute('x'), lines: t.querySelectorAll('tspan').length }; };
+    const r = { tri: put('M9300 3900L9700 4300L9300 4300Z', '메종키츠네'), ell: put('M9300 4400H9700V4500H9400V4800H9300Z', '젠틀몬스터 하우스') };
+    g.remove(); return r;
+  });
+  ok(shp.tri.inside && shp.tri.lines === 1, '13-1) 삼각형: 이름이 한 줄로 도형 안에 (' + JSON.stringify(shp.tri) + ')');
+  ok(shp.ell.inside && Math.abs(shp.ell.x - 9500) < 10, '13-2) ㄱ자: 넓은 쪽 네모의 가운데 (' + JSON.stringify(shp.ell) + ')');
   await f.evaluate(() => selectAndHighlightStore(currentStores.find(s => s.name === '아그라'))); await p.waitForTimeout(300);
   ok(await f.evaluate(() => getComputedStyle(currentStores.find(s => s.name === '아그라').textElement).fill === 'rgb(255, 255, 255)'), '14) 선택한 매장 이름은 흰색');
   ok(!p.errs.length, '15) 화면 오류 없음 (휴대폰)' + (p.errs.length ? ': ' + p.errs.join(' / ') : ''));

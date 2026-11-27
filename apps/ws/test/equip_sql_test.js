@@ -138,6 +138,14 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(!/https?:|photo|홍길동/.test(txt), '로그인 안 함 표: 사진 주소·점검자 실명은 안 내려감');
   ok(JSON.stringify(['홍길동', '남궁민수', '김수', '박'].map(n => n)) && (await one("select ws_mask_name('홍길동') a, ws_mask_name('남궁민수') b, ws_mask_name('김수') c, ws_mask_name('박') d, ws_mask_name('') e")).b === '남**수', '이름 가리기: 3글자 홍*동 · 4글자 남**수 · 2글자 김*');
 
+  // ── 점검 기록 삭제 (결정 290) ──
+  ok(/permission denied/.test(await asErr('anon', "select ws_eq_check_delete('x', 'c')")), '점검 기록 삭제: 비로그인은 못 부름');
+  ok((await auth('ws_eq_check_delete', [tk, 'nothing'])).ok === false, '점검 기록 삭제: 없는 번호 → 안내');
+  const ed = await auth('ws_eq_check_delete', [tk, sa.checkId]);
+  const st2 = await auth('ws_eq_status', [tk, '']), a2 = st2.items.find(x => x.id === AIR.id);
+  ok(ed.ok && a2 && a2.state !== 'bad' && a2.state !== 'ok' && !a2.checkId && (await auth('ws_eq_detail', [tk, sa.checkId])).ok === false && st2.items.length === 3, '점검 기록 삭제 → 공기호흡기는 남고 이번 달 「미입력」');
+  ok(!(await anon('ws_eq_pub', [AIR.token])).rows.some(x => x.state === 'bad' && x.ym === st2.ym), '점검 기록 삭제 → 로그인 안 한 표에서도 빠짐');
+
   // ── 지운 뒤 ──
   const dl = await auth('ws_eq_delete', [tk, J([H2.id, 'nothing']), 'hyd']);
   ok(dl.count === 1 && dl.items.length === 1 && dl.items[0].id === H3.id, '삭제: 목록에서 빠짐 (소화전 목록만 돌려줌)');
@@ -170,6 +178,16 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(fe.added.join() === '옥상 기계실-소화기1,옥상 기계실-소화기2' && fe.items.every(x => x.printed === false), '소화기: 층 10F · 이름 「위치-소화기1」 · 미인쇄');
   fe = await auth('ws_fe_add', [tk, J({ floor: 'B3', store: '주차장', count: 1 })]);
   ok(fe.items[0].floor === 'B3' && fe.items[fe.items.length - 1].floor === '10F', '소화기 목록은 B3부터 10F 순서');
+  fe = await auth('ws_fe_add', [tk, J({ floor: 'POPUP', store: '팝업시험', count: 1 })]);
+  ok(fe.ok && fe.items[fe.items.length - 1].floor === 'POPUP' && fe.items[fe.items.length - 1].name === '팝업시험-소화기1', '소화기: POPUP 층 등록 · 목록 맨 끝 (결정 252)');
+  // 엑셀 등록(auto): 위치 없이 「층+종류+두 자리 번호」, 지운 번호는 다시 씀 (결정 296)
+  let ax = await auth('ws_eq_add', [tk, J({ kind: 'hyd', floor: '6F', auto: true, count: 3 })]);
+  ok(ax.ok && ax.added.join() === '6F소화전01,6F소화전02,6F소화전03' && ax.items.filter(x => x.floor === '6F').every(x => x.place === '6F'), '엑셀 등록: 6F소화전01~03 (위치 = 층)');
+  await auth('ws_eq_delete', [tk, J([ax.items.find(x => x.name === '6F소화전02').id]), 'hyd']);
+  ax = await auth('ws_eq_add', [tk, J({ kind: 'hyd', floor: '6F', auto: true, count: 2 })]);
+  ok(ax.added.join() === '6F소화전02,6F소화전04', '엑셀 등록: 지운 번호(02)를 먼저 다시 쓰고 이어서 04');
+  ax = await auth('ws_eq_add', [tk, J({ kind: 'air', floor: 'B1', auto: true })]);
+  ok(ax.added.join() === 'B1공기호흡기01', '엑셀 등록: 공기호흡기 B1공기호흡기01');
   const feTok = fe.items.find(x => x.store === '주차장').token;
   fe = await auth('ws_qr_printed', [tk, 'fe', J(fe.items.filter(x => x.store === '주차장').map(x => x.id))]);
   ok(fe.items.find(x => x.store === '주차장').printed === true && fe.items.find(x => x.store === '옥상 기계실').printed === false, '소화기 인쇄 표시');

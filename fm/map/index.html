@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>롯데 잠실점 쇼핑맵 통합 메인보드</title>
         <!-- 모듈형 스타일시트 -->
-    <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/layout.css">
-    <link rel="stylesheet" href="css/modals.css">
-    <link rel="stylesheet" href="css/cad-tools.css">
+    <link rel="stylesheet" href="css/common.css?v=0.26.42">
+    <link rel="stylesheet" href="css/layout.css?v=0.26.42">
+    <link rel="stylesheet" href="css/modals.css?v=0.26.42">
+    <link rel="stylesheet" href="css/cad-tools.css?v=0.26.42">
 </head>
 <body>
     <header>
@@ -41,41 +41,46 @@
                     <div style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:4px; border-bottom:1px solid var(--border-light); padding-bottom:6px;">심벌 레이어 표시</div>
                     <label class="symbol-filter-item">
                         <input type="checkbox" checked onchange="onSymbolCheckboxChange('clean_extinguisher', this.checked)">
-                        <span class="symbol-badge-dot" style="background:#94a3b8; color:#ffffff;">🧯</span>
+                        <span class="symbol-badge-dot" style="background:#475569;"><svg viewBox="-13 -13 26 26" width="12" height="12" aria-hidden="true"><rect x="-3.6" y="-4" width="7.2" height="11" rx="2" fill="#fff"/><rect x="-1.5" y="-7" width="3" height="3.4" fill="#fff"/></svg></span>
                         <span>청정소화기</span>
                     </label>
                     <label class="symbol-filter-item">
                         <input type="checkbox" checked onchange="onSymbolCheckboxChange('powder_extinguisher', this.checked)">
-                        <span class="symbol-badge-dot" style="background:#f97316; color:#ffffff;">🧯</span>
+                        <span class="symbol-badge-dot" style="background:#f97316;"><svg viewBox="-13 -13 26 26" width="12" height="12" aria-hidden="true"><rect x="-3.6" y="-4" width="7.2" height="11" rx="2" fill="#fff"/><rect x="-1.5" y="-7" width="3" height="3.4" fill="#fff"/></svg></span>
                         <span>분말소화기</span>
                     </label>
                     <label class="symbol-filter-item">
                         <input type="checkbox" checked onchange="onSymbolCheckboxChange('fire_hydrant', this.checked)">
-                        <span class="symbol-badge-dot" style="background:#1e293b; color:#ffffff;">🚒</span>
+                        <span class="symbol-badge-dot" style="background:#1e293b;"><svg viewBox="-13 -13 26 26" width="12" height="12" aria-hidden="true"><g fill="none" stroke="#fff" stroke-linecap="round"><circle cy="-2" r="6.6" stroke-width="1.6"/><circle cy="-2" r="3.8" stroke-width="1.4"/><path d="M-6.6 -2 V5.2" stroke-width="1.6"/><path d="M6.6 -2 V8.6" stroke-width="1.6"/></g><circle cy="-2" r="1.3" fill="#fff"/><path d="M-8.4 5 H-4.8 L-5.6 9 H-7.6 Z" fill="#fff"/></svg></span>
                         <span>소화전</span>
                     </label>
                     <label class="symbol-filter-item">
                         <input type="checkbox" checked onchange="onSymbolCheckboxChange('air_respirator', this.checked)">
-                        <span class="symbol-badge-dot" style="background:#2563eb; color:#ffffff;">🤿</span>
+                        <span class="symbol-badge-dot" style="background:#2563eb;"><svg viewBox="-13 -13 26 26" width="12" height="12" aria-hidden="true"><rect x="-3.8" y="-4.5" width="7.6" height="12.5" rx="3.8" fill="#fff"/><rect x="-1.4" y="-7.5" width="2.8" height="3.4" fill="#fff"/><rect x="-3.4" y="-9.2" width="6.8" height="1.8" rx="0.9" fill="#fff"/></svg></span>
                         <span>공기호흡기</span>
                     </label>
-                    <div style="font-size:12px; font-weight:700; color:var(--text-main); margin:6px 0 4px; border-top:1px solid var(--border-light); padding-top:6px;">구역 레이어 표시</div>
+                    <div style="font-size:12px; font-weight:700; color:var(--text-main); margin:6px 0 4px; border-top:1px solid var(--border-light); padding-top:6px;">구역 레이어 표시 <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(🔑 = 잠금)</span></div>
                     <label class="symbol-filter-item">
-                        <input type="checkbox" id="chk-zone-filter-fire" checked onchange="onZoneCheckboxChange('fire', this.checked)">
+                        <input type="checkbox" id="chk-zone-filter-fire" checked onchange="onZoneCheckboxChange('fire', this.checked)"><input type="checkbox" class="chk-lock" data-lock="fire" title="잠금 (수정·삭제 막기)" onchange="onLayerLockChange('fire', this.checked)">
                         <span class="symbol-badge-dot" style="background:#dc2626; color:#ffffff;">🔥</span>
                         <span>방화구역</span>
                     </label>
                     <label class="symbol-filter-item">
-                        <input type="checkbox" id="chk-zone-filter-smoke" checked onchange="onZoneCheckboxChange('smoke', this.checked)">
+                        <input type="checkbox" id="chk-zone-filter-smoke" checked onchange="onZoneCheckboxChange('smoke', this.checked)"><input type="checkbox" class="chk-lock" data-lock="smoke" title="잠금 (수정·삭제 막기)" onchange="onLayerLockChange('smoke', this.checked)">
                         <span class="symbol-badge-dot" style="background:#0284c7; color:#ffffff;">💨</span>
                         <span>제연구획</span>
                     </label>
                     <label class="symbol-filter-item">
-                        <input type="checkbox" id="chk-zone-filter-floor" onchange="onZoneCheckboxChange('floor', this.checked)">
+                        <input type="checkbox" id="chk-zone-filter-floor" onchange="onZoneCheckboxChange('floor', this.checked)"><input type="checkbox" class="chk-lock" data-lock="floor" title="잠금 (수정·삭제 막기)" onchange="onLayerLockChange('floor', this.checked)">
                         <span class="symbol-badge-dot" style="background:#ffffff; color:#000000; border:1.5px dashed #000000;"></span>
                         <span>바닥 (검은 점선)</span>
                     </label>
                     <div style="font-size:12px; font-weight:700; color:var(--text-main); margin:6px 0 4px; border-top:1px solid var(--border-light); padding-top:6px;">도면 보조 레이어</div>
+                    <label class="symbol-filter-item" title="구역 추가/편집에서 「외벽」으로 그린 선. 숨겨도 경계 역할은 그대로">
+                        <input type="checkbox" id="chk-zone-filter-wall" checked onchange="onZoneCheckboxChange('wall', this.checked)"><input type="checkbox" class="chk-lock" data-lock="wall" title="잠금 (수정·삭제 막기)" onchange="onLayerLockChange('wall', this.checked)">
+                        <span class="symbol-badge-dot" style="background:#334155; color:#ffffff;"><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="#fff" stroke-width="2"/></svg></span>
+                        <span>외벽</span>
+                    </label>
                     <label class="symbol-filter-item">
                         <input type="checkbox" id="chk-info-layer" checked onchange="onInfoLayerChange(this.checked)">
                         <span class="symbol-badge-dot" style="background:#1f3a5f; color:#ffffff; font-size:12px; font-weight:700;">i</span>
@@ -88,22 +93,22 @@
                     </label>
                     <div style="font-size:12px; font-weight:700; color:var(--text-main); margin:6px 0 4px; border-top:1px solid var(--border-light); padding-top:6px;">설비 배관/간선 레이어</div>
                     <label class="symbol-filter-item">
-                        <input type="checkbox" id="chk-util-power" checked onchange="onUtilLineCheckboxChange('power', this.checked)">
-                        <span class="symbol-badge-dot" style="background:#2563eb; color:#ffffff;">⚡</span>
+                        <input type="checkbox" id="chk-util-power" checked onchange="onUtilLineCheckboxChange('power', this.checked)"><input type="checkbox" class="chk-lock" data-lock="power" title="잠금 (수정·삭제 막기)" onchange="onLayerLockChange('power', this.checked)">
+                        <span class="symbol-badge-dot" style="background:#dc2626; color:#ffffff;">⚡</span>
                         <span>전기 (EPS)</span>
                     </label>
                     <label class="symbol-filter-item">
-                        <input type="checkbox" id="chk-util-water" checked onchange="onUtilLineCheckboxChange('water', this.checked)">
+                        <input type="checkbox" id="chk-util-water" checked onchange="onUtilLineCheckboxChange('water', this.checked)"><input type="checkbox" class="chk-lock" data-lock="water" title="잠금 (수정·삭제 막기)" onchange="onLayerLockChange('water', this.checked)">
                         <span class="symbol-badge-dot" style="background:#0284c7; color:#ffffff;">💧</span>
                         <span>급수 (PS/PD)</span>
                     </label>
                     <label class="symbol-filter-item">
-                        <input type="checkbox" id="chk-util-gas" checked onchange="onUtilLineCheckboxChange('gas', this.checked)">
+                        <input type="checkbox" id="chk-util-gas" checked onchange="onUtilLineCheckboxChange('gas', this.checked)"><input type="checkbox" class="chk-lock" data-lock="gas" title="잠금 (수정·삭제 막기)" onchange="onLayerLockChange('gas', this.checked)">
                         <span class="symbol-badge-dot" style="background:#eab308; color:#ffffff;">🔥</span>
                         <span>가스</span>
                     </label>
                     <label class="symbol-filter-item">
-                        <input type="checkbox" id="chk-util-drain" checked onchange="onUtilLineCheckboxChange('drain', this.checked)">
+                        <input type="checkbox" id="chk-util-drain" checked onchange="onUtilLineCheckboxChange('drain', this.checked)"><input type="checkbox" class="chk-lock" data-lock="drain" title="잠금 (수정·삭제 막기)" onchange="onLayerLockChange('drain', this.checked)">
                         <span class="symbol-badge-dot" style="background:#0f172a; color:#ffffff;">🚰</span>
                         <span>배수/오수 (PS/PD)</span>
                     </label>
@@ -132,7 +137,7 @@
                     </button>
                     <button type="button" class="dropdown-item" id="menu-item-util-line" onclick="onSelectEditUtilLine()">
                         <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                        <span>배관/간선(자-모) 연결</span>
+                        <span>설비연결 모-자</span>
                     </button>
                     <div class="dropdown-divider"></div>
                     <button type="button" class="dropdown-item" onclick="openScaleModal()">
@@ -249,17 +254,25 @@
                 <div class="zone-banner-controls">
                     <!-- 구역 구분: 방화구역 / 제연구획 / 외벽 -->
                     <div class="zone-toggle-group">
-                        <button type="button" class="zone-toggle-btn active" id="btn-zone-cat-fire" onclick="setZoneCategory('fire')">🔥 방화구역</button>
-                        <button type="button" class="zone-toggle-btn" id="btn-zone-cat-smoke" onclick="setZoneCategory('smoke')">💨 제연구획</button>
-                        <button type="button" class="zone-toggle-btn" id="btn-zone-cat-wall" onclick="setZoneCategory('wall')">🧱 외벽</button>
-                        <button type="button" class="zone-toggle-btn" id="btn-zone-cat-floor" onclick="setZoneCategory('floor')" title="매장·기능실 아래에 깔리는 흰색 바닥 면 (면만)">⬜ 바닥</button>
+                        <button type="button" class="zone-toggle-btn active" id="btn-zone-cat-fire" onclick="setZoneCategory('fire')">방화구역</button>
+                        <button type="button" class="zone-toggle-btn" id="btn-zone-cat-smoke" onclick="setZoneCategory('smoke')">제연구획</button>
+                        <button type="button" class="zone-toggle-btn" id="btn-zone-cat-wall" onclick="setZoneCategory('wall')">외벽</button>
+                        <button type="button" class="zone-toggle-btn" id="btn-zone-cat-floor" onclick="setZoneCategory('floor')" title="매장·기능실 아래에 깔리는 흰색 바닥 면 (면만)">바닥</button>
                     </div>
                     <!-- 형태 구분: 선 / 면 -->
                     <div class="zone-toggle-group">
-                        <button type="button" class="zone-toggle-btn" id="btn-zone-geom-line" onclick="setZoneGeometry('line')" disabled title="방화구역은 면(영역)으로만 지정 가능합니다">〰️ 선 (경계)</button>
-                        <button type="button" class="zone-toggle-btn active" id="btn-zone-geom-polygon" onclick="setZoneGeometry('polygon')">⬡ 면 (영역)</button>
+                        <button type="button" class="zone-toggle-btn" id="btn-zone-geom-line" onclick="setZoneGeometry('line')" disabled title="방화구역은 면(영역)으로만 지정 가능합니다">선 (경계)</button>
+                        <button type="button" class="zone-toggle-btn active" id="btn-zone-geom-polygon" onclick="setZoneGeometry('polygon')">면 (영역)</button>
                     </div>
-                    <button type="button" class="zone-toggle-btn zone-eraser" id="btn-zone-eraser" onclick="toggleEraserMode()" title="그린 면 안의 도면 원본·구역·심벌·인포를 바닥색(흰색)으로 지움. 매장·바닥·배관은 그대로">🧽 지우개</button>
+                    <button type="button" class="zone-toggle-btn" id="btn-wall-copy" style="display:none" onclick="openWallCopy()" title="이 층에 그린 외벽을 같은 건물의 다른 층에 그대로 붙여 넣기">다른 층에 복사</button>
+                    <button type="button" class="zone-toggle-btn zone-eraser" id="btn-zone-eraser" onclick="toggleEraserMode()" title="그린 면 안의 도면 원본·구역·심벌·인포를 바닥색(흰색)으로 지움. 매장·바닥·배관은 그대로">지우개</button>
+                    <span id="floor-cl-controls" class="zone-toggle-group" style="display:none;align-items:center;gap:4px">
+                        <button type="button" class="zone-toggle-btn" id="btn-centerline-floor" onclick="toggleCenterlineFloor()" title="중심선을 그리면 폭만큼 펼친 바닥이 자동으로 만들어지고 겹치는 바닥과 하나로 합쳐집니다">복도 중심선</button>
+                        <span style="font-size:12px">폭</span><input type="number" id="input-floor-width-px" value="80" min="10" max="600" step="10" style="width:56px;height:26px;text-align:center" onchange="setFloorRibbonWidth(this.value)"><span style="font-size:12px">px</span>
+                        <button type="button" class="zone-toggle-btn" onclick="setFloorRibbonWidth(80)" title="주동선 복도">주동선 80</button>
+                        <button type="button" class="zone-toggle-btn" onclick="setFloorRibbonWidth(50)" title="일반 복도">일반 50</button>
+                        <button type="button" class="zone-toggle-btn" onclick="setFloorRibbonWidth(35)" title="후방·기능실 통로">후방 35</button>
+                    </span>
                     <label class="zone-ortho-check" title="직각 스냅 (단축키: Shift)"><input type="checkbox" id="chk-zone-ortho" class="chk-ortho" onchange="toggleGlobalOrthoMode()"><span>직각 (Shift)</span></label><span id="zone-points-indicator" class="zone-pts-badge">0점</span>
                     <button class="btn-guide-finish" onclick="finishDrawingZone()">완료 (Enter)</button>
                     <button class="btn-guide-close" onclick="handleZoneCancelOrEsc()">취소 (ESC)</button>
@@ -275,23 +288,23 @@
                     </div>
                     <div class="symbol-type-chips">
                         <button type="button" class="symbol-type-chip active" data-type="clean_extinguisher" onclick="setSymbolType('clean_extinguisher')">
-                            <span class="symbol-badge-dot" style="background:#94a3b8; color:#ffffff;">🧯</span>
+                            <span class="symbol-badge-dot" style="background:#475569;"><svg viewBox="-13 -13 26 26" width="12" height="12" aria-hidden="true"><rect x="-3.6" y="-4" width="7.2" height="11" rx="2" fill="#fff"/><rect x="-1.5" y="-7" width="3" height="3.4" fill="#fff"/></svg></span>
                             <span>청정소화기</span>
                         </button>
                         <button type="button" class="symbol-type-chip" data-type="powder_extinguisher" onclick="setSymbolType('powder_extinguisher')">
-                            <span class="symbol-badge-dot" style="background:#f97316; color:#ffffff;">🧯</span>
+                            <span class="symbol-badge-dot" style="background:#f97316;"><svg viewBox="-13 -13 26 26" width="12" height="12" aria-hidden="true"><rect x="-3.6" y="-4" width="7.2" height="11" rx="2" fill="#fff"/><rect x="-1.5" y="-7" width="3" height="3.4" fill="#fff"/></svg></span>
                             <span>분말소화기</span>
                         </button>
                         <button type="button" class="symbol-type-chip" data-type="fire_hydrant" onclick="setSymbolType('fire_hydrant')">
-                            <span class="symbol-badge-dot" style="background:#1e293b; color:#ffffff;">🚒</span>
+                            <span class="symbol-badge-dot" style="background:#1e293b;"><svg viewBox="-13 -13 26 26" width="12" height="12" aria-hidden="true"><g fill="none" stroke="#fff" stroke-linecap="round"><circle cy="-2" r="6.6" stroke-width="1.6"/><circle cy="-2" r="3.8" stroke-width="1.4"/><path d="M-6.6 -2 V5.2" stroke-width="1.6"/><path d="M6.6 -2 V8.6" stroke-width="1.6"/></g><circle cy="-2" r="1.3" fill="#fff"/><path d="M-8.4 5 H-4.8 L-5.6 9 H-7.6 Z" fill="#fff"/></svg></span>
                             <span>소화전</span>
                         </button>
                         <button type="button" class="symbol-type-chip" data-type="air_respirator" onclick="setSymbolType('air_respirator')">
-                            <span class="symbol-badge-dot" style="background:#2563eb; color:#ffffff;">🤿</span>
+                            <span class="symbol-badge-dot" style="background:#2563eb;"><svg viewBox="-13 -13 26 26" width="12" height="12" aria-hidden="true"><rect x="-3.8" y="-4.5" width="7.6" height="12.5" rx="3.8" fill="#fff"/><rect x="-1.4" y="-7.5" width="2.8" height="3.4" fill="#fff"/><rect x="-3.4" y="-9.2" width="6.8" height="1.8" rx="0.9" fill="#fff"/></svg></span>
                             <span>공기호흡기</span>
                         </button>
                     </div>
-                    <span style="font-size:12px; color:#cbd5e1; margin-left:4px;">(도면 클릭: 심벌 생성, 기존 심벌 클릭: 삭제, 완료: ESC)</span>
+                    <span style="font-size:12px; color:#cbd5e1; margin-left:4px;">(도면 클릭: 배치 — 소화기는 위치 적기, 소화전·공기호흡기는 이름 자동 · 기존 심벌 클릭: 고치기·삭제 · 완료: ESC)</span>
                 </div>
                 <button class="btn-guide-close" onclick="exitSymbolEditMode()">배치 완료</button>
             </div>
@@ -566,8 +579,6 @@
                         <button type="button" class="color-swatch" data-color="#cbdbe9" style="background:#cbdbe9;" title="쿨 슬레이트 (기능실)" onclick="selectEditColor('#cbdbe9')"></button>
                         <button type="button" class="color-swatch" data-color="#e2e8f0" style="background:#e2e8f0;" title="슬레이트 그레이" onclick="selectEditColor('#e2e8f0')"></button>
                         <button type="button" class="color-swatch" data-color="#dcfce7" style="background:#dcfce7;" title="소프트 민트" onclick="selectEditColor('#dcfce7')"></button>
-                        <button type="button" class="color-swatch" data-color="#ede9fe" style="background:#ede9fe;" title="소프트 라벤더" onclick="selectEditColor('#ede9fe')"></button>
-                        <button type="button" class="color-swatch" data-color="#fee2e2" style="background:#fee2e2;" title="소프트 로즈" onclick="selectEditColor('#fee2e2')"></button>
                         <button type="button" class="color-swatch" data-color="#ffedd5" style="background:#ffedd5;" title="소프트 오렌지" onclick="selectEditColor('#ffedd5')"></button>
                         <div class="custom-color-picker-wrap" title="직접 색상 선택">
                             <input type="color" id="edit-color-picker" value="#e6f0fc" onchange="selectEditColor(this.value)">
@@ -651,18 +662,22 @@
     <script src="js/storage/undoManager.js"></script>
 
     <!-- 4. 코어 기하학 연산, 바닥 그리드, 줌/팬, 도면 뷰어 -->
-    <script src="js/core/geometry.js"></script>
-    <script src="js/core/grid.js"></script>
+    <script src="js/core/geometry.js?v=0.26.42"></script>
+    <script src="js/core/grid.js?v=0.26.42"></script>
     <script src="js/core/panZoom.js"></script>
-    <script src="js/core/mapViewer.js"></script>
+    <script src="js/core/mapViewer.js?v=0.26.42"></script>
 
     <!-- 5. 전문 CAD 및 측정 엔진 (축척 캘리브레이션, 매장/기능실 CAD, 구역 CAD, 심벌 CAD, 자유 필기/실측) -->
     <script src="js/scale/scaleCalibrator.js"></script>
-    <script src="js/cad/storeEditor.js"></script>
+    <script src="js/cad/storeEditor.js?v=0.26.42"></script>
     <script src="js/cad/storeExcel.js"></script>
-    <script src="js/cad/zoneEditor.js"></script>
-    <script src="js/cad/symbolEditor.js"></script>
-    <script src="js/cad/utilityLineEditor.js"></script>
+    <script src="js/lib/polygon-clipping.umd.min.js"></script>
+    <script src="js/cad/floorCenterline.js?v=0.26.42"></script>
+    <script src="js/cad/zoneEditor.js?v=0.26.42"></script>
+    <script src="js/cad/wallTools.js?v=0.26.42"></script>
+    <script src="js/cad/symbolEditor.js?v=0.26.42"></script>
+    <script src="js/cad/utilityLineEditor.js?v=0.26.42"></script>
+    <script src="js/cad/routeFinder.js?v=0.26.42"></script>
     <script src="js/freehand/freehandLayer.js"></script>
 
     <!-- 6. 메인 애플리케이션 엔트리 및 부트스트랩 -->

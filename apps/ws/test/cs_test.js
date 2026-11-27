@@ -21,7 +21,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
     for (const k of pin) await p.click(`.key:text-is("${k}")`);
     await p.waitForSelector('.grid6'); await p.click('.tile:has(b:text-is("점검"))'); await p.waitForSelector('text=공사장 점검');
     if (pin === '4321') {
-      ok(await p.locator('.row').count() === 4 && !(await p.locator('text=일일 점검').count()) && !(await p.locator('text=월간 점검').count()), '점검 메뉴: 소화기·전열필증·열화상점검·공사장 4개 (일일·월간 없음)');
+      ok(await p.locator('.row').count() === 5 && /하자점검/.test(await p.locator('.row').last().innerText()) && !(await p.locator('text=일일 점검').count()) && !(await p.locator('text=월간 점검').count()), '점검 메뉴: 소화기·전열필증·열화상점검·공사장·하자점검(맨 아래) 5개 (일일·월간 없음)');
       const th = await p.evaluate(() => { const r = [...document.querySelectorAll('.row')]; const i = r.findIndex(x => /열화상점검/.test(x.textContent)); return { i, off: i >= 0 && r[i].disabled, role: S.user.role }; });
       ok(th.i === 2 && th.off === false, '결정212: 열화상점검은 전열필증 아래, 모든 직원에게 켜짐 (' + th.role + ')');
     }
@@ -71,7 +71,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
   ok(/처음 저장할 때/.test(await p.locator('.csmeta').innerText()), '저장 전: 점검 시각은 처음 저장할 때');
   { // 사진 넣기 (사용자 11-24, 결정 238): [카메라](capture) · [파일](여러 장) 버튼 2개, 항목당 4장, 휴대폰 2열 · PC 4열
     const it0 = p.locator('.csit').nth(0), f0 = it0.locator('.csphb input');
-    ok(await it0.locator('label.ph43').count() === 0 && await it0.locator('.csphb label').count() === 2 && /카메라/.test(await it0.locator('.csphb label').nth(0).innerText()) && /파일/.test(await it0.locator('.csphb label').nth(1).innerText()), '사진: [카메라] [파일] 버튼 2개, 빈 점선 칸 없음');
+    ok(await it0.locator('.csphb label').count() === 2 && /카메라/.test(await it0.locator('.csphb .whim .dfcam').innerText()) && /파일/.test(await it0.locator('.csphb .whbs label').innerText()), '사진: 빈 4:3 칸 안에 [카메라] · 칸 아래 [파일] (하자점검 모양, 사용자 11-26)');
     ok(await f0.nth(0).getAttribute('capture') === 'environment' && await f0.nth(1).getAttribute('capture') === null && await f0.nth(1).getAttribute('multiple') !== null, '카메라는 바로 찍기(capture), 파일은 여러 장 고르기(multiple)');
     ok(/사진 0 \/ 4장/.test(await it0.locator('.csphn').innerText()) && await it0.locator('.csph img').count() === 0, '사진 0 / 4장 · 사진 없으면 사진 줄 없음');
     const it = p.locator('.csit').nth(8);   // 항목 9: 카메라로 2장 → 파일로 3장 고르면 남은 2장만 (4장)
@@ -85,7 +85,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
     await it.locator('.csphb input').nth(1).setInputFiles([__dirname + '/gauge.jpg', __dirname + '/gauge.jpg', __dirname + '/gauge.jpg']);
     await p.waitForFunction(() => document.querySelectorAll('.csit')[8].querySelectorAll('img').length === 4);
     await p.waitForSelector('.csst.ok', { timeout: 10000 });
-    ok(await it.locator('img').count() === 4 && await it.locator('.csphb input:disabled').count() === 2 && /사진 4 \/ 4장/.test(await it.locator('.csphn').innerText()), '파일로 3장 고르면 남은 2장만 들어가 4장 · 두 버튼 꺼짐');
+    ok(await it.locator('img').count() === 4 && await it.locator('.csphb').count() === 0 && /사진 4 \/ 4장/.test(await it.locator('.csphn').innerText()), '파일로 3장 고르면 남은 2장만 들어가 4장 · 빈 칸(카메라·파일) 없어짐');
     ok((await p.evaluate(() => window.__toasts)).some(m => /4장까지/.test(m)), '넘치면 「한 항목에 4장까지」 알림');
     const tops = () => it.locator('.csph > .ph43').evaluateAll(e => e.map(x => Math.round(x.getBoundingClientRect().top)));
     const ty = await tops(); ok(ty[1] === ty[0] && ty[2] > ty[0] && ty[3] === ty[2], '휴대폰: 2열 × 2줄');
@@ -94,7 +94,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
     ok(tw[3] === tw[0] && tw[1] === tw[0] && tw[2] === tw[0], 'PC(넓은 화면): 4열 한 줄');
     await p.setViewportSize({ width: 390, height: 844 });
     await p.evaluate(() => { S.ck.items[5].photos = [1, 2, 3, 4, 5].map(n => ({ id: '', src: S.ck.items[8].photos[0].src, at: '10:0' + n })); render(); });
-    ok(await p.locator('.csit').nth(5).locator('img').count() === 5 && await p.locator('.csit').nth(5).locator('.csphb input:disabled').count() === 2 && /사진 5장/.test(await p.locator('.csit').nth(5).locator('.csphn').innerText()), '예전에 5장 넣은 항목: 그대로 보이고 더 못 넣음');
+    ok(await p.locator('.csit').nth(5).locator('img').count() === 5 && await p.locator('.csit').nth(5).locator('.csphb').count() === 0 && /사진 5장/.test(await p.locator('.csit').nth(5).locator('.csphn').innerText()), '예전에 5장 넣은 항목: 그대로 보이고 더 못 넣음');
     await p.evaluate(() => { S.ck.items[5].photos = []; render(); });
   }
   const seg = (i, s) => p.locator('.csit').nth(i).locator(`.csseg button:text-is("${s}")`).click();
@@ -166,7 +166,12 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
 
   // 공사 완료 (결정 174): 골라서 뺌 → 오늘 목록에서 빠지고, 점검 기록은 지난 점검(날짜 아코디언)에 남아 검색됨
   await p.click('.csbar .back-in'); await p.waitForSelector('.csrow:has-text("5F 리모와")');
-  await p.click('.csbtns .csdone'); await p.waitForSelector('.csdl');
+  // 결정 264: 먼저 준공 확인 창 — 아니오면 그대로, 예면 현장 고르기
+  await p.click('.csbtns .csdone'); await p.waitForSelector('#csDy');
+  ok(/최종 준공 확인/.test(await p.locator('.ehdh').innerText()) && await p.locator('.csdl').count() === 0, '공사 완료 → 「현장 최종 준공 확인 바랍니다」 예/아니오 창');
+  await p.click('#csDn'); await p.waitForFunction(() => !document.querySelector('#csDy'));
+  ok(await p.locator('.csdl').count() === 0 && await p.locator('.csrow:has-text("5F 리모와")').count() === 1, '아니오 → 창 닫힘, 현재 상태 유지');
+  await p.click('.csbtns .csdone'); await p.click('#csDy'); await p.waitForSelector('.csdl');
   ok(await p.locator('.csdl').count() === 2 && await p.locator('#csDb').isDisabled(), '공사 완료 창: 현장 2곳, 고르기 전엔 단추 꺼짐');
   await p.locator('.csdl:has-text("5F 리모와") input').check();
   ok(/선택한 1곳 공사 완료/.test(await p.locator('#csDb').innerText()), '고르면 「선택한 1곳 공사 완료」');

@@ -131,10 +131,13 @@ declare
   tok text;
   b bytea;
   v_name text;
+  v_no int;
+  v_auto boolean := coalesce(p_d->>'auto', '') in ('true', '1');   -- 엑셀 등록: 위치 없이 「층+종류+두 자리 번호」 (결정 296)
   added text[] := '{}';
 begin
+  if v_auto then v_place := v_floor; end if;
   if v_kind not in ('hyd', 'air') then return jsonb_build_object('ok', false, 'error', '종류를 골라 주세요.'); end if;
-  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
+  if not (v_floor = any (array['B3', 'B2', 'B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F', 'POPUP'])) then return jsonb_build_object('ok', false, 'error', '층을 골라 주세요.'); end if;
   if v_place = '' then return jsonb_build_object('ok', false, 'error', '위치를 적어 주세요. (예: 동측 계단 앞)'); end if;
   -- 대수 1~20 (소화기와 같음)
   n := least(greatest(coalesce(nullif(case when coalesce(p_d->>'count', '') ~ '^\s*\d+(\.\d+)?\s*$' then floor((p_d->>'count')::numeric)::int end, 0), 1), 1), 20);
@@ -148,9 +151,16 @@ begin
       exit when not exists (select 1 from public.fire_equip where qr_token = tok) and not exists (select 1 from public.fire_ext where qr_token = tok)
             and not exists (select 1 from public.eh_devices where qr_token = tok);
     end loop;
-    v_name := v_place || '-' || public.ws_eq_kind_name(v_kind) || (max_no + i);
+    if v_auto then   -- 지운 번호는 다시 씀: 그 층·종류에서 비어 있는 가장 작은 번호 (지도 심벌과 같은 규칙)
+      select min(g) into v_no from generate_series(1, 999) g
+        where not exists (select 1 from public.fire_equip x where x.kind = v_kind and x.floor = v_floor and x.place = v_floor and x.active and x.no = g);
+      v_name := v_floor || public.ws_eq_kind_name(v_kind) || lpad(v_no::text, 2, '0');
+    else
+      v_no := max_no + i;
+      v_name := v_place || '-' || public.ws_eq_kind_name(v_kind) || v_no;
+    end if;
     insert into public.fire_equip (eq_id, kind, floor, place, no, name, qr_token, active, created_at, created_by)
-    values ('WS-EQ-' || day_key || '-' || lpad((seq + i)::text, 3, '0'), v_kind, v_floor, v_place, max_no + i, v_name, tok, true, clock_timestamp(), me.name);
+    values ('WS-EQ-' || day_key || '-' || lpad((seq + i)::text, 3, '0'), v_kind, v_floor, v_place, v_no, v_name, tok, true, clock_timestamp(), me.name);
     added := added || v_name;
   end loop;
   perform public.ws_log(me.name, public.ws_eq_kind_name(v_kind) || ' 등록', '', v_floor || ' · ' || array_to_string(added, ', '));
@@ -197,7 +207,7 @@ begin
   from public.fire_equip e
   left join lateral (select * from public.fire_equip_checks x where x.eq_id = e.eq_id and x.ym = p_ym and not x.deleted order by x.entered_at desc limit 1) c on true
   where coalesce(e.created_at, '-infinity') < m_next
-    and (e.active or (e.deleted_at >= m_start and (e.deleted_at >= m_next or c.check_id is not null)));
+    and (e.active or (e.deleted_at >= m_start and e.deleted_at >= m_next));
   select least(cur_ym, coalesce(min(to_char(created_at at time zone 'Asia/Seoul', 'YYYY-MM')), cur_ym)) into first_ym from public.fire_equip;
   return jsonb_build_object('ok', true, 'ym', p_ym, 'curYm', cur_ym, 'day', v_day, 'window', jsonb_build_object('start', w_start, 'end', w_end),
     'isCurrent', p_ym = cur_ym, 'items', items,
@@ -229,6 +239,19 @@ begin
                 'memo', coalesce(t.i->>'memo', ''), 'photo', public.ws_file_url(nullif(t.i->>'photo', '')::uuid)) order by t.n), '[]'::jsonb)
               from jsonb_array_elements(c.items) with ordinality t(i, n)
               left join lateral (select s as sp from jsonb_array_elements(public.ws_eq_spec(c.kind)) s where s->>'k' = t.i->>'k' limit 1) x on true));
+end $$;
+
+-- 점검 기록 삭제 (결정 290): 로그인한 직원 모두. 줄은 남기고 「삭제됨」 표시만 → 그 달 「미입력」으로 돌아가 QR로 다시 입력할 수 있음
+create or replace function public.ws_eq_check_delete(p_token text, p_check_id text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare
+  me public.staff := public.ws_auth(p_token);
+  c public.fire_equip_checks;
+begin
+  update public.fire_equip_checks set deleted = true where check_id = coalesce(p_check_id, '') and not deleted returning * into c;
+  if c.check_id is null then return jsonb_build_object('ok', false, 'error', '점검 기록을 찾지 못했습니다. 화면을 새로 고쳐 주세요.'); end if;
+  perform public.ws_log(me.name, '소화전·공기호흡기 점검 기록 삭제', '', c.eq_name || ' · ' || c.ym);
+  return jsonb_build_object('ok', true, 'ym', c.ym);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -416,9 +439,9 @@ end $$;
 revoke all on function public.ws_eq_kind_name(text), public.ws_eq_spec(text), public.ws_eq_by_qr(text), public.ws_mask_name(text), public.ws_eq_list_(text),
   public.ws_eq_list(text, text), public.ws_eq_add(text, jsonb), public.ws_eq_delete(text, jsonb, text), public.ws_eq_status_(text), public.ws_eq_status(text, text),
   public.ws_eq_detail(text, text), public.ws_eq_open(text, text), public.ws_eq_pub(text), public.ws_eq_file(text, jsonb), public.ws_eq_submit(text, text, jsonb, jsonb),
-  public.ws_qr_rename(text, text, text, text, text), public.ws_qr_printed(text, text, jsonb)
+  public.ws_qr_rename(text, text, text, text, text), public.ws_qr_printed(text, text, jsonb), public.ws_eq_check_delete(text, text)
   from public, anon, authenticated;
 grant execute on function public.ws_eq_list(text, text), public.ws_eq_add(text, jsonb), public.ws_eq_delete(text, jsonb, text), public.ws_eq_status(text, text),
   public.ws_eq_detail(text, text), public.ws_eq_open(text, text), public.ws_eq_submit(text, text, jsonb, jsonb),
-  public.ws_qr_rename(text, text, text, text, text), public.ws_qr_printed(text, text, jsonb) to authenticated;
+  public.ws_qr_rename(text, text, text, text, text), public.ws_qr_printed(text, text, jsonb), public.ws_eq_check_delete(text, text) to authenticated;
 grant execute on function public.ws_eq_pub(text) to anon, authenticated;

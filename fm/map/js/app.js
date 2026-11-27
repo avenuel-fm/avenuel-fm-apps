@@ -274,27 +274,44 @@
             if (isZoneDrawingMode) {
                 let ptX = svgX;
                 let ptY = svgY;
-                if (currentZoneCategory === 'wall' && typeof snapToExteriorWall === 'function') {
+                // 외벽: 매장·기능실·바닥·외벽 테두리에 자석, 같은 테두리를 연달아 찍으면 따라감 (Shift = 끄고 곧게, 결정 316)
+                const wSnap = currentZoneCategory === 'wall' && typeof wallSnap === 'function' ? wallSnap(svgX, svgY) : null;
+                let wallVia = [];
+                if (wSnap) {
+                    ptX = wSnap.x;
+                    ptY = wSnap.y;
+                    if (drawingZonePoints.length && !activeEditingWallZone) wallVia = wallTraceBetween(lastWallSnap, wSnap);
+                } else if (currentZoneCategory === 'wall' && !window.isShiftKeyPressed && typeof snapToExteriorWall === 'function') {
                     const snap = snapToExteriorWall(svgX, svgY);
                     if (snap.isSnapped) {
                         ptX = snap.x;
                         ptY = snap.y;
                     }
                 }
-                if (ptX === svgX && ptY === svgY && typeof snapToGrid === 'function') {
+                if (currentZoneCategory === 'wall') lastWallSnap = wSnap;
+                const wallStraight = currentZoneCategory === 'wall' && window.isShiftKeyPressed;   // Shift 외벽 = 자석 모두 끔
+                if (!wallStraight && ptX === svgX && ptY === svgY && typeof snapToGrid === 'function') {
                     const gSnap = snapToGrid(svgX, svgY);
                     if (gSnap.isSnapped) {
                         ptX = gSnap.x;
                         ptY = gSnap.y;
                     }
                 }
-                if (drawingZonePoints.length > 0 && typeof snapToOrtho === 'function') {
+                if (wallVia.length) drawingZonePoints.push(...wallVia);
+                if (drawingZonePoints.length > 0 && typeof snapToOrtho === 'function' && !wSnap) {
                     const ortho = snapToOrtho({ x: ptX, y: ptY }, drawingZonePoints[drawingZonePoints.length - 1]);
                     ptX = ortho.x;
                     ptY = ortho.y;
                 }
 
                 // 외벽 수정 모드 활성화 시: 도면 클릭을 통한 선분 연장
+                if (typeof fclActive === 'function' && fclActive()) {   // 복도 중심선 모드: 자석 → 45도, 시작점 닫기 없음 (결정 260)
+                    const q = fclPickPoint(svgX, svgY);
+                    drawingZonePoints.push({ x: q.x, y: q.y });
+                    updateZoneDrawingPreview(q.x, q.y);
+                    updateZoneGuideUI();
+                    return;
+                }
                 if (typeof activeEditingWallZone !== 'undefined' && activeEditingWallZone) {
                     pushUndoState('외벽 선분 연장');
                     activeEditingWallZone.points.push({ x: ptX, y: ptY });
@@ -309,6 +326,7 @@
                     renderWallVertexHandles(activeEditingWallZone);
                     syncSvgCache();
                     showToast('외벽 선분이 연장되었습니다.', 1000);
+                    if (typeof afterWallChange === 'function') afterWallChange();
                     return;
                 }
 
@@ -334,7 +352,7 @@
                 e.preventDefault();
                 finishDrawingPolygon();
             } else if (isZoneDrawingMode) {
-                const minPts = currentZoneGeometry === 'polygon' ? 3 : 2;
+                const minPts = (typeof fclActive === 'function' && fclActive()) ? 2 : (currentZoneGeometry === 'polygon' ? 3 : 2);
                 if (drawingZonePoints.length >= minPts) {
                     e.preventDefault();
                     finishDrawingZone();

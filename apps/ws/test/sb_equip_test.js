@@ -22,6 +22,7 @@ const norm = s => String(s || '').replace(/\s+/g, ' ').trim();   // DB 함수 ws
 const SPEC = { hyd: [{ k: 'ext', label: '외관', ok: '정상', bad: '이상', hint: '사진 찍기' }, { k: 'leak', label: '누수 여부', ok: '누수 없음', bad: '누수 있음', hint: '사진 찍기' }, { k: 'clean', label: '청소 상태', ok: '양호', bad: '불량', hint: '사진 찍기' }],
   air: [{ k: 'charge', label: '충전량', ok: '정상', bad: '이상', gauge: true, hint: '압력계 사진 찍기' }, { k: 'reg', label: '압력조절기', ok: '정상', bad: '이상', gauge: true, hint: '압력계 사진 찍기' }, { k: 'ext', label: '외관', ok: '정상', bad: '이상', hint: '전체 사진 찍기' }] };
 const CALLS = [], UPLOADS = [];
+const FE_CK = { '카페-소화기1': 'CK1', '카페-소화기2': 'CK2' };   // 소화기 이번 달 점검 기록 (이름 → 점검번호)
 const DONE = {};   // 토큰 → 이번 달 점검 {checkId, state}
 const photoUrl = k => '/storage/v1/object/public/ws-files/equip/' + T1 + '/' + YM + '/' + k + '.jpg';
 const byFloor = (a, b) => FLS.indexOf(a.floor) - FLS.indexOf(b.floor) || String(a.place || a.store).localeCompare(String(b.place || b.store)) || a.no - b.no;
@@ -32,6 +33,11 @@ const status = () => { const items = stItems(), n = s => items.filter(i => i.sta
 const RPC = {
   ws_bootstrap: () => ({ ok: true, user: ME, toastSec: 1, needSign: false, docs: { day: D, signs: 1 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 }, window: { start: 1, end: 5 }, day: 14, ym: YM } }),
   ws_fe_list: () => feList(),
+  ws_fe_detail: a => { const n = Object.keys(FE_CK).find(k => FE_CK[k] === a.p_check_id); return n ? { ok: true, name: n, floor: '1F', ym: YM, state: '이상없음', at: D + ' 10:00', late: false, photo: '', signA: '', signB: '' } : { ok: false, error: '입력 내용을 찾지 못했습니다.' }; },
+  ws_fe_check_delete: a => { const n = Object.keys(FE_CK).find(k => FE_CK[k] === a.p_check_id); if (!n) return { ok: false, error: '점검 기록을 찾지 못했습니다.' }; delete FE_CK[n]; return { ok: true, ym: YM }; },
+  ws_eq_check_delete: a => { const k = Object.keys(DONE).find(x => DONE[x].checkId === a.p_check_id); if (!k) return { ok: false, error: '점검 기록을 찾지 못했습니다.' }; delete DONE[k]; return { ok: true, ym: YM }; },
+  ws_fe_delete: a => { let n = 0; for (const id of a.p_ids) { const i = FE.findIndex(e => e.id === id); if (i >= 0) { FE.splice(i, 1); n++; } } return Object.assign(feList(), { count: n }); },
+  ws_fe_status: () => ({ ok: true, ym: YM, curYm: YM, day: 14, window: { start: 1, end: 5 }, isCurrent: true, months: [YM], items: FE.map(e => Object.assign({}, e, FE_CK[e.name] ? { state: 'ok', checkId: FE_CK[e.name], at: D + ' 10:00', late: false } : { state: 'miss', checkId: '', at: '', late: false })), counts: { ok: 0, bad: 0, wait: 0, miss: FE.length, total: FE.length } }),
   ws_fe_add: a => {
     const d = a.p_d, store = norm(d.store), n = Math.max(1, Math.min(20, Math.floor(Number(d.count)) || 1)), names = [];
     if (!store) return { ok: false, error: '위치를 적어 주세요.' };
@@ -43,6 +49,10 @@ const RPC = {
   ws_eq_add: a => {
     const d = a.p_d, place = norm(d.place), n = Math.max(1, Math.min(20, Math.floor(Number(d.count)) || 1)), names = [];
     if (place === '오류시험') return { ok: false, error: '시험용 오류입니다.' };
+    if (d.auto) {   // 엑셀 등록: 층+종류+두 자리 번호, 비어 있는 가장 작은 번호
+      for (let i = 0; i < n; i++) { let k = 1; while (EQ.some(e => e.kind === d.kind && e.floor === d.floor && e.place === d.floor && e.no === k)) k++; const name = d.floor + KN[d.kind] + String(k).padStart(2, '0'); EQ.push({ id: 'WS-EQ-' + (EQ.length + 1), kind: d.kind, floor: d.floor, place: d.floor, no: k, name, token: 'qa' + String(EQ.length + 1).padStart(10, '0'), printed: false }); names.push(name); }
+      return Object.assign(list(d.kind), { added: names });
+    }
     if (!place) return { ok: false, error: '위치를 적어 주세요. (예: 동측 계단 앞)' };
     const m = EQ.filter(x => x.kind === d.kind && x.place === place).reduce((x, y) => Math.max(x, y.no), 0);
     for (let i = 1; i <= n; i++) { const name = place + '-' + KN[d.kind] + (m + i); EQ.push({ id: 'WS-EQ-' + (EQ.length + 1), kind: d.kind, floor: d.floor, place, no: m + i, name, token: 'q' + String(EQ.length + 1).padStart(11, 'z'), printed: false }); names.push(name); }
@@ -125,11 +135,11 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
 
 (async () => {
   const b = await chromium.launch();
-  const mk = async (tok) => {
+  const mk = async (tok, xl) => {
     const c = await b.newContext({ viewport: { width: 1280, height: 900 } });
     await c.route('https://cdn.jsdelivr.net/npm/@supabase/**', r => r.fulfill({ contentType: 'application/javascript', body: FAKE }));
     await c.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
-    await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: QRLIB }));
+    await c.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ contentType: 'application/javascript', body: xl && /xlsx/.test(r.request().url()) ? xl : QRLIB }));
     if (tok) await c.addInitScript(t => { try { localStorage.setItem('ws_token', t); localStorage.setItem('ws_dev_at', '2026-11-14'); } catch (e) {} }, tok);
     return c;
   };
@@ -164,10 +174,12 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   ok(await p.evaluate(() => qrUrl('abcdefghjkmn')).then(u => /\?eq=abcdefghjkmn$/.test(u)), '4) 소화전 QR 주소는 ?eq=');
   await shot(p, 'b_qr_tab');
   // 등록 창: 종류 체크박스 · 층 B3~10F · 위치
-  await p.click('button:has-text("+ 등록")'); await p.locator('#aPre').waitFor();
+  ok(!(await p.locator('button:has-text("+ 등록")').count()), '5-0) QR 관리 탭에 [+ 등록] 버튼 없음 (등록은 엑셀로, 결정 296)');
+  await p.evaluate(() => addDialog()); await p.locator('#aPre').waitFor();
   ok(await p.locator('.ckl').count() === 3 && await p.locator('#ak_hyd').isChecked() && !(await p.locator('#ak_fe').isChecked()) && !(await p.locator('#ak_air').isChecked()), '5) 등록 창: 종류 체크 3개, 지금 탭(소화전)만 미리 체크');
   const opts = await p.locator('#aFloor option').allInnerTexts();
-  ok(opts.length === 13 && opts[0] === 'B3' && opts[12] === '10F', '5-2) 층 선택 B3 ~ 10F (13개)');
+  ok(opts.length === 14 && opts[0] === 'B3' && opts[12] === '10F' && opts[13] === 'POPUP', '5-2) 층 선택 B3 ~ 10F + 맨 끝 POPUP (14개)');
+  ok(await p.evaluate(() => xlFloor('popup') === 'POPUP' && xlFloor('팝업') === 'POPUP' && xlFloor('POPUP층') === 'POPUP' && xlFloor('5F') === '5F' && xlFloor('11F') === ''), '5-2b) 엑셀 시트 이름 POPUP·팝업 → POPUP 층')
   ok(await p.locator('label:has-text("위치")').count() >= 1 && !(await p.locator('text=매장명').count()), '5-3) 「매장명」 대신 「위치」');
   await p.selectOption('#aFloor', '10F'); await p.fill('#aStore', ' 옥상  기계실 '); await p.fill('#aCount', '2');
   ok(/동측|옥상 기계실-소화전1 ~ 옥상 기계실-소화전2/.test(await p.locator('#aPre').innerText()) && !/소화기/.test(await p.locator('#aPre').innerText()), '5-4) 만들어지는 이름 미리보기 「옥상 기계실-소화전1 ~ 옥상 기계실-소화전2」');
@@ -190,7 +202,7 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   ok(await p.locator('.seg button.on').innerText() === '공기호흡기' && await p.locator('.fe input:checked').count() === 2 && /출력 \(2\)/.test(await p.locator('.tools').innerText()), '8) 등록 뒤: 그 종류 탭으로, 층·위치가 펼쳐지고 방금 만든 2개가 미리 체크됨 → 바로 [출력 (2)]');
   ok(await p.locator('.fe .chip:text-is("미인쇄")').count() === 2, '8-2) 방금 만든 것은 「미인쇄」');
   // 소화기+소화전 한꺼번에
-  await p.click('button:has-text("+ 등록")'); await p.selectOption('#aFloor', 'B3'); await p.fill('#aStore', '주차장 A'); await p.fill('#aCount', '1');
+  await p.evaluate(() => addDialog()); await p.selectOption('#aFloor', 'B3'); await p.fill('#aStore', '주차장 A'); await p.fill('#aCount', '1');
   await p.check('#ak_fe'); await p.check('#ak_hyd'); await p.uncheck('#ak_air');
   const fa = count('ws_fe_add'), ea = count('ws_eq_add');
   await p.click('#aBtn'); await p.locator('.toast', { hasText: '소화기 1대 · 소화전 1개 등록' }).waitFor();
@@ -275,7 +287,23 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   const dl = await p.locator('.dialog').innerText();
   await shot(p, 'e_detail');
   ok(/점검자 홍길동/.test(dl) && /누수 있음/.test(dl) && /배관 이음부 물방울/.test(dl) && await p.locator('.dialog img').count() === 3, '14) 항목을 누르면 점검자·항목별 정상/이상·이상 내용·사진 3장');
-  await p.click('.dialog .back'); delete DONE[T1];
+  // 점검 내용 팝업 (결정 290): PC는 지금 크기 + 아래 [점검 기록 삭제] [닫기]
+  let box = await p.locator('.dialog').boundingBox();
+  ok(box.width <= 521 && await p.locator('.dialog .df button').allInnerTexts().then(x => x.join() === '점검 기록 삭제,닫기'), '14-1) PC: 팝업 너비 그대로(520) · 아래 [점검 기록 삭제] [닫기] ' + Math.round(box.width));
+  await p.click('.dialog button:text-is("점검 기록 삭제")'); await p.locator('#ddBtn').waitFor();
+  ok(/동측 계단 앞/.test(await p.locator('.dialog').innerText()) && /「미입력」으로 돌아가고/.test(await p.locator('.dialog').innerText()), '14-2) 삭제 확인 창: 이름 · 미입력으로 돌아간다는 안내');
+  await p.click('.dialog button:text-is("취소")'); await p.locator('.dialog .df').waitFor();
+  ok(count('ws_eq_check_delete') === 0, '14-3) 취소 → 점검 내용 팝업으로 돌아감 (안 지움)');
+  // 휴대폰 크기: 화면에 꽉, 아래 버튼 줄이 화면 안에 보임
+  await p.setViewportSize({ width: 390, height: 700 }); await p.waitForTimeout(150);
+  box = await p.locator('.dialog').boundingBox(); const fb = await p.locator('.dialog .df').boundingBox();
+  ok(Math.abs(box.width - 390) < 2 && Math.abs(box.height - 700) < 2 && fb.y + fb.height <= 701 && await p.locator('.dialog .db').evaluate(e => e.scrollHeight > e.clientHeight), '14-4) 휴대폰: 팝업이 화면에 꽉 · 버튼 줄은 화면 안 · 사진은 안에서 스크롤 ' + JSON.stringify([box.width, box.height, fb.y + fb.height]));
+  await shot(p, 'e_detail_m');
+  await p.setViewportSize({ width: 1280, height: 900 });
+  n0 = count('ws_eq_check_delete');
+  await p.click('.dialog button:text-is("점검 기록 삭제")'); await p.click('#ddBtn'); await called('ws_eq_check_delete', n0); await p.locator('.dialog').waitFor({ state: 'detached' });
+  await p.locator('.feb:has-text("동측 계단 앞") .chip:has-text("미입력")').waitFor();
+  ok(last('ws_eq_check_delete').a.p_check_id === 'WS-EC-1' && !DONE[T1], '14-5) 삭제 → 그 점검번호만 지우고 목록이 「미입력」으로');
 
   // ── 앱에는 점검 입력이 없음 (조회만) — 입력은 QR을 찍은 휴대폰 화면 eq.html 에서만 (결정 230) ──
   await p.evaluate(() => openHyd()); await p.locator('.floor').first().waitFor();
@@ -368,6 +396,82 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   const x = await mk(); const xp = await x.newPage();
   await xp.goto(BASE + 'eq.html?eq=' + T1); await xp.locator('.t').waitFor();
   ok(true, '40) 표가 아예 없어도 지난 점검 표');
+
+  // ── 매장별 소화기 수량 엑셀 올리기·내려받기 (결정 244) ──
+  const XLS = { '1F': [[], ['NO.', '브랜드명', '소화기 개수'], ['1', '카페', '3'], ['2', '신규 매장', '2'], ['', '계', '5']], '5F': [[], ['NO.', '브랜드명', '소화기 개수'], ['1', ' 꼼  데 ', '1'], ['2', '없는수량', ''], ['', '계', '1']], '메모': [['x']] };
+  const FX = 'window.XLSX={read:()=>{const X=window.__XLS||' + JSON.stringify(XLS) + ';return {SheetNames:Object.keys(X),Sheets:X};},utils:{sheet_to_json:w=>w,book_new:()=>({SheetNames:[],Sheets:{}}),aoa_to_sheet:a=>a,book_append_sheet:(wb,w,n)=>{wb.SheetNames.push(n);wb.Sheets[n]=w;}},writeFile:(wb,n)=>{window.__xl={name:n,sheets:wb.SheetNames,rows:wb.Sheets};}};';
+  const xc = await mk(TK, FX), xp2 = await xc.newPage(); xp2.on('pageerror', e => errs.push(e.message)); xp2.on('dialog', d => d.accept());
+  await xp2.goto(BASE + 'app.html'); await xp2.locator('.grid6').waitFor();
+  await xp2.evaluate(() => openStatus()); await xp2.locator('.tree').waitFor();
+  ok(!/엑셀 올리기/.test(await xp2.locator('.wrap.list').innerText()), '42) ② 매장별 현황에는 엑셀 버튼이 없음 (QR 관리로 옮김, 결정 296)');
+  await xp2.evaluate(() => openQr()); await xp2.locator('.seg button.on:text-is("소화기")').waitFor(); await xp2.locator('.wrap.list label:has-text("엑셀 올리기")').waitFor();
+  ok(/엑셀 내려받기/.test(await xp2.locator('.wrap.list').innerText()), '42-1) QR 관리 › 소화기 탭에 [엑셀 올리기] [엑셀 내려받기]');
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화기.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  const nAdd0 = count('ws_fe_add');
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기")').waitFor();
+  const pv = await xp2.locator('.dialog').innerText();
+  ok(/1F · 5F/.test(pv) && /카페[\s\S]*3대[\s\S]*1대[\s\S]*\+2 등록/.test(pv) && /신규 매장[\s\S]*새 매장[\s\S]*\+2 등록/.test(pv) && /꼼 데[\s\S]*\+1 등록/.test(pv) && /새로 등록 \+5대/.test(pv) && !/없는수량|계\b/.test(pv.replace('엑셀 올리기', '')) && !/메모/.test(pv), '43) 미리보기: 층 시트(1F·5F)만, 「계」·수량 없는 줄·층 아닌 시트는 뺌, 부족분 +5대');
+  ok(count('ws_fe_add') === nAdd0, '44) 미리보기만으로는 저장하지 않음');
+  await shot(xp2, 'x_preview');
+  n0 = count('ws_fe_add'); await xp2.click('#xlGo'); await called('ws_fe_add', n0 + 2); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  const adds = CALLS.filter(c => c.fn === 'ws_fe_add').slice(n0).map(c => c.a.p_d.floor + '|' + c.a.p_d.store + '|' + c.a.p_d.count).join();
+  ok(adds === '1F|카페|2,1F|신규 매장|2,5F|꼼 데|1', '45) 등록하기 → 부족한 만큼만 소화기 등록 ' + adds);
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화기.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기")').waitFor();
+  ok(/등록할 것 없음/.test(await xp2.locator('.dialog').innerText()) && await xp2.locator('#xlGo').isDisabled() && !/대 초과/.test(await xp2.locator('.dialog').innerText()), '46) 같은 파일을 다시 올리면 「등록할 것 없음」(중복 등록 안 됨)');
+  await xp2.click('.dialog button:text-is("취소")');
+  ok(await xp2.locator('.ac-h:has-text("5F")').count() === 1, '47) 등록 뒤 QR 목록을 다시 읽음 (5F 층 생김)');
+  await xp2.evaluate(() => xlDown('5F')); await xp2.waitForFunction(() => window.__xl);
+  const xd = await xp2.evaluate(() => window.__xl);
+  ok(xd.name === '소화기 현황_5F.xlsx' && xd.sheets.join() === '5F' && JSON.stringify(xd.rows['5F'].slice(1)) === JSON.stringify([['NO.', '브랜드명', '소화기 개수'], [1, '꼼 데', 1], ['', '계', { t: 'n', f: 'SUM(C3:C3)', v: 1 }]]), '49) 내려받기: 올린 양식과 같은 칸 (시트 이름=층, NO·브랜드명·소화기 개수, 계) ' + JSON.stringify(xd.rows['5F']));
+  await xp2.evaluate(() => { window.__xl = null; });
+  await xp2.click('button:has-text("엑셀 내려받기")'); await xp2.waitForFunction(() => window.__xl);
+  const xs = (await xp2.evaluate(() => window.__xl)).sheets.join(); ok(/^(B3,)?1F,5F(,10F)?$/.test(xs), '50) 소화기 탭에서 내려받으면 등록된 층 모두, 층 순서대로 ' + xs);
+
+  // ── QR 관리 › 소화전·공기호흡기 탭 엑셀 (결정 296): 개수만, 「층+종류+두 자리 번호」 이름 ──
+  await xp2.evaluate(() => { window.__XLS = { B1F: [[], ['NO.', '소화전 개수', '공기호흡기 개수'], ['1', '2', '1']], '3F': [[], ['NO.', '소화전 개수', '공기호흡기 개수'], ['1', '2', '0'], ['', '.', '']], 메모: [['x']] }; });
+  await xp2.click('.seg button:text-is("소화전")'); await xp2.locator('.wrap.list label:has-text("엑셀 올리기")').waitFor();
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화전공기호흡기 현황_전체.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기 — 소화전")').waitFor();
+  const hv = await xp2.locator('.dialog').innerText();
+  ok(/B1[\s\S]*2개[\s\S]*0개[\s\S]*\+2 등록/.test(hv) && /3F[\s\S]*2개[\s\S]*1개[\s\S]*\+1 등록/.test(hv) && /B1소화전01/.test(hv) && /등록하기 \(\+3개\)/.test(hv), '59) 소화전 탭 미리보기: 시트 B1F→B1, 소화전 칸만, 지금 개수와 비교 (+3), 이름 예 B1소화전01');
+  n0 = count('ws_eq_add'); await xp2.click('#eqxGo'); await called('ws_eq_add', n0 + 1); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  const eqa = CALLS.filter(c => c.fn === 'ws_eq_add').slice(n0).map(c => c.a.p_d.kind + '|' + c.a.p_d.floor + '|' + c.a.p_d.auto + '|' + c.a.p_d.count).join();
+  ok(eqa === 'hyd|B1|true|2,hyd|3F|true|1' && EQ.some(e => e.name === 'B1소화전02') && EQ.some(e => e.name === '3F소화전01'), '60) 등록하기 → 위치 없이 자동 이름으로 부족분만 ' + eqa);
+  await xp2.click('.seg button:text-is("공기호흡기")'); await xp2.locator('.wrap.list label:has-text("엑셀 올리기")').waitFor();
+  await xp2.setInputFiles('.wrap.list input[type=file]', { name: '소화전공기호흡기 현황_전체.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await xp2.locator('.dialog h2:has-text("엑셀 올리기 — 공기호흡기")').waitFor();
+  ok(/등록하기 \(\+1개\)/.test(await xp2.locator('.dialog').innerText()), '61) 공기호흡기 탭: 같은 파일에서 공기호흡기 칸만 (+1)');
+  n0 = count('ws_eq_add'); await xp2.click('#eqxGo'); await called('ws_eq_add', n0); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  ok(EQ.some(e => e.name === 'B1공기호흡기01'), '62) B1공기호흡기01 등록');
+  await xp2.evaluate(() => { window.__xl = null; }); await xp2.click('button:has-text("엑셀 내려받기")'); await xp2.waitForFunction(() => window.__xl);
+  const ed2 = await xp2.evaluate(() => window.__xl);
+  ok(ed2.name === '소화전공기호흡기 현황_전체.xlsx' && ed2.sheets[0] === 'B1F' && JSON.stringify(ed2.rows.B1F.slice(1)) === JSON.stringify([['NO.', '소화전 개수', '공기호흡기 개수'], [1, 2, 1]]), '63) 내려받기: 올린 양식 그대로 (B1F 시트, 소화전·공기호흡기 개수) ' + JSON.stringify(ed2.sheets));
+  await xp2.evaluate(() => openStatus()); await xp2.locator('.tree').waitFor();
+
+  // ── 층 화면에서 소화기 삭제 (결정 250) ──
+  await xp2.evaluate(() => { S.floor = '1F'; go('floor'); }); await xp2.locator('.store').first().waitFor();
+  ok(await xp2.locator('button:text-is("소화기 삭제")').count() === 1, '51) 층 화면에 [소화기 삭제] 버튼');
+  await xp2.click('button:text-is("소화기 삭제")');
+  ok(/지울 소화기를 눌러 고르세요/.test(await xp2.locator('.wrap.list').innerText()) && await xp2.locator('button:has-text("선택 0대 삭제")').isDisabled(), '52) 삭제 모드: 안내 + 고르기 전에는 [선택 0대 삭제]가 꺼져 있음');
+  await xp2.click('.feb:has-text("카페-소화기1")');   // 점검 입력이 있는 것
+  await xp2.click('.store:has-text("신규 매장") button:text-is("전체 선택")');
+  ok(await xp2.locator('button:text-is("선택 3대 삭제")').count() === 1 && /이번 달 점검 입력 있음/.test(await xp2.locator('.feb:has-text("카페-소화기1")').innerText()), '53) 소화기 1대 + 매장 전체 선택 → 「선택 3대 삭제」, 점검 입력 있는 것은 표시');
+  await xp2.click('button:text-is("선택 3대 삭제")');
+  const ask = await xp2.locator('.dialog').innerText();
+  ok(/소화기 3대 삭제/.test(ask) && /카페-소화기1/.test(ask) && /신규 매장-소화기1/.test(ask) && /점검을 이미 입력한 1대도 지워집니다/.test(ask), '54) 확인 창: 지울 이름 목록 + 점검 입력 있는 1대도 지워진다는 안내');
+  n0 = count('ws_fe_delete'); await xp2.click('#fdBtn'); await called('ws_fe_delete', n0); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  ok(last('ws_fe_delete').a.p_ids.length === 3 && !(await xp2.locator('text=신규 매장').count()) && !/지울 소화기를 눌러/.test(await xp2.locator('.wrap.list').innerText()) && await xp2.locator('button:text-is("소화기 삭제")').count() === 1, '55) 삭제 → 3대 지움, 목록 새로 읽고 삭제 모드 끝, 층 화면 그대로');
+
+  // ── ② 소화기 점검 내용 팝업에서 점검 기록 삭제 (결정 290) ──
+  await xp2.click('.feb:has-text("카페-소화기2")'); await xp2.locator('.dialog .df').waitFor();
+  ok(/카페-소화기2/.test(await xp2.locator('.dialog .dh').innerText()), '56) ② 점검완료 소화기를 누르면 점검 내용 팝업 (제목 줄 고정)');
+  n0 = count('ws_fe_check_delete');
+  await xp2.click('.dialog button:text-is("점검 기록 삭제")'); await xp2.click('#ddBtn'); await called('ws_fe_check_delete', n0); await xp2.locator('.dialog').waitFor({ state: 'detached' });
+  await xp2.locator('.feb:has-text("카페-소화기2") .chip:has-text("미입력")').waitFor();
+  ok(last('ws_fe_check_delete').a.p_check_id === 'CK2' && await xp2.locator('.feb:has-text("카페-소화기2")').isDisabled(), '57) 삭제 → 소화기는 남고 「미입력」 (누를 수 없음), 층 화면 그대로');
+  const lc = await mk(''), lp = await lc.newPage(); await lp.goto(BASE + 'app.html'); await lp.waitForTimeout(800);
+  ok(!(await lp.locator('.grid6').count()) && !(await lp.locator('text=점검 기록 삭제').count()), '58) 로그인 안 하면 앱 화면(삭제 버튼)이 안 열림 — 서버도 로그인 표 없으면 거절');
 
   ok(!errs.length, '41) 화면 오류 없음 ' + (errs.length ? JSON.stringify(errs) : ''));
   await b.close(); srv.close();

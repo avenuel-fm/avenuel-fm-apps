@@ -541,6 +541,9 @@
         .symbol-filter-item:hover {
             background: var(--bg-hover);
         }
+        .symbol-filter-item input.chk-lock { order: -1; appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin: 0; cursor: pointer; background: none; border: 0; position: relative; }
+        .symbol-filter-item input.chk-lock::before { content: '\1F511'; font-size: 14px; position: absolute; left: 0; top: 0; filter: grayscale(1); opacity: .3; }
+        .symbol-filter-item input.chk-lock:checked::before { filter: none; opacity: 1; }
         .symbol-filter-item input[type="checkbox"] {
             width: 15px;
             height: 15px;
@@ -581,7 +584,7 @@
             font-weight: 600;
             background: var(--white);
             border: 1.5px solid transparent;
-            color: var(--white);
+            color: var(--navy);   /* 선택 안 된 버튼도 글자가 보이게 (흰 바탕에 흰 글자였음) */
             cursor: pointer;
             transition: all 0.15s ease;
         }
@@ -591,7 +594,7 @@
         .symbol-type-chip.active {
             background: var(--white);
             color: var(--navy);
-            border-color: var(--white);
+            border-color: #38bdf8;   /* 선택된 버튼은 하늘색 테두리 */
             box-shadow: none;
         }
 
@@ -629,11 +632,11 @@
 
         /* EPS (전기): 자 -> 모, 파란색 점선 3px */
         .util-line-eps {
-            stroke: var(--navy) !important;
+            stroke: #dc2626 !important;
             stroke-width: 3px !important;
             stroke-dasharray: 8 6;
             animation: utilFlowForward 0.8s linear infinite;
-            filter: drop-shadow(0 0 2px rgba(37, 99, 235, 0.4));
+            filter: drop-shadow(0 0 2px rgba(220, 38, 38, 0.4));
         }
 
         /* PS / PD (급수): 자 -> 모, 하늘색 점선 3px */
@@ -650,7 +653,7 @@
             stroke: var(--navy) !important;
             stroke-width: 3px !important;
             stroke-dasharray: 8 6;
-            animation: utilFlowReverse 0.8s linear infinite;
+            animation: utilFlowForward 0.8s linear infinite;
             filter: drop-shadow(0 0 2px rgba(15, 23, 42, 0.4));
         }
 
@@ -685,7 +688,7 @@
             stroke: var(--navy) !important;
             stroke-width: 3px !important;
             stroke-dasharray: 8 6;
-            animation: utilFlowReverse 0.8s linear infinite;
+            animation: utilFlowForward 0.8s linear infinite;
         }
 
         /* 비활성 상태 라인 */
@@ -735,9 +738,10 @@
         .sc .scale-preset-chip.on { background: var(--tint); border-color: var(--navy); }
 
         /* 바닥 · 지우개 · 직각 체크 (결정 216) */
-        .user-floor, .user-eraser { stroke: none; pointer-events: none; }
-        .show-floor-outline .user-floor, body.zone-drawing-mode .user-floor {
-            stroke: #000000; stroke-width: 1.5px; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke;
+        .user-floor, .user-eraser, .user-floor-line { stroke: none; pointer-events: none; }
+        /* 바닥은 색 없는 투명 점선만, 맨 위 층. 마스크가 바닥 안쪽을 가려 겹친 바닥의 안쪽 선이 사라짐 (굵기 2배 → 바깥 절반만 보임) */
+        .show-floor-outline .user-floor-line, body.zone-drawing-mode .user-floor-line {
+            stroke: #000000; stroke-width: 3px; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke;
             pointer-events: stroke; cursor: pointer;
         }
         body.zone-drawing-mode .user-eraser {
@@ -748,7 +752,31 @@
         .zone-toggle-btn.zone-eraser.on { background: var(--navy); color: var(--white); border-color: var(--navy); }
         .zone-ortho-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--size-s); font-weight: 600; color: var(--navy); cursor: pointer; }
         .zone-ortho-check input { width: 16px; height: 16px; accent-color: var(--navy); }
-        @media (max-width: 1400px) {   /* 휴대폰·태블릿·작은 PC: 줄이 옆으로 잘리지 않게 줄바꿈 + 왼쪽 아래 「뒤로」 버튼 위로 */
+        @media (max-width: 1100px) {   /* 휴대폰·태블릿·작은 PC: 줄이 옆으로 잘리지 않게 줄바꿈 + 왼쪽 아래 「뒤로」 버튼 위로 */
             .zone-guide-banner { flex-wrap: wrap; justify-content: center; white-space: normal; bottom: 52px; border-bottom: 1px solid var(--border-medium); border-radius: var(--radius); }   /* 왼쪽 아래 「뒤로」 버튼 위로 */
             .zone-guide-banner .zone-banner-controls { flex-wrap: wrap; white-space: normal; row-gap: var(--sp-2); justify-content: center; }
         }
+
+
+        /* 심벌 위치 창 · 이름 말풍선 (결정 292) */
+        .symbol-place-dialog {
+            position: fixed; left: 50%; top: 110px; transform: translateX(-50%); z-index: 3000;
+            width: min(340px, calc(100vw - 32px)); background: #fff; color: var(--navy, #0f172a);
+            border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+            display: flex; flex-direction: column; gap: 8px; font-size: 14px;
+        }
+        .symbol-place-dialog .spd-title { font-weight: 700; }
+        .symbol-place-dialog input { height: 38px; padding: 0 10px; border: 1px solid #94a3b8; border-radius: 8px; font-size: 15px; }
+        .symbol-place-dialog .spd-hint { font-size: 12px; color: #64748b; }
+        .symbol-place-dialog .spd-name { background: #e0f2fe; color: #075985; border-radius: 8px; padding: 6px 10px; }
+        .symbol-place-dialog .spd-btns { display: flex; gap: 6px; }
+        .symbol-place-dialog .spd-btns button { flex: 1; height: 36px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #0f172a; font-size: 14px; cursor: pointer; }
+        .symbol-place-dialog .spd-btns .spd-ok { background: #0f172a; color: #fff; border-color: #0f172a; }
+        .symbol-place-dialog .spd-btns .spd-del { color: #dc2626; border-color: #fca5a5; }
+        .symbol-name-bubble {
+            position: fixed; z-index: 3000; transform: translate(-50%, -100%); pointer-events: none;
+            background: #0f172a; color: #fff; font-size: 14px; font-weight: 600; padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+        }
+        /* 이름표는 편집 중에만 */
+        .cad-symbol-label { display: none; pointer-events: none; }
+        body.symbol-mode .cad-symbol-label { display: inline; }

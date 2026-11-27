@@ -219,7 +219,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   await q('insert into daily_log (log_date, electricity, business_hours) values ($1, 100, 10), ($2, 50, 12)', [prevY, yest]);   // 과거자료 (updated_at 없음)
   let lg = await call('ws_log_get', [tk, '']);
   ok(lg.ok && lg.day === D && lg.prevDay === prevY && lg.cur === null && lg.ver === '' && lg.vals.y['전기'] === 50 && lg.vals.p['전기'] === 100, '일지: 빈 날, 어제·전년 같은 날 값');
-  ok(lg.tbm['전기방재'][0] === '1층 등 교체' && lg.tbm['기계건축'].length === 0, '일지: TBM 작업 표에서 금일작업 (부서 이름 바꿈)');
+  ok(lg.tbm['전기방재'].length === 0 && lg.tbm['기계건축'].length === 0, '일지: TBM 작업 표·명일 작업 일정은 금일작업에 안 가져옴 (결정 268)');
   ok((await call('ws_log_get', [tk, '2099-01-01'])).day === D, '일지: 앞날 → 오늘');
   const base = { 영업시간: '11', 전기: '1,234.5', 날씨: '맑음', 미세먼지등급: '보통', 비고: '줄1\n줄2<x>', works: { 전기방재: ['a', ' ', 'b'], 기계건축: [] } };
   lg = await call('ws_log_save', [tk, D, J(Object.assign({}, base, { 전기: '12a' })), '', '{}']);
@@ -295,6 +295,22 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const hd = await call('ws_att_holiday', [tk, '홍길동', J(['토', '월', '월', '없음']), '']);
   ok(hd.ok && hd.people[0].hol === '월,토', '기본 휴일: 요일 정리 (겹침·없는 요일 빼고 순서대로) → ' + hd.people[0].hol);
   ok((await call('ws_att_holiday', [tk, '홍길동', '[]', D])).people[0].hol === '', '기본 휴일 비우기');
+  // 파트 · 직원 삭제 (사용자 11-26): 소장·관리파트만. 관리파트 직원 박가짜(T09, 번호 규칙 S### 밖이라 뒤 시험에 안 걸림)
+  await q("insert into staff (staff_id, name, part, role, pin_salt, pin_hash) values ('T09', '박가짜', '관리', '직원', 'saltT09', $1)", [sha('saltT09' + '1357')]);
+  await q("insert into roster (ym, seq, section, role, name, days) values ($1, 99, '관리', '기사', '박가짜', '[]')", [ym]);
+  const pk = (await login('1357', 'at9', 'https://x/sign/p.png', 'sign/2026-11/p.png')).token;
+  let ag = await call('ws_att_get', [pk, D]);
+  ok(ag.canStaff && !ag.canBoss && ag.people.find(x => x.name === '김철수').part === '기건파트' && ag.people.find(x => !x.name).part === null, '관리파트 직원: 파트·삭제 권한 · 사람마다 직원 파트 (로그인 직원 아니면 null)');
+  ok(!(await call('ws_att_get', [kk, D])).canStaff && /소장·관리파트만/.test((await call('ws_att_part', [kk, '김철수', '전방파트', D])).error), '일반 직원: 파트 못 바꿈');
+  ok(/전방파트나 기건파트/.test((await call('ws_att_part', [pk, '김철수', '관리', D])).error), '파트는 전방·기건만');
+  ag = await call('ws_att_part', [pk, '김철수', '전방파트', D]);
+  ok(ag.ok && ag.people.find(x => x.name === '김철수').part === '전방파트', '관리파트 직원이 김철수 → 전방파트');
+  await call('ws_att_part', [pk, '김철수', '기건파트', D]);
+  ok(/소장·관리파트만/.test((await call('ws_att_remove', [kk, '박가짜', D])).error) && /내 계정/.test((await call('ws_att_remove', [pk, '박가짜', D])).error), '직원 삭제: 일반 직원·자기 자신 막음');
+  ag = await call('ws_att_remove', [tk, '박가짜', D]);
+  const gone = await one("select active, pin_hash, (select count(*)::int from ws_sessions where staff_id = 'T09') n, (select count(*)::int from roster where name = '박가짜' and not deleted) r from staff where staff_id = 'T09'");
+  ok(ag.ok && !ag.people.some(x => x.name === '박가짜') && gone.active === false && gone.pin_hash === null && gone.n === 0 && gone.r === 0, '직원 삭제: 근무표에서 빠짐 · 사용 중지 · PIN 지움 · 기기 표 지움');
+  ok(!(await login('1357', 'at9')).ok, '삭제한 직원은 PIN으로 로그인 못 함');
   // ══ 3-4 소화기 (05_fire.sql) ══
   await db.exec(SQL('05_fire.sql')); await db.exec(SQL('05_fire.sql'));
   ok(true, '05_fire.sql 실행됨 (두 번)');
@@ -352,9 +368,20 @@ alter default privileges in schema public grant all on sequences to anon, authen
   const it = fs.items.find(x => x.id === mine[0].id);
   ok(fs.ok && fs.ym === fs.curYm && it.state === 'ok' && it.checkId === cs.checkId && fs.counts.total === fs.items.length && fs.counts.ok >= 1, '점검 현황: 이번 달, 입력한 소화기 점검완료');
   ok(!fs.items.some(x => x.id === del.id) && fs.months[fs.months.length - 1] === fs.curYm, '점검 현황: 이번 달 지운 소화기(기록 없음)는 안 보임, 달 목록 끝 = 이번 달');
+  await q("insert into fire_ext (fe_id, floor, store_name, name, qr_token, created_at, active, deleted_at) values ('F9','1F','마','1','q9', now() - interval '5 days', false, now())");
+  await q("insert into fire_checks (check_id, ym, fe_id, state, entered_at) values ('C9', $1, 'F9', '이상없음', now())", [fs.ym]);
+  ok(!(await call('ws_fe_status', [tk, fs.ym])).items.some(x => x.id === 'F9'), '점검 현황: 이번 달 점검을 입력했어도 이번 달에 지운 소화기는 안 보임 (결정 250)');
   const dt = await call('ws_fe_detail', [tk, cs.checkId]);
   ok(dt.ok && /p2\.jpg$/.test(dt.photo) && /m2\.png$/.test(dt.signA) && /n2\.png$/.test(dt.signB) && dt.state === '이상없음', '점검 내용 보기: 새 사진·손글씨 주소');
   ok((await call('ws_fe_detail', [tk, 'nope'])).ok === false, '점검 내용: 없는 번호 → 안내');
+  // 점검 기록 삭제 (결정 290)
+  ok(/permission denied/.test(await asErr('anon', "select ws_fe_check_delete('x', 'C1')")), '점검 기록 삭제: 비로그인은 못 부름');
+  ok(/LOGIN/.test(await asErr('authenticated', "select ws_fe_check_delete('틀린표', 'C1')")), '점검 기록 삭제: 틀린 표 → LOGIN');
+  ok((await call('ws_fe_check_delete', [tk, 'nope'])).ok === false, '점검 기록 삭제: 없는 번호 → 안내');
+  const fcd = await call('ws_fe_check_delete', [tk, cs.checkId]);
+  const fs2 = await call('ws_fe_status', [tk, fs.ym]), it2 = fs2.items.find(x => x.id === mine[0].id);
+  ok(fcd.ok && fcd.ym === fs.ym && it2 && it2.state !== 'ok' && it2.checkId === '' && (await call('ws_fe_detail', [tk, cs.checkId])).ok === false, '점검 기록 삭제 → 소화기는 남고 그 달 「미입력」, 내용 보기 안 됨');
+  ok((await call('ws_fe_check_delete', [tk, cs.checkId])).ok === false && (await one("select deleted from fire_checks where check_id = $1", [cs.checkId])).deleted === true, '점검 기록 삭제: 줄은 남고 삭제됨 표시 · 두 번은 안 됨');
   // ══ 3-5 전열필증 (06_eh.sql) ══
   await db.exec(SQL('06_eh.sql')); await db.exec(SQL('06_eh.sql'));
   ok(true, '06_eh.sql 실행됨 (두 번)');
@@ -567,12 +594,15 @@ alter default privileges in schema public grant all on sequences to anon, authen
     ok(nm(await ls(X2)) === '-,-,-,-', '일지 서명란: 아무도 서명 안 한 날 → 빈 칸');
     await sign2('LS1', '주두리', null, '07:50'); await sign2('LS2', '주하나', null, '08:00'); await sign2('LS3', '주세찬', null, '08:05'); await sign2('LS4', '홍길동', boss, '08:30');
     v = await ls(X2);
-    ok(nm(v) === '주하나,주두리,홍길동,홍길동', '일지 서명란: 파트장·냉동장 없으면 주임(먼저 서명한 사람) · 부소장 없으면 소장이 두 칸 ' + nm(v));
+    ok(nm(v) === '주하나,주두리,-,홍길동', '일지 서명란: 파트장·냉동장 없으면 주임(먼저 서명한 사람) · 부소장 없으면 부소장 칸은 빈칸 ' + nm(v));
     await sign2('LS5', '냉다솜', null, '09:00'); await sign2('LS6', '부가람', null, '09:10');
     v = await ls(X2);
     ok(nm(v) === '주하나,냉다솜,부가람,홍길동', '일지 서명란: 냉동장이 주임보다 앞 · 부소장 칸은 부소장 ' + nm(v));
     await q("delete from signs where sign_id = 'LS4'");
     ok(nm(await ls(X2)) === '주하나,냉다솜,부가람,부가람', '일지 서명란: 소장 없으면 소장 칸에 부소장');
+    await q("insert into roster (ym, seq, section, role, name) values ('2026-10',8,'시설','시설부소장','마부장')"); await q("delete from signs where sign_id = 'LS6'");
+    await sign2('LS7', '마부장', null, '09:20'); await sign2('LS8', '홍길동', boss, '09:30');
+    ok(nm(await ls(X2)) === '주하나,냉다솜,마부장,홍길동', '일지 서명란: 근무표 직책이 「시설부소장」처럼 길어도 부소장 칸 · 소장·부소장 같이 나오면 각자 (결정 268)');
   }
 
   await db.exec(SQL('15_menu.sql')); await db.exec(SQL('15_menu.sql'));   // 메인 메뉴 켜기·끄기 (결정 148) — 지도·시방서가 부름
@@ -681,38 +711,6 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(ss3.entries.length === 0 && ss3.counts.G1 === 1 && ss4.entries.length === 0, '외부용 검색: 고른 지침이 없으면 결과 없이 건수만 · 빈 검색어는 빈 답');
   ok(/does not exist/.test(await asErr('anon', 'select ws_spec_pub_index()')), '외부용: 색인 통째로 주던 함수는 없앰');
   ok(pp.img === 'https://b/g1/12.jpg' && pp.pdf === '' && po.ok === false, '외부용: 쪽 그림만 (원본 PDF 주소 없음 · 이전 판 쪽은 안 줌)');
-  // ══ 열화상점검 (16_thermal.sql, 결정 166·168) — 작성기(fm/thermal)는 업무지원 통로로만 ══
-  await db.exec(SQL('16_thermal.sql')); await db.exec(SQL('16_thermal.sql'));
-  ok(/permission denied/.test(await asErr('authenticated', 'select * from thermal_kv')) || !(await as('authenticated', 'select * from thermal_kv')).length, '16_thermal.sql 두 번 실행 · 표는 직접 못 읽음');
-  ok(/permission denied/.test(await asErr('anon', "select ws_thermal_boot('x')")), '열화상: 비로그인(anon)은 못 부름');
-  await q("update staff set role = '직원' where staff_id = 'S003'");
-  const tpl = JSON.stringify({ path: 'thermal/2026-11/s.atr', url: 'https://b/s.atr', name: 's.atr' });
-  for (const role of ['직원', '파트장', '부소장', '관리자', '옵저버']) {
-    await q("update staff set role = $1 where staff_id = 'S003'", [role]);
-    const bo = await call('ws_thermal_boot', ['emp']), boss = role !== '직원' && role !== '파트장';
-    ok(bo.ok === true && bo.me.role === role && (await call('ws_thermal_set', ['emp', 'model', '{"a":1}'])).ok === true, '열화상(결정 212): ' + role + '도 열고 학습 값을 저장함');
-    const ts = await call('ws_thermal_set', ['emp', 'template', tpl]);
-    ok(ts.ok === boss && (boss || /양식 파일은 소장·부소장·관리자·옵저버만/.test(ts.error)), '열화상(결정 212): 양식 바꾸기는 ' + role + (boss ? '은 됨' : '은 막힘'));
-    if (boss) await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'thermal/2026-11/zz.atr', url: 'https://b/z', name: 'z' })]);
-  }
-  await call('ws_thermal_set', [tk, 'model', 'null']);
-  await q("update staff set role = '직원' where staff_id = 'S003'");
-  await q("delete from thermal_kv where k in ('model', 'template')");
-  const tb0 = await call('ws_thermal_boot', [tk]);
-  ok(tb0.ok && tb0.me.role === '소장' && tb0.model === null && tb0.template === null && tb0.reports.length === 0, '열화상: 처음엔 학습 값·양식·보고서 없음 · 나(이름·역할)');
-  ok((await call('ws_thermal_set', [tk, 'model', JSON.stringify({ avg_y: 125, samples: [] })])).ok && (await call('ws_thermal_boot', [tk])).model.avg_y === 125, '열화상: 학습 값 저장·읽기');
-  ok((await call('ws_thermal_set', [tk, 'x', '{}'])).ok === false && (await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'sign/a.atr' })])).ok === false, '열화상: 모르는 칸·thermal/ 밖 양식 경로는 막음');
-  ok((await call('ws_thermal_set', [tk, 'template', JSON.stringify({ path: 'thermal/2026-11/a.atr', url: 'https://b/a.atr', name: '양식.atr' })])).ok && (await call('ws_thermal_boot', [tk])).template.name === '양식.atr', '열화상: 양식 파일 저장');
-  ok((await call('ws_thermal_report', [tk, JSON.stringify({ title: '', path: 'thermal/x.atr', url: 'https://b/x' })])).ok === false && (await call('ws_thermal_report', [tk, JSON.stringify({ title: 'EPS', path: 'tbm_pdf/x', url: 'https://b/x' })])).ok === false, '열화상: 제목 없음·thermal/ 밖 경로는 막음');
-  const tr = await call('ws_thermal_report', [tk, JSON.stringify({ title: '2026년 4분기 EPS 1층', inspector: '홍길동', date: '2026-11-20', path: 'thermal/2026-11/r.atr', url: 'https://b/r.atr', pages: 3, max_dt: '4.2' })]);
-  const tb1 = await call('ws_thermal_boot', [tk]);
-  ok(tr.ok && tr.id > 0 && tb1.reports.length === 1 && tb1.reports[0].pages === 3 && Number(tb1.reports[0].max_dt) === 4.2 && !('editor' in tb1.reports[0]), '열화상: 보고서 기록 → 목록에 (만든 사람 이름은 안 내보냄)');
-  const tp = await call('ws_thermal_report', [tk, JSON.stringify({ title: 'PDF만', date: '2026-11-20', pdf_path: 'thermal/2026-11/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'https://drive.google.com/file/d/x/view', pages: 2 })]);
-  const tb2 = await call('ws_thermal_boot', [tk]);
-  ok(tp.ok && tb2.reports[0].pdf_url === 'https://b/a.pdf' && tb2.reports[0].drive_url.startsWith('https://drive.google.com') && tb2.reports[0].path === '', '열화상: PDF만 있는 기록(.atr 없이) · PDF·드라이브 주소가 목록에');
-  ok((await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'tbm_pdf/a.pdf', pdf_url: 'https://b/a.pdf' })])).ok === false && (await call('ws_thermal_report', [tk, JSON.stringify({ title: 'x', pdf_path: 'thermal/a.pdf', pdf_url: 'https://b/a.pdf', drive_url: 'http://x' })])).ok === false, '열화상: PDF 경로가 thermal/ 밖 · 드라이브 주소가 https 아님 → 막음');
-  await db.exec(SQL('16_thermal.sql'));   // 이미 쓰던 표에 다시 실행해도 기록이 남음 (칸 더하기)
-  ok((await call('ws_thermal_boot', [tk])).reports.length === 2, '열화상: 16_thermal.sql 다시 실행해도 기록 유지');
   // ══ CAD 변환 도면 (18_cad.sql) — 전 직원이 보고 올림, 지우기는 소장만 ══
   await db.exec(SQL('18_cad.sql')); await db.exec(SQL('18_cad.sql'));
   ok(/permission denied/.test(await asErr('anon', "select ws_cad_list('x')")), 'CAD: 비로그인(anon)은 못 부름');
@@ -868,11 +866,10 @@ alter default privileges in schema public grant all on sequences to anon, authen
   let rkl = await call('ws_rw_list', [tk, '', '', '']);
   ok(rkl.ok && rkl.admin && rkl.list.length === 2 && rkl.list[0].id === rka.item.id && rkl.floors.length === 11, '위험작업: 목록 (같은 날은 저장한 순서)');
   ok((await call('ws_rw_list', [tk, '인테리어', '', ''])).list.length === 1 && (await call('ws_rw_list', [tk, '3f', '', ''])).list.length === 1 && (await call('ws_rw_list', [tk, 'zzz', '', ''])).list.length === 0, '위험작업: 업체명·위치 글자로 검색');
-  ok((await call('ws_rw_list', ['emp', '', '', ''])).admin === false, '위험작업: 직원은 삭제 권한 없음 표시');
-  ok((await call('ws_rw_delete', ['emp', rka.item.id])).ok === false, '위험작업: 직원은 지울 수 없음');
+  ok((await call('ws_rw_list', ['emp', '', '', ''])).admin === true, '위험작업: 직원도 지우기 버튼 보임 (사용자 11-27)');
   ok((await call('ws_admin_set_menu', [tk, ['docs.risk']])).ok && /사용 중지/.test(await callErr('ws_rw_list', ['emp', '', '', ''])) && (await call('ws_rw_list', [tk, '', '', ''])).ok, '위험작업: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);
-  ok((await call('ws_rw_delete', [tk, rka.item.id])).ok && (await call('ws_rw_list', [tk, '', '', ''])).list.length === 1 && (await call('ws_rw_delete', [tk, rka.item.id])).ok === false, '위험작업: 소장은 지움 (숨김 처리) · 지운 것을 또 지우면 안내');
+  ok((await call('ws_rw_delete', ['emp', rka.item.id])).ok && (await call('ws_rw_list', [tk, '', '', ''])).list.length === 1 && (await call('ws_rw_delete', [tk, rka.item.id])).ok === false, '위험작업: 직원도 지움 (숨김 처리) · 지운 것을 또 지우면 안내');
 
   // ══ 주간/야간 작업내역 (26_workhist.sql, 결정 240) ══
   await db.exec(SQL('26_workhist.sql')); await db.exec(SQL('26_workhist.sql'));
@@ -890,6 +887,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
     (await one('select count(*)::int n from dw_day')).n === 1, '주간작업: 고치기 = 같은 번호 · 있던 사진 유지 · 새 사진 한 번만 파일로 · 남의 파일 번호는 무시 · 없는 층은 비움');
   const xlg = (await call('ws_log_get', [tk, ''])).tbm;
   ok(xlg['전기방재'][0] === '복도 조명 안정기 교체(수정)' && xlg['기계건축'][0] === '복도 조명 안정기 교체(수정)', '일지 연동: 주간작업 → 두 파트 금일작업 (고친 글로)');
+  ok(xlg['전기방재'].length === 1 && !xlg['전기방재'].includes('1층 등 교체'), '일지 연동: 금일작업에는 주간작업만 (TBM 표 글은 안 들어옴)');
   const xd3 = await call('ws_dw_save', [tk, J({ parts: ['전기방재'], content: '복도 조명 안정기 교체(수정)', floor: '' })]);
   ok(xd3.ok && (await call('ws_log_get', [tk, ''])).tbm['전기방재'].filter(x => x === '복도 조명 안정기 교체(수정)').length === 1, '일지 연동: 같은 글은 한 줄만');
   ok((await call('ws_dw_delete', [tk, xd3.item.id])).ok && (await call('ws_dw_delete', [tk, xd3.item.id])).ok === false && (await call('ws_dw_list', ['emp', '', '', ''])).list.length === 1, '주간작업: 지움(숨김) · 또 지우면 안내 · 직원도 목록 봄');
@@ -913,6 +911,25 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_admin_set_menu', [tk, ['docs.work']])).ok && /사용 중지/.test(await callErr('ws_dw_list', ['emp', '', '', ''])) && /사용 중지/.test(await callErr('ws_dn_list', ['emp', '', '', ''])) && (await call('ws_dw_list', [tk, '', '', ''])).ok, '작업내역: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);
   ok((await call('ws_dn_delete', [tk, xn.item.id])).ok && (await call('ws_dn_list', [tk, '', '', ''])).list.length === 0 && (await call('ws_dn_delete', [tk, xn.item.id])).ok === false, '야간작업: 지움 (숨김) · 또 지우면 안내');
+  // ══ 하자점검 (27_defect.sql, 결정 266) ══
+  await db.exec(SQL('27_defect.sql')); await db.exec(SQL('27_defect.sql'));
+  const HP = n => { const p = 'dw_photo/' + ym + '/' + n + '.jpg'; return { url: PUB + p, path: p }; }, HS = n => { const p = 'dw_photo/' + ym + '/' + n + '.png'; return { url: PUB + p, path: p }; };
+  ok(/permission denied/.test(await asErr('anon', "select ws_hj_list('x','','','')")) && /permission denied/.test(await asErr('authenticated', 'select ws_hj_out(null)')), '하자점검: 비로그인·내부 함수 못 부름');
+  const hj = await call('ws_hj_save', [tk, J({ day: '', items: [{ n: ' B1 기계실 ', t: ' 천장 누수 ', photo: { file: HP('h1') } }, { n: 'B1 기계실 2', t: '', photo: null }, { n: '', t: '', photo: null }, { n: 'B1 기계실 3', t: '바닥 균열', photo: null }], signSite: { file: HS('s1') } })]);
+  ok(hj.ok && /^WS-HJ-\d{8}-001$/.test(hj.item.id) && hj.item.items.length === 3 && hj.item.items[0].n === 'B1 기계실' && hj.item.items[0].t === '천장 누수' && hj.item.items[0].photo.src.endsWith('h1.jpg') && hj.item.items[1].photo === null && hj.item.signSite.src.endsWith('s1.png') && hj.item.signFm === null, '하자점검: 저장 (빈 칸 뺌 · 사진 1 · 서명 1)');
+  ok((await one("select (due_day - work_day) d from dw_defect")).d === 10 && hj.item.due === (await one("select (work_day + 10)::text d from dw_defect")).d, '하자점검: 처리 기한 = 작성일 + 10일 (서버 계산)');
+  ok((await call('ws_hj_save', [tk, J({ items: [{ n: 'a', t: '' }] })])).ok === false && (await call('ws_hj_save', [tk, J({ items: [] })])).ok === false && (await call('ws_hj_save', [tk, J({ day: '2099-01-01', items: [{ n: 'a', t: 'x' }] })])).ok === false, '하자점검: 하자내용·일자 검사');
+  ok((await call('ws_hj_save', [tk, J({ items: Array.from({ length: 41 }, () => ({ n: 'a', t: 'x' })) })])).ok === false, '하자점검: 41칸 → 거부');
+  ok(/파일 정보/.test(await callErr('ws_hj_save', [tk, J({ items: [{ n: 'a', t: 'x', photo: { file: { url: 'https://evil/x.jpg', path: 'dw_photo/2026-11/a.jpg' } } }] })])), '하자점검: 버킷 밖 사진 주소 → 거부');
+  const hf0 = await xnf();
+  const hj2 = await call('ws_hj_save', [tk, J({ id: hj.item.id, day: hj.item.day, items: [{ n: 'B1 기계실', t: '천장 누수(수정)', photo: { id: hj.item.items[0].photo.id } }, { n: '2F', t: '도어 틀어짐', photo: { id: '00000000-0000-0000-0000-000000000000' } }], signFm: { file: HS('s2') } })]);
+  ok(hj2.ok && hj2.item.id === hj.item.id && hj2.item.items.length === 2 && hj2.item.items[0].photo.id === hj.item.items[0].photo.id && hj2.item.items[1].photo === null && hj2.item.signSite.id === hj.item.signSite.id && hj2.item.signFm.src.endsWith('s2.png') && await xnf() === hf0 + 1 && (await one('select count(*)::int n from dw_defect')).n === 1, '하자점검: 고치기 = 같은 번호 · 있던 사진·서명 유지 · 남의 파일 번호는 무시 · 서명 안 보내면 그대로');
+  const hj3 = await call('ws_hj_save', [tk, J({ id: hj.item.id, day: hj.item.day, items: [{ n: 'a', t: 'x' }], signSite: null })]);
+  ok(hj3.ok && hj3.item.signSite === null && hj3.item.signFm.id === hj2.item.signFm.id, '하자점검: 서명을 null 로 보내면 지움');
+  ok((await call('ws_hj_list', ['emp', '', '', ''])).list.length === 1 && (await call('ws_hj_list', [tk, 'zzz', '', ''])).list.length === 0 && (await call('ws_hj_list', [tk, 'x', '', ''])).list.length === 1, '하자점검: 직원도 목록 봄 · 글자 검색');
+  ok((await call('ws_admin_set_menu', [tk, ['inspect.defect']])).ok && /사용 중지/.test(await callErr('ws_hj_list', ['emp', '', '', ''])) && (await call('ws_hj_list', [tk, '', '', ''])).ok, '하자점검: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
+  await call('ws_admin_set_menu', [tk, []]);
+  ok((await call('ws_hj_delete', [tk, hj.item.id])).ok && (await call('ws_hj_list', [tk, '', '', ''])).list.length === 0 && (await call('ws_hj_delete', [tk, hj.item.id])).ok === false, '하자점검: 지움 (숨김) · 또 지우면 안내');
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);

@@ -118,7 +118,7 @@ function renderTbm() {
     '<div class="card tbck">' + TBM_CHECKS.map(k => '<button type="button" class="' + (r.checks[k] ? 'on' : '') + '" aria-pressed="' + !!r.checks[k] + '" onclick="tbmCheck(\'' + k + '\')">' + k + (r.checks[k] ? ' ○' : '') + '</button>').join('') + '</div>' +
     '<div class="sec">사진</div>' +
     '<div class="card tbphs">' + tbmPhotoCell('meet', '회의 사진') + tbmPhotoCell('chant', '구호 사진') + '</div>' +
-    '<div class="nwbar">' + docBar(tbmDoc()) +
+    '<div class="nwbar">' + docBar(tbmDoc()) + '<button class="btn" onclick="tbmPrint()">' + ICON.print + '인쇄 (A4)</button>' +
     '</div></div>';
 }
 function tbmPv(r) { return { name: r.day + '_TBM.pdf', sub: '서류작업 › TBM ›', meta: '서명 ' + r.pdf.signs + '명 · ' + String(r.pdf.at).slice(11, 16) + ' 만듦' }; }
@@ -242,6 +242,11 @@ function tbmPdfHtml() {
     '<div class="pg"><div class="fr"><div class="t1">■ &nbsp;「TBM 실시 사진」</div><div class="t2">' + y + '년 &nbsp;' + Number(m) + ' 월 &nbsp;' + Number(d) + ' 일</div>' +
     '<div class="photos"><div class="cell">' + img(r.up.meet || r.photos.meet, '회의 사진') + '</div><div class="cell">' + img(r.up.chant || r.photos.chant, '구호 사진') + '</div></div>' +
     '<div class="pn">- 2 / 2 -</div></div></div></div>';
+}
+/* 인쇄 = PDF와 같은 양식을 A4 가로로 (1123×794px = 297×210mm), 저장 안 한 내용도 지금 화면 그대로 (결정 304) */
+function tbmPrint() {
+  $('print').innerHTML = '<style>@page{size:A4 landscape;margin:0}#print .tbp .pg{break-after:page}#print .tbp .pg:last-child{break-after:auto}#print .tbp .cell img{max-width:100%;max-height:100%;object-fit:contain}</style>' + tbmPdfHtml();
+  setTimeout(() => window.print(), 300);
 }
 async function tbmMakePdf() {
   const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;z-index:-1';

@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.26.4', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.26.43', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -336,7 +336,7 @@ function adminStaff(token) {
   bossOnly_(token);
   return { ok: true, staff: staffOut_(), toastSec: toastSec_() };
 }
-const MENU_KEYS_ = ['docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'docs.work', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs'];   // 메인 메뉴 켜기·끄기 (결정 148) — 설정 시트 「메인메뉴끄기」
+const MENU_KEYS_ = ['docs', 'inspect', 'spec', 'map', 'cad', 'docs.tbm', 'docs.nw', 'docs.att', 'docs.ahu', 'docs.log', 'docs.risk', 'docs.work', 'inspect.fire', 'inspect.eh', 'inspect.thermal', 'inspect.cs', 'inspect.defect'];   // 메인 메뉴 켜기·끄기 (결정 148) — 설정 시트 「메인메뉴끄기」
 function menuOff_() { return String(setting_('메인메뉴끄기') || '').split(',').filter(function (k) { return MENU_KEYS_.indexOf(k) !== -1; }); }
 function adminSetMenu(token, off) {
   const me = bossOnly_(token);
@@ -476,9 +476,6 @@ function api_(p) {
       const day = logDay_(p.day);
       if (sbLive_()) logWeatherMaybe_(day, p.wx === '1');   // 예약이 빠진 날: Supabase 화면이 일지를 열 때 날씨 채움 (구글 판 logGet 과 같음). wx=1 = 공조기 화면: 오후 1시 전에도, 날씨만
       out = { ok: true, day: day };   // 가동시간은 Supabase ws_log_ac 로 옮김 (결정 192) — 이 통로는 날씨 채우기만
-    } else if (p.api === 'thermaldrive') {
-      // 열화상 작성기(fm/thermal) PDF 저장 → 서버(Supabase)에 올린 PDF를 드라이브로 복사 (결정 168). 올린 파일 이름 모양만 받음
-      out = thermalDrive_(p.path, p.name);
     } else if (p.api === 'caddrive') {
       // CAD 변환 도면(DXF) 드라이브 사본: ws-files 의 cad/YYYY-MM/<32자>.dxf 만 → 시설팀 통합업무/20_업무지원/CAD변환파일/YYYY-MM
       out = cadDrive_(p.path, p.name);
@@ -492,27 +489,6 @@ function api_(p) {
     out = { ok: false, error: String(err.message || err) };
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
-}
-
-/** 열화상 PDF 드라이브 백업: Supabase ws-files 의 thermal/YYYY-MM/<32자>.pdf 만 → 시설팀 통합업무/20_업무지원/열화상점검/YYYY-MM. 같은 파일은 두 번 만들지 않음 */
-function thermalDrive_(path, name) {
-  const m = /^thermal\/(\d{4}-\d{2})\/[0-9a-f]{32}\.pdf$/.exec(String(path || ''));
-  if (!m) throw new Error('보고서 PDF 경로가 맞지 않습니다');
-  const nm = (String(name || '').replace(/[\\\/:*?"<>|]/g, ' ').replace(/[\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) || '열화상점검').replace(/(\.pdf)?$/i, '.pdf');
-  const folder = folderPath_(['시설팀 통합업무', '20_업무지원', '열화상점검', m[1]]);
-  const tag = 'thermal:' + path;
-  let id = '';
-  for (const it = folder.getFilesByName(nm); !id && it.hasNext();) { const x = it.next(); if (x.getDescription() === tag) id = x.getId(); }
-  if (!id) {
-    const blob = sbReq_('get', '/storage/v1/object/ws-files/' + path).getBlob();
-    const bytes = blob.getBytes();
-    if (bytes.length > 20 * 1024 * 1024) throw new Error('PDF가 너무 큽니다 (20MB 넘음)');
-    if (bytes.length < 5 || bytes[0] !== 37 || bytes[1] !== 80 || bytes[2] !== 68 || bytes[3] !== 70) throw new Error('PDF 파일이 아닙니다');
-    blob.setContentType('application/pdf');
-    id = saveBlob_(folder, blob, nm, tag);
-  }
-  DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return { ok: true, id: id, name: nm, url: driveUrl_(id) };
 }
 
 /** PC 변환기(CAD변환기.exe)의 업로드 — 업무지원 직원 PIN과 대조 (docs/설계/WS_CAD.md 10장, supabase/18_cad.sql)
@@ -1046,7 +1022,7 @@ const LOG_METERS = ['시수', '중수', '식당시수', '식당온수', '식당�
 const LOG_NUMS = ['영업시간', '최저', '최고', '최고풍속', '미세먼지', '전기'].concat(LOG_METERS);
 const LOG_GRADES = ['', '좋음', '보통', '나쁨', '매우나쁨'];
 const LOG_DEPTS = ['전기방재', '기계건축'];
-const LOG_MAX_LINES = 10;   // 부서마다 10줄 (사용자 11-13). 비고 칸은 화면에서 뺌(결정 120), 시트 열·옛 값은 그대로
+const LOG_MAX_LINES = 15;   // 부서마다 기본 10줄, 줄 추가로 15줄까지 (사용자 11-13 · 11-25). 비고 칸은 화면에서 뺌(결정 120), 시트 열·옛 값은 그대로
 const LOG_WX = ['날씨', '최저', '최고', '최고풍속', '미세먼지', '미세먼지등급'];   // 네이버 오후 1시 값이 들어가는 칸
 const LOG_WX_REGION = '09710101';   // 네이버 날씨 지역 번호: 서울 송파구 잠실동
 const LOG_TBM_DEPT = { '전방파트': '전기방재', '기건파트': '기계건축' };
@@ -1140,14 +1116,7 @@ function logSum_(map, from, to) {
 function logTbm_(day) {
   const out = {};
   LOG_DEPTS.forEach(function (d) { out[d] = []; });
-  if (!db_().getSheetByName('TBM')) return out;
-  const row = tbmRow_(day);
-  const works = row ? jsonOr_(row['작업표'], []) : (db_().getSheetByName('명일작업') ? nwSheet_(day).rows : []);
-  works.forEach(function (w) {
-    const d = LOG_TBM_DEPT[w.dept], t = cleanText_([w.place, w.work].map(function (x) { return String(x || '').trim(); }).filter(String).join(' '), 100);
-    if (d && t && out[d].length < LOG_MAX_LINES) out[d].push(t);
-  });
-  return out;
+  return out;   // 명일 작업 일정·TBM 표는 금일작업에 안 가져옴 (사용자 11-25, 결정 268). 주간작업 연동은 Supabase 판 (26_workhist.sql)
 }
 function logOut_(r) {
   if (!r) return null;
@@ -1392,6 +1361,10 @@ function atBoss_(me, rows) {
   if (['소장', '부소장'].indexOf(me['역할']) !== -1) return true;
   return rows.some(function (p) { return p.name === me['이름'] && AT_BOSS.indexOf(p.role) !== -1; });
 }
+/** 파트 바꾸기·직원 삭제: 대표 3명 + 그 달 엑셀 관리파트 인원 (사용자 11-26) */
+function atStaffBoss_(me, rows) {
+  return atBoss_(me, rows) || rows.some(function (p) { return p.name === me['이름'] && String(p.sec || '').indexOf('관') === 0; });
+}
 /** 그날 고치기: 대표 3명 + 그날이나 전날 야간 근무자 (야간은 아침 8시 30분에 끝나 다음 날 아침 게시판도 그 사람이 맞춤) */
 function atCanFix_(me, date, rows, fixes, hol) {
   if (atBoss_(me, rows)) return true;
@@ -1450,7 +1423,8 @@ function attGet(token, date) {
   atTabs_();
   const d = date || workDay_(Date.now());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { ok: false, error: '날짜 형식이 맞지 않습니다' };
-  const ym = d.slice(0, 7), rows = atMonthRows_(ym), fixes = atFixes_(ym), hol = atHolidays_();
+  const ym = d.slice(0, 7), rows = atMonthRows_(ym), fixes = atFixes_(ym), hol = atHolidays_(), parts = {};
+  staffRows_().forEach(function (st) { if (st['사용여부'] !== 'N' && parts[st['이름']] == null) parts[st['이름']] = String(st['파트명'] || ''); });
   const months = readTable_('근무표').rows.filter(function (r) { return r['삭제여부'] !== 'Y'; }).map(function (r) { return r['월']; })
     .filter(function (m, i, a) { return a.indexOf(m) === i; }).sort();
   const last = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
@@ -1462,11 +1436,11 @@ function attGet(token, date) {
   return {
     ok: true, date: d, today: workDay_(Date.now()), months: months, ju: rows.length ? ju : [],
     upBy: rows.length ? rows[0].by : '', upAt: rows.length ? rows[0].at : '',
-    canFix: rows.length ? atCanFix_(me, d, rows, fixes, hol) : false, canBoss: atBoss_(me, rows),
+    canFix: rows.length ? atCanFix_(me, d, rows, fixes, hol) : false, canBoss: atBoss_(me, rows), canStaff: atStaffBoss_(me, rows),
     people: rows.map(function (p) {
       const f = p.name ? fixes[d + '|' + p.name] : null;
       return { sec: p.sec, role: p.role, name: p.name, v: p.name ? atValue_(p, d, fixes, hol) : '', raw: String(p.days[Number(d.slice(8, 10)) - 1] || ''),
-        fix: f ? { by: f.by, at: f.at } : null, hol: p.name ? String(hol[p.name] || '') : '' };
+        fix: f ? { by: f.by, at: f.at } : null, hol: p.name ? String(hol[p.name] || '') : '', part: p.name && parts[p.name] != null ? parts[p.name] : null };
     })
   };
 }
@@ -1537,6 +1511,41 @@ function attHoliday(token, name, days, date) {
   if (cur) updateRow_('기본휴일', cur._row, patch); else appendRow_('기본휴일', patch);
   atChanged_();
   log_(me['이름'], '기본 휴일', name, list || '없음');
+  return attGet(token, date || '');
+}
+
+/** 파트 (전방파트 → 전기·방재, 기건파트 → 기계·건축 쪽에 보임) — 직원 탭 파트명을 바꿈 (사용자 11-26) */
+function attPart(token, name, part, date) {
+  const me = auth_(token);
+  atTabs_();
+  const ym = String(date || workDay_(Date.now())).slice(0, 7);
+  if (!atStaffBoss_(me, atMonthRows_(ym))) return { ok: false, error: '파트는 소장·관리파트만 바꿀 수 있습니다' };
+  if (['전방파트', '기건파트'].indexOf(part) === -1) return { ok: false, error: '전방파트나 기건파트를 골라 주세요' };
+  const live = readTable_('직원').rows.filter(function (s) { return s['사용여부'] !== 'N' && s['이름'] === name; });
+  if (!live.length) return { ok: false, error: '로그인 직원 목록에 없는 이름입니다' };
+  live.forEach(function (s) { updateRow_('직원', s._row, { '파트명': part, '수정일시': now_() }); });
+  CacheService.getScriptCache().remove('staff');
+  log_(me['이름'], '파트 바꿈', name, part);
+  return attGet(token, date || '');
+}
+
+/** 직원 삭제: 이 달부터 근무표에서 빼고, 직원 사용 중지 + PIN 지움(기기 표도 바로 막힘) (사용자 11-26). 서명·점검 기록은 남김 */
+function attRemove(token, name, date) {
+  const me = auth_(token);
+  atTabs_();
+  const ym = String(date || workDay_(Date.now())).slice(0, 7), rows = atMonthRows_(ym);
+  if (!atStaffBoss_(me, rows)) return { ok: false, error: '직원 삭제는 소장·관리파트만 할 수 있습니다' };
+  if (name === me['이름']) return { ok: false, error: '내 계정은 지울 수 없습니다' };
+  if (!rows.some(function (p) { return p.name && p.name === name; })) return { ok: false, error: '그 달 근무표에 없는 이름입니다' };
+  readTable_('근무표').rows.forEach(function (r) { if (r['이름'] === name && r['월'] >= ym && r['삭제여부'] !== 'Y') updateRow_('근무표', r._row, { '삭제여부': 'Y' }); });
+  const ids = [];
+  readTable_('직원').rows.forEach(function (s) {
+    if (s['사용여부'] === 'N' || s['이름'] !== name) return;
+    updateRow_('직원', s._row, { '사용여부': 'N', 'pin_hash': '', 'pin_salt': '', '수정일시': now_() }); ids.push(s['staff_id']);
+  });
+  CacheService.getScriptCache().remove('staff');
+  atChanged_();
+  log_(me['이름'], '직원 삭제', ids.join(','), name + ' (출근현황)');
   return attGet(token, date || '');
 }
 

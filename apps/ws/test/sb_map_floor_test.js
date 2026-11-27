@@ -53,7 +53,7 @@ async function open(b, opts) {
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
   await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
   await p.waitForTimeout(600);
-  const f = p.frames().find(x => /\/map\/index\.html$/.test(x.url()));
+  const f = p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
   return [p, f, p.frameLocator('iframe.mapframe')];
 }
@@ -69,7 +69,7 @@ const pixel = (f, x, y) => f.evaluate(async ([x, y]) => {
 }, [x, y]);
 const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 3);
 const before = (f, a, b) => f.evaluate(([a, b]) => !!(document.querySelector(a).compareDocumentPosition(document.querySelector(b)) & Node.DOCUMENT_POSITION_FOLLOWING), [a, b]);
-const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDrawingZone(); }, pts);
+const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDrawingZone(); if (isZoneDrawingMode) exitAddZoneMode(); }, pts);
 
 (async () => {
   const b = await chromium.launch();
@@ -89,7 +89,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   await p.waitForTimeout(200);
   ok(await f.evaluate(() => ['btn-zone-cat-floor', 'btn-zone-eraser', 'chk-zone-ortho'].every(id => { const e = document.getElementById(id); return e && e.getClientRects().length > 0; })), '4) 구역 그리기 줄에 「바닥」 · 「지우개」 · 직각 체크박스');
   ok(await f.evaluate(() => { const o = document.getElementById('chk-zone-ortho'), er = document.getElementById('btn-zone-eraser'), ro = o.getBoundingClientRect(), re = er.getBoundingClientRect(); return o.type === 'checkbox' && re.right <= ro.left + 1; }), '5) 지우개는 직각 왼쪽 · 직각은 체크박스');
-  await fl.locator('#btn-zone-cat-floor').click();
+  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
   const st = await f.evaluate(() => ({ cat: currentZoneCategory, geom: currentZoneGeometry, lineOff: document.getElementById('btn-zone-geom-line').disabled, polyOn: document.getElementById('btn-zone-geom-polygon').classList.contains('active'), act: document.getElementById('btn-zone-cat-floor').classList.contains('active') }));
   ok(st.cat === 'floor' && st.geom === 'polygon' && st.lineOff && st.polyOn && st.act, '6) 바닥은 면(영역)만 · 선은 고를 수 없음');
   await shot(p, 'shot_map_floor_bar.png');
@@ -97,20 +97,20 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   // ── 3) 바닥 그리기: 매장 위에 겹쳐도 매장이 위 ──
   await draw(f, [{ x: 9500, y: 4120 }, { x: 9760, y: 4120 }, { x: 9760, y: 4300 }, { x: 9500, y: 4300 }]);
   await p.waitForTimeout(300);
-  const fz = await f.evaluate(() => { const z = getFloorZones('1F').filter(z => z.category === 'floor'); const e = document.querySelector('#floor-user polygon.user-floor'); return { n: z.length, name: z[0] && z[0].name, geom: z[0] && z[0].geometry, fill: e && e.getAttribute('fill'), inZones: !!document.querySelector('#safety-zones-layer [data-zone-category="floor"]') }; });
-  ok(fz.n === 1 && fz.name === '바닥 1' && fz.geom === 'polygon' && fz.fill === '#ffffff' && !fz.inZones, '7) 바닥 저장: 면 · 이름 「바닥 1」 · 바닥 층에 그림 (구역 층에는 없음)');
+  const fz = await f.evaluate(() => { const z = getFloorZones('1F').filter(z => z.category === 'floor'); const e = document.querySelector('#floor-outline-layer polygon.user-floor-line'); return { n: z.length, name: z[0] && z[0].name, geom: z[0] && z[0].geometry, fill: e && e.getAttribute('fill'), inZones: !!document.querySelector('#safety-zones-layer [data-zone-category="floor"]') }; });
+  ok(fz.n === 1 && fz.name === '바닥 1' && fz.geom === 'polygon' && fz.fill === 'none' && !fz.inZones, '7) 바닥 저장: 면 · 이름 「바닥 1」 · 투명(색 없음)으로 맨 위 점선 층에 그림 (구역 층에는 없음)');
   const over = await pixel(f, 9550, 4150);
   ok(near(over, [223, 231, 240, 255]), '8) 바닥을 매장(아그라) 위에 겹쳐 그려도 화면에는 안 보임 · 매장이 위 ' + over.join(','));
-  const off = await f.evaluate(() => { const e = document.querySelector('.user-floor'), cs = getComputedStyle(e); return { s: cs.stroke, pe: cs.pointerEvents, on: document.body.classList.contains('zone-drawing-mode') }; });
+  const off = await f.evaluate(() => { const e = document.querySelector('.user-floor-line'), cs = getComputedStyle(e); return { s: cs.stroke, pe: cs.pointerEvents, on: document.body.classList.contains('zone-drawing-mode') }; });
   ok(!off.on && off.s === 'none' && off.pe === 'none', '9) 평소 바닥은 점선도 없고 눌리지도 않음');
   await fl.locator('#btn-symbol-menu').click();
   ok(await fl.locator('#chk-zone-filter-floor').count() === 1 && !(await fl.locator('#chk-zone-filter-floor').isChecked()), '10) 레이어 메뉴 구역 칸에 「바닥」 (처음엔 꺼짐)');
   await fl.locator('#chk-zone-filter-floor').check();
-  const on = await f.evaluate(() => { const cs = getComputedStyle(document.querySelector('.user-floor')); return { s: cs.stroke, d: cs.strokeDasharray }; });
+  const on = await f.evaluate(() => { const cs = getComputedStyle(document.querySelector('.user-floor-line')); return { s: cs.stroke, d: cs.strokeDasharray }; });
   ok(on.s === 'rgb(0, 0, 0)' && on.d !== 'none', '11) 바닥 레이어를 켜면 검은 점선 (' + on.s + ' / ' + on.d + ')');
   await shot(p, 'shot_map_floor_outline.png');
   await fl.locator('#chk-zone-filter-floor').uncheck();
-  ok(await f.evaluate(() => getComputedStyle(document.querySelector('.user-floor')).stroke === 'none'), '12) 레이어를 끄면 점선만 사라지고 바닥은 그대로');
+  ok(await f.evaluate(() => getComputedStyle(document.querySelector('.user-floor-line')).stroke === 'none'), '12) 레이어를 끄면 점선만 사라지고 바닥은 그대로');
   await fl.locator('#btn-symbol-menu').click();
   await f.evaluate(() => closeAllPopovers());
 
@@ -141,11 +141,12 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   await f.evaluate(id => openZoneModal(getFloorZones('1F').find(z => z.id === id)), zid);
   ok(/바닥/.test(await fl.locator('#zone-modal-badge').innerText()) && /매장·기능실 아래/.test(await fl.locator('#zone-info-category').innerText()), '19) 바닥 상세 창: 종류 표시');
   await f.evaluate(() => deleteCurrentZone()); await p.waitForTimeout(300);
-  ok(await f.evaluate(() => getFloorZones('1F').every(z => z.category !== 'floor') && !document.querySelector('.user-floor')), '20) 바닥 지우기');
+  ok(await f.evaluate(() => getFloorZones('1F').every(z => z.category !== 'floor') && !document.querySelector('.user-floor-line')), '20) 바닥 지우기');
 
   // ── 6) 직각 체크박스 ──
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(200);
   await fl.locator('#chk-zone-ortho').check();
+  await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });   // 점 찍기 방식으로 시험
   const og = await f.evaluate(() => {
     drawingZonePoints = [{ x: 10300, y: 5100 }]; updateZoneDrawingPreview(10400, 5130);
     const l = document.querySelector('#temp-zone-drawing-layer line');
