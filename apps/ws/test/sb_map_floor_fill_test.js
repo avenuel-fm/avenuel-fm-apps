@@ -10,7 +10,7 @@ const exp = Date.now() + 3600e3, TOK = 'S001.' + exp + '.boss';
 const room = (id, name, x, y) => `<path id="${id}" d="M${x - 150} ${y - 100}h300v200h-300z" fill="#dfe7f0" ds-x="${x}" ds-y="${y}" ds-width="300" ds-height="200"/><text x="${x}" y="${y}"><tspan>${name}</tspan></text>`;
 const box = (id, name, x0, y0, x1, y1) => `<path id="${id}" d="M${x0} ${y0}H${x1}V${y1}H${x0}z" fill="#dfe7f0" ds-x="${(x0 + x1) / 2}" ds-y="${(y0 + y1) / 2}" ds-width="${x1 - x0}" ds-height="${y1 - y0}"/><text x="${(x0 + x1) / 2}" y="${(y0 + y1) / 2}"><tspan>${name}</tspan></text>`;
 // 위: 매장A·B 사이 3px 틈 · 아래: C1·C2 앞선이 20px 들쭉날쭉(사이 3px 틈) · 오른쪽 아래: 외벽(x=10760) 너머 매장E
-const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="9280 3880 1950 2080" width="1950" height="2080"><g>${room('a', '아그라', 9600, 4200)}${box('sa', '매장A', 9900, 4400, 10040, 4480)}${box('sb', '매장B', 10043, 4400, 10200, 4480)}${box('c1', '매장C1', 9900, 4600, 10050, 4660)}${box('c2', '매장C2', 10053, 4620, 10200, 4680)}${box('se', '매장E', 10800, 5180, 10900, 5280)}<path id="sd" d="M10400 4750H10550V4950H10320z" fill="#dfe7f0" ds-x="10450" ds-y="4850" ds-width="230" ds-height="200"/><text x="10460" y="4850"><tspan>매장D</tspan></text></g></svg>`;
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="9280 3880 1950 2080" width="1950" height="2080"><g>${room('a', '아그라', 9600, 4200)}${box('sa', '매장A', 9900, 4400, 10040, 4480)}${box('sb', '매장B', 10043, 4400, 10200, 4480)}${box('c1', '매장C1', 9900, 4600, 10050, 4660)}${box('c2', '매장C2', 10053, 4620, 10200, 4680)}${box('se', '매장E', 10800, 5180, 10900, 5280)}<path id="sd" d="M10400 4750H10550V4950H10320z" fill="#dfe7f0" ds-x="10450" ds-y="4850" ds-width="230" ds-height="200"/><text x="10460" y="4850"><tspan>매장D</tspan></text>${box('f1', '매장F1', 10300, 4300, 10400, 4400)}${box('f2', '매장F2', 10415, 4300, 10500, 4400)}</g></svg>`;
 const KV = {};
 const RPC = {
   ws_bootstrap() { return { ok: true, user: { staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, toastSec: 2.6, needSign: false, docs: { signs: 0 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 } } }; },
@@ -131,6 +131,23 @@ async function open(b, opts) {
   await f.evaluate(() => document.querySelector('#toast .toast-btn').click()); await p.waitForTimeout(200);
   const m4 = await f.evaluate(() => getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor').map(z => z.id));
   ok(m4.length === 1, '3-4) 누르면 한 장 ' + JSON.stringify(m4));
+
+  // 3-5) 원래 바닥이 매장에 2px 로 붙어 있어도 채우면 매장 간격(20)만큼 띄움 (결정 350)
+  await put([fl('zf7', R(9900, 4482, 10040, 4510))]);
+  await click(9970, 4500);
+  await f.evaluate(() => ffApply()); await p.waitForTimeout(200);
+  B = await bb('zf7');
+  ok(B && near(B.y0, 4500) && near(B.y1, 4580), '3-5) 매장A에 붙은 위 변은 20px 띄움(4500) · 아래는 C1 앞 4580 ' + JSON.stringify(B && B.pts));
+
+  // 3-6) 매장 사이 15px 좁은 틈(F1·F2)은 매장벽 2px 까지 채우고, 간격 선과 직각으로 이음
+  const slitPts = [[10300, 4402], [10402, 4402], [10402, 4320], [10413, 4320], [10413, 4402], [10500, 4402], [10500, 4500], [10300, 4500]].map(([x, y]) => ({ x, y }));
+  await put([fl('zf8', slitPts)]);
+  await f.evaluate(() => focusStoreAt(10400, 4450)); await p.waitForTimeout(300);
+  await click(10350, 4470);
+  await f.evaluate(() => ffApply()); await p.waitForTimeout(200);
+  const s6 = await f.evaluate(() => { const z = getFloorZones(FLOORS[currentFloorIdx].code).find(q => q.id === 'zf8'); const at = (x, y) => isPointInsidePolygon({ x, y }, z.points); return { slit: at(10407, 4350), conn: at(10407, 4410), front: at(10390, 4410), main: at(10380, 4430), wall: at(10401, 4350), pts: z.points.map(q => [q.x, q.y]) }; });
+  ok(s6.slit && s6.conn && !s6.front && s6.main && !s6.wall, '3-6) 좁은 틈은 2px 까지 채움 · 입구에서 20px 선까지 곧게 · 매장 앞은 20px 띄움 ' + JSON.stringify(s6));
+  await shot(p, 'shot_map_floor_fill_slit.png');
 
   // 4) 매장을 가로지르는 바닥은 안 함
   await put([fl('zf2', R(9980, 4450, 10020, 4520))]);
