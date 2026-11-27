@@ -930,6 +930,15 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_admin_set_menu', [tk, ['inspect.defect']])).ok && /사용 중지/.test(await callErr('ws_hj_list', ['emp', '', '', ''])) && (await call('ws_hj_list', [tk, '', '', ''])).ok, '하자점검: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);
   ok((await call('ws_hj_delete', [tk, hj.item.id])).ok && (await call('ws_hj_list', [tk, '', '', ''])).list.length === 0 && (await call('ws_hj_delete', [tk, hj.item.id])).ok === false, '하자점검: 지움 (숨김) · 또 지우면 안내');
+  // 여러 직원 합치기 (결정 340): 같은 날 + 같은 매장명이면 한 점검서 · 칸 번호 k 로 합침
+  const mA = await call('ws_hj_save', [tk, J({ items: [{ k: 'a1', n: '국밥집', t: '문 틀어짐' }, { k: 'a2', n: '국밥집 2', t: '타일 깨짐' }] })]);
+  const mB = await call('ws_hj_save', [tk, J({ day: mA.item.day, items: [{ k: 'b1', n: '국밥집 3', t: '조명 고장' }] })]);
+  ok(mA.ok && mB.ok && mB.item.id === mA.item.id && mB.item.items.map(x => x.k + ':' + x.n).join('|') === 'a1:국밥집|a2:국밥집 2|b1:국밥집 3', '하자점검 합치기: 다른 직원이 id 없이 저장해도 같은 날·같은 매장 점검서에 칸이 붙음 (남의 칸 안 지움)');
+  const mC = await call('ws_hj_save', [tk, J({ id: mA.item.id, day: mA.item.day, removed: ['a2'], items: [{ k: 'a1', n: '국밥집', t: '문 틀어짐(수정)' }] })]);
+  ok(mC.ok && mC.item.items.map(x => x.k + ':' + x.t).join('|') === 'a1:문 틀어짐(수정)|b1:조명 고장', '하자점검 합치기: 내가 고친 칸은 바뀌고 · 지운 칸만 빠지고 · 남의 칸(b1)은 그대로');
+  const mD = await call('ws_hj_save', [tk, J({ day: mA.item.day, items: [{ k: 'c1', n: '냉면집', t: 'x' }] })]);
+  ok(mD.ok && mD.item.id !== mA.item.id && (await call('ws_hj_save', [tk, J({ items: Array.from({ length: 39 }, (_, j) => ({ k: 'z' + j, n: '국밥집', t: 'x' })) })])).ok === false, '하자점검 합치기: 다른 매장은 따로 · 합쳐서 40칸 넘으면 거부');
+  await call('ws_hj_delete', [tk, mA.item.id]); await call('ws_hj_delete', [tk, mD.item.id]);
   await db.close();
   console.log(fail ? '\nSQL 시험 실패 ' + fail + '개' : '\nSQL 시험 통과');
   process.exit(fail ? 1 : 0);
