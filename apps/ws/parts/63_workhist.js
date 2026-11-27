@@ -51,12 +51,11 @@ function whSlots(k, fld, title, max) {   // 주간: 칸 하나에 사진 한 장
 const WH_MAX = 20;
 function whMin(fld) { return fld === 'pledge' ? 1 : 2; }
 function whAddCell(fn, n, max) { return '<button type="button" class="whadd" onclick="' + fn + '">' + ICON.plus + '<span>사진 칸 추가</span><small>(' + n + ' / ' + max + ')</small></button>'; }
-function whMulti(k, fld, title) {   // 야간: 주간과 같은 칸 모양, ＋로 20칸까지, 휴대폰 2열 · PC 4열. 각서는 1칸 + 오른쪽 ＋ 칸
-  const o = S.wh[k], L = o.f[fld], n = Math.max(whMin(fld), L.length, (o.sl && o.sl[fld]) || 0), cell = fld === 'pledge', add = 'whPlus(\'' + k + '\',\'' + fld + '\')';
+function whMulti(k, fld, title) {   // 야간: 주간과 같은 칸 모양, ＋로 20칸까지, 휴대폰 2열 · PC 4열. ＋는 마지막 칸 다음 칸(결정 326), 각서는 1칸부터
+  const o = S.wh[k], L = o.f[fld], n = Math.max(whMin(fld), L.length, (o.sl && o.sl[fld]) || 0), add = 'whPlus(\'' + k + '\',\'' + fld + '\')';
   return '<div class="whsec"><h4>' + title + '<small>' + L.length + '장 / ' + WH_MAX + '장</small></h4><div class="whg">' +
     Array.from({ length: n }, (_, i) => '<div class="whpc"><h4>' + title + ' ' + (i + 1) + '</h4>' + whCell(k, fld, L, i) + '</div>').join('') +
-    (cell && n < WH_MAX ? whAddCell(add, n, WH_MAX) : '') + '</div>' +
-    (cell ? '' : '<button type="button" class="btn whplus" onclick="' + add + '"' + (n >= WH_MAX ? ' disabled' : '') + '>' + ICON.plus + ' 사진 칸 추가 (' + n + ' / ' + WH_MAX + ')</button>') + '</div>';
+    (n < WH_MAX ? whAddCell(add, n, WH_MAX) : '') + '</div></div>';
 }
 /* 식당가 점검: 매장 1곳 = 매장명 + 사진(1 가스누설경보기 · 2 주방전경 필수, ＋로 10장까지). 사진은 칸 자리대로 보관(빈 칸 null) */
 const WH_RMAX = 20, WH_RPIC = 10, WH_RLAB = ['가스누설경보기', '주방전경'];

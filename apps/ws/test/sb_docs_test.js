@@ -538,7 +538,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.click('button >> text="신규작성"');
   await p.locator('.whf input.inp[maxlength="30"]').fill('OO인테리어'); await p.click('.whf .rwfl >> text="3F"'); await p.locator('.whf textarea').first().fill('매장 천장 방염 도장');
   for (let i = 0; i < 5; i++) {   // 파일 버튼은 칸마다 한 장 (여러 장 고르기는 일부 휴대폰에서 「불러올 수 없음」)
-    if (i >= 2) await p.locator('.whsec').nth(0).locator('.whplus').click();
+    if (i >= 2) await p.locator('.whsec').nth(0).locator('.whadd').click();
     await p.locator('.whsec').nth(0).locator('.whpc').nth(i).locator('input[type=file]').nth(1).setInputFiles([xjf('n' + (i + 1))]);
     await p.waitForFunction(n => S.wh.n.f.photos.length === n, i + 1);
   }
@@ -551,9 +551,11 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.waitForFunction(() => S.wh.n.f.fire.length === 2 && S.wh.n.f.fire[1]);
   const xs0 = p.locator('.whsec').nth(0), xcnt = () => xs0.locator('.whpc').count();
   ok(await xcnt() === 5 && await p.locator('.whsec').nth(1).locator('.whpc').count() === 2, 'W8b) 야간: 현장 사진 5장 → 칸 5개 · 방염집기는 빈 칸 2개 (처음 2칸) · 한 곳에 사진 입력 2개');
-  await xs0.locator('.whplus').click(); const x6 = await xcnt();
-  for (let i = 0; i < 14; i++) await xs0.locator('.whplus').click();
-  ok(x6 === 6 && await xcnt() === 20 && await xs0.locator('.whplus').isDisabled(), 'W8c) ＋ 버튼: 칸이 하나씩 늘고 20칸에서 멈춤(버튼 회색)');
+  ok(await xs0.locator('.whplus').count() === 0 && await xs0.locator('.whg > .whadd').count() === 1, 'W8e) 현장 사진 ＋는 아래 줄이 아니라 마지막 칸 다음 칸');
+  await xs0.screenshot({ path: path.join(__dirname, 'shot_sb_wh_photos.png') });
+  await xs0.locator('.whadd').click(); const x6 = await xcnt();
+  for (let i = 0; i < 14; i++) await xs0.locator('.whadd').click();
+  ok(x6 === 6 && await xcnt() === 20 && await xs0.locator('.whadd').count() === 0, 'W8c) ＋ 칸: 칸이 하나씩 늘고 20칸에서 사라짐');
   const xvp = p.viewportSize(); await p.setViewportSize({ width: 1100, height: 900 });
   const xpc = await p.evaluate(() => { const g = document.querySelector('.whfg'), q = g.querySelector('.whpc'), t = q.querySelectorAll('.whfp'); return { cols: getComputedStyle(g).gridTemplateColumns.split(' ').length, side: Math.abs(t[0].getBoundingClientRect().top - t[1].getBoundingClientRect().top) < 3 && t[1].getBoundingClientRect().left > t[0].getBoundingClientRect().left }; });
   await p.setViewportSize(xvp);
