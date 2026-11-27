@@ -91,6 +91,12 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   await draw(f, [{ x: 9350, y: 4150 }, { x: 9850, y: 4150 }, { x: 9850, y: 4200 }, { x: 9350, y: 4200 }]);
   const fl3 = await f.evaluate(() => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor'), q = z[z.length - 1]; return { n: q.points.length, pts: JSON.stringify(q.points) }; });
   ok(fl3.n === 4 && fl3.pts === JSON.stringify([{ x: 9350, y: 4150 }, { x: 9850, y: 4150 }, { x: 9850, y: 4200 }, { x: 9350, y: 4200 }]), '2-2) 매장을 꿰뚫어 지나가는 바닥은 자르지 않고 그린 대로 ' + fl3.pts);
+  // 2-3) 매장 윗변을 덮으며 좌우로 지나가는 띠도 관통 (결정 320): 아그라 윗변 4100 보다 8 위에서 시작
+  await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(150);
+  await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
+  await draw(f, [{ x: 9350, y: 4092 }, { x: 9850, y: 4092 }, { x: 9850, y: 4130 }, { x: 9350, y: 4130 }]);
+  const fl4 = await f.evaluate(() => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor'), q = z[z.length - 1]; return JSON.stringify(q.points); });
+  ok(fl4 === JSON.stringify([{ x: 9350, y: 4092 }, { x: 9850, y: 4092 }, { x: 9850, y: 4130 }, { x: 9350, y: 4130 }]), '2-3) 매장 가장자리를 덮고 지나가는 띠도 관통 → 그린 대로 ' + fl4);
   await f.evaluate(() => { if (isZoneDrawingMode) toggleAddZoneMode(); });
 
   // 직접 그린 매장 S, 기능실 U (바닥 위)
