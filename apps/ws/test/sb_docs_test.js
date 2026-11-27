@@ -22,10 +22,10 @@ const logData = d => {
   const c = LOG[d];
   return { ok: true, day: d, prevDay: (Number(d.slice(0, 4)) - 1) + d.slice(4), workDay: D, cur: c ? c.cur : null, prev: null,
     vals: { c: {}, p: {}, y: {} }, month: { c: zero(), p: zero() }, year: { c: zero(), p: zero() },
-    ver: c ? c.ver : '', by: c ? ME.name : '', pdf: c && c.pdf || null, night: c && c.night || '', tbm: { 전기방재: ['1층 등 교체'], 기계건축: [] },
+    ver: c ? c.ver : '', by: c ? ME.name : '', pdf: c && c.pdf || null, night: c && c.night || '', tbm: JSON.parse(JSON.stringify(WK)),
     signs: { front: null, mech: null, vice: { name: '홍길동', img: SIGN_IMG }, boss: { name: '홍길동', img: SIGN_IMG } } };
 };
-const AT = {};
+const AT = {}, WK = { 전기방재: ['1층 등 교체'], 기계건축: [] };   // 서버가 주는 그날 주간작업
 const AHU = {}, AHU_UNITS = [{ no: '7F-39', room: '공조실-4', place: '6층 더페어링,와인 라콘차' }, { no: '6F-36', room: '공조실-1', place: '6층 뮤지엄' }, { no: 'B3F-HVU1', room: '공조실-1', place: 'B3층 직원식당 주방 (외조기)' }];
 var SIGN_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60'%3E%3Cpath d='M8 40 C20 10 30 50 42 25 S60 45 70 20 S95 50 112 18' fill='none' stroke='%23123' stroke-width='4'/%3E%3C/svg%3E";
 const ahuData = d => ({ ok: true, day: d, workDay: D, units: AHU_UNITS, rec: AHU[d] || null, wx: { weather: '맑음', tmin: 4, tmax: 13.5, humidity: 45 }, signs: { boss: { name: '홍길동', img: SIGN_IMG }, part: null } });
@@ -324,6 +324,14 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const ls = last('ws_log_save_pdf').a;
   ok(ls.p_day === D && ls.p_ver === '' && ls.p_d['전기'] === '1234' && ls.p_d.works['전기방재'][0] === '1층 등 교체' && Object.keys(ls.p_files).join() === 'pdf', '16) DB 함수에 숫자·금일작업(서버가 준 주간작업) 넘김');
   ok(AC_N === 1, '17) 저장 뒤 공조기는 10분 기억 (구글 다시 안 부름)');
+  // 일지를 먼저 저장한 뒤 주간작업이 더 들어오면: 이미 있는 줄은 그대로, 없는 것만 아래에 덧붙임 (결정 350)
+  WK.전기방재.push('2층 문 수리'); WK.기계건축.push('B1 배관 점검');
+  await p.evaluate(d => loadLog(d), D); await p.waitForFunction(() => S.lg && S.lg.dirty);
+  const wk2 = await p.evaluate(() => [S.lg.works['전기방재'].slice(0, 3), S.lg.works['기계건축'].slice(0, 2), S.lg.works['전기방재'].length]);
+  ok(JSON.stringify(wk2) === JSON.stringify([['1층 등 교체', '2층 문 수리', ''], ['B1 배관 점검', ''], 10]), '16-1) 저장된 일지에 새 주간작업만 덧붙임 (같은 글 두 번 안 넣음) ' + JSON.stringify(wk2));
+  WK.전기방재.splice(1); WK.기계건축.splice(0);
+  await p.evaluate(() => { S.lg.dirty = false; }); await p.evaluate(d => loadLog(d), D);
+  ok(await p.evaluate(() => S.lg.dirty === false && S.lg.works['전기방재'][1] === ''), '16-2) 덧붙일 것이 없으면 「저장 안 함」 아님');
   const lp = ls, lu = UPLOADS.find(x => /^log_pdf\//.test(x.p));
   ok(lu && lp.p_files.pdf.path === lu.p && await p.locator('#lgBar button.pri').count() === 0, '18-19) PDF는 버킷 log_pdf/ 에, 저장 자리는 [PDF 보기]로');
   ok(await p.locator('#lgBar a', { hasText: 'PDF 보기' }).getAttribute('href') === lp.p_files.pdf.url, '20) 일지 [PDF 보기] = 버킷 주소');

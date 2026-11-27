@@ -15,9 +15,18 @@ function lgSet(r) {
   LG_FIELDS.forEach(k => { f[k] = cur[k] || ''; });
   const works = {};
   LG_DEPTS.forEach(d => { const w = (cur.works && cur.works[d]) || []; works[d] = Array.from({ length: Math.min(LG_MAX, Math.max(LG_LINES, w.length)) }, (_, i) => w[i] || ''); });
-  // 그날 금일작업이 아직 비었으면 서버가 준 주간작업으로 채워 둠 (저장은 직원이 [저장]). 명일 작업 일정·TBM 표는 서버가 안 줌 (결정 268)
-  const tbm = r.tbm || {}, auto = LG_DEPTS.every(d => !works[d].some(x => x)) && LG_DEPTS.some(d => (tbm[d] || []).length);
-  if (auto) LG_DEPTS.forEach(d => { const a = tbm[d] || []; works[d] = Array.from({ length: Math.min(LG_MAX, Math.max(LG_LINES, a.length)) }, (_, i) => a[i] || ''); });
+  // 서버가 준 주간작업 중 일지에 아직 없는 글만 마지막 글 아래에 덧붙임 (파트마다 15줄까지, 저장은 직원이 [저장]). 일지를 먼저 저장해도 뒤에 넣은 주간작업이 들어옴 (사용자 11-27, 결정 350)
+  const tbm = r.tbm || {}; let auto = false;
+  LG_DEPTS.forEach(d => {
+    const w = works[d], have = new Set(w.map(x => String(x).trim()));
+    (tbm[d] || []).forEach(t => {
+      t = String(t || '').trim(); if (!t || have.has(t)) return;
+      let k = w.length; while (k && !String(w[k - 1]).trim()) k--;
+      if (k >= LG_MAX) return;
+      if (k === w.length) w.push('');
+      w[k] = t; have.add(t); auto = true;
+    });
+  });
   S.lg = { srv: r, day: r.day, f, works, ver: r.ver, by: r.by, pdf: r.pdf, dirty: auto, busy: false };
   if (S.view === 'log') render();
   // Supabase 판: 공조기·에어커튼은 구글을 거쳐 늦게 옴(6~9초) → 일지를 먼저 보여 주고 그 칸만 나중에 채움
