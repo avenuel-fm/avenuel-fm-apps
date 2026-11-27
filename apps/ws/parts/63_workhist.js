@@ -4,7 +4,7 @@ const WH_API = { d: ['dwList', 'dwSave', 'dwDelete'], n: ['dnList', 'dnSave', 'd
 const WH_TITLE = { d: '주간 작업내역', n: '야간 작업내역' };
 function whNew(k) {
   const u = S.user || {}, part = u.part === '전방파트' ? ['전기방재'] : u.part === '기건파트' ? ['기계건축'] : [];
-  return k === 'n' ? { id: '', day: rwToday(), co: '', floor: '', content: '', note: '', photos: [], fire: [], pledge: [], rest: [] }
+  return k === 'n' ? { id: '', day: rwToday(), co: '', floor: '', content: '', note: '', photos: [], fire: [], pledge: [], rest: [{ name: '', pics: [] }] }   // 식당가: 처음부터 빈 매장 1곳 (결정 338)
     : { id: '', day: rwToday(), parts: part, workers: u.name || '', floor: '', content: '', mats: [{ n: '', q: '', u: '' }], note: '', before: [], after: [] };
 }
 async function openWh() {
@@ -23,7 +23,7 @@ function whNewForm() { const o = S.wh.n; if (o.dirty && !confirm('저장하지 �
 function whEdit(id) {
   const k = S.wh.tab, o = S.wh[k], x = o.list.find(y => y.id === id); if (!x) return;
   if (o.dirty && !confirm('저장하지 않은 내용이 있습니다. 다른 작업을 열까요?')) return;
-  o.sl = {}; o.f = JSON.parse(JSON.stringify(x)); if (k === 'd' && !o.f.mats.length) o.f.mats.push({ n: '', q: '', u: '' }); if (k === 'n' && !o.f.rest) o.f.rest = [];
+  o.sl = {}; o.f = JSON.parse(JSON.stringify(x)); if (k === 'd' && !o.f.mats.length) o.f.mats.push({ n: '', q: '', u: '' }); if (k === 'n' && !(o.f.rest || []).length) o.f.rest = [{ name: '', pics: [] }];
   o.dirty = false; render(); window.scrollTo(0, 0);
 }
 function whDirty() { const o = S.wh[S.wh.tab]; o.dirty = true; const e = $('whState'); if (e) e.innerHTML = whState(); }

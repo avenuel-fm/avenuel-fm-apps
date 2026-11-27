@@ -9,7 +9,7 @@ create table if not exists public.dw_defect (
   hj_id      text primary key,                 -- WS-HJ-YYYYMMDD-###
   work_day   date not null,
   due_day    date not null,                    -- work_day + 10
-  items      jsonb not null default '[]'::jsonb,   -- [{n 현장명, t 하자내용, p 사진 파일 id | null}]
+  items      jsonb not null default '[]'::jsonb,   -- [{k 칸 고유 번호, n 현장명, t 하자내용, p 사진 파일 id | null}]
   sign_site  uuid,                             -- 현장책임자 서명 (png)
   sign_fm    uuid,                             -- 시설팀 서명 (png)
   saved_by   text,
@@ -28,7 +28,7 @@ $$;
 create or replace function public.ws_hj_out(r public.dw_defect)
 returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object('id', r.hj_id, 'day', r.work_day::text, 'due', r.due_day::text,
-    'items', coalesce((select jsonb_agg(jsonb_build_object('n', e->>'n', 't', e->>'t', 'photo', public.ws_hj_file(nullif(e->>'p', '')::uuid)) order by o)
+    'items', coalesce((select jsonb_agg(jsonb_build_object('k', coalesce(e->>'k', 'L' || o), 'n', e->>'n', 't', e->>'t', 'photo', public.ws_hj_file(nullif(e->>'p', '')::uuid)) order by o)
                        from jsonb_array_elements(r.items) with ordinality u(e, o)), '[]'::jsonb),
     'signSite', public.ws_hj_file(r.sign_site), 'signFm', public.ws_hj_file(r.sign_fm),
     'by', coalesce(r.saved_by, ''), 'at', to_char(r.updated_at at time zone 'Asia/Seoul', 'MM/DD HH24:MI'));
@@ -53,7 +53,9 @@ begin
         order by p.work_day desc, p.saved_at limit 200) x), '[]'::jsonb));
 end $$;
 
--- 저장 (새로 / 고치기). p_d = { id(고칠 때), day, items[{n, t, photo:{id}|{file:{url,path}}|null}], signSite, signFm ({id}|{file}|null, 안 보내면 그대로) } — 하자 칸 40개까지
+-- 저장 (새로 / 고치기). p_d = { id(고칠 때), day, removed[지운 칸 k], items[{k, n, t, photo:{id}|{file:{url,path}}|null}], signSite, signFm ({id}|{file}|null, 안 보내면 그대로) } — 하자 칸 40개까지
+--  · 여러 직원 합치기 (결정 340): id 가 없어도 같은 날 + 같은 매장명(첫 칸 현장명, 뒤 숫자 뺌) 점검서가 있으면 그 점검서에 합침.
+--    칸 k 가 같으면 보낸 것으로 바꾸고, 서버에만 있는 칸은 removed 에 없으면 그대로 둠, 새 k 는 뒤에 붙임. (k 를 하나도 안 보내면 옛 방식대로 통째로 바꿈)
 create or replace function public.ws_hj_save(p_token text, p_d jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare
@@ -64,6 +66,11 @@ declare
   src jsonb := case when jsonb_typeof(p_d->'items') = 'array' then p_d->'items' else '[]'::jsonb end;
   old_ids uuid[];
   res jsonb := '[]'::jsonb;
+  inc jsonb := '{}'::jsonb;   -- 보낸 칸: k → 정리한 칸 (빈 칸은 null)
+  rmv jsonb := case when jsonb_typeof(p_d->'removed') = 'array' then p_d->'removed' else '[]'::jsonb end;
+  use_k boolean := exists (select 1 from jsonb_array_elements(src) e where coalesce(e->>'k', '') <> '');
+  store text := regexp_replace(btrim(coalesce((select e->>'n' from jsonb_array_elements(src) e limit 1), '')), '\s*\d+$', '');
+  ek text; it jsonb;
   rec record;
   ph jsonb; nm text; tx text; pid uuid; sa uuid; sf uuid;
   base text; folder text;
@@ -76,6 +83,9 @@ begin
     return jsonb_build_object('ok', false, 'error', '하자내용을 입력해 주세요.');
   end if;
   perform pg_advisory_xact_lock(hashtext('ws_hj'));
+  if v_id is null and use_k and store <> '' then   -- 다른 직원이 먼저 만든 같은 날·같은 매장 점검서
+    select hj_id into v_id from public.dw_defect where not deleted and work_day = d and regexp_replace(btrim(coalesce(items->0->>'n', '')), '\s*\d+$', '') = store order by saved_at limit 1;
+  end if;
   if v_id is not null then
     select * into r from public.dw_defect where hj_id = v_id and not deleted;
     if r.hj_id is null then return jsonb_build_object('ok', false, 'error', '하자점검서를 찾지 못했습니다. 새로고침해 주세요.'); end if;
@@ -95,9 +105,24 @@ begin
         pid := (ph->>'id')::uuid;
       end if;
     end if;
-    if nm = '' and tx = '' and pid is null then continue; end if;
-    res := res || jsonb_build_array(jsonb_build_object('n', nm, 't', tx, 'p', pid));
+    ek := coalesce(nullif(rec.x->>'k', ''), 'x' || rec.o);
+    it := case when nm = '' and tx = '' and pid is null then 'null'::jsonb else jsonb_build_object('k', ek, 'n', nm, 't', tx, 'p', pid) end;
+    if not use_k then if it <> 'null'::jsonb then res := res || jsonb_build_array(it); end if; continue; end if;
+    inc := inc || jsonb_build_object(ek, it);
   end loop;
+  if use_k then   -- 서버 순서대로: 보낸 칸은 바꾸고, 지운 칸은 빼고, 남의 칸은 그대로 → 새 칸은 뒤에
+    for rec in select e, coalesce(e->>'k', 'L' || o) k from jsonb_array_elements(r.items) with ordinality u(e, o) order by o loop
+      if inc ? rec.k then
+        if inc->rec.k <> 'null'::jsonb then res := res || jsonb_build_array(inc->rec.k); end if;
+        inc := inc - rec.k;
+      elsif not rmv ? rec.k then res := res || jsonb_build_array(rec.e || jsonb_build_object('k', rec.k)); end if;
+    end loop;
+    for rec in select coalesce(nullif(x->>'k', ''), 'x' || o) k from jsonb_array_elements(src) with ordinality u(x, o) order by o loop
+      if inc ? rec.k and inc->rec.k <> 'null'::jsonb then res := res || jsonb_build_array(inc->rec.k); end if;
+      inc := inc - rec.k;
+    end loop;
+    if jsonb_array_length(res) > 40 then return jsonb_build_object('ok', false, 'error', '하자 칸은 40개까지 넣을 수 있습니다.'); end if;
+  end if;
   sa := r.sign_site; sf := r.sign_fm;
   if p_d ? 'signSite' then
     sa := null; ph := p_d->'signSite';
