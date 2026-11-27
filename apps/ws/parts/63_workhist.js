@@ -4,7 +4,7 @@ const WH_API = { d: ['dwList', 'dwSave', 'dwDelete'], n: ['dnList', 'dnSave', 'd
 const WH_TITLE = { d: '주간 작업내역', n: '야간 작업내역' };
 function whNew(k) {
   const u = S.user || {}, part = u.part === '전방파트' ? ['전기방재'] : u.part === '기건파트' ? ['기계건축'] : [];
-  return k === 'n' ? { id: '', day: rwToday(), co: '', floor: '', content: '', note: '', photos: [], fire: [], pledge: [], rest: [{ name: '', pics: [] }] }   // 식당가: 처음부터 빈 매장 1곳 (결정 336)
+  return k === 'n' ? { id: '', day: rwToday(), co: '', floor: '', content: '', note: '', photos: [], fire: [], pledge: [], rest: [{ name: '', pics: [] }] }   // 식당가: 처음부터 빈 매장 1곳 (결정 338)
     : { id: '', day: rwToday(), parts: part, workers: u.name || '', floor: '', content: '', mats: [{ n: '', q: '', u: '' }], note: '', before: [], after: [] };
 }
 async function openWh() {
