@@ -4,7 +4,7 @@ function renderInspect() {
   return topbar('업무지원 ›', '점검') + '<div class="wrap list">' +
     R('fire', "go('fire')", 'var(--blue-bg)', 'var(--blue)', ICON.fire, '소화기/소화전/공기호흡기 점검', 'QR 관리 · 월별 점검 현황') +
     R('eh', 'openEh()', 'var(--orange-bg)', 'var(--orange)', ICON.plug, '전열필증', '층·매장별 전열기기 관리 · 신고필증' + (CAN_PRINT ? ' 출력' : ' (출력은 PC에서)')) +
-    R('thermal', 'openThermal()', 'var(--blue-bg)', 'var(--blue)', ICON.therm, '열화상점검', 'FLIR 열화상 사진 → 점검 보고서(.atr) · PC 전용', !thCanOpen()) +
+    R('thermal', 'openThermal()', 'var(--blue-bg)', 'var(--blue)', ICON.therm, '열화상 리포트 자동 작성', 'FLIR 열화상 사진 → 점검 보고서(.atr) · PC 전용', !thCanOpen()) +
     R('cs', 'openCs()', 'var(--green-bg)', 'var(--green)', ICON.hat, '공사장 점검', '공사 현장 안전 순찰 · 사진 · 날짜별 현장별 PDF') +
     R('defect', 'openDf()', 'var(--green-bg)', 'var(--green)', ICON.file, '하자점검', '현장·하자내용 · 사진 · 서명 · 인쇄 A4 · PDF') +
     '</div>';
