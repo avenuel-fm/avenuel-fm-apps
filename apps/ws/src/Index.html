@@ -1018,7 +1018,7 @@ function renderMain() {
 }
 /* ── 지도 (결정 130): 도면 앱(fm/map)을 이 화면 안에 띄움 → 주소창은 업무지원 그대로. 자료는 PIN 로그인 표로만 (supabase/13_map.sql) ── */
 function renderMap() {
-  return '<div class="mapview">' + topbar('업무지원 ›', '지도') + '<iframe class="mapframe" src="../map/index.html?v=0.26.45" title="에비뉴엘 도면" allow="fullscreen"></iframe>' +
+  return '<div class="mapview">' + topbar('업무지원 ›', '지도') + '<iframe class="mapframe" src="../map/index.html?v=0.26.48" title="에비뉴엘 도면" allow="fullscreen"></iframe>' +
     '<button class="btn mapback" onclick="back()">' + ICON.back + '뒤로</button></div>';   // 뒤로는 왼쪽 아래 작은 버튼 (결정 160)
 }
 /** 지도 전체화면: 지도 칸을 화면 가득 + 되면 기기 전체화면 (아이폰은 기기 전체화면이 없어 화면 가득만) */
@@ -4654,7 +4654,7 @@ function whFire(k) {   // 방염집기 1곳 = 집기사진 + 방염서류 (각�
   const part = (t, i) => '<div class="whfp"><b>' + t + '</b>' + whCell(k, 'fire', L, i) + '</div>';
   return '<div class="whsec"><h4>방염집기<small>사진 ' + c + '장 / ' + WH_MAX * 2 + '장</small></h4><div class="whg whfg">' +
     Array.from({ length: n }, (_, j) => '<div class="whpc"><h4>방염집기 ' + (j + 1) + '</h4>' + '<div class="whfr">' + part('집기사진', 2 * j) + part('방염서류', 2 * j + 1) + '</div></div>').join('') +
-    (n < WH_MAX ? whAddCell('whPlus(\'' + k + '\',\'fire\')', n, WH_MAX, '방염집기 추가') : '') + '</div></div>';   // ＋는 마지막 방염집기 다음 칸 (결정 328)
+    (n < WH_MAX ? whAddCell('whPlus(\'' + k + '\',\'fire\')', n, WH_MAX, '방염집기 추가') : '') + '</div></div>';   // ＋는 마지막 방염집기 다음 칸 (결정 330)
 }
 function whFirePairs(L) { const r = []; for (let j = 0; j * 2 < L.length; j++) if (L[2 * j] || L[2 * j + 1]) r.push([L[2 * j] || null, L[2 * j + 1] || null]); return r; }
 function whPlus(k, fld) { const o = S.wh[k]; o.sl = o.sl || {}; o.sl[fld] = fld === 'fire' ? Math.min(WH_MAX, whFireN(o.f, o.sl[fld]) + 1) : Math.min(WH_MAX, Math.max(whMin(fld), o.f[fld].length, o.sl[fld] || 0) + 1); render(); }

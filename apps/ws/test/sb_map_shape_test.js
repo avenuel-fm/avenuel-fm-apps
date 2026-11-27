@@ -98,6 +98,16 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const fl4 = await f.evaluate(() => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor'), q = z[z.length - 1]; return JSON.stringify(q.points); });
   ok(fl4 === JSON.stringify([{ x: 9350, y: 4092 }, { x: 9850, y: 4092 }, { x: 9850, y: 4130 }, { x: 9350, y: 4130 }]), '2-3) 매장 가장자리를 덮고 지나가는 띠도 관통 → 그린 대로 ' + fl4);
   await f.evaluate(() => { if (isZoneDrawingMode) toggleAddZoneMode(); });
+  // 2-4·2-5) 띠가 매장 윗변을 덮고 위로 30 넘친 경우(1F 쇼메): 중심선이 가로지르거나, 겹친 깊이(50)가 넘친 폭보다 크면 관통 (결정 322)
+  const pass = await f.evaluate(() => {
+    const ln = [{ x: 9350, y: 4110 }, { x: 9850, y: 4110 }], hit = rs => rs.length === 1 && isPointInsidePolygon({ x: 9600, y: 4130 }, rs[0].map(q => ({ x: q[0], y: q[1] })));
+    const cl = floorAvoidStores(fclRibbonParts(ln, 40), ln), hand = floorAvoidStores([[[9350, 4070], [9850, 4070], [9850, 4150], [9350, 4150]]]);
+    const endIn = floorAvoidStores(fclRibbonParts([{ x: 9350, y: 4200 }, { x: 9600, y: 4200 }], 40), [{ x: 9350, y: 4200 }, { x: 9600, y: 4200 }]);
+    return { cl: hit(cl), hand: hit(hand), endIn: endIn.every(r => !isPointInsidePolygon({ x: 9590, y: 4200 }, r.map(q => ({ x: q[0], y: q[1] })))), names: floorCutNames.join(',') };
+  });
+  ok(pass.cl, '2-4) 중심선이 매장을 가로지르면 띠가 매장 위로 넘쳐도 관통 → 한 장 ' + JSON.stringify(pass));
+  ok(pass.hand, '2-5) 손으로 그린 띠도 매장을 가로질러 겹친 깊이가 넘친 폭보다 크면 관통 ' + JSON.stringify(pass));
+  ok(pass.endIn && /아그라/.test(pass.names), '2-5-1) 중심선이 매장 안에서 끝나면 지금처럼 자르고 그 매장 이름을 기억 ' + JSON.stringify(pass));
 
   // 직접 그린 매장 S, 기능실 U (바닥 위)
   const mkStore = (pts, name, util) => f.evaluate(([pts, name, util]) => {
@@ -215,6 +225,20 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   // 15-1) 외벽 밖 알림 깜빡임 표시는 지도 저장본에 안 남음
   const fl5 = await f.evaluate(() => { const el = document.querySelector('.store-polygon'); el.classList.add('wall-outside-flash'); syncSvgCache(); el.classList.remove('wall-outside-flash'); return svgCache.get(FLOORS[currentFloorIdx].code).includes('wall-outside-flash'); });
   ok(!fl5, '15-1) 외벽 밖 깜빡임 표시는 저장본에 안 남음');
+
+  // 15-2) 바닥이 매장 자리를 비우면 알림에 「매장 위로 그대로」 → 누르면 매장 위로 그린 대로 (결정 322)
+  const fp = await f.evaluate(() => {
+    if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('floor'); if (floorCenterlineOn) toggleCenterlineFloor(); currentZoneGeometry = 'polygon';
+    const code = FLOORS[currentFloorIdx].code, rect = [{ x: 9500, y: 4250 }, { x: 9700, y: 4250 }, { x: 9700, y: 4330 }, { x: 9500, y: 4330 }];
+    drawingZonePoints = rect.slice(); finishDrawingZone();
+    const n0 = getFloorZones(code).length, b = document.querySelector('#toast .toast-btn'), msg = document.getElementById('toast').textContent;
+    b && b.click();
+    const z = getFloorZones(code), last = z[z.length - 1];
+    const r = { msg, btn: b && b.textContent, same: z.length === n0, pts: JSON.stringify(last.points) === JSON.stringify(rect), force: floorForcePass };
+    if (isZoneDrawingMode) toggleAddZoneMode();
+    return r;
+  });
+  ok(/아그라 자리는 비웠습니다/.test(fp.msg) && fp.btn === '매장 위로 그대로' && fp.same && fp.pts && !fp.force, '15-2) 매장 자리를 비우면 「매장 위로 그대로」 → 누르면 그 바닥만 그린 대로 ' + JSON.stringify(fp));
 
   ok(!p.errs.length, '11) 화면 오류 없음 ' + p.errs.join('|'));
   await shot(p, 'shot_map_shape.png');
