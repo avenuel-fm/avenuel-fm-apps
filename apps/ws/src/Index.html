@@ -4623,7 +4623,7 @@ function whSlots(k, fld, title, max) {   // 주간: 칸 하나에 사진 한 장
 }
 const WH_MAX = 20;
 function whMin(fld) { return fld === 'pledge' ? 1 : 2; }
-function whAddCell(fn, n, max) { return '<button type="button" class="whadd" onclick="' + fn + '">' + ICON.plus + '<span>사진 칸 추가</span><small>(' + n + ' / ' + max + ')</small></button>'; }
+function whAddCell(fn, n, max, t) { return '<button type="button" class="whadd" onclick="' + fn + '">' + ICON.plus + '<span>' + (t || '사진 칸 추가') + '</span><small>(' + n + ' / ' + max + ')</small></button>'; }
 function whMulti(k, fld, title) {   // 야간: 주간과 같은 칸 모양, ＋로 20칸까지, 휴대폰 2열 · PC 4열. ＋는 마지막 칸 다음 칸(결정 326), 각서는 1칸부터
   const o = S.wh[k], L = o.f[fld], n = Math.max(whMin(fld), L.length, (o.sl && o.sl[fld]) || 0), add = 'whPlus(\'' + k + '\',\'' + fld + '\')';
   return '<div class="whsec"><h4>' + title + '<small>' + L.length + '장 / ' + WH_MAX + '장</small></h4><div class="whg">' +
@@ -4653,8 +4653,8 @@ function whFire(k) {   // 방염집기 1곳 = 집기사진 + 방염서류 (각�
   const o = S.wh[k], L = o.f.fire, n = whFireN(o.f, o.sl && o.sl.fire), c = L.filter(Boolean).length;
   const part = (t, i) => '<div class="whfp"><b>' + t + '</b>' + whCell(k, 'fire', L, i) + '</div>';
   return '<div class="whsec"><h4>방염집기<small>사진 ' + c + '장 / ' + WH_MAX * 2 + '장</small></h4><div class="whg whfg">' +
-    Array.from({ length: n }, (_, j) => '<div class="whpc"><h4>방염집기 ' + (j + 1) + '</h4>' + '<div class="whfr">' + part('집기사진', 2 * j) + part('방염서류', 2 * j + 1) + '</div></div>').join('') + '</div>' +
-    '<button type="button" class="btn whplus" onclick="whPlus(\'' + k + '\',\'fire\')"' + (n >= WH_MAX ? ' disabled' : '') + '>' + ICON.plus + ' 방염집기 추가 (' + n + ' / ' + WH_MAX + ')</button></div>';
+    Array.from({ length: n }, (_, j) => '<div class="whpc"><h4>방염집기 ' + (j + 1) + '</h4>' + '<div class="whfr">' + part('집기사진', 2 * j) + part('방염서류', 2 * j + 1) + '</div></div>').join('') +
+    (n < WH_MAX ? whAddCell('whPlus(\'' + k + '\',\'fire\')', n, WH_MAX, '방염집기 추가') : '') + '</div></div>';   // ＋는 마지막 방염집기 다음 칸 (결정 328)
 }
 function whFirePairs(L) { const r = []; for (let j = 0; j * 2 < L.length; j++) if (L[2 * j] || L[2 * j + 1]) r.push([L[2 * j] || null, L[2 * j + 1] || null]); return r; }
 function whPlus(k, fld) { const o = S.wh[k]; o.sl = o.sl || {}; o.sl[fld] = fld === 'fire' ? Math.min(WH_MAX, whFireN(o.f, o.sl[fld]) + 1) : Math.min(WH_MAX, Math.max(whMin(fld), o.f[fld].length, o.sl[fld] || 0) + 1); render(); }
