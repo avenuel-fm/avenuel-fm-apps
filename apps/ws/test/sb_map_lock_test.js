@@ -108,7 +108,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   // ── 열쇠 ──
   await f.evaluate(() => toggleSymbolFilterDropdown());
   const n = await fl.locator('input.chk-lock').count();
-  ok(n === 7, '4) 레이어 메뉴 열쇠 체크박스 7개 (' + n + ')');
+  ok(n === 8, '4) 레이어 메뉴 열쇠 체크박스 8개 (외벽 포함, 결정 316) (' + n + ')');
   ok(await f.evaluate(() => { const l = document.querySelector('input.chk-lock[data-lock="fire"]'), v = document.getElementById('chk-zone-filter-fire'); return l.getBoundingClientRect().right <= v.getBoundingClientRect().left + 1; }), '5) 열쇠는 표시 체크박스 왼쪽');
   await f.evaluate(() => { document.querySelector('input.chk-lock[data-lock="floor"]').click(); document.querySelector('input.chk-lock[data-lock="power"]').click(); closeAllPopovers(); });
   const zid = await f.evaluate(() => getFloorZones('1F').find(z => z.category === 'floor').id);
