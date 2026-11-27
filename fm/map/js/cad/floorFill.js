@@ -102,7 +102,7 @@ function ffCompute(z, gap) {
         if (firstK > 0 && firstK * step <= 10) for (let k = 0; k < firstK; k++) dd[k] = dd[firstK];
         if (firstK >= 0 && lastK < K - 1 && (K - 1 - lastK) * step <= 10) for (let k = lastK + 1; k < K; k++) dd[k] = dd[lastK];
         // 넓어지는 자리끼리 이어 한 덩어리. 자리마다 그 폭 그대로(깊이가 바뀌는 곳은 직각) →
-        // 사선 매장 앞은 매장 띠에서 정확히 사선으로 잘림 (결정 350)
+        // 사선 매장 앞은 매장 띠에서 정확히 사선으로 잘림 (결정 352)
         const out = [];
         let run = null;
         dd.forEach((d, k) => {
@@ -175,7 +175,7 @@ function ffShape(z, edges, gap) {
         const pe = e.polys[e.polys.length - 1], pf = f.polys[0], c = P[(e.i + 1) % n];
         const A = pe[pe.length - 2], B = pf[1];
         if (Math.hypot(pe[pe.length - 1].x - c.x, pe[pe.length - 1].y - c.y) > 0.5 || Math.hypot(pf[0].x - c.x, pf[0].y - c.y) > 0.5) return;
-        // 볼록한 모서리만: 두 넓힌 선(변과 나란한 선)이 만나는 점까지. 너무 멀면(아주 뾰족) 안 채움 (결정 350)
+        // 볼록한 모서리만: 두 넓힌 선(변과 나란한 선)이 만나는 점까지. 너무 멀면(아주 뾰족) 안 채움 (결정 352)
         if (isPointInsidePolygon({ x: c.x + (e.n.x + f.n.x) * 0.5, y: c.y + (e.n.y + f.n.y) * 0.5 }, P)) return;
         const ue = { x: -e.n.y, y: e.n.x }, uf = { x: -f.n.y, y: f.n.x }, den = ue.x * uf.y - ue.y * uf.x;
         if (Math.abs(den) < 1e-6) return;
@@ -215,7 +215,7 @@ function ffAddedOnly(P, added, gap) {
     return polygonClipping.union([feRing(P)], ...a.map(poly => [poly[0]]));
 }
 // 바닥 전체(원래 + 넓힌 곳)를 매장 테두리에서 매장 간격만큼 띄움.
-// 다만 매장 사이 틈이 간격 이하로 좁으면 그 틈은 매장벽 2px 까지 채우고, 간격 선과 직각으로 만나게 이음 (결정 350)
+// 다만 매장 사이 틈이 간격 이하로 좁으면 그 틈은 매장벽 2px 까지 채우고, 간격 선과 직각으로 만나게 이음 (결정 352)
 // 바닥이 여러 조각으로 갈라지면 null (→ 예전 방식)
 function ffKeepGap(P, added, gap) {
     const ring = feRing(P), base = polygonClipping.union([ring], ...added.map(poly => [poly[0]]));

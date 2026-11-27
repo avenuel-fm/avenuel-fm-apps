@@ -89,7 +89,7 @@ async function open(b, opts) {
   await f.evaluate(() => { renderFloorUtilityLines(); });
   ok(await f.evaluate(() => getComputedStyle(document.querySelector('.util-feeder-line')).animationName === 'utilFlowForward'), '점선 흐름이 선 방향(모→자)');
   await shot(p, 'shot_util_route.png');
-  // 전기는 일반·비상 (결정 352): 기본 일반, 띠의 [비상]을 누르면 비상, 문구에도 붙음
+  // 전기는 일반·비상 (결정 354): 기본 일반, 띠의 [비상]을 누르면 비상, 문구에도 붙음
   ok(line && line.subTypeLabel === '전기 일반' && line.powerKind === '일반', '전기 기본은 일반 ' + (line && line.subTypeLabel));
   ok(await f.evaluate(() => [...document.querySelectorAll('.util-line-label, text')].some(t => /전기 일반 \(50A\)/.test(t.textContent))), '선 문구 「전기 일반 (50A)」');
   await f.evaluate(() => { startUtilityLineDrawingMode(); handleUtilLineMapClick(null, window.__U); });

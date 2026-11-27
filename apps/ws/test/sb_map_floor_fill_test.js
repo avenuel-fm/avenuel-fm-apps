@@ -132,7 +132,7 @@ async function open(b, opts) {
   const m4 = await f.evaluate(() => getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor').map(z => z.id));
   ok(m4.length === 1, '3-4) 누르면 한 장 ' + JSON.stringify(m4));
 
-  // 3-5) 원래 바닥이 매장에 2px 로 붙어 있어도 채우면 매장 간격(20)만큼 띄움 (결정 350)
+  // 3-5) 원래 바닥이 매장에 2px 로 붙어 있어도 채우면 매장 간격(20)만큼 띄움 (결정 352)
   await put([fl('zf7', R(9900, 4482, 10040, 4510))]);
   await click(9970, 4500);
   await f.evaluate(() => ffApply()); await p.waitForTimeout(200);

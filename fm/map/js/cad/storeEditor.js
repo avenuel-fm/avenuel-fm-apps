@@ -510,7 +510,7 @@ var lastCreatedStoreId = null;
             if (store.groupElement) store.groupElement.classList.remove('selected');
             if (store.textElement) store.textElement.style.pointerEvents = 'none';
             p.onmousedown = e => shapeDrag(e, (pts, dx, dy, ev) => {
-                if (ev.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }   // Shift = 가로·세로로만 (결정 350)
+                if (ev.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }   // Shift = 가로·세로로만 (결정 352)
                 return pts.map(q => ({ x: q.x + dx, y: q.y + dy }));
             });
             drawShapeHandles();

@@ -6,7 +6,7 @@ var isUtilLineDrawingMode = false;
 var utilLineSourceStore = null;    // 자 = 매장 (결정 246. 예전에는 기능실이 자)
 var utilLineTargetStore = null;    // 모 = 기능실. 흐름은 모 → 자
 var utilLineSelectedType = 'power';// 'power'(전기) | 'water'(수도) | 'gas'(가스) | 'drain'(배수)
-var utilLinePowerKind = '일반';     // 전기만: '일반' | '비상' (결정 352)
+var utilLinePowerKind = '일반';     // 전기만: '일반' | '비상' (결정 354)
 var utilLineInputValue = '50';     // 입력 규격 (전기: A, 수도: mm, 배수: mm, 가스: 비활성)
 var utilLineDrawingPoints = [];    // 선분 점 목록 [{x, y}, ...]
 var activeHighlightedStore = null;   // 현재 라인 하이라이트 중인 매장/기능실
@@ -774,7 +774,7 @@ function updateUtilLineGuideUI() {
         `;
     }).join('');
 
-    // 전기만 [일반 | 비상] (결정 352)
+    // 전기만 [일반 | 비상] (결정 354)
     const kindHtml = utilLineSelectedType !== 'power' ? '' : `<div id="util-power-kind" style="display:inline-flex; border:1px solid #fca5a5; border-radius:6px; overflow:hidden; background:#fff;">${['일반', '비상'].map(k =>
         `<button type="button" data-kind="${k}" onclick="utilLinePowerKind='${k}'; updateUtilLineGuideUI()" style="border:none; font-size:12px; font-weight:800; padding:4px 10px; cursor:pointer; background:${utilLinePowerKind === k ? '#dc2626' : 'transparent'}; color:${utilLinePowerKind === k ? '#fff' : '#991b1b'};">${k}</button>`).join('')}</div>`;
 
