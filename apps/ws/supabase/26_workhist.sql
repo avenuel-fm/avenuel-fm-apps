@@ -3,6 +3,7 @@
 -- 실행: 25_risk.sql 다음에 SQL Editor 에 통째로 붙여 넣고 Run (여러 번 돌려도 안전). 15_menu.sql 도 먼저 다시 Run (메뉴 키 docs.work)
 --  · 주간작업(dw_day): 일자 · 파트(전기방재/기계건축) · 작업자 · 작업위치(버튼) · 작업내용 · 작업 전/후 사진 각 4장까지 · 사용자재(이름·수량·단위) · 비고
 --  · 야간작업(dw_night): 일자 · 업체명(직접) · 작업위치 · 작업내용 · 현장 사진 · 방염서류 사진 · 각서 사진(모두 장수 제한 느슨) · 기타사항
+--  · 식당가 점검(rest): 매장마다 매장명 + 사진(1 가스누설경보기 · 2 주방전경 필수, 10장까지) · 20곳까지 (11-27 추가 — 이 파일을 다시 Run)
 --  · 사진 파일은 화면이 버킷 dw_photo/ 에 먼저 올리고 주소·경로만 넘김 (방염서류·각서는 글자가 읽히게 덜 줄여서)
 --  · 종합업무일지 연동: 아래 ws_log_tbm 을 다시 정의 — 그 근무일 주간작업의 작업위치+작업내용이 해당 파트 금일작업 줄에 먼저 들어옴
 --    (03_docs.sql 을 다시 Run 하면 이 연동이 풀리니, 그 뒤에는 이 파일도 다시 Run)
@@ -43,6 +44,7 @@ create table if not exists public.dw_night (
   deleted    boolean not null default false
 );
 create index if not exists dw_night_day on public.dw_night (work_day desc, saved_at) where not deleted;
+alter table public.dw_night add column if not exists rest jsonb not null default '[]'::jsonb;   -- 식당가 점검 [{name, ids:[uuid]}]
 alter table public.dw_night enable row level security;
 
 -- 파일 id 목록 → [{id, src}] (저장한 순서 그대로)
@@ -82,6 +84,8 @@ create or replace function public.ws_dn_out(r public.dw_night)
 returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object('id', r.wn_id, 'day', r.work_day::text, 'co', r.company, 'floor', r.floor, 'content', r.content, 'note', r.note,
     'photos', public.ws_dw_files(r.photo_ids), 'fire', public.ws_dw_files(r.fire_ids), 'pledge', public.ws_dw_files(r.pledge_ids),
+    'rest', coalesce((select jsonb_agg(jsonb_build_object('name', e->>'name', 'pics', public.ws_dw_files(array(select jsonb_array_elements_text(e->'ids'))::uuid[])) order by o)
+                      from jsonb_array_elements(r.rest) with ordinality x(e, o)), '[]'::jsonb),
     'by', coalesce(r.saved_by, ''), 'at', to_char(r.updated_at at time zone 'Asia/Seoul', 'MM/DD HH24:MI'));
 $$;
 
@@ -194,7 +198,7 @@ begin
         order by p.work_day desc, p.saved_at limit 200) x), '[]'::jsonb));
 end $$;
 
--- 저장 (새로 / 고치기). p_d = { id, day, co, floor, content, note, photos[], fire[], pledge[] } — 사진 칸마다 40장까지
+-- 저장 (새로 / 고치기). p_d = { id, day, co, floor, content, note, photos[], fire[], pledge[], rest[{name, pics[]}] } — 사진 칸마다 40장까지 · 식당가 매장 20곳 × 10장
 create or replace function public.ws_dn_save(p_token text, p_d jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare
@@ -206,6 +210,7 @@ declare
   co text := public.ws_clean(p_d->>'co', 30);
   k text; nt text;
   pa uuid[]; fa uuid[]; la uuid[];
+  e jsonb; nm text; ra uuid[]; old_r uuid[]; v_rest jsonb := '[]'::jsonb;
   r public.dw_night;
   base text;
   folder text;
@@ -220,6 +225,13 @@ begin
       return jsonb_build_object('ok', false, 'error', '사진은 한 칸에 40장까지 넣을 수 있습니다.');
     end if;
   end loop;
+  if jsonb_typeof(p_d->'rest') = 'array' and jsonb_array_length(p_d->'rest') > 20 then return jsonb_build_object('ok', false, 'error', '식당가 점검은 20곳까지입니다.'); end if;
+  for e in select x from jsonb_array_elements(case when jsonb_typeof(p_d->'rest') = 'array' then p_d->'rest' else '[]'::jsonb end) x loop
+    if public.ws_clean(e->>'name', 30) = '' then return jsonb_build_object('ok', false, 'error', '식당가 점검: 매장명을 넣어 주세요.'); end if;
+    if jsonb_typeof(e->'pics') is distinct from 'array' or jsonb_array_length(e->'pics') < 2 or jsonb_array_length(e->'pics') > 10 then
+      return jsonb_build_object('ok', false, 'error', '식당가 점검: 매장마다 사진 2~10장(가스누설경보기·주방전경 포함)을 넣어 주세요.');
+    end if;
+  end loop;
   perform pg_advisory_xact_lock(hashtext('ws_dn'));
   if v_id is not null then
     select * into r from public.dw_night where wn_id = v_id and not deleted;
@@ -232,12 +244,22 @@ begin
   pa := public.ws_dw_pics(r.photo_ids, p_d->'photos', 40, 'dw_photo', base || '_현장', folder, me.name);
   fa := public.ws_dw_pics(r.fire_ids, p_d->'fire', 40, 'dw_photo', base || '_방염서류', folder, me.name);
   la := public.ws_dw_pics(r.pledge_ids, p_d->'pledge', 40, 'dw_photo', base || '_각서', folder, me.name);
+  if jsonb_typeof(p_d->'rest') = 'array' then   -- 안 보내면(옛 화면) 그대로 둠
+    old_r := array(select jsonb_array_elements_text(x->'ids')::uuid from jsonb_array_elements(coalesce(r.rest, '[]'::jsonb)) x);
+    for e in select x from jsonb_array_elements(p_d->'rest') x loop
+      nm := public.ws_clean(e->>'name', 30);
+      ra := public.ws_dw_pics(old_r, e->'pics', 10, 'dw_photo', base || '_식당가-' || coalesce(nullif(public.ws_safe_name(nm), ''), '매장'), folder, me.name);
+      v_rest := v_rest || jsonb_build_array(jsonb_build_object('name', nm, 'ids', to_jsonb(ra)));
+    end loop;
+  else
+    v_rest := coalesce(r.rest, '[]'::jsonb);
+  end if;
   nt := left(btrim(regexp_replace(coalesce(p_d->>'note', ''), '[-<>]', '', 'g')), 300);
   if v_id is null then
-    insert into public.dw_night (wn_id, work_day, company, floor, content, note, photo_ids, fire_ids, pledge_ids, saved_by)
-    values (r.wn_id, d, co, fl, ct, nt, pa, fa, la, me.name) returning * into r;
+    insert into public.dw_night (wn_id, work_day, company, floor, content, note, photo_ids, fire_ids, pledge_ids, rest, saved_by)
+    values (r.wn_id, d, co, fl, ct, nt, pa, fa, la, v_rest, me.name) returning * into r;
   else
-    update public.dw_night set work_day = d, company = co, floor = fl, content = ct, note = nt, photo_ids = pa, fire_ids = fa, pledge_ids = la,
+    update public.dw_night set work_day = d, company = co, floor = fl, content = ct, note = nt, photo_ids = pa, fire_ids = fa, pledge_ids = la, rest = v_rest,
       updated_at = clock_timestamp() where wn_id = v_id returning * into r;
   end if;
   perform public.ws_log(me.name, case when v_id is null then '야간작업 저장' else '야간작업 수정' end, r.wn_id, d || ' · ' || co);

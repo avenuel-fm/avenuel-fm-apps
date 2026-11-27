@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>야간작업 식당가 점검 시안 5</title>
+<style>
+body{margin:0;padding:20px;background:#E9EDF2;font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#1B2430;font-size:14px}
+h2{margin:0 0 6px;font-size:16px}.note{font-size:12.5px;color:#5B6573;line-height:1.6;margin:0 0 12px}
+.wrap{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}.frame{background:#fff;border:1px solid #D8DDE5;border-radius:10px;padding:14px}.m{width:360px}.pc{width:900px}
+.sec{font-size:13px;font-weight:700;color:#14284B;margin:14px 0 6px}.sec:first-child{margin-top:0}.sec small{font-weight:400;color:#8A94A3;margin-left:6px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.card{border:1px solid #D8DDE5;border-radius:8px;padding:8px;min-width:0}.card h4{margin:0 0 4px;font-size:13px;color:#14284B}
+.tile{position:relative;aspect-ratio:4/3;background:#F1F4F8;border:1px solid #D8DDE5;display:flex;align-items:center;justify-content:center;color:#8A94A3;font-size:12px;overflow:hidden}
+.tile .ph{width:100%;height:100%;background:linear-gradient(135deg,#9db1c9,#6f86a3)}
+.tile .x{position:absolute;top:4px;right:4px;width:22px;height:22px;border:1px solid #D8DDE5;border-radius:6px;background:#fff;text-align:center;line-height:20px;font-size:12px}
+.bs{display:flex;gap:4px;margin-top:5px}.bs span{flex:1;height:34px;border:1px solid #D8DDE5;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12.5px;background:#fff}
+.plus{border:1.5px dashed #1F5FA8;border-radius:8px;color:#1F5FA8;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;font-size:13px;min-height:150px;gap:4px}
+.plus b{font-size:26px;line-height:1}.plus small{font-weight:400;font-size:11.5px}
+.add{margin-top:8px;height:40px;border:1.5px dashed #1F5FA8;color:#1F5FA8;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600}
+.store{border:1px solid #C9D3E0;border-radius:10px;padding:10px;margin-top:8px;background:#FAFBFD}
+.sh{display:flex;gap:6px;align-items:center;margin-bottom:8px}.sh b{font-size:13.5px;color:#14284B;white-space:nowrap}
+.inp{flex:1;height:34px;border:1px solid #D8DDE5;border-radius:8px;background:#fff;display:flex;align-items:center;padding:0 10px;color:#1B2430;font-size:13px}
+.inp.ph0{color:#8A94A3}.del{height:34px;padding:0 10px;border:1px solid #D8DDE5;border-radius:8px;background:#fff;display:flex;align-items:center;font-size:12.5px;color:#C0392B}
+.txt{border:1px solid #D8DDE5;border-radius:8px;height:56px;padding:8px;color:#8A94A3;font-size:12.5px}
+.tag{display:inline-block;background:#FFF4D6;padding:1px 6px;border-radius:4px;font-size:11.5px}
+</style></head><body>
+<h2>야간작업 — 식당가 점검 (시안 5)</h2>
+<p class="note"><b>각서</b>와 <b>기타사항</b> 사이에 「식당가 점검」을 넣습니다. 매장 한 곳 = <b>매장명 칸</b> + 사진 칸(처음 2칸: <b>가스누설경보기</b>, <b>주방전경</b>). 사진 칸 <b>오른쪽 끝의 ＋ 칸</b>을 누르면 칸이 하나씩 늘어 매장당 <b>최대 10장</b>(최소 2장). 매장은 아래 「＋ 매장 추가」로 늘립니다. 휴대폰 2열 · PC 4열.<br>
+각서도 지난번 요청대로 <b>각서 1 칸 하나 + 오른쪽 ＋ 칸</b> 모양으로 같이 맞춥니다.</p>
+<div class="wrap">
+<div class="frame m">
+ <div class="sec">각서 <small>0장 / 20장</small></div>
+ <div class="g2">
+  <div class="card"><h4>각서 1</h4><div class="tile">사진 없음</div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="plus"><b>＋</b>사진 칸 추가<small>(1 / 20)</small></div>
+ </div>
+ <div class="sec">식당가 점검 <small>매장 2곳 · 사진 3장</small></div>
+ <div class="store">
+  <div class="sh"><b>매장 1</b><div class="inp">스시 ○○</div><span class="del">✕ 매장 빼기</span></div>
+  <div class="g2">
+   <div class="card"><h4>가스누설경보기</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="card"><h4>주방전경</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="card"><h4>사진 3</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="plus"><b>＋</b>사진 칸 추가<small>(3 / 10)</small></div>
+  </div>
+ </div>
+ <div class="store">
+  <div class="sh"><b>매장 2</b><div class="inp ph0">매장명 입력</div><span class="del">✕ 매장 빼기</span></div>
+  <div class="g2">
+   <div class="card"><h4>가스누설경보기</h4><div class="tile">사진 없음</div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="card"><h4>주방전경</h4><div class="tile">사진 없음</div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="plus"><b>＋</b>사진 칸 추가<small>(2 / 10)</small></div>
+  </div>
+ </div>
+ <div class="add">＋ 매장 추가 (2곳)</div>
+ <div class="sec">기타사항</div>
+ <div class="txt">기타사항 입력</div>
+</div>
+<div class="frame pc">
+ <div class="sec">각서 <small>1장 / 20장</small></div>
+ <div class="g4">
+  <div class="card"><h4>각서 1</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+  <div class="plus"><b>＋</b>사진 칸 추가<small>(1 / 20)</small></div>
+ </div>
+ <div class="sec">식당가 점검 <small>매장 1곳 · 사진 6장</small></div>
+ <div class="store">
+  <div class="sh"><b>매장 1</b><div class="inp">한식당 △△</div><span class="del">✕ 매장 빼기</span></div>
+  <div class="g4">
+   <div class="card"><h4>가스누설경보기</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="card"><h4>주방전경</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="card"><h4>사진 3</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="card"><h4>사진 4</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="card"><h4>사진 5</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="card"><h4>사진 6</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📷 카메라</span><span>📁 파일</span></div></div>
+   <div class="plus"><b>＋</b>사진 칸 추가<small>(6 / 10)</small></div>
+  </div>
+ </div>
+ <div class="add">＋ 매장 추가 (1곳)</div>
+ <p class="note" style="margin-top:8px">10칸이 되면 ＋ 칸은 사라집니다. 저장할 때 매장명이 비었거나 가스누설경보기·주방전경 사진이 빠지면 「매장 N: … 넣어 주세요」로 알려 줍니다.</p>
+ <div class="sec">기타사항</div>
+ <div class="txt">기타사항 입력</div>
+</div>
+</div>
+</body></html>

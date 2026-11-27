@@ -901,6 +901,14 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_dn_save', [tk, J({ co: '', content: 'x' })])).ok === false && (await call('ws_dn_save', [tk, J({ co: 'a', content: '' })])).ok === false, '야간작업: 업체명·작업내용 필수');
   const xn2 = await call('ws_dn_save', [tk, J({ id: xn.item.id, day: xn.item.day, co: 'OO인테리어', floor: '3F', content: '매장 천장 방염 도장', pledge: [{ file: XP('p1') }], fire: [{ id: xn.item.fire[0].id }, { file: XP('f2') }], photos: [{ id: xn.item.photos[1].id }] })]);
   ok(xn2.ok && xn2.item.fire.length === 2 && xn2.item.pledge.length === 1 && xn2.item.photos.length === 1 && xn2.item.photos[0].id === xn.item.photos[1].id && (await one('select count(*)::int n from dw_night')).n === 1, '야간작업: 고치기 (사진 칸마다 빼고 더함)');
+  const xbase = { id: xn.item.id, day: xn.item.day, co: 'OO인테리어', floor: '3F', content: '매장 천장 방염 도장' };
+  const xr1 = await call('ws_dn_save', [tk, J(Object.assign({}, xbase, { rest: [{ name: '스시 OO', pics: [{ file: XP('g1') }, { file: XP('k1') }, { file: XP('e1') }] }, { name: '한식당', pics: [{ file: XP('g2') }, { file: XP('k2') }] }] }))]);
+  ok(xr1.ok && xr1.item.rest.length === 2 && xr1.item.rest[0].name === '스시 OO' && xr1.item.rest[0].pics.length === 3 && xr1.item.rest[1].pics.length === 2 && xr1.item.photos.length === 1, '야간 식당가 점검: 매장 2곳 저장 (3장 · 2장) · 다른 사진 칸은 그대로');
+  const xr2 = await call('ws_dn_save', [tk, J(Object.assign({}, xbase, { rest: [{ name: '스시 OO', pics: [{ id: xr1.item.rest[0].pics[1].id }, { id: xr1.item.rest[0].pics[0].id }] }] }))]);
+  ok(xr2.ok && xr2.item.rest.length === 1 && xr2.item.rest[0].pics[0].id === xr1.item.rest[0].pics[1].id && (await call('ws_dn_save', [tk, J(xbase)])).item.rest.length === 1, '야간 식당가 점검: 고치기 (매장 빼기 · 있던 사진 번호 유지) · rest 안 보내면 그대로');
+  ok(/매장명/.test((await call('ws_dn_save', [tk, J(Object.assign({}, xbase, { rest: [{ name: ' ', pics: [{ file: XP('a') }, { file: XP('b') }] }] }))])).error) &&
+    /2~10장/.test((await call('ws_dn_save', [tk, J(Object.assign({}, xbase, { rest: [{ name: 'x', pics: [{ file: XP('a') }] }] }))])).error) &&
+    /2~10장/.test((await call('ws_dn_save', [tk, J(Object.assign({}, xbase, { rest: [{ name: 'x', pics: Array.from({ length: 11 }, (_, i) => ({ file: XP('z' + i) })) }] }))])).error), '야간 식당가 점검: 매장명 필수 · 사진 2~10장');
   ok((await call('ws_dn_list', [tk, '인테리어', '', ''])).list.length === 1 && (await call('ws_dn_list', [tk, '3f', '', ''])).list.length === 1 && (await call('ws_dn_list', [tk, '방염', '', ''])).list.length === 1 && (await call('ws_dn_list', [tk, 'zzz', '', ''])).list.length === 0, '야간작업: 층·업체·작업내용 검색');
   ok((await call('ws_admin_set_menu', [tk, ['docs.work']])).ok && /사용 중지/.test(await callErr('ws_dw_list', ['emp', '', '', ''])) && /사용 중지/.test(await callErr('ws_dn_list', ['emp', '', '', ''])) && (await call('ws_dw_list', [tk, '', '', ''])).ok, '작업내역: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);
