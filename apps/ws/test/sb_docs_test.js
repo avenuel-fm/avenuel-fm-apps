@@ -544,7 +544,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.click('.seg >> text="야간작업"'); await p.waitForFunction(() => S.wh.n.list);
   ok(await p.locator('.whf').count() === 1 && await p.locator('button >> text="신규작성"').count() === 1 && await p.evaluate(() => !S.wh.n.f.id), 'W8) 야간작업 탭: 열면 바로 빈 신규작성 양식');
   await p.click('button >> text="신규작성"');
-  await p.locator('.whf input.inp[maxlength="30"]').fill('OO인테리어'); await p.click('.whf .rwfl >> text="3F"'); await p.locator('.whf textarea').first().fill('매장 천장 방염 도장');
+  await p.locator('.whf input.inp[maxlength="30"]').first().fill('OO인테리어'); await p.click('.whf .rwfl >> text="3F"'); await p.locator('.whf textarea').first().fill('매장 천장 방염 도장');
   for (let i = 0; i < 5; i++) {   // 파일 버튼은 칸마다 한 장 (여러 장 고르기는 일부 휴대폰에서 「불러올 수 없음」)
     if (i >= 2) await p.locator('.whsec').nth(0).locator('.whadd').click();
     await p.locator('.whsec').nth(0).locator('.whpc').nth(i).locator('input[type=file]').nth(1).setInputFiles([xjf('n' + (i + 1))]);
@@ -578,7 +578,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const xpl = p.locator('.whsec').nth(2);
   ok(await xpl.locator('.whpc').count() === 1 && await xpl.locator('.whg > .whadd').count() === 1 && await xpl.locator('.whplus').count() === 0 && await p.locator('.whf input[multiple]').count() === 0, 'W10a) 각서: 1칸 + 오른쪽 ＋ 칸 · 파일 버튼은 한 장씩(여러 장 고르기 없음)');
   await xpl.locator('.whadd').click(); ok(await xpl.locator('.whpc').count() === 2, 'W10b) 각서 ＋ 칸 누르면 2칸');
-  await p.click('button >> text=/매장 추가/'); const xst = p.locator('.whst').first();
+  const xst = p.locator('.whst').first(); ok(await p.locator('.whst').count() === 1, 'W10j) 식당가 점검: 처음부터 빈 매장 1곳');
   ok(await xst.locator('.whpc').count() === 2 && (await xst.locator('.whpc h4').allInnerTexts()).join() === '가스누설경보기,주방전경' && /2 \/ 10/.test(await xst.locator('.whadd').innerText()), 'W10c) 식당가 점검: 매장 추가 → 매장명 칸 · 가스누설경보기·주방전경 2칸 · 오른쪽 ＋ 칸');
   for (let i = 0; i < 8; i++) await xst.locator('.whadd').click();
   ok(await xst.locator('.whpc').count() === 10 && await xst.locator('.whadd').count() === 0, 'W10d) 매장 ＋ 칸: 10칸에서 사라짐');
