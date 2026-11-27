@@ -131,9 +131,9 @@ const PARENT = { inspect: 'main', fire: 'inspect', eh: 'inspect', cs: 'inspect',
 function back() { if (S.view === 'pdf') return go((S.pdf && S.pdf.from) || 'main'); if (S.view === 'csck') return csLeave(); if (S.view === 'risk' && S.rk && S.rk.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'wh' && S.wh && (S.wh.d.dirty || S.wh.n.dirty) && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'df' && S.df && S.df.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; if (S.view === 'nw' && !nwLeaveOk()) return; if (S.view === 'log' && !lgLeaveOk()) return; if (S.view === 'ahu' && !ahuLeaveOk()) return; if ((S.view === 'clim' || S.view === 'use') && !clLeaveOk()) return; if (S.view === 'rep') return repBack(); if (S.view === 'uhr') return uhBack(); if (S.view === 'tbm' && S.tbm && S.tbm.dirty && !confirm('저장하지 않은 내용이 있습니다. 저장하지 않고 나갈까요?')) return; go(PARENT[S.view] || 'main'); }
 
 function topbar(sub, title) {
-  const u = S.user || {};
+  const u = S.user || {}, ver = window.WS_VERSION || S.ver;   // 메뉴 이름 오른쪽 판 번호 (사용자 11-27): 바로가기 화면 파일 번호, 없으면 서버 번호
   return '<header class="top"><div class="top-in">' +
-    '<div class="ttl"><small>' + h(sub) + '</small><b>' + h(title) + '</b></div>' +
+    '<div class="ttl"><small>' + h(sub) + '</small><b>' + h(title) + (ver ? '<span class="ttlv">v' + h(ver) + '</span>' : '') + '</b></div>' +
     '<span class="me">' + h(u.name) + ' · ' + h(u.part) + '</span>' +
     (window.WS_OFFLINE ? WS_OFFLINE.chip() : '') +   // 「저장 대기 n건」 (오프라인 임시 저장, 결정 222) — 없으면 숨김
     '<button class="btn sm" onclick="logoutAsk()">로그아웃</button>' +

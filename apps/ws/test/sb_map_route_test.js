@@ -89,6 +89,19 @@ async function open(b, opts) {
   await f.evaluate(() => { renderFloorUtilityLines(); });
   ok(await f.evaluate(() => getComputedStyle(document.querySelector('.util-feeder-line')).animationName === 'utilFlowForward'), '점선 흐름이 선 방향(모→자)');
   await shot(p, 'shot_util_route.png');
+  // 전기는 일반·비상 (결정 354): 기본 일반, 띠의 [비상]을 누르면 비상, 문구에도 붙음
+  ok(line && line.subTypeLabel === '전기 일반' && line.powerKind === '일반', '전기 기본은 일반 ' + (line && line.subTypeLabel));
+  ok(await f.evaluate(() => [...document.querySelectorAll('.util-line-label, text')].some(t => /전기 일반 \(50A\)/.test(t.textContent))), '선 문구 「전기 일반 (50A)」');
+  await f.evaluate(() => { startUtilityLineDrawingMode(); handleUtilLineMapClick(null, window.__U); });
+  ok(await f.evaluate(() => !!document.querySelector('#util-power-kind [data-kind="비상"]')), '전기면 [일반|비상] 칸이 보임');
+  await shot(p, 'shot_util_power_kind.png');
+  await f.evaluate(() => { document.querySelector('#util-power-kind [data-kind="비상"]').click(); handleUtilLineMapClick(null, window.__S); renderFloorUtilityLines(); });
+  const l2 = await f.evaluate(() => getFloorUtilityLines('1F')[1]);
+  ok(l2 && l2.subTypeLabel === '전기 비상' && l2.powerKind === '비상' && l2.subType === 'power', '비상으로 그림 ' + JSON.stringify(l2 && l2.subTypeLabel));
+  ok(await f.evaluate(() => [...document.querySelectorAll('text')].some(t => /전기 비상 \(50A\)/.test(t.textContent))), '선 문구 「전기 비상 (50A)」');
+  await f.evaluate(() => { startUtilityLineDrawingMode(); setUtilLineType('water'); });
+  ok(await f.evaluate(() => !document.getElementById('util-power-kind')), '수도면 [일반|비상] 칸 없음');
+  await f.evaluate(() => exitUtilityLineDrawingMode());
   // 바닥이 없으면 선 안 그리고 토스트
   await f.evaluate(() => { window.__t.length = 0; saveFloorUtilityLines('1F', []); saveFloorZones('1F', []); startUtilityLineDrawingMode(); handleUtilLineMapClick(null, window.__U); handleUtilLineMapClick(null, window.__S); });
   ok((await f.evaluate(() => window.__t)).includes('바닥면 작성 필요'), '바닥 없으면 「바닥면 작성 필요」 토스트');
