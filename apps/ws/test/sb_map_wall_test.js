@@ -215,6 +215,31 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   const ringCut = await f.evaluate(() => { const z = { geometry: 'polygon', points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] }; return [wallSegCount(z), wallSegPts(z, 3).map(p => p.x + ',' + p.y).join(' ')]; });
   ok(ringCut[0] === 4 && ringCut[1] === '0,10 0,0', '12-4) 닫힌 외벽의 마지막 구간은 첫 점으로 ' + JSON.stringify(ringCut));
 
+  // 14) 복사한 외벽: 고르면 선 전체 · 전체 삭제만 · 복사 취소 (결정 322)
+  const c14 = await f.evaluate(() => {
+    const two = getFloorZones('2F').filter(z => z.category === 'wall'), code = FLOORS[currentFloorIdx].code, zs = getFloorZones(code);
+    const z = { id: 'zone_77_c2F0', name: '외벽', category: 'wall', geometry: 'line', points: [{ x: 9500, y: 5300 }, { x: 9700, y: 5300 }, { x: 9700, y: 5400 }] };
+    zs.push(z); saveFloorZones(code, zs); renderFloorZones(code);
+    if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('wall'); hideWallBar();
+    selectAndEditWallZone(z); selectWallSegment(z, 9600, 5300, 100, 100);
+    const r = { flag: two.every(w => w.copyOf === code && isWallCopy(w)), old: isWallCopy(z), orig: isWallCopy({ id: 'zone_1795748050181' }) || isWallCopy({ id: 'zone_1_s123' }),
+      copy: wallSel.copy, handles: document.querySelectorAll('#wall-vertex-handles-layer circle').length,
+      btns: Array.from(document.querySelectorAll('#wall-seg-pop button')).map(b => b.textContent).filter(t => t !== '✕'), mark: document.getElementById('wall-seg-mark').getAttribute('points').split(' ').length };
+    deleteWallSegment();
+    r.left = getFloorZones(code).some(w => w.id === z.id);
+    return r;
+  });
+  ok(c14.flag && c14.old && !c14.orig, '14) 복사본 표시(copyOf) · 예전 복사본도 알아봄 · 원본은 아님 ' + JSON.stringify(c14));
+  ok(c14.copy && c14.handles === 0 && c14.btns.length === 1 && /선 전체 삭제/.test(c14.btns[0]) && c14.mark === 3 && !c14.left, '14-1) 복사본은 선 전체가 골라지고 「선 전체 삭제」만 · 손잡이 없음 · Del 로 통째 삭제 ' + JSON.stringify(c14));
+  const c14b = await f.evaluate(() => {
+    const code = FLOORS[currentFloorIdx].code, to = FLOORS.find(x => x.code !== code && x.code !== '2F').code;
+    openWallCopy(); document.querySelector(`#wall-check-bar .wall-copy-opt input[value="${to}"]`).checked = true; copyWallToFloors();
+    const n0 = getFloorZones(to).filter(z => z.category === 'wall').length, b = document.querySelector('#toast .toast-btn');
+    b && b.click();
+    return { to, n0, btn: b && b.textContent, n1: getFloorZones(to).filter(z => z.category === 'wall').length, two: getFloorZones('2F').filter(z => z.category === 'wall').length };
+  });
+  ok(c14b.n0 > 0 && c14b.btn === '복사 취소' && c14b.n1 === 0 && c14b.two > 0, '14-2) 복사 뒤 「복사 취소」 → 방금 복사한 층의 복사본만 지움 ' + JSON.stringify(c14b));
+
   // 13) 업체 건물 외곽선 자석 · 꺾인 곡선 매끄럽게 · 붙은 선 초록 표시 (결정 320)
   await f.evaluate(() => { hideWallSegSel(); deselectWallZone(); if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('wall'); drawingZonePoints = []; lastWallSnap = null; focusStoreAt(10650, 4650); }); await p.waitForTimeout(400);
   const vs = await f.evaluate(() => { const s = wallSnap(10587.9, 4712.2); return s && { name: wallOutlineName(s.key), x: s.x, y: s.y }; });
