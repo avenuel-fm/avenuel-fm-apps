@@ -138,7 +138,7 @@ const RPC = {
   ws_dn_save: a => {
     const d = a.p_d, pic = (l, old) => (l || []).map(x => x.file ? { id: 'F' + (++WF), src: x.file.url } : (old || []).find(y => y.id === x.id)).filter(Boolean);
     const old = WN.find(x => x.id === d.id), item = { id: d.id || 'WS-WN-' + (WN.length + 1), day: d.day, co: d.co, floor: d.floor, content: d.content, note: d.note,
-      photos: pic(d.photos, old && old.photos), fire: pic(d.fire, old && old.fire), pledge: pic(d.pledge, old && old.pledge), by: ME.name, at: '11/24 10:00' };
+      photos: pic(d.photos, old && old.photos), fire: pic(d.fire, old && old.fire), pledge: pic(d.pledge, old && old.pledge), rest: (d.rest || []).map(x => ({ name: x.name, pics: pic(x.pics, old && [].concat(...(old.rest || []).map(y => y.pics))) })), by: ME.name, at: '11/24 10:00' };
     if (old) WN[WN.indexOf(old)] = item; else WN.push(item); return { ok: true, item };
   },
   ws_dn_delete: a => { WN.splice(WN.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
@@ -537,7 +537,11 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(await p.locator('.whf').count() === 1 && await p.locator('button >> text="신규작성"').count() === 1 && await p.evaluate(() => !S.wh.n.f.id), 'W8) 야간작업 탭: 열면 바로 빈 신규작성 양식');
   await p.click('button >> text="신규작성"');
   await p.locator('.whf input.inp[maxlength="30"]').fill('OO인테리어'); await p.click('.whf .rwfl >> text="3F"'); await p.locator('.whf textarea').first().fill('매장 천장 방염 도장');
-  await p.locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([1, 2, 3, 4, 5].map(i => xjf('n' + i)));
+  for (let i = 0; i < 5; i++) {   // 파일 버튼은 칸마다 한 장 (여러 장 고르기는 일부 휴대폰에서 「불러올 수 없음」)
+    if (i >= 2) await p.locator('.whsec').nth(0).locator('.whadd').click();
+    await p.locator('.whsec').nth(0).locator('.whpc').nth(i).locator('input[type=file]').nth(1).setInputFiles([xjf('n' + (i + 1))]);
+    await p.waitForFunction(n => S.wh.n.f.photos.length === n, i + 1);
+  }
   const xfc = p.locator('.whsec').nth(1).locator('.whpc').nth(0);   // 방염집기 1: 집기·서류 칸마다 [파일]은 칸 아래 (.whbs)
   await xfc.locator('.whbs input').nth(0).setInputFiles([xjf('f1')]);
   await p.waitForFunction(() => S.wh.n.f.photos.length === 5 && S.wh.n.f.fire.length === 1);
@@ -547,9 +551,11 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.waitForFunction(() => S.wh.n.f.fire.length === 2 && S.wh.n.f.fire[1]);
   const xs0 = p.locator('.whsec').nth(0), xcnt = () => xs0.locator('.whpc').count();
   ok(await xcnt() === 5 && await p.locator('.whsec').nth(1).locator('.whpc').count() === 2, 'W8b) 야간: 현장 사진 5장 → 칸 5개 · 방염집기는 빈 칸 2개 (처음 2칸) · 한 곳에 사진 입력 2개');
-  await xs0.locator('.whplus').click(); const x6 = await xcnt();
-  for (let i = 0; i < 14; i++) await xs0.locator('.whplus').click();
-  ok(x6 === 6 && await xcnt() === 20 && await xs0.locator('.whplus').isDisabled(), 'W8c) ＋ 버튼: 칸이 하나씩 늘고 20칸에서 멈춤(버튼 회색)');
+  ok(await xs0.locator('.whplus').count() === 0 && await xs0.locator('.whg > .whadd').count() === 1, 'W8e) 현장 사진 ＋는 아래 줄이 아니라 마지막 칸 다음 칸');
+  await xs0.screenshot({ path: path.join(__dirname, 'shot_sb_wh_photos.png') });
+  await xs0.locator('.whadd').click(); const x6 = await xcnt();
+  for (let i = 0; i < 14; i++) await xs0.locator('.whadd').click();
+  ok(x6 === 6 && await xcnt() === 20 && await xs0.locator('.whadd').count() === 0, 'W8c) ＋ 칸: 칸이 하나씩 늘고 20칸에서 사라짐');
   const xvp = p.viewportSize(); await p.setViewportSize({ width: 1100, height: 900 });
   const xpc = await p.evaluate(() => { const g = document.querySelector('.whfg'), q = g.querySelector('.whpc'), t = q.querySelectorAll('.whfp'); return { cols: getComputedStyle(g).gridTemplateColumns.split(' ').length, side: Math.abs(t[0].getBoundingClientRect().top - t[1].getBoundingClientRect().top) < 3 && t[1].getBoundingClientRect().left > t[0].getBoundingClientRect().left }; });
   await p.setViewportSize(xvp);
@@ -557,10 +563,26 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(await p.evaluate(() => whPages('n').split('class="pg"').length - 1) === 3, 'W9) 야간 쪽 수: 내용+현장 사진 · 각서 · 방염서류 1장 = 3쪽 (각서 없으면 「미첨부」 쪽)');
   await p.evaluate(() => whPrint()); await new Promise(r => setTimeout(r, 400));
   ok(/각서 미첨부/.test(await p.evaluate(() => $('print').innerText)) && await p.evaluate(() => $('print').querySelectorAll('.fa img,.fb img').length) === 2, 'W10) 인쇄: 각서 미첨부 표시 · 방염집기 한 곳이 한 쪽(집기사진 + 방염서류)');
+  const xpl = p.locator('.whsec').nth(2);
+  ok(await xpl.locator('.whpc').count() === 1 && await xpl.locator('.whg > .whadd').count() === 1 && await xpl.locator('.whplus').count() === 0 && await p.locator('.whf input[multiple]').count() === 0, 'W10a) 각서: 1칸 + 오른쪽 ＋ 칸 · 파일 버튼은 한 장씩(여러 장 고르기 없음)');
+  await xpl.locator('.whadd').click(); ok(await xpl.locator('.whpc').count() === 2, 'W10b) 각서 ＋ 칸 누르면 2칸');
+  await p.click('button >> text=/매장 추가/'); const xst = p.locator('.whst').first();
+  ok(await xst.locator('.whpc').count() === 2 && (await xst.locator('.whpc h4').allInnerTexts()).join() === '가스누설경보기,주방전경' && /2 \/ 10/.test(await xst.locator('.whadd').innerText()), 'W10c) 식당가 점검: 매장 추가 → 매장명 칸 · 가스누설경보기·주방전경 2칸 · 오른쪽 ＋ 칸');
+  for (let i = 0; i < 8; i++) await xst.locator('.whadd').click();
+  ok(await xst.locator('.whpc').count() === 10 && await xst.locator('.whadd').count() === 0, 'W10d) 매장 ＋ 칸: 10칸에서 사라짐');
+  await xst.locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('g1')]); await p.waitForFunction(() => S.wh.n.f.rest[0].pics[0]);
+  const xs1 = count('ws_dn_save'); await p.evaluate(() => whSave());
+  ok(count('ws_dn_save') === xs1 && await toast('매장 1: 매장명을 넣어 주세요'), 'W10e) 매장명 없으면 저장 막음');
+  await xst.locator('.whsh input').fill('스시 OO'); await p.evaluate(() => whSave());
+  ok(count('ws_dn_save') === xs1 && await toast('매장 1: 주방전경 사진을 넣어 주세요'), 'W10f) 주방전경 사진 없으면 저장 막음');
+  await xst.locator('.whpc').nth(1).locator('input[type=file]').nth(1).setInputFiles([xjf('k1')]); await p.waitForFunction(() => S.wh.n.f.rest[0].pics[1]);
+  await p.click('button >> text=/매장 추가/'); ok(await p.locator('.whst').count() === 2, 'W10g) 매장 2곳 (빈 매장은 저장 때 빠짐)');
+  await p.locator('.whsec').nth(2).screenshot({ path: path.join(__dirname, 'shot_sb_wh_pledge.png') }); await p.locator('.whrest').screenshot({ path: path.join(__dirname, 'shot_sb_wh_rest.png') });
+  ok(await p.evaluate(() => whPages('n').split('class="pg"').length - 1) === 4 && /가스누설경보기/.test(await p.evaluate(() => whPages('n'))), 'W10h) 인쇄: 매장 1곳 = 1쪽 더함 · 사진 이름표');
   const xnn = UPLOADS.length; await p.click('#whBar .btn.pri'); await p.waitForFunction(() => !S.wh.n.busy && S.wh.n.list.length === 1);
   const xna = last('ws_dn_save').a.p_d, xnup = UPLOADS.slice(xnn);
-  ok(xnup.length === 7 && xnup.every(u => /^dw_photo\//.test(u.p)) && xna.co === 'OO인테리어' && xna.floor === '3F' && xna.photos.length === 5 && xna.fire.length === 2 && xna.pledge.length === 0, 'W11) 야간 저장: 현장 5 · 방염집기 사진 2(집기+서류) · 각서 0 → 버킷 dw_photo/ 에 7장');
-  ok(/각서 없음/.test(await p.locator('.whrow').first().innerText()) && !/방염집기 없음/.test(await p.locator('.whrow').first().innerText()), 'W12) 목록에 「각서 없음」 표시');
+  ok(xnup.length === 9 && xnup.every(u => /^dw_photo\//.test(u.p)) && xna.co === 'OO인테리어' && xna.floor === '3F' && xna.photos.length === 5 && xna.fire.length === 2 && xna.pledge.length === 0 && xna.rest.length === 1 && xna.rest[0].name === '스시 OO' && xna.rest[0].pics.length === 2, 'W11) 야간 저장: 현장 5 · 방염집기 2 · 각서 0 · 식당가 1곳 2장 → 버킷 dw_photo/ 에 9장');
+  ok(!/각서 없음/.test(await p.locator('.whrow').first().innerText()) && /식당가 1곳/.test(await p.locator('.whrow').first().innerText()), 'W12) 목록: 「각서 없음」 표시 없음 · 식당가 1곳');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_wh_night.png'), fullPage: true });
   await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.n.f.id);
   await p.locator('.whsec').nth(2).locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('p1')]);
