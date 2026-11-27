@@ -1,4 +1,4 @@
-// 지도 바닥 채우기 시험 (결정 334·346): 매장 모양 따라(사선) · 1~5px 틈 무시 · 변 끄기 · 간격 칸 · 여러 바닥 · 가로지름 거부 · 외벽 멈춤
+// 지도 바닥 채우기 시험 (결정 334·348): 매장 모양 따라(사선) · 1~5px 틈 무시 · 변 끄기 · 간격 칸 · 여러 바닥 · 가로지름 거부 · 외벽 멈춤
 // 실행: node test/sb_map_floor_fill_test.js
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -170,7 +170,7 @@ async function open(b, opts) {
   ok(lb && JSON.stringify(lb.long.lines) === '["유모차","대여소"]' && lb.long.name === '유모차 대여소' && lb.long.inside && Math.abs(lb.long.cx - 10850) <= 2, '8) 넘치는 매장 이름은 「유모차 / 대여소」 두 줄 · 도형 안 가운데 ' + JSON.stringify(lb && lb.long));
   ok(lb && JSON.stringify(lb.back.lines) === '["매장E"]' && lb.back.x === lb.before.x && lb.back.anchor === lb.before.anchor && !lb.back.name, '8-1) 짧은 이름으로 바꾸면 도면 원래 자리·한 줄 ' + JSON.stringify(lb && lb.back));
 
-  // 9) 잠긴 외벽: 점 안 찍힘 · 취소/Esc/완료는 점만 지움(먹통 없음) · 그리던 중 종류 바꾸면 점 지움 (결정 344)
+  // 9) 잠긴 외벽: 점 안 찍힘 · 취소/Esc/완료는 점만 지움(먹통 없음) · 그리던 중 종류 바꾸면 점 지움 (결정 346)
   await f.evaluate(() => { focusStoreAt(10350, 4300); onLayerLockChange('wall', true); if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('wall'); });
   await p.waitForTimeout(1700);
   await click(10300, 4300);
