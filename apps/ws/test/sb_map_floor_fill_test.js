@@ -133,6 +133,24 @@ async function open(b, opts) {
   await f.evaluate(() => { toggleFloorFill(true); exitAddZoneMode(); });
   ok(await f.evaluate(() => !ffOn), '6-2) 구역 그리기를 끝내면 바닥 채우기도 꺼짐');
 
+  // 8) 업체 도면 매장 이름이 도형(매장E 폭 100)을 넘치면 줄 나눔 · 짧으면 원래대로 (결정 338)
+  const lb = await f.evaluate(() => {
+    const s = currentStores.find(q => !q.isCustom && q.textElement && /매장E/.test(q.textElement.textContent));
+    if (!s) return null;
+    const t = s.textElement, before = { x: t.querySelector('tspan').getAttribute('x'), anchor: t.getAttribute('text-anchor') };
+    fitOrigLabel(t, '유모차 대여소', s.polygonElement);
+    const pb = s.polygonElement.getBBox(), tb = t.getBBox();
+    const long = { lines: [...t.querySelectorAll('tspan')].map(x => x.textContent), name: t.dataset.lblName, inside: tb.x >= pb.x - 0.5 && tb.x + tb.width <= pb.x + pb.width + 0.5, cx: Math.round(tb.x + tb.width / 2) };
+    fitOrigLabel(t, '매장E', s.polygonElement);
+    const back = { lines: [...t.querySelectorAll('tspan')].map(x => x.textContent), x: t.querySelector('tspan').getAttribute('x'), anchor: t.getAttribute('text-anchor'), name: t.dataset.lblName };
+    return { long, back, before };
+  });
+  ok(lb && JSON.stringify(lb.long.lines) === '["유모차","대여소"]' && lb.long.name === '유모차 대여소' && lb.long.inside && Math.abs(lb.long.cx - 10850) <= 2, '8) 넘치는 매장 이름은 「유모차 / 대여소」 두 줄 · 도형 안 가운데 ' + JSON.stringify(lb && lb.long));
+  ok(lb && JSON.stringify(lb.back.lines) === '["매장E"]' && lb.back.x === lb.before.x && lb.back.anchor === lb.before.anchor && !lb.back.name, '8-1) 짧은 이름으로 바꾸면 도면 원래 자리·한 줄 ' + JSON.stringify(lb && lb.back));
+
+  await f.evaluate(() => { const s = currentStores.find(q => !q.isCustom && q.textElement && /매장E/.test(q.textElement.textContent)); fitOrigLabel(s.textElement, '유모차 대여소', s.polygonElement); focusStoreAt(10850, 5230); });
+  await p.waitForTimeout(300); await shot(p, 'shot_map_label_wrap.png');
+
   ok(!p.errs.length, '7) 화면 오류 없음 ' + p.errs.join('|'));
   await b.close(); srv.close();
   console.log(fail ? `실패 ${fail}건` : '지도 바닥 채우기 시험 통과');
