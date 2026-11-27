@@ -142,10 +142,10 @@ const RPC = {
     if (old) WN[WN.indexOf(old)] = item; else WN.push(item); return { ok: true, item };
   },
   ws_dn_delete: a => { WN.splice(WN.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
-  ws_hj_list: a => ({ ok: true, list: HJ.filter(x => !a.p_q || JSON.stringify(x).indexOf(a.p_q) !== -1) }),
+  ws_hj_list: a => ({ ok: true, list: HJ.filter(x => (!a.p_q || JSON.stringify(x).indexOf(a.p_q) !== -1) && (!a.p_to || x.day === a.p_to)) }),
   ws_hj_save: a => {
     const d = a.p_d, one = (x, old) => x && x.file ? { id: 'F' + (++WF), src: x.file.url } : x && x.id && old && old.id === x.id ? old : null, old = HJ.find(x => x.id === d.id);
-    const item = { id: d.id || 'WS-HJ-' + (HJ.length + 1), day: d.day, due: new Date(Date.parse(d.day) + 10 * 864e5).toISOString().slice(0, 10), items: d.items.map((x, i) => ({ n: x.n, t: x.t, photo: one(x.photo, old && old.items[i] && old.items[i].photo) })),
+    const item = { id: d.id || 'WS-HJ-' + (HJ.length + 1), day: d.day, due: new Date(Date.parse(d.day) + 10 * 864e5).toISOString().slice(0, 10), items: d.items.map((x, i) => ({ k: x.k, n: x.n, t: x.t, photo: one(x.photo, old && old.items.find(y => y.k === x.k) && old.items.find(y => y.k === x.k).photo) })),
       signSite: one(d.signSite, old && old.signSite), signFm: one(d.signFm, old && old.signFm), by: ME.name, at: '11/25 10:00' };
     if (old) HJ[HJ.indexOf(old)] = item; else HJ.push(item); return { ok: true, item };
   },
@@ -625,7 +625,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   WD.length = 0;
   // ── 하자점검 (결정 266) ──
   await p.evaluate(() => go('inspect'));
-  ok(/하자점검/.test(await p.locator('.wrap.list .row').last().innerText()), 'H0) 점검 그룹 맨 아래에 「하자점검」');
+  ok(/매장 하자 점검/.test(await p.locator('.wrap.list .row').last().innerText()), 'H0) 점검 그룹 맨 아래에 「매장 하자 점검」');
   await p.evaluate(() => openDf()); await p.waitForFunction(() => S.df && S.df.list);
   ok(await p.locator('.dfc').count() === 1 && await p.locator('.dfplus').count() === 1 && await p.locator('.dfc .dfcam input[type=file]').count() === 1 && await p.locator('.dfc .whbs input[type=file]').count() === 1 && !/사진 없음/.test(await p.locator('.dfc').innerText()), 'H1) 하자 칸 1개 + 「+」 · 현장명·하자내용 · 카메라(사진 자리 한가운데)·파일 · 「사진 없음」 글자 없음');
   const hbar = await p.locator('#dfBar .btn').allInnerTexts();
@@ -634,7 +634,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.locator('.dfc').first().locator('input[type=file]').nth(1).setInputFiles([xjf('h1')]);
   await p.waitForFunction(() => S.df.f.items[0].photo);
   ok(await p.locator('.dfc').first().locator('.dfph img').count() === 1 && await p.locator('.dfc').first().locator('.dfcam').count() === 0, 'H3) 사진을 넣으면 사진 칸에 사진이 붙음');
-  await p.click('.dfplus'); await p.click('.dfplus');
+  await p.click('.dfplus'); await p.waitForFunction(() => S.df.f.items.length === 2); await p.click('.dfplus'); await p.waitForFunction(() => S.df.f.items.length === 3);
   const hnm = await p.evaluate(() => S.df.f.items.map(x => x.n).join('|'));
   ok(hnm === 'B1 기계실|B1 기계실 2|B1 기계실 3', 'H4) 「+」 → 새 칸 현장명 = 첫 칸 현장명 + 순서 숫자 ' + hnm);
   await p.locator('.dfc').nth(1).locator('textarea').fill('배관 보온재 탈락');
@@ -644,24 +644,24 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const hc2 = await p.evaluate(() => getComputedStyle(document.querySelector('.dfg')).gridTemplateColumns.split(' ').length);
   await p.setViewportSize(hvp);
   ok(hc1 === 2 && hc2 === 4, 'H5) 휴대폰 2열 · PC 4열 (' + hc1 + ' · ' + hc2 + ')');
-  for (const key of ['signSite', 'signFm']) {
-    await p.locator('.dfsb').nth(key === 'signSite' ? 0 : 1).click(); await p.locator('#dfsp').waitFor();
+  for (const key of ['signSite']) {
+    await p.locator('.dfsb').nth(0).click(); await p.locator('#dfsp').waitFor();
     const bx = await p.locator('#dfsp canvas.i').boundingBox();
     await p.mouse.move(bx.x + 20, bx.y + 40); await p.mouse.down(); for (let i = 0; i < 14; i++) await p.mouse.move(bx.x + 20 + i * 18, bx.y + (i % 2 ? 140 : 40)); await p.mouse.up();
     await p.click('.dialog .btn.pri'); await p.waitForFunction(k => S.df.f[k] && S.df.f[k].data, key);
   }
-  ok(await p.locator('.dfsb img').count() === 2 && await p.evaluate(() => /^data:image\/png/.test(S.df.f.signSite.data) && /^data:image\/png/.test(S.df.f.signFm.data)), 'H6) 서명 2개: 눌러서 손글씨 창 → 확인하면 서명 칸에 그림');
+  ok(await p.locator('.dfsb').count() === 1 && await p.locator('.dfsb img').count() === 1 && await p.evaluate(() => /^data:image\/png/.test(S.df.f.signSite.data)) && !/시설팀 서명/.test(await p.locator('.dfsgs').innerText()), 'H6) 서명은 현장책임자 1개 (시설팀 서명란 없음): 눌러서 손글씨 창 → 확인하면 서명 칸에 그림');
   await p.locator('.dfsb').first().click(); await p.locator('#dfsp').waitFor(); await p.click('.dialog .btn.pri');
   ok(await p.locator('#dfsm').innerText().then(x => /너무 짧/.test(x)), 'H7) 서명 안 쓰고 확인 → 막고 안내'); await p.click('.dialog .btn >> text="취소"');
   await p.evaluate(() => dfPrint()); await new Promise(r => setTimeout(r, 400));
   const hpr = await p.evaluate(() => { const t = $('print'), due = dfDue(S.df.f.day); return { pg: t.querySelectorAll('.pg').length, cells: t.querySelectorAll('.cell').length, cols: /repeat\(4,/.test(t.querySelector('.gr').getAttribute('style')) ? 4 : 0, tx: t.innerText, due, sg: t.querySelectorAll('.sgb img').length, trs: t.querySelectorAll('tr').length }; });
-  ok(hpr.pg === 1 && hpr.cells === 3 && hpr.cols === 4 && hpr.trs === 4 && /위 하자 내용을 확인했으며 기한 내 처리하겠습니다\./.test(hpr.tx) && hpr.tx.indexOf(hpr.due.slice(0, 4) + '년 ' + Number(hpr.due.slice(5, 7)) + '월 ' + Number(hpr.due.slice(8)) + '일') !== -1 && hpr.sg === 2 && /현장책임자/.test(hpr.tx) && /시설팀/.test(hpr.tx), 'H8) 인쇄: 1쪽 · 사진 4열 · 하자내용 표 · 확인 문구 · 처리 기한(작성일 +10일) · 서명 2칸 ' + JSON.stringify(hpr).slice(0, 160));
+  ok(hpr.pg === 1 && hpr.cells === 3 && hpr.cols === 4 && hpr.trs === 4 && /위 하자 내용을 확인했으며 기한 내 처리하겠습니다\./.test(hpr.tx) && hpr.tx.indexOf(hpr.due.slice(0, 4) + '년 ' + Number(hpr.due.slice(5, 7)) + '월 ' + Number(hpr.due.slice(8)) + '일') !== -1 && hpr.sg === 1 && /현장책임자/.test(hpr.tx) && !/시설팀 \(서명\)/.test(hpr.tx), 'H8) 인쇄: 1쪽 · 사진 4열 · 하자내용 표 · 확인 문구 · 처리 기한(작성일 +10일) · 서명 1칸(현장책임자) ' + JSON.stringify(hpr).slice(0, 160));
   ok(await p.evaluate(() => dfDue('2026-11-25') === '2026-12-05' && dfDue('2026-12-25') === '2027-01-04'), 'H9) 처리 기한 = 작성일 + 10일 (달·해 넘김)');
   await p.evaluate(() => { window.html2pdf = function () { const o = { set() { return o; }, from() { return o; }, outputPdf() { return Promise.resolve(new Blob(['%PDF-1.4 ' + 'x'.repeat(300)], { type: 'application/pdf' })); } }; return o; }; });
   const hs0 = count('ws_hj_save'), hu0 = UPLOADS.length;
   await p.click('#dfPdfB'); await p.waitForFunction(() => S.view === 'pdf');
   const hsa = last('ws_hj_save').a.p_d, hup = UPLOADS.slice(hu0);
-  ok(count('ws_hj_save') === hs0 + 1 && hup.length === 3 && hup.filter(u => /\.png$/.test(u.p)).length === 2 && hsa.items.length === 3 && hsa.items[0].photo.file && hsa.signSite.file && hsa.signFm.file && !('data' in hsa.items[0].photo), 'H10) PDF 생성 → 먼저 자동 저장 (사진 1·서명 2 파일로 올리고 주소만 넘김) → PDF 화면');
+  ok(count('ws_hj_save') === hs0 + 1 && hup.length === 2 && hup.filter(u => /\.png$/.test(u.p)).length === 1 && hsa.items.length === 3 && hsa.items[0].photo.file && hsa.signSite.file && !('signFm' in hsa) && !('data' in hsa.items[0].photo), 'H10) PDF 생성 → 먼저 자동 저장 (사진 1·서명 1 파일로 올리고 주소만 넘김) → PDF 화면');
   await p.evaluate(() => back()); await p.waitForFunction(() => S.view === 'df');
   ok(/PDF 보기/.test(await p.locator('#dfPdfB').innerText()) && await p.evaluate(() => !!S.df.f.id && !S.df.dirty) && /저장됨/.test(await p.locator('#dfState').innerText()), 'H11) 돌아오면 버튼이 「PDF 보기」 · 「저장됨」');
   const hs1 = count('ws_hj_save'); await p.click('#dfPdfB'); await p.waitForFunction(() => S.view === 'pdf'); await p.evaluate(() => back()); await p.waitForFunction(() => S.view === 'df');
@@ -690,6 +690,18 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   ok(count('ws_hj_save') === hd1 && !!dl2.suggestedFilename(), 'H20) 이미 만든 PDF 는 다시 만들지 않고 바로 내려받음');
   await p.evaluate(() => { go('inspect'); }); await p.evaluate(() => openDf()); await p.waitForFunction(() => S.view === 'df' && S.df.list);
   ok(await p.evaluate(() => !S.df.f.id && !S.df.dirty) && await p.locator('.dfc').count() === 1 && await p.locator('.dfact').count() === 0, 'H25) 하자점검 메뉴를 다시 누르면 빈 양식 (전에 열었던 점검서 안 남음)');
+  // 여러 직원 합치기 (결정 340): 다른 직원이 같은 날·같은 매장(국밥집)을 먼저 저장해 둠
+  const hday = await p.evaluate(() => S.df.f.day);
+  HJ.push({ id: 'WS-HJ-9', day: hday, due: hday, items: [{ k: 'o1', n: '국밥집', t: '문 틀어짐', photo: null }, { k: 'o2', n: '국밥집 2', t: '타일 깨짐', photo: null }], signSite: null, signFm: null, by: '남', at: '' });
+  await p.locator('.dfc').first().locator('input.inp').fill('국밥집'); await p.locator('.dfc').first().locator('textarea').fill('조명 고장');
+  await p.click('.dfplus'); await p.waitForFunction(() => S.df.f.items.length === 4);
+  const hm = await p.evaluate(() => ({ id: S.df.f.id, n: S.df.f.items.map(x => x.n + ':' + x.t).join('|') }));
+  ok(hm.id === 'WS-HJ-9' && hm.n === '국밥집:문 틀어짐|국밥집 2:타일 깨짐|국밥집 3:조명 고장|국밥집 4:', 'H26) 「＋」 → 다른 직원 칸을 불러와 합치고, 내 칸·새 칸은 현장명 숫자를 이어 붙임 ' + hm.n);
+  HJ[HJ.length - 1].items.push({ k: 'o3', n: '국밥집 5', t: '누수', photo: null });   // 그사이 다른 직원이 또 저장
+  await p.locator('.dfc').nth(3).locator('textarea').fill('도어 고장'); await p.click('#dfBar .btn.pri'); await p.waitForFunction(() => !S.df.busy && !S.df.f.id);
+  const hsv = last('ws_hj_save').a.p_d;
+  ok(hsv.id === 'WS-HJ-9' && hsv.items.map(x => x.n).join('|') === '국밥집|국밥집 2|국밥집 5|국밥집 3|국밥집 4' && hsv.items.every(x => x.k), 'H27) 저장 직전에도 합침 → 남이 그사이 넣은 칸도 지우지 않음 ' + hsv.items.map(x => x.n).join('|'));
+  HJ.splice(HJ.findIndex(x => x.id === 'WS-HJ-9'), 1); await p.evaluate(() => dfLoad()); await p.waitForFunction(() => S.df.list.length === 1);
   await p.locator('.whrow').click(); await p.waitForFunction(() => S.df.f.id);
   await p.click('.whdel'); await p.waitForFunction(() => !S.df.f.id && S.df.list.length === 0);
   ok(HJ.length === 0 && count('ws_hj_delete') === 1, 'H15) 삭제 (되묻기 뒤) → 목록에서 사라짐');

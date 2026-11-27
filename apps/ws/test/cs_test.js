@@ -21,7 +21,7 @@ const run = (fn, ...args) => fetch('http://localhost:8123/run', { method: 'POST'
     for (const k of pin) await p.click(`.key:text-is("${k}")`);
     await p.waitForSelector('.grid6'); await p.click('.tile:has(b:text-is("점검"))'); await p.waitForSelector('text=공사장 점검');
     if (pin === '4321') {
-      ok(await p.locator('.row').count() === 5 && /하자점검/.test(await p.locator('.row').last().innerText()) && !(await p.locator('text=일일 점검').count()) && !(await p.locator('text=월간 점검').count()), '점검 메뉴: 소화기·전열필증·열화상 리포트 자동 작성·공사장·하자점검(맨 아래) 5개 (일일·월간 없음)');
+      ok(await p.locator('.row').count() === 5 && /매장 하자 점검/.test(await p.locator('.row').last().innerText()) && !(await p.locator('text=일일 점검').count()) && !(await p.locator('text=월간 점검').count()), '점검 메뉴: 소화기·전열필증·열화상 리포트 자동 작성·공사장·매장 하자 점검(맨 아래) 5개 (일일·월간 없음)');
       const th = await p.evaluate(() => { const r = [...document.querySelectorAll('.row')]; const i = r.findIndex(x => /열화상 리포트 자동 작성/.test(x.textContent)); return { i, off: i >= 0 && r[i].disabled, role: S.user.role }; });
       ok(th.i === 2 && th.off === false, '결정212: 열화상 리포트 자동 작성은 전열필증 아래, 모든 직원에게 켜짐 (' + th.role + ')');
     }
