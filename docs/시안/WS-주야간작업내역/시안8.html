@@ -1,0 +1,72 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>야간 식당가 점검 탭 시안 8</title><style>
+body{margin:0;padding:20px;background:#E9EDF2;font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#1B2430;font-size:14px}
+h2{margin:0 0 6px;font-size:16px}.note{font-size:12.5px;color:#5B6573;line-height:1.6;margin:0 0 12px;max-width:1300px}
+.wrap{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}.frame{background:#fff;border:1px solid #D8DDE5;border-radius:10px;padding:14px}.m{width:360px}.pc{width:900px}
+.lab{font-size:12px;color:#5B6573;margin:0 0 6px;font-weight:700}
+.tabs{display:flex;border:1px solid #D8DDE5;border-radius:10px;overflow:hidden;margin-bottom:12px}.tabs span{flex:1;text-align:center;padding:9px 2px;font-size:13px;font-weight:600;color:#5B6573;background:#F6F8FB;white-space:nowrap}.tabs span+span{border-left:1px solid #D8DDE5}.tabs .on{background:#14284B;color:#fff}
+.sec{font-size:13px;font-weight:700;color:#14284B;margin:14px 0 6px}.sec small{font-weight:400;color:#8A94A3;margin-left:6px}
+.rl{font-size:12.5px;font-weight:700;color:#5B6573;margin:10px 0 4px}.rl:first-child{margin-top:0}
+.inp{height:36px;border:1px solid #D8DDE5;border-radius:8px;display:flex;align-items:center;padding:0 10px;font-size:13px}
+.txt{border:1px solid #D8DDE5;border-radius:8px;height:50px;padding:8px;color:#8A94A3;font-size:12.5px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.card{border:1px solid #D8DDE5;border-radius:8px;padding:8px;min-width:0}.card h4{margin:0 0 4px;font-size:13px;color:#14284B}
+.tile{position:relative;aspect-ratio:4/3;background:#F1F4F8;border:1px solid #D8DDE5;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tile .ph{width:100%;height:100%;background:linear-gradient(135deg,#9db1c9,#6f86a3)}.tile .ph.b{background:linear-gradient(135deg,#c9b89d,#a3866f)}.tile .ph.c{background:linear-gradient(135deg,#a9c9a0,#6fa37a)}
+.tile .x{position:absolute;top:4px;right:4px;width:22px;height:22px;border:1px solid #D8DDE5;border-radius:6px;background:#fff;text-align:center;line-height:20px;font-size:12px}
+.bs{display:flex;gap:4px;margin-top:5px}.bs span{flex:1;height:34px;border:1px solid #D8DDE5;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12.5px;background:#fff}
+.cam{width:62%;height:34px;border:1px solid #D8DDE5;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12.5px;background:#fff}
+.plus{border:1.5px dashed #1F5FA8;border-radius:8px;color:#1F5FA8;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;font-size:13px;min-height:150px;gap:4px}
+.plus b{font-size:26px;line-height:1}.plus small{font-weight:400;font-size:11.5px}
+.hl{outline:3px solid #F2B705;outline-offset:2px}
+.pick{border:1px solid #C9D3E0;border-radius:10px;background:#FAFBFD;padding:10px;margin-top:10px;font-size:12px;color:#5B6573;line-height:1.6}
+.pick b{color:#14284B}
+.row{border:1px solid #D8DDE5;border-radius:8px;padding:8px 10px;margin-top:6px;font-size:12.5px}.row b{display:block;color:#14284B}.row small{color:#8A94A3}
+.srch{display:flex;gap:6px;margin-top:14px}.srch .inp{flex:1;color:#8A94A3}.btn{height:36px;padding:0 12px;border:1px solid #D8DDE5;border-radius:8px;display:flex;align-items:center;font-size:12.5px;background:#fff;white-space:nowrap}.btn.pri{background:#14284B;color:#fff;border-color:#14284B}
+.tag{display:inline-block;background:#FFF4D6;padding:1px 6px;border-radius:4px;font-size:11.5px}
+.gone{border:1.5px dashed #C0392B;border-radius:8px;padding:8px;color:#C0392B;font-size:12px;margin-top:10px;text-decoration:line-through}
+</style></head><body>
+<h2>「야간 식당가 점검」을 세 번째 탭으로 (시안 8)</h2>
+<p class="note">탭: <b>주간작업 · 야간작업 · 야간 식당가 점검</b>. 야간작업 탭에서는 식당가 점검 칸이 빠집니다.<br>
+식당가 점검 탭: <b>매장명 입력 칸 · 「매장 1」 머리 · 매장 빼기 · ＋매장 추가</b>를 없애고, 사진 칸 묶음 하나만 둡니다. 사진 칸 이름은 「가스누설경보기 · 주방전경」 대신 <b>사진 1, 사진 2 …</b>. 처음 2칸, 「사진 칸 추가」로 <b>30칸</b>까지.<br>
+<b>[파일]</b>을 누르면 사진을 <b>여러 장 한꺼번에</b> 고를 수 있고, 누른 칸부터 빈 칸에 차례로 들어갑니다 (칸이 모자라면 30칸까지 저절로 늘어남). [카메라]는 지금처럼 한 장씩.<br>
+일자 · 기타사항을 적고 저장 → 아래 목록(월 → 주 → 일)에서 다시 열어 고침. 인쇄 A4 / PDF 보기는 사진만 모아 쪽을 만듭니다.<br>
+<span class="tag">참고</span> 기록을 따로 두려면 Supabase(자료 창고)에 새 표를 하나 만들어야 합니다 (SQL 한 번 실행). 이미 야간작업에 넣어 둔 식당가 사진은 그 야간작업 인쇄에 그대로 남습니다.</p>
+<div class="wrap">
+<div class="frame m"><p class="lab">휴대폰 — 야간 식당가 점검 탭</p>
+<div class="tabs"><span>주간작업</span><span>야간작업</span><span class="on">야간 식당가 점검</span></div>
+<div class="rl">일자</div><div class="inp">2026-11-28</div>
+<div class="sec">식당가 점검 사진 <small>3장 / 30장</small></div>
+<div class="g2">
+<div class="card"><h4>사진 1</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="card"><h4>사진 2</h4><div class="tile"><div class="ph b"></div><span class="x">✕</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="card"><h4>사진 3</h4><div class="tile"><div class="ph c"></div><span class="x">✕</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="card"><h4>사진 4</h4><div class="tile"><span class="cam">📷 카메라</span></div><div class="bs"><span class="hl">📁 파일</span></div></div>
+<div class="plus"><b>＋</b>사진 칸 추가<small>(4 / 30)</small></div>
+</div>
+<div class="pick"><b>📁 파일 → 여러 장 고르기</b><br>예: 사진 4의 [파일]에서 6장을 고르면 사진 4 ~ 9에 차례로 들어가고 칸도 9칸으로 늘어납니다.</div>
+<div class="rl">기타사항</div><div class="txt">예: 3층 OO식당 경보기 점검등 꺼짐</div>
+<div class="srch"><div class="inp">일자 · 기타사항</div><span class="btn pri">검색하기</span><span class="btn">신규작성</span></div>
+<div class="row"><b>11/27 · 사진 12장</b><small>3층 OO식당 경보기 점검등 꺼짐</small></div>
+<div class="row"><b>11/26 · 사진 9장</b><small>이상 없음</small></div>
+<p class="lab" style="margin-top:20px">휴대폰 — 야간작업 탭 (아래쪽)</p>
+<div class="sec">각서 <small>1장 / 20장</small></div><div style="font-size:12px;color:#8A94A3">… 지금과 같음</div>
+<div class="gone">식당가 점검 (매장 1 · 매장명 · 가스누설경보기 · 주방전경 · 매장 추가) — 이 탭에서 빠짐</div>
+<div class="rl">기타사항</div><div class="txt"></div>
+</div>
+<div class="frame pc"><p class="lab">PC — 야간 식당가 점검 탭</p>
+<div class="tabs"><span>주간작업</span><span>야간작업</span><span class="on">야간 식당가 점검</span></div>
+<div class="rl">일자</div><div class="inp" style="width:220px">2026-11-28</div>
+<div class="sec">식당가 점검 사진 <small>5장 / 30장</small></div>
+<div class="g4">
+<div class="card"><h4>사진 1</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="card"><h4>사진 2</h4><div class="tile"><div class="ph b"></div><span class="x">✕</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="card"><h4>사진 3</h4><div class="tile"><div class="ph c"></div><span class="x">✕</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="card"><h4>사진 4</h4><div class="tile"><div class="ph"></div><span class="x">✕</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="card"><h4>사진 5</h4><div class="tile"><div class="ph b"></div><span class="x">✕</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="card"><h4>사진 6</h4><div class="tile"><span class="cam">📷 카메라</span></div><div class="bs"><span>📁 파일</span></div></div>
+<div class="plus"><b>＋</b>사진 칸 추가<small>(6 / 30)</small></div>
+</div>
+<div class="rl">기타사항</div><div class="txt">예: 3층 OO식당 경보기 점검등 꺼짐</div>
+<div class="srch"><div class="inp">일자 · 기타사항</div><span class="btn pri">검색하기</span><span class="btn">신규작성</span></div>
+<div class="row"><b>11/27 · 사진 12장</b><small>3층 OO식당 경보기 점검등 꺼짐</small></div>
+</div></div></body></html>
