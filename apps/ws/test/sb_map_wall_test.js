@@ -11,7 +11,10 @@ const exp = Date.now() + 3600e3, TOK = 'S001.' + exp + '.boss';
 const room = (id, name, x, y) => `<path id="${id}" d="M${x - 150} ${y - 100}h300v200h-300z" fill="#dfe7f0" ds-x="${x}" ds-y="${y}" ds-width="300" ds-height="200"/><text x="${x}" y="${y}"><tspan>${name}</tspan></text>`;
 // 곡선 매장: 오른쪽 위가 반지름 100 둥근 모서리 (가운데 10400,4300)
 const CURVE = '<path id="c" d="M10200 4200 L10400 4200 A100 100 0 0 1 10500 4300 L10500 4500 L10200 4500 Z" fill="#dfe7f0" ds-x="10350" ds-y="4350" ds-width="300" ds-height="300"/><text x="10350" y="4350"><tspan>곡선</tspan></text>';
-const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="9280 3880 1950 2080" width="1950" height="2080"><g>${room('a', '아그라', 9600, 4200)}${CURVE}</g></svg>`;
+// 업체 건물 외곽선: 가운데 10800,4500 반지름 300 사분원을 8마디 직선으로 (곡선 매장 오른쪽 아래 모서리 10500,4500 에서 시작)
+const ARC = Array.from({ length: 9 }, (_, i) => { const a = Math.PI - Math.PI / 2 * i / 8; return [10800 + 300 * Math.cos(a), 4500 + 300 * Math.sin(a)].map(v => v.toFixed(3)).join(' '); });
+const VENDOR = `<path class="building-exterior-wall" d="M${ARC.join(' L')}" fill="none" stroke="#334155"/>`;
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="9280 3880 1950 2080" width="1950" height="2080"><g>${room('a', '아그라', 9600, 4200)}${CURVE}${VENDOR}</g></svg>`;
 const RPC = {
   ws_bootstrap() { return { ok: true, user: { staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, toastSec: 2.6, needSign: false, docs: { signs: 0 }, fire: { counts: { ok: 0, bad: 0, wait: 0, miss: 0, total: 0 } } }; },
   ws_map_load() { return { ok: true, kv: {}, vers: {}, bases: {}, canEdit: true, isBoss: true, canRestore: true, urls: { avenuel: Object.fromEntries(['6F', '5F', '4F', '3F', '2F', '1F', 'B1'].map(f => [f, 'http://localhost:' + PORT + '/floor.svg'])), dept: {}, castle: {} } }; },
@@ -109,7 +112,7 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   const fit = await f.evaluate(id => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor'); return { fx: Math.max(...z.flatMap(q => q.points.map(p => p.x))), left: shapesOutsideWall().length, cs: getCustomStores(FLOORS[currentFloorIdx].code).find(c => c.name === '밖매장').pathData }; }, outStore);
   const sb = await bboxOf(f, outStore);
   ok(Math.abs(fit.fx - 11195) < 0.6 && fit.left === 0, '4-2) 「안쪽으로 맞추기」: 바닥은 외벽 안쪽 5px 까지 ' + JSON.stringify(fit));
-  ok(Math.abs(sb.x1 - 11200) < 0.6 && /11200/.test(fit.cs), '4-3) 매장은 외벽선까지 (저장도 됨) ' + JSON.stringify(sb));
+  ok(Math.abs(sb.x1 - 11198) < 0.6 && /11198/.test(fit.cs), '4-3) 매장은 외벽선 안쪽 2px 까지 (저장도 됨, 결정 318) ' + JSON.stringify(sb));
 
   // 5) 닫힌 외벽 밖으로 그리면 자름: 바닥 5px · 방화구역 면 · 제연구획 선 · 매장
   const fl5 = await zone(f, 'floor', [{ x: 10900, y: 4800 }, { x: 11400, y: 4800 }, { x: 11400, y: 4900 }, { x: 10900, y: 4900 }]);
@@ -168,8 +171,13 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   q = await scr(10300, 4200); await p.mouse.click(q.x, q.y); await p.waitForTimeout(80);
   q = await scr(10500, 4420); await p.mouse.click(q.x, q.y); await p.waitForTimeout(80);
   const cv = await f.evaluate(() => drawingZonePoints.map(p => [p.x, p.y]));
-  const onArc = cv.slice(1, -1).filter(([x, y]) => x > 10400 && y < 4300 && Math.abs(Math.hypot(x - 10400, y - 4300) - 100) < 1.5).length;
-  ok(onArc >= 3, `9-2) 곡선 모서리는 같은 곡률로 따라감 (호 위 점 ${onArc}개, 전체 ${cv.length})`);
+  const onArc = cv.slice(1, -1).filter(([x, y]) => x > 10400 && y < 4300 && Math.abs(Math.hypot(x - 10400, y - 4300) - 100) < 0.05).length;
+  const arcGap = Math.max(...cv.slice(1, -2).map(([x, y], i) => Math.hypot(cv[i + 2][0] - x, cv[i + 2][1] - y)));
+  ok(onArc >= 500 && arcGap <= 0.3, `9-2) 곡선 모서리는 0.25 간격 점으로 같은 곡률 (호 위 점 ${onArc}개, 가장 넓은 간격 ${arcGap.toFixed(3)}, 결정 318)`);
+  const tFlag = await f.evaluate(() => ({ first: !drawingZonePoints[0].t, last: !drawingZonePoints[drawingZonePoints.length - 1].t, mid: drawingZonePoints.slice(1, -1).every(p => p.t) }));
+  ok(tFlag.first && tFlag.last && tFlag.mid, '9-2-1) 따라간 점은 「따라감」 표시, 찍은 점은 그대로 ' + JSON.stringify(tFlag));
+  const simp = await f.evaluate(() => { const r = wallSimplify(drawingZonePoints, WALL_SIMPLIFY_TOL), t0 = performance.now(); polygonClipping.difference([r.map(p => [p.x, p.y])], polygonClipping.union(...edgeBands(r, 5))); return { n: drawingZonePoints.length, m: r.length, ms: Math.round(performance.now() - t0) }; });
+  ok(simp.m < simp.n / 10 && simp.ms < 300, '9-2-2) 경계 계산은 0.05 안에서 점을 줄여 빠르게 ' + JSON.stringify(simp));
   await shot(p, 'shot_map_wall_trace.png');
   await f.evaluate(() => { drawingZonePoints = []; lastWallSnap = null; focusStoreAt(9700, 4250); }); await p.waitForTimeout(400); await f.evaluate(() => { window.isShiftKeyPressed = true; });
   q = await scr(9600, 4101); await p.mouse.click(q.x, q.y); await p.waitForTimeout(80);
@@ -183,6 +191,50 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   ok(cp.n === cp.here && cp.n > 0, '10-1) 외벽을 다른 층(2F)에 복사 (두 번 눌러도 한 벌) ' + JSON.stringify(cp));
   const btnShown = await f.evaluate(() => { setZoneCategory('wall'); const a = getComputedStyle(document.getElementById('btn-wall-copy')).display; setZoneCategory('floor'); const b = getComputedStyle(document.getElementById('btn-wall-copy')).display; return { a, b }; });
   ok(btnShown.a !== 'none' && btnShown.b === 'none', '10-2) 「다른 층에 복사」 버튼은 외벽을 고를 때만 ' + JSON.stringify(btnShown));
+
+  // 12) 외벽 구간 삭제: 외벽을 누르면 찍은 점 사이 구간 + 편집창, Del 로 지움 (결정 318)
+  await f.evaluate(() => { focusStoreAt(9700, 5000); }); await p.waitForTimeout(400);
+  const L12 = await zone(f, 'wall', [{ x: 9500, y: 5000 }, { x: 9600, y: 5000, t: 1 }, { x: 9700, y: 5000, t: 1 }, { x: 9800, y: 5000 }, { x: 9800, y: 5150 }]);
+  await f.evaluate(() => { if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('wall'); hideWallBar(); });
+  q = await scr(9650, 5000); await p.mouse.click(q.x, q.y); await p.waitForTimeout(150);
+  const sel12 = await f.evaluate(id => ({ sel: wallSel && wallSel.id === id && wallSel.k, pop: !!document.getElementById('wall-seg-pop'), mark: (document.getElementById('wall-seg-mark')?.getAttribute('points') || '').split(' ').length, handles: document.querySelectorAll('#wall-vertex-handles-layer circle').length }), L12.id);
+  ok(sel12.sel === 0 && sel12.pop && sel12.mark === 4 && sel12.handles === 3, '12) 외벽을 누르면 찍은 점 사이 구간(따라간 점 포함)을 빨갛게 + 편집창, 손잡이는 찍은 점만 ' + JSON.stringify(sel12));
+  await shot(p, 'shot_map_wall_segdel.png');
+  await p.keyboard.press('Delete'); await p.waitForTimeout(150);
+  const del12 = await f.evaluate(id => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.id.startsWith(id)); return { n: z.length, pts: z.map(z => z.points.map(p => p.x + ',' + p.y).join(' ')), pop: !!document.getElementById('wall-seg-pop') }; }, L12.id);
+  ok(del12.n === 1 && del12.pts[0] === '9800,5000 9800,5150' && !del12.pop, '12-1) Del → 그 구간만 지움 ' + JSON.stringify(del12));
+  await f.evaluate(() => handleUndo()); await p.waitForTimeout(150);
+  const und12 = await f.evaluate(id => getFloorZones(FLOORS[currentFloorIdx].code).find(z => z.id === id)?.points.length, L12.id);
+  ok(und12 === 5, '12-2) 되돌리기로 되살림 ' + und12);
+  await f.evaluate(() => { if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('wall'); hideWallBar(); });
+  q = await scr(9800, 5100); await p.mouse.click(q.x, q.y); await p.waitForTimeout(150);
+  const mid12 = await f.evaluate(() => wallSel && wallSel.k);
+  await fl.locator('#wall-seg-pop button', { hasText: '선 전체 삭제' }).click(); await p.waitForTimeout(150);
+  const all12 = await f.evaluate(id => getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.id.startsWith(id)).length, L12.id);
+  ok(mid12 === 1 && all12 === 0, '12-3) 「선 전체 삭제」 ' + JSON.stringify({ mid12, all12 }));
+  const ringCut = await f.evaluate(() => { const z = { geometry: 'polygon', points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] }; return [wallSegCount(z), wallSegPts(z, 3).map(p => p.x + ',' + p.y).join(' ')]; });
+  ok(ringCut[0] === 4 && ringCut[1] === '0,10 0,0', '12-4) 닫힌 외벽의 마지막 구간은 첫 점으로 ' + JSON.stringify(ringCut));
+
+  // 13) 업체 건물 외곽선 자석 · 꺾인 곡선 매끄럽게 · 붙은 선 초록 표시 (결정 320)
+  await f.evaluate(() => { hideWallSegSel(); deselectWallZone(); if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('wall'); drawingZonePoints = []; lastWallSnap = null; focusStoreAt(10650, 4650); }); await p.waitForTimeout(400);
+  const vs = await f.evaluate(() => { const s = wallSnap(10587.9, 4712.2); return s && { name: wallOutlineName(s.key), x: s.x, y: s.y }; });
+  ok(vs && vs.name === '건물 외곽선', '13) 외벽 그릴 때 업체 건물 외곽선에도 붙음 ' + JSON.stringify(vs));
+  q = await scr(10500, 4500); await p.mouse.click(q.x, q.y); await p.waitForTimeout(80);
+  q = await scr(10700, 4783); await p.mouse.move(q.x, q.y); await p.waitForTimeout(120);
+  const hl = await f.evaluate(() => ({ hl: !!document.querySelector('.wall-snap-hl'), name: document.querySelector('.wall-snap-name')?.textContent || '' }));
+  ok(hl.hl && /건물 외곽선 · 따라가기/.test(hl.name), '13-1) 붙은 선을 초록으로 + 「건물 외곽선 · 따라가기」 ' + JSON.stringify(hl));
+  q = await scr(10800, 4800); await p.mouse.click(q.x, q.y); await p.waitForTimeout(80);
+  const arc = await f.evaluate(() => drawingZonePoints.map(p => ({ x: p.x, y: p.y, t: p.t })));
+  const mid = arc.slice(1, -1), rr = mid.map(p => Math.hypot(p.x - 10800, p.y - 4500));
+  const gap13 = Math.max(...arc.slice(1).map((p, i) => Math.hypot(p.x - arc[i].x, p.y - arc[i].y)));
+  ok(mid.length > 1500 && mid.every(p => p.t) && Math.max(...rr.map(r => Math.abs(r - 300))) < 0.1 && gap13 <= 0.3,
+    `13-2) 다른 도형(곡선 매장 모서리)에서 시작해도 외곽선을 따라가고, 8마디 꺾인 선을 매끄러운 곡선으로 (점 ${mid.length}개, 반지름 오차 ${Math.max(...rr.map(r => Math.abs(r - 300))).toFixed(3)} · 마디 처짐 1.44, 간격 ${gap13.toFixed(3)})`);
+  await shot(p, 'shot_map_wall_vendor.png');
+  const sharp = await f.evaluate(() => wallSmooth([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }]));
+  ok(sharp.length === 1 && sharp[0].x === 100 && sharp[0].y === 0, '13-3) 각진 모서리는 그대로 ' + JSON.stringify(sharp));
+  const bnd = await f.evaluate(() => wallChains().rings.length + '/' + wallZonesOf(FLOORS[currentFloorIdx].code).length);
+  await f.evaluate(() => { drawingZonePoints = []; lastWallSnap = null; });
+  ok(bnd.split('/')[0] === '1', '13-4) 업체 외곽선은 경계로 안 씀 (경계는 외벽 1바퀴 그대로) ' + bnd);
 
   ok(!p.errs.length, '11) 화면 오류 없음 ' + p.errs.join(' | '));
   await b.close(); srv.close();

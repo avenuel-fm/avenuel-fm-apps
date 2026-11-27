@@ -382,7 +382,7 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const af = last('ws_att_fix').a;
   ok(af.p_date === D && af.p_name === '김철수' && af.p_value === '연', '23) DB 함수에 날짜·이름·상태 넘김');
   await p.evaluate(() => { S.at.hol = ['토', '월']; return atHolSave(S.at.r.people.findIndex(x => x.name === '김철수')); });
-  ok(last('ws_att_holiday').a.p_days.join() === '토,월' && await toast('김철수 저장'), '24) 기본 휴일 저장 (알림 「이름 저장」)');
+  ok(last('ws_att_holiday').a.p_days.join() === '토,월' && await toast('김철수 저장'), '24) 기본 휴일 저장');
   const xr = await p.evaluate(() => run('attPut', S.token, S.at.r.date.slice(0, 7), [{ sec: '전기', role: '소장', name: '홍길동', days: [''] }],
     'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + btoa('PK' + 'x'.repeat(200))));
   const xu = UPLOADS.find(x => /^roster_xlsx\//.test(x.p)), xp = last('ws_att_put').a;
