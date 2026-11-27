@@ -202,6 +202,20 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const nb2 = await bbox(await dOf(N2));
   ok(Math.abs(nb2.x0 - 9802) < 0.11 && Math.abs(nb2.x1 - 9860) < 0.11, '14-1) 2px 보다 가깝게 붙여 그리면 2px 로 맞춤 ' + JSON.stringify(nb2));
 
+  // 15) 매장을 고르면 겹친 기능실은 그 위로 (결정 322): 섬매장 자리를 EPS 와 겹치게 옮겨 봄(저장 안 함)
+  const up = await f.evaluate(([i, u]) => {
+    const st = id => currentStores.find(x => x.id === id), s = st(i), e = st(u), g = el => e.groupElement || el.parentNode;
+    s.polygonElement.setAttribute('d', 'M 9700 4400 L 9900 4400 L 9900 4600 L 9700 4600 Z');
+    selectAndHighlightStore(s);
+    const sg = s.groupElement || s.polygonElement.parentNode, eg = g(e.polygonElement);
+    const r = { sel: sg !== eg && !!(sg.compareDocumentPosition(eg) & Node.DOCUMENT_POSITION_FOLLOWING) };
+    closeAllPopovers(); return r;
+  }, [I, U]);
+  ok(up.sel, '15) 매장을 고르면 겹친 기능실(EPS)이 매장보다 뒤에 그려져 위로 보임 ' + JSON.stringify(up));
+  // 15-1) 외벽 밖 알림 깜빡임 표시는 지도 저장본에 안 남음
+  const fl5 = await f.evaluate(() => { const el = document.querySelector('.store-polygon'); el.classList.add('wall-outside-flash'); syncSvgCache(); el.classList.remove('wall-outside-flash'); return svgCache.get(FLOORS[currentFloorIdx].code).includes('wall-outside-flash'); });
+  ok(!fl5, '15-1) 외벽 밖 깜빡임 표시는 저장본에 안 남음');
+
   ok(!p.errs.length, '11) 화면 오류 없음 ' + p.errs.join('|'));
   await shot(p, 'shot_map_shape.png');
   await b.close(); srv.close();

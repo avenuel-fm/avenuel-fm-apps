@@ -229,3 +229,8 @@
 - **붙은 선 표시**: 외벽 그릴 때 붙은 테두리를 초록으로 칠하고 이름(매장명 · 건물 외곽선 · 업체 도면 선 · 바닥 · 외벽)을 띄움. 따라갈 수 있으면 「· 따라가기」, 따라갈 길은 점선 미리 보기 (`wallSnapHighlight`).
 - **바닥 매장 관통 (29장 고침)**: 매장 자리(둘레 12px, `FLOOR_PASS_MARGIN`)를 빼면 바닥이 끊어지면 관통 → 그린 대로. 매장 가장자리를 덮고 좌우로 지나가는 띠도 관통. 넓은 바닥이 매장 한 변만 덮으면 지금처럼 2px 밖으로 자름. 기능실은 늘 자름 (`floorSplitByStore`, `geometry.js`).
 - 시험: `sb_map_wall_test.js` (39) · `sb_map_shape_test.js` 2-3.
+
+## 33. 깜빡임 저장 막기 · 겹친 기능실 위로 (결정 322)
+- **깜빡임**: 외벽 밖 알림(`wall-outside-flash`, 8초)이 그 사이 지도 저장본(svg 캐시)에 같이 저장돼, 다시 열면 그 매장이 계속 노랗게 깜빡였음. 저장할 때 깜빡임 표시와 외벽 안내 표시(`#wall-gap-mark`·`#wall-seg-mark`·`.wall-snap-hl`·`.wall-snap-name`)를 뺌(`syncSvgCache`). 깜빡임은 알림 중(`body.wall-flashing`)에만 움직여, 이미 저장된 표시는 안 움직임.
+- **겹친 기능실 위로**: 매장을 고르면(상태 창·수정 창) 그 매장을 맨 위로 올린 뒤, 그 매장과 실제로 겹치는(면적 1 넘게) 기능실을 다시 그 위로 올림 (`raiseUtilsOver`, `storeEditor.js`). 기능실끼리는 순서 그대로.
+- 시험: `sb_map_shape_test.js` 15 · 15-1.
