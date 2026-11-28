@@ -115,7 +115,9 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const lab = () => f.evaluate(() => { const l = document.querySelector('#utility-lines-layer .util-line-item-group[data-id="u6"] .util-spec-badge-group'), r = l.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: +l.querySelector('rect').getAttribute('height'), lines: [...l.querySelectorAll('tspan')].map(t => t.textContent), tf: l.getAttribute('transform') }; });
   const fr = await (await p.$('iframe.mapframe')).boundingBox();
-  let L0 = await lab();
+  // 선을 고르면 지도가 그쪽으로 움직임 → 이름표 자리가 멈출 때까지 기다린 뒤 누름 (움직이는 중에 재면 빈 곳을 눌러 가끔 실패)
+  const stillLab = async () => { let a = await lab(); for (let i = 0; i < 40; i++) { await p.waitForTimeout(100); const b = await lab(); if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5) return b; a = b; } return a; };
+  let L0 = await stillLab();
   await p.mouse.click(fr.x + L0.x, fr.y + L0.y);
   ok(dialogs === 0, '14) 이름표 한 번 누름: 삭제 확인창 안 뜸');
   await p.mouse.dblclick(fr.x + L0.x, fr.y + L0.y);
@@ -129,13 +131,13 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const s5 = await f.evaluate(() => getFloorUtilityLines('1F').find(l => l.id === 'u6'));
   ok(s5.labelText === 'power\n2번 EPS → 까르띠에', '17) 저장: ' + JSON.stringify(s5.labelText));
   await f.evaluate(() => highlightUtilityLinesForStore({ id: '', name: 'S9' }));
-  L0 = await lab();
+  L0 = await stillLab();
   ok(L0.lines.length === 2 && L0.h === 36, '18) 이름표 두 줄 · 상자 높이 22 → 36 (' + L0.lines.join('/') + ', ' + L0.h + ')');
   await p.mouse.move(fr.x + L0.x, fr.y + L0.y); await p.mouse.down(); await p.mouse.move(fr.x + L0.x + 60, fr.y + L0.y + 40, { steps: 5 }); await p.mouse.up();
   const s5b = await f.evaluate(() => getFloorUtilityLines('1F').find(l => l.id === 'u6'));
   ok(s5b.labelPos && s5b.labelPos.x > 9740, '19) 끌어서 옮긴 자리 저장 (' + JSON.stringify(s5b.labelPos) + ')');
   await f.evaluate(() => { renderFloorUtilityLines(); highlightUtilityLinesForStore({ id: '', name: 'S9' }); });
-  const L1 = await lab();
+  const L1 = await stillLab();
   ok(L1.tf === `translate(${s5b.labelPos.x.toFixed(1)},${s5b.labelPos.y.toFixed(1)})`, '20) 다시 그려도 옮긴 자리 그대로 (' + L1.tf + ')');
   ok(await f.evaluate(() => document.querySelector('#utility-lines-layer .util-line-item-group[data-id="u6"] .util-label-link').style.display !== 'none'), '21) 옮긴 이름표와 선을 가는 선으로 이음');
   await p.mouse.dblclick(fr.x + L1.x, fr.y + L1.y);
@@ -145,7 +147,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   await ed.fill(''); await ed.evaluate(e => e.blur());
   ok(!(await f.evaluate(() => 'labelText' in getFloorUtilityLines('1F').find(l => l.id === 'u6'))), '23) 글자를 다 지우면 원래 이름표로');
   await f.evaluate(() => { onLayerLockChange('power', true); highlightUtilityLinesForStore({ id: '', name: 'S9' }); });
-  const L2 = await lab();
+  const L2 = await stillLab();
   await p.mouse.dblclick(fr.x + L2.x, fr.y + L2.y);
   ok(await ed.count() === 0, '24) 전기 레이어를 잠그면 고치기 안 됨');
   await f.evaluate(() => onLayerLockChange('power', false));
