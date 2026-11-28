@@ -305,6 +305,31 @@ const BASE = 'http://localhost:' + PORT + '/ws/';
   await p.locator('.feb:has-text("동측 계단 앞") .chip:has-text("미입력")').waitFor();
   ok(last('ws_eq_check_delete').a.p_check_id === 'WS-EC-1' && !DONE[T1], '14-5) 삭제 → 그 점검번호만 지우고 목록이 「미입력」으로');
 
+  // ── ③ 층 화면 고르기 삭제 · 소장·부소장·파트장만 (결정 384) ──
+  DONE[T1] = { checkId: 'WS-EC-1', state: '정상' };
+  await p.evaluate(() => loadHyd(S.hq.ym)); await p.evaluate(() => { S.view = 'hydfl'; S.hfloor = '3F'; S.hdel = false; render(); });
+  await p.locator('.feb:has-text("동측 계단 앞") .chip:has-text("점검완료")').waitFor();
+  ok(await p.locator('button.btn.del:text-is("점검 기록 삭제")').count() === 1, '14-6) 소장: 층 화면 위 [점검 기록 삭제]');
+  await p.click('button.btn.del:text-is("점검 기록 삭제")');
+  ok(await p.locator('button:has-text("선택 0개 삭제")').isDisabled(), '14-7) 고르기 모드: 고르기 전에는 [선택 0개 삭제] 못 누름');
+  await p.click('.feb:has-text("동측 계단 앞")');
+  ok(await p.locator('.feb[aria-pressed="true"]').count() === 1 && await p.locator('.dialog').count() === 0, '14-8) 점검완료 항목을 누르면 골라짐 (내용 창 안 열림)');
+  await p.click('button:has-text("선택 1개 삭제")'); await p.locator('#hdBtn').waitFor();
+  ok(/점검 기록 1개 삭제/.test(await p.locator('.dialog').innerText()) && /장비\(QR\)는 그대로/.test(await p.locator('.dialog').innerText()), '14-9) 확인 창: 개수 · 장비는 남는다는 안내');
+  await shot(p, 'e_hdel');
+  n0 = count('ws_eq_check_delete');
+  await p.click('#hdBtn'); await called('ws_eq_check_delete', n0); await p.locator('.dialog').waitFor({ state: 'detached' });
+  await p.locator('.feb:has-text("동측 계단 앞") .chip:has-text("미입력")').waitFor();
+  ok(last('ws_eq_check_delete').a.p_check_id === 'WS-EC-1' && !DONE[T1] && await p.locator('button:has-text("선택")').count() === 0, '14-10) 삭제 → 「미입력」으로 · 고르기 모드 끝');
+  // 그 밖의 직원: 층 화면 버튼 없음 · 점검 내용 창은 [닫기]만
+  DONE[T1] = { checkId: 'WS-EC-1', state: '정상' };
+  await p.evaluate(() => loadHyd(S.hq.ym)); await p.evaluate(() => { S.user.role = '직원'; S.view = 'hydfl'; S.hfloor = '3F'; render(); });
+  await p.locator('.feb:has-text("동측 계단 앞") .chip:has-text("점검완료")').waitFor();
+  ok(await p.locator('button:text-is("점검 기록 삭제")').count() === 0 && /소장 · 부소장 · 파트장만/.test(await p.locator('.wrap.list').innerText()), '14-11) 직원: 층 화면에 삭제 버튼 없음 · 안내 한 줄');
+  await p.click('.feb:has-text("동측 계단 앞")'); await p.locator('.dialog .df').waitFor();
+  ok(await p.locator('.dialog .df button').allInnerTexts().then(x => x.join() === '닫기'), '14-12) 직원: 점검 내용 창은 [닫기]만');
+  await p.evaluate(() => { closeDialog(); S.user.role = '소장'; }); delete DONE[T1];
+
   // ── 앱에는 점검 입력이 없음 (조회만) — 입력은 QR을 찍은 휴대폰 화면 eq.html 에서만 (결정 230) ──
   await p.evaluate(() => openHyd()); await p.locator('.floor').first().waitFor();
   const hy = await p.locator('.wrap.list').innerText();
