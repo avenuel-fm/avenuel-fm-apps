@@ -18,7 +18,7 @@ const kst = d => new Date(Date.now() + 9 * 3600e3 - d * 864e5).toISOString().sli
 const TODAY = kst(0), YEST = kst(1);
 const LINE = { id: 'L1', subType: 'elec', subTypeLabel: '전기', className: 'util-line-eps', sourceName: '기능실A', targetName: '매장B', points: [{ x: 9500, y: 4100 }, { x: 9900, y: 4300 }] };
 const KV = { lotte_symbols_1F: '[]', lotte_util_lines_1F: JSON.stringify([LINE]) }, VERS = { lotte_symbols_1F: 'v0', lotte_util_lines_1F: 'v0' };
-const SAVES = [], BASES = [], RESTORES = [];
+const SAVES = [], BASES = [], RESTORES = [], MARKS = [];
 let n = 0;
 const me = a => { const u = USER[a.p_token]; if (!u) throw new Error('LOGIN'); return u; };
 const RPC = {
@@ -38,7 +38,10 @@ const RPC = {
     KV[a.p_k] = a.p_v; VERS[a.p_k] = 'v' + (++n); return { ok: true, ver: VERS[a.p_k] };
   },
   ws_map_base(a) { me(a); BASES.push(a.p_k); return { ok: true, sha: 'x' }; },
-  ws_map_days(a) { me(a); return { ok: true, days: [{ day: YEST, keys: ['lotte_symbols_1F', 'lotte_facility_specs_1F'], by: ['옛사람'] }, { day: TODAY, keys: ['lotte_util_lines_1F'], by: ['홍길동'] }], restores: [] }; },
+  ws_map_days(a) { me(a); return { ok: true, days: [{ day: YEST, keys: ['lotte_symbols_1F', 'lotte_facility_specs_1F'], by: ['옛사람'] }, { day: TODAY, keys: ['lotte_util_lines_1F'], by: ['홍길동'] }], restores: [], saves: MARKS }; },
+  ws_map_mark(a) { const u = me(a); if (u.role === '직원') return { ok: false, error: '지도는 소장·부소장·파트장·옵저버만 저장할 수 있습니다' };
+    const hh = String(9 + MARKS.length).padStart(2, '0'); MARKS.push({ at: TODAY + 'T' + hh + ':00:00.000000+09:00', day: TODAY, time: hh + ':00', by: u.name, building: a.p_building || '' });
+    return { ok: true, at: MARKS[MARKS.length - 1].at, n: MARKS.filter(x => x.building === (a.p_building || '')).length }; },
   ws_map_at(a) { me(a); return { ok: true, kv: { lotte_symbols_1F: '[]', lotte_base_svg_1F: OLD_SVG } }; },
   ws_map_restore(a) { const u = me(a); RESTORES.push(a.p_day); return CAN_RESTORE.includes(u.role) ? { ok: true, n: 1 } : { ok: false, error: '되돌리기는 소장·부소장·파트장만 할 수 있습니다' }; }
 };
@@ -142,6 +145,28 @@ async function openMap(p) {
   ok(await f.evaluate(() => !mapStore.viewAt && !document.querySelector('.hist-bar')), '13) 되돌린 뒤 지금 모습으로 새로 불러옴');
   const ctx = d => d.evaluate(() => !document.body.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
   ok(await ctx(p) && await ctx(f), '14) PC 오른쪽 버튼 메뉴 막음 (업무지원 · 지도 둘 다)');
+  // 저장 차수 (결정 382): 달력 아래 「저장」 → 오늘 n차 · 저장한 날을 누르면 차수 목록 → 그때 모습 · 이 차수로 되돌리기
+  const hf = p.frameLocator('iframe.mapframe');
+  await hf.locator('#btn-hist').click(); await hf.locator('.hist-cal').waitFor();
+  ok(/오늘 1차로 남김/.test(await hf.locator('.hist-save').innerText()), '14-a) 달력 아래 「저장」 버튼 · 「지금 모습을 오늘 1차로 남김」');
+  await hf.locator('#hist-save-btn').click(); await hf.locator('.hist-save small:has-text("2차")').waitFor();
+  await hf.locator('#hist-save-btn').click(); await hf.locator('.hist-save small:has-text("3차")').waitFor();
+  const tB = hf.locator('.hist-pop button[data-d="' + TODAY + '"]');
+  ok(MARKS.length === 2 && MARKS[0].building === '' && (await tB.locator('.n').innerText()) === '2' && await hf.locator('.hist-saves .cha[data-at]').count() === 2, '14-b) 두 번 저장 → 오늘 날짜에 주황 숫자 2 · 차수 목록 1차·2차');
+  await shot(p, 'shot_sb_map_saves.png');
+  await tB.click(); ok(await hf.locator('.hist-saves').count() === 0, '14-c) 저장한 날을 다시 누르면 차수 목록 접힘');
+  await tB.click(); await hf.locator('.hist-saves .cha[data-at]').first().click();
+  await hf.locator('.hist-bar').waitFor();
+  const sbar = await hf.locator('.hist-bar').innerText();
+  ok(/1차 저장 \(09:00\) 모습/.test(sbar) && /이 차수로 되돌리기/.test(sbar) && await f.evaluate(a => mapStore.viewAt === a, MARKS[0].at), '14-d) 1차를 누르면 그때 모습 (보기 전용) · 「이 차수로 되돌리기」');
+  await hf.locator('#btn-hist').click(); await hf.locator('.hist-saves .cha.on').waitFor();
+  ok(await hf.locator('#hist-save-btn').count() === 0, '14-e) 차수를 보는 중: 달력에 그날 차수 펼쳐 둠 · 「저장」 버튼 없음');
+  await hf.locator('#btn-hist').click();
+  await hf.locator('#hist-rest').click();
+  ok(/1차 저장 \(09:00\) 모습으로 되돌릴까요/.test(await hf.locator('.hist-dlg').innerText()), '14-f) 확인 창에 차수 이름');
+  await hf.locator('.hist-dlg .yes').click(); await p.waitForTimeout(800);
+  ok(RESTORES[RESTORES.length - 1] === MARKS[0].at, '14-g) 「이 차수로 되돌리기」 → 그 시각으로 되돌리기 함수');
+  f = mapFrame(p); await hf.locator('#btn-hist').waitFor({ state: 'attached' }); await p.waitForTimeout(300);
   // 타점 (결정 136): 제목 없음 · [에비뉴엘] [타점 ›] · 밀려 나오는 메뉴로 백화점 → 같은 기능
   const fl = p.frameLocator('iframe.mapframe');
   ok(await f.evaluate(() => !document.querySelector('.main-title') && !/잠실점 쇼핑맵/.test(document.querySelector('header').innerText) && document.querySelectorAll('.mainboard-building-tab').length === 2), '14-1) 「잠실점 쇼핑맵」 글자 없음 · 건물 탭은 에비뉴엘·타점 둘');
@@ -175,6 +200,7 @@ async function openMap(p) {
   await e.frameLocator('iframe.mapframe').locator('.hist-pop button[data-d="' + YEST + '"]').tap();
   await e.frameLocator('iframe.mapframe').locator('.hist-bar').waitFor();
   ok(await e.frameLocator('iframe.mapframe').locator('#hist-rest').count() === 0, '17) 터치로 기록 달력·지난 날 보기 · 직원은 되돌리기 버튼 없음');
+  ok(await e.frameLocator('iframe.mapframe').locator('#hist-save-btn').count() === 0, '17-1) 직원은 달력 「저장」 버튼 없음');
   await e.frameLocator('iframe.mapframe').locator('#hist-back').tap();
   await e.waitForTimeout(400);
   ok(await fe.evaluate(() => !document.querySelector('.hist-bar') && !mapStore.viewAt), '18) 터치로 「오늘로 돌아가기」');

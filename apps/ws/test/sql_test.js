@@ -677,6 +677,28 @@ alter default privileges in schema public grant all on sequences to anon, authen
   mat = await call('ws_map_at', [tk, mdy.restores[0].before]);
   ok(mat.kv.lotte_util_lines_1F === '[]' && !('lotte_symbols_B1' in mat.kv), '되돌리기 전 모습을 그대로 불러옴 (기록에 남음)');
   ok((await call('ws_map_save', [tk, 'lotte_util_lines_1F', '[9]', ''])).ok && (await call('ws_map_at', [tk, mdy.restores[0].before])).kv.lotte_util_lines_1F === '[]', '되돌린 뒤 또 고쳐도 되돌리기 전 기록은 지워지지 않음');
+  // ══ 지도 저장 차수 · 차수로 되돌리기 (28_map_saves.sql, 결정 382) ══
+  await db.exec(SQL('28_map_saves.sql')); await db.exec(SQL('28_map_saves.sql'));
+  ok(/permission denied/.test(await asErr('authenticated', 'select * from map_save')) && /permission denied/.test(await asErr('authenticated', "select ws_map_iso(now())")), '28_map_saves.sql 실행됨 (두 번) · 표·도우미는 직접 못 읽음');
+  ok(/소장·부소장·파트장·옵저버만/.test((await call('ws_map_mark', ['emp', ''])).error) && (await call('ws_map_mark', [tk, 'x'])).ok === false, '저장: 직원 막음 · 이상한 건물 막음');
+  let msv = await call('ws_map_save', [tk, 'lotte_symbols_2F', '["1차"]', '']);
+  const mk1 = await call('ws_map_mark', [tk, '']);
+  msv = await call('ws_map_save', [tk, 'lotte_symbols_2F', '["2차"]', msv.ver]);
+  const mk2 = await call('ws_map_mark', [tk, '']);
+  msv = await call('ws_map_save', [tk, 'lotte_symbols_2F', '["뒤"]', msv.ver]);
+  ok(mk1.ok && mk1.n === 1 && mk2.n === 2 && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\+09:00$/.test(mk1.at), '저장: 그날 차수 1·2 · 시각 ' + mk1.at);
+  ok((await call('ws_map_at', [tk, mk1.at])).kv.lotte_symbols_2F === '["1차"]' && (await call('ws_map_at', [tk, mk2.at])).kv.lotte_symbols_2F === '["2차"]' && (await call('ws_map_at', [tk, td])).kv.lotte_symbols_2F === '["뒤"]',
+    '저장 차수: 같은 날 또 고쳐도 1차·2차 모습이 그대로 남음 (그날 끝은 마지막)');
+  mdy = await call('ws_map_days', [tk]);
+  ok(mdy.saves.length === 2 && mdy.saves[0].at === mk1.at && mdy.saves[0].day === td && mdy.saves[1].by === '홍길동' && mdy.saves[0].building === '', '기록 목록: 저장 차수 (시각·저장한 사람·건물)');
+  ok(/차수가 맞지/.test((await call('ws_map_restore', [tk, td + 'Tx'])).error) && /차수가 맞지/.test((await call('ws_map_restore', [tk, '2099-01-01T00:00:00+09:00'])).error), '차수 되돌리기: 틀린 시각 · 앞으로의 시각 막음');
+  const mr1 = await call('ws_map_restore', [tk, mk1.at]);
+  mp = await call('ws_map_load', [tk]);
+  mdy = await call('ws_map_days', [tk]);
+  const lastR = mdy.restores[mdy.restores.length - 1];
+  ok(mr1.ok && mp.kv.lotte_symbols_2F === '["1차"]' && lastR.to === td && lastR.toTime === mk1.at.slice(11, 16), '차수 되돌리기: 1차 모습으로 · 기록에 차수 시각 ' + JSON.stringify(lastR));
+  ok((await call('ws_map_at', [tk, lastR.before])).kv.lotte_symbols_2F === '["뒤"]' && (await call('ws_map_at', [tk, mk2.at])).kv.lotte_symbols_2F === '["2차"]', '차수 되돌리기 전 모습·2차 모습도 그대로 남음');
+  ok(/소장·부소장·파트장만/.test((await call('ws_map_restore', ['emp', mk2.at])).error), '차수 되돌리기: 직원 막음');
   // ══ 시방서 검색 (14_spec.sql, 결정 140) — 도면협의 표·함수는 DW SQL 에서 그대로 떼어 옴 ══
   const DW = f => require('fs').readFileSync(path.join(__dirname, '..', '..', 'dw', 'supabase', f), 'utf8');
   await db.exec(DW('01_schema.sql').match(/create table if not exists public\.(dw_files|dw_guides|dw_synonyms) \([\s\S]*?\);/g).join('\n'));
