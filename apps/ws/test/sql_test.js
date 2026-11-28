@@ -911,6 +911,15 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok((await call('ws_admin_set_menu', [tk, ['docs.work']])).ok && /사용 중지/.test(await callErr('ws_dw_list', ['emp', '', '', ''])) && /사용 중지/.test(await callErr('ws_dn_list', ['emp', '', '', ''])) && (await call('ws_dw_list', [tk, '', '', ''])).ok, '작업내역: 메뉴를 끄면 직원은 서버에서도 막힘 · 소장은 엶');
   await call('ws_admin_set_menu', [tk, []]);
   ok((await call('ws_dn_delete', [tk, xn.item.id])).ok && (await call('ws_dn_list', [tk, '', '', ''])).list.length === 0 && (await call('ws_dn_delete', [tk, xn.item.id])).ok === false, '야간작업: 지움 (숨김) · 또 지우면 안내');
+  // 야간 식당가 점검 탭 (결정 358): 일자 · 사진 1~30장 · 기타사항
+  const xw = await call('ws_dr_save', [tk, J({ day: '', note: '3층 경보기 점검등 꺼짐', pics: [{ file: XP('w1') }, { file: XP('w2') }, { file: XP('w3') }] })]);
+  ok(xw.ok && /^WS-WR-\d{8}-001$/.test(xw.item.id) && xw.item.pics.length === 3 && xw.item.note === '3층 경보기 점검등 꺼짐', '식당가 점검: 저장 (사진 3장 · 기타사항)');
+  const xw2 = await call('ws_dr_save', [tk, J({ id: xw.item.id, day: xw.item.day, note: '', pics: [{ id: xw.item.pics[2].id }, { file: XP('w4') }] })]);
+  ok(xw2.ok && xw2.item.id === xw.item.id && xw2.item.pics.length === 2 && xw2.item.pics[0].id === xw.item.pics[2].id && (await one('select count(*)::int n from dw_rest')).n === 1, '식당가 점검: 고치기 (있던 사진 번호 유지 · 새 사진 더함)');
+  ok(/한 장 이상/.test((await call('ws_dr_save', [tk, J({ pics: [] })])).error) && /30장/.test((await call('ws_dr_save', [tk, J({ pics: Array.from({ length: 31 }, (_, i) => ({ file: XP('y' + i) })) })])).error) &&
+    (await call('ws_dr_save', [tk, J({ pics: Array.from({ length: 30 }, (_, i) => ({ file: XP('v' + i) })) })])).item.pics.length === 30, '식당가 점검: 사진 1~30장');
+  ok((await call('ws_dr_list', [tk, '', '', ''])).list.length === 2 && (await call('ws_dr_list', [tk, '경보기', '', ''])).list.length === 0 && (await call('ws_dr_list', ['emp', '', '', ''])).ok, '식당가 점검: 목록 · 기타사항 검색 · 직원도 봄');
+  ok((await call('ws_dr_delete', [tk, xw.item.id])).ok && (await call('ws_dr_list', [tk, '', '', ''])).list.length === 1 && (await call('ws_dr_delete', [tk, xw.item.id])).ok === false, '식당가 점검: 지움 (숨김) · 또 지우면 안내');
   // ══ 하자점검 (27_defect.sql, 결정 266) ══
   await db.exec(SQL('27_defect.sql')); await db.exec(SQL('27_defect.sql'));
   const HP = n => { const p = 'dw_photo/' + ym + '/' + n + '.jpg'; return { url: PUB + p, path: p }; }, HS = n => { const p = 'dw_photo/' + ym + '/' + n + '.png'; return { url: PUB + p, path: p }; };

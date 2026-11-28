@@ -40,7 +40,7 @@ const ehData = () => ({ ok: true, floor: '1F', floors: EH_F.map(f => ({ code: f,
 const STAFF = [{ staff_id: 'S001', name: '홍길동', part: '전방파트', role: '소장' }, { staff_id: 'S002', name: '김철수', part: '기건파트', role: '직원' }];
 const RISK = [{ words: '(기본)', risk: '손 다침', kind: '베임', p: 1, s: 2, fixes: [{ t: '보호장갑', on: true }] },
   { words: '분전반, 배선', risk: '감전', kind: '감전', p: 2, s: 3, fixes: [{ t: '전원 차단', on: true }] }];
-const RW = [], WD = [], WN = [], HJ = []; let WF = 0;
+const RW = [], WD = [], WN = [], WR = [], HJ = []; let WF = 0;
 const CSITE = { id: 'WS-CS-1', name: '5F 리모와', work: '인테리어', co: 'A사' }, CS = {};
 const feData = () => ({ ok: true, items: FE, execUrl: '', label: { w: 50, h: 50, dpi: 203 } });
 const RPC = {
@@ -142,6 +142,13 @@ const RPC = {
     if (old) WN[WN.indexOf(old)] = item; else WN.push(item); return { ok: true, item };
   },
   ws_dn_delete: a => { WN.splice(WN.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
+  ws_dr_list: () => ({ ok: true, list: WR.slice() }),
+  ws_dr_save: a => {
+    const d = a.p_d, old = WR.find(x => x.id === d.id), item = { id: d.id || 'WS-WR-' + (WR.length + 1), day: d.day, note: d.note,
+      pics: d.pics.map(x => x.file ? { id: 'F' + (++WF), src: x.file.url } : old.pics.find(y => y.id === x.id)).filter(Boolean), by: ME.name, at: '11/28 22:00' };
+    if (old) WR[WR.indexOf(old)] = item; else WR.push(item); return { ok: true, item };
+  },
+  ws_dr_delete: a => { WR.splice(WR.findIndex(x => x.id === a.p_id), 1); return { ok: true }; },
   ws_hj_list: a => ({ ok: true, list: HJ.filter(x => (!a.p_q || JSON.stringify(x).indexOf(a.p_q) !== -1) && (!a.p_to || x.day === a.p_to)) }),
   ws_hj_save: a => {
     const d = a.p_d, one = (x, old) => x && x.file ? { id: 'F' + (++WF), src: x.file.url } : x && x.id && old && old.id === x.id ? old : null, old = HJ.find(x => x.id === d.id);
@@ -588,25 +595,12 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   const xpl = p.locator('.whsec').nth(2);
   ok(await xpl.locator('.whpc').count() === 1 && await xpl.locator('.whg > .whadd').count() === 1 && await xpl.locator('.whplus').count() === 0 && await p.locator('.whf input[multiple]').count() === 0, 'W10a) 각서: 1칸 + 오른쪽 ＋ 칸 · 파일 버튼은 한 장씩(여러 장 고르기 없음)');
   await xpl.locator('.whadd').click(); ok(await xpl.locator('.whpc').count() === 2, 'W10b) 각서 ＋ 칸 누르면 2칸');
-  const xst = p.locator('.whst').first(); ok(await p.locator('.whst').count() === 1, 'W10j) 식당가 점검: 처음부터 빈 매장 1곳');
-  ok(await xst.locator('.whpc').count() === 2 && (await xst.locator('.whpc h4').allInnerTexts()).join() === '가스누설경보기,주방전경' && /2 \/ 10/.test(await xst.locator('.whadd').innerText()), 'W10c) 식당가 점검: 매장 추가 → 매장명 칸 · 가스누설경보기·주방전경 2칸 · 오른쪽 ＋ 칸');
-  for (let i = 0; i < 8; i++) await xst.locator('.whadd').click();
-  ok(await xst.locator('.whpc').count() === 10 && await xst.locator('.whadd').count() === 0, 'W10d) 매장 ＋ 칸: 10칸에서 사라짐');
-  await xst.locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('g1')]); await p.waitForFunction(() => S.wh.n.f.rest[0].pics[0]);
-  const xs1 = count('ws_dn_save'); await p.evaluate(() => whSave());
-  ok(count('ws_dn_save') === xs1 && await toast('매장 1: 매장명을 넣어 주세요'), 'W10e) 매장명 없으면 저장 막음');
-  await xst.locator('.whsh input').fill('스시 OO'); await p.evaluate(() => whSave());
-  ok(count('ws_dn_save') === xs1 && await toast('매장 1: 주방전경 사진을 넣어 주세요'), 'W10f) 주방전경 사진 없으면 저장 막음');
-  await xst.locator('.whpc').nth(1).locator('input[type=file]').nth(1).setInputFiles([xjf('k1')]); await p.waitForFunction(() => S.wh.n.f.rest[0].pics[1]);
-  ok(await p.locator('.whrest > .whra > .whadd').count() === 1 && await p.locator('.whrest .whplus').count() === 0, 'W10i) 매장 추가는 아래 긴 줄이 아니라 왼쪽 칸');
-  await p.click('button >> text=/매장 추가/'); ok(await p.locator('.whst').count() === 2, 'W10g) 매장 2곳 (빈 매장은 저장 때 빠짐)');
-  ok(await p.evaluate(() => getComputedStyle(document.querySelectorAll('.whst')[1], '::before').borderTopStyle === 'solid' && getComputedStyle(document.querySelectorAll('.whst')[0], '::before').borderTopStyle !== 'solid'), 'W10k) 식당가 매장 1과 매장 2 사이 구분선');
-  await p.locator('.whsec').nth(2).screenshot({ path: path.join(__dirname, 'shot_sb_wh_pledge.png') }); await p.locator('.whrest').screenshot({ path: path.join(__dirname, 'shot_sb_wh_rest.png') });
-  ok(await p.evaluate(() => whPages('n').split('class="pg"').length - 1) === 4 && /가스누설경보기/.test(await p.evaluate(() => whPages('n'))), 'W10h) 인쇄: 매장 1곳 = 1쪽 더함 · 사진 이름표');
+  ok(await p.locator('.whst').count() === 0 && !/식당가/.test(await p.locator('.whf').innerText()) && await p.locator('.cltabs [role=tab]').count() === 3, 'W10j) 야간작업 탭에는 식당가 점검 칸 없음 · 탭 3개 (결정 358)');
+  await p.locator('.whsec').nth(2).screenshot({ path: path.join(__dirname, 'shot_sb_wh_pledge.png') });
   const xnn = UPLOADS.length; await p.click('#whBar .btn.pri'); await p.waitForFunction(() => !S.wh.n.busy && S.wh.n.list.length === 1);
   const xna = last('ws_dn_save').a.p_d, xnup = UPLOADS.slice(xnn);
-  ok(xnup.length === 9 && xnup.every(u => /^dw_photo\//.test(u.p)) && xna.co === 'OO인테리어' && xna.floor === '3F' && xna.photos.length === 5 && xna.fire.length === 2 && xna.pledge.length === 0 && xna.rest.length === 1 && xna.rest[0].name === '스시 OO' && xna.rest[0].pics.length === 2, 'W11) 야간 저장: 현장 5 · 방염집기 2 · 각서 0 · 식당가 1곳 2장 → 버킷 dw_photo/ 에 9장');
-  ok(!/각서 없음/.test(await p.locator('.whrow').first().innerText()) && /식당가 1곳/.test(await p.locator('.whrow').first().innerText()), 'W12) 목록: 「각서 없음」 표시 없음 · 식당가 1곳');
+  ok(xnup.length === 7 && xnup.every(u => /^dw_photo\//.test(u.p)) && xna.co === 'OO인테리어' && xna.floor === '3F' && xna.photos.length === 5 && xna.fire.length === 2 && xna.pledge.length === 0 && !('rest' in xna), 'W11) 야간 저장: 현장 5 · 방염집기 2 · 각서 0 → 버킷 dw_photo/ 에 7장 · 식당가(rest)는 안 보냄 = 옛 칸 그대로');
+  ok(!/각서 없음/.test(await p.locator('.whrow').first().innerText()) , 'W12) 목록: 「각서 없음」 표시 없음');
   await p.screenshot({ path: path.join(__dirname, 'shot_sb_wh_night.png'), fullPage: true });
   await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.n.f.id);
   await p.locator('.whsec').nth(2).locator('.whpc').nth(0).locator('input[type=file]').nth(1).setInputFiles([xjf('p1')]);
@@ -614,6 +608,35 @@ const count = fn => CALLS.filter(c => c.fn === fn).length;
   await p.locator('.whim').first().click(); await p.locator('.rwv').waitFor(); await p.click('.rwvh >> text="닫기"');
   await p.click('.whdel'); await p.waitForFunction(() => S.wh.n.f && !S.wh.n.f.id && !S.wh.n.f.photos.length);
   ok(WN.length === 0 && count('ws_dn_delete') === 1, 'W13) 이 작업 삭제 (되묻기 뒤) · 사진 크게 보기 열고 닫기');
+  // ── 야간 식당가 점검 탭 (결정 358) ──
+  await p.click('.seg >> text="야간 식당가 점검"'); await p.waitForFunction(() => S.wh.tab === 'r' && S.wh.r.list);
+  const xrs = p.locator('.whf .whsec');
+  ok(await xrs.locator('.whpc').count() === 2 && (await xrs.locator('.whpc h4').allInnerTexts()).join() === '사진 1,사진 2' && /2 \/ 30/.test(await xrs.locator('.whadd').innerText()) &&
+    await p.locator('.whf input[placeholder="매장명 입력"]').count() === 0 && !/가스누설경보기|주방전경|매장 추가/.test(await p.locator('.whf').innerText()), 'WR1) 식당가 탭: 사진 1·2 두 칸 + ＋(2 / 30) · 매장명·가스누설경보기·주방전경·매장 추가 없음');
+  ok(await xrs.locator('.whbs input[multiple]').count() === 2 && await xrs.locator('.dfph input[multiple]').count() === 0, 'WR2) [파일]은 여러 장 고르기 · [카메라]는 한 장');
+  const xr0 = count('ws_dr_save'); await p.evaluate(() => whSave()); ok(count('ws_dr_save') === xr0 && await toast('사진을 한 장 이상 넣어 주세요'), 'WR3) 사진 없으면 저장 막음');
+  await xrs.locator('.whpc').nth(1).locator('.whbs input').setInputFiles(['a', 'b', 'c', 'd'].map(n => xjf('r' + n)));
+  await p.waitForFunction(() => S.wh.r.f.pics.filter(Boolean).length === 4);
+  ok(await p.evaluate(() => !S.wh.r.f.pics[0] && S.wh.r.f.pics.length === 5) && await xrs.locator('.whpc').count() === 5 && /5 \/ 30/.test(await xrs.locator('.whadd').innerText()), 'WR4) 사진 2의 [파일]에서 4장 → 사진 2~5에 차례로 · 칸이 5칸으로 늘어남');
+  await xrs.locator('.whpc').nth(0).locator('.whbs input').setInputFiles(['e', 'f'].map(n => xjf('r' + n)));
+  await p.waitForFunction(() => S.wh.r.f.pics.filter(Boolean).length === 6);
+  ok(await p.evaluate(() => S.wh.r.f.pics.length === 6 && S.wh.r.f.pics.every(Boolean)), 'WR5) 사진 1에서 2장 → 사진 1 + 다음 빈 칸(사진 6), 찬 칸은 건너뜀');
+  for (let i = 0; i < 30; i++) { if (!(await xrs.locator('.whadd').count())) break; await xrs.locator('.whadd').click(); }
+  ok(await xrs.locator('.whpc').count() === 30 && await xrs.locator('.whadd').count() === 0, 'WR6) ＋ 칸: 30칸에서 사라짐');
+  await xrs.locator('.whpc').nth(28).locator('.whbs input').setInputFiles(['g', 'h', 'i'].map(n => xjf('r' + n)));
+  await p.waitForFunction(() => S.wh.r.f.pics[29]); ok(await p.evaluate(() => S.wh.r.f.pics.length === 30) && await toast('사진은 30장까지 넣을 수 있습니다'), 'WR7) 30칸 넘는 사진은 안 넣고 안내');
+  await p.locator('.whf textarea').fill('3층 경보기 점검등 꺼짐');
+  ok(await p.evaluate(() => whPages('r').split('class="pg"').length - 1) === 2 && /사진 30/.test(await p.evaluate(() => whPages('r'))), 'WR8) 인쇄: 한 쪽 6장 → 8장이면 2쪽 · 사진 번호표');
+  await p.screenshot({ path: path.join(__dirname, 'shot_sb_wh_rest.png'), fullPage: true });
+  const xru = UPLOADS.length; await p.click('#whBar .btn.pri'); await p.waitForFunction(() => !S.wh.r.busy && S.wh.r.list.length === 1);
+  const xra = last('ws_dr_save').a.p_d;
+  ok(xra.pics.length === 8 && UPLOADS.length - xru === 8 && xra.note === '3층 경보기 점검등 꺼짐' && /사진 8장/.test(await p.locator('.whrow').first().innerText()), 'WR9) 저장: 빈 칸 빼고 8장 올림 · 목록 「사진 8장」');
+  await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.r.f.id); await p.click('.whdel'); await p.waitForFunction(() => !S.wh.r.f.id);
+  ok(WR.length === 0, 'WR10) 식당가 점검 삭제');
+  const xrv = p.viewportSize(); await p.setViewportSize({ width: 375, height: 800 });
+  ok(await p.evaluate(() => { const t = [...document.querySelectorAll('.cltabs [role=tab]')]; return t.every(b => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().height < 60); }), 'WR11) 휴대폰: 탭 3개 글자가 넘치지 않음');
+  await p.locator('.cltabs').screenshot({ path: path.join(__dirname, 'shot_sb_wh_tabs_m.png') });
+  await p.setViewportSize(xrv);
   await p.click('.seg >> text="주간작업"'); await p.locator('.whrow').click(); await p.waitForFunction(() => S.wh.d.f.id);
   await p.click('.whdel'); await p.waitForFunction(() => !S.wh.d.f.id);
   ok(WD.length === 0 && await p.locator('.whrow').count() === 0, 'W14) 주간작업 삭제 → 목록에서 사라짐 · 새 양식으로');
