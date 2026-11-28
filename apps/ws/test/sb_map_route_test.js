@@ -107,6 +107,40 @@ async function open(b, opts) {
   ok((await f.evaluate(() => window.__t)).includes('바닥면 작성 필요'), '바닥 없으면 「바닥면 작성 필요」 토스트');
   ok(await f.evaluate(() => getFloorUtilityLines('1F').length === 0), '바닥 없으면 선이 없음');
   ok(await f.evaluate(() => !document.getElementById('btn-route')), '위쪽 길찾기 버튼은 없어짐');
+
+  // 기능실 이름에 층 자동 (결정 366)
+  const fn = await f.evaluate(() => {
+    const r = { l1: floorLabel('1F'), lb: floorLabel('B1'), keep: withFloorName('2층 3번 EPS', '1F'), keepB: withFloorName('B1 전기실', '1F'), add: withFloorName('3번 EPS', '1F'), strip: stripFloorName('1층 3번 EPS') };
+    openEditModalForStore(window.__U); setEditType('utility'); document.getElementById('edit-name').value = ''; onSelectUtilityRadio('PS'); r.radio = document.getElementById('edit-name').value;
+    document.getElementById('edit-name').value = '3번 EPS'; saveStoreEdit(); r.saved = window.__U.name;
+    return r;
+  });
+  ok(fn.l1 === '1층' && fn.lb === '지하1층' && fn.keep === '2층 3번 EPS' && fn.keepB === 'B1 전기실' && fn.add === '1층 3번 EPS' && fn.strip === '3번 EPS', '기능실 이름 층 붙이기 규칙 ' + JSON.stringify(fn));
+  ok(fn.radio === '1층 PS' && fn.saved === '1층 3번 EPS', '주요 기능실을 누르면 「1층 PS」 · 층 없이 쓴 이름은 저장 때 「1층 」을 붙임 ' + JSON.stringify(fn));
+
+  // 다른 층 매장 연결 (결정 366): 1층 3번 EPS → 지도 층 버튼으로 2층 → 2층 매장 누르기 → 2층 3번 EPS 에서 그림
+  await f.evaluate(() => { closeAllPopovers(); startUtilityLineDrawingMode(); handleUtilLineMapClick(null, window.__U); });
+  await f.evaluate(() => selectFloor(FLOORS.findIndex(x => x.code === '2F')));
+  await p.waitForTimeout(800);
+  const x0 = await f.evaluate(() => ({ on: isUtilLineDrawingMode, code: FLOORS[currentFloorIdx].code, msg: document.getElementById('util-cross-floor')?.textContent || '' }));
+  ok(x0.on && x0.code === '2F' && /2층에 3번 EPS이\(가\) 없습니다/.test(x0.msg), '층을 옮겨도 그리기 그대로 · 2층에 같은 기능실이 없으면 띠에 알림 ' + JSON.stringify(x0));
+  await f.evaluate(() => {
+    saveFloorZones('2F', [{ id: 'z2', category: 'floor', name: '바닥 2', points: [{x:9300,y:4500},{x:11000,y:4500},{x:11000,y:4640},{x:9300,y:4640}] }]);
+    const svg = document.querySelector('#map-container svg');
+    const mk = (x, y, name, type) => { const g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.setAttribute('class', 'store-group');
+      g.innerHTML = `<path class="store-polygon" d="M${x} ${y}h300v200h-300z" fill="#e6f0fc"/><text x="${x+150}" y="${y+100}"><tspan>${name}</tspan></text>`; svg.appendChild(g);
+      const it = { id: 'T2' + name, name, type, polygonElement: g.querySelector('path') }; currentStores.push(it); return it; };
+    window.__O = mk(9500, 4300, '오메가', 'store'); window.__U2 = mk(10200, 4700, '2층 3번 EPS', 'utility');
+    updateUtilLineGuideUI();
+  });
+  const x1 = await f.evaluate(() => document.getElementById('util-cross-floor')?.textContent || '');
+  ok(/2층 보는 중 · 2층 3번 EPS에서 이어 그림/.test(x1) && /2층에서 눌러 주세요/.test(await f.evaluate(() => document.getElementById('util-line-guide-banner').textContent)), '2층에 같은 기능실이 있으면 「2층 보는 중 · 2층 3번 EPS에서 이어 그림」 · 매장 칸 「2층에서 눌러 주세요」 ' + x1);
+  await shot(p, 'shot_util_cross_floor.png');
+  await f.evaluate(() => { handleUtilLineMapClick(null, window.__O); renderFloorUtilityLines(); highlightUtilityLinesForStore(window.__O); });
+  const xl = await f.evaluate(() => { const L = getFloorUtilityLines('2F'), l = L[L.length - 1]; return l && { t: l.targetName, s: l.sourceName, o: l.originName, of: l.originFloor, p0: l.points[0], lab: [...document.querySelectorAll('#utility-lines-layer text')].map(t => t.textContent).join('|') }; });
+  ok(xl && xl.t === '2층 3번 EPS' && xl.s === '오메가' && xl.o === '1층 3번 EPS' && xl.of === '1F' && xl.p0.x === 10350, '2층 3번 EPS → 오메가 선이 2층에 저장 · 시작 기능실은 1층 3번 EPS ' + JSON.stringify(xl));
+  ok(xl && /전기 일반 \(50A\)\/1층 3번 EPS/.test(xl.lab), '선 문구 「전기 일반 (50A)/1층 3번 EPS」 ' + (xl && xl.lab));
+  await shot(p, 'shot_util_cross_floor_line.png');
   ok(p.errs.length === 0, '화면 오류 없음 ' + p.errs.join('|'));
   await b.close(); srv.close(); process.exit(fail ? 1 : 0);
 })();
