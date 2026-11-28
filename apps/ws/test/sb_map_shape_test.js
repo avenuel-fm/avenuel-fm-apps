@@ -130,7 +130,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const hcur = await f.evaluate(() => Array.from(document.querySelectorAll('#shape-edit-handles .shape-handle')).map(h => h.style.cursor).join(','));
   ok(hcur === 'nwse-resize,nesw-resize,nwse-resize,nesw-resize', '4-2) 모서리는 크기 조절 커서 (' + hcur + ')');
   const k = await f.evaluate(() => scale);
-  await drag(await scr(9400, 4490), 0, 60);
+  await drag(await scr(9400, 4460), 0, 60);
   const b1 = await bbox(await dOf(S));
   ok(Math.abs(b1.y0 - (4450 + 60 / k)) < 1.5 && Math.abs(b1.x0 - 9350) < 1.5 && Math.abs(b1.x1 - b1.x0 - 100) < 0.5, '5) 가운데를 끌면 도형이 통째로 옮겨짐 ' + JSON.stringify(b1));
   const ty = await f.evaluate(s => +currentStores.find(x => x.id === s).textElement.getAttribute('y'), S);
@@ -145,7 +145,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
 
   // 8) 다시 열어 옮기고 저장 → 저장값 · 연결선 다시 그림
   await f.evaluate(s => openEditModalForStore(currentStores.find(x => x.id === s)), S);
-  await drag(await scr(9400, 4490), 0, 60 * k);
+  await drag(await scr(9400, 4460), 0, 60 * k);
   await f.evaluate(() => saveStoreEdit()); await p.waitForTimeout(200);
   const sv = await f.evaluate(s => getCustomStores(FLOORS[currentFloorIdx].code).find(c => c.id === s).pathData, S);
   const b3 = await bbox(sv);
@@ -302,7 +302,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   ok(aT, '16-2) 매장 이름도 도형 가운데로 따라옴');
   await f.evaluate(() => cancelStoreEdit ? cancelStoreEdit() : closeAllPopovers());
   const aC = await f.evaluate(id => { const s = currentStores.find(x => x.id === id); return { d: s.polygonElement.getAttribute('d'), txt: s.textElement.outerHTML }; }, A.id);
-  const noSt = s => s.replace(/ style="[^"]*"/, ''); ok(aC.d === A.d && noSt(aC.txt) === noSt(A.txt), '16-3) 취소하면 도형·이름 글자 모두 원래대로 ' + JSON.stringify({ d: aC.d, b: aC.txt }));
+  const noSt = s => s.replace(/ style="[^"]*"/, '').replace(/ lbl-movable/, '');  /* 수정 중 매장명 끌기 표시(결정 374)는 빼고 비교 */ ok(aC.d === A.d && noSt(aC.txt) === noSt(A.txt), '16-3) 취소하면 도형·이름 글자 모두 원래대로 ' + JSON.stringify({ d: aC.d, b: aC.txt }));
   await f.evaluate(id => openEditModalForStore(currentStores.find(x => x.id === id)), A.id);
   await drag(aMid, 0, 40);
   await f.evaluate(() => saveStoreEdit()); await p.waitForTimeout(200);

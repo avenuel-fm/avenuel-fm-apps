@@ -87,8 +87,8 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   // ── 2) 구역 그리기 줄: 바닥 · 지우개 · 직각 체크 ──
   await f.evaluate(() => toggleAddZoneMode());
   await p.waitForTimeout(200);
-  ok(await f.evaluate(() => ['btn-zone-cat-floor', 'btn-zone-eraser', 'chk-zone-ortho'].every(id => { const e = document.getElementById(id); return e && e.getClientRects().length > 0; })), '4) 구역 그리기 줄에 「바닥」 · 「지우개」 · 직각 체크박스');
-  ok(await f.evaluate(() => { const o = document.getElementById('chk-zone-ortho'), er = document.getElementById('btn-zone-eraser'), ro = o.getBoundingClientRect(), re = er.getBoundingClientRect(); return o.type === 'checkbox' && re.right <= ro.left + 1; }), '5) 지우개는 직각 왼쪽 · 직각은 체크박스');
+  ok(await f.evaluate(() => ['btn-zone-cat-floor', 'btn-zone-eraser', 'chk-eraser-lock'].every(id => { const e = document.getElementById(id); return e && e.getClientRects().length > 0; }) && !document.getElementById('chk-zone-ortho')), '4) 구역 그리기 줄에 「바닥」 · 「지우개」 · 매장·기능실 잠금 체크 · 직각 칸은 없음 (결정 374)');
+  ok(await f.evaluate(() => { const o = document.getElementById('chk-eraser-lock'), er = document.getElementById('btn-zone-eraser'), ro = o.getBoundingClientRect(), re = er.getBoundingClientRect(); return o.type === 'checkbox' && o.checked && re.right <= ro.left + 1; }), '5) 지우개 바로 오른쪽에 「매장·기능실 잠금」 체크 (처음엔 켜짐)');
   await fl.locator('#btn-zone-cat-floor').click(); await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });
   const st = await f.evaluate(() => ({ cat: currentZoneCategory, geom: currentZoneGeometry, lineOff: document.getElementById('btn-zone-geom-line').disabled, polyOn: document.getElementById('btn-zone-geom-polygon').classList.contains('active'), act: document.getElementById('btn-zone-cat-floor').classList.contains('active') }));
   ok(st.cat === 'floor' && st.geom === 'polygon' && st.lineOff && st.polyOn && st.act, '6) 바닥은 면(영역)만 · 선은 고를 수 없음');
@@ -145,27 +145,28 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
 
   // ── 6) 직각 체크박스 ──
   await f.evaluate(() => toggleAddZoneMode()); await p.waitForTimeout(200);
-  await fl.locator('#chk-zone-ortho').check();
+  await f.evaluate(() => { window.isShiftKeyPressed = true; });   // 직각 칸 대신 Shift (결정 374)
   await f.evaluate(() => { if (floorCenterlineOn) toggleCenterlineFloor(); });   // 점 찍기 방식으로 시험
   const og = await f.evaluate(() => {
     drawingZonePoints = [{ x: 10300, y: 5100 }]; updateZoneDrawingPreview(10400, 5130);
     const l = document.querySelector('#temp-zone-drawing-layer line');
     return { on: isGlobalOrthoMode, snap: snapToOrtho({ x: 110, y: 105 }, { x: 100, y: 100 }), y2: l && parseFloat(l.getAttribute('y2')) };
   });
-  ok(og.on && og.snap.x === 110 && og.snap.y === 100 && og.y2 === 5100, '21) 직각 체크 → 수평·수직으로만 그려짐 (미리보기 선 y=' + og.y2 + ')');
-  await fl.locator('#chk-zone-ortho').uncheck();
-  ok(await f.evaluate(() => !isGlobalOrthoMode && !document.getElementById('chk-zone-ortho').checked), '22) 체크를 풀면 자유롭게');
+  ok(og.snap.x === 110 && og.snap.y === 100 && og.y2 === 5100, '21) Shift → 수평·수직으로만 그려짐 (미리보기 선 y=' + og.y2 + ')');
+  await f.evaluate(() => { window.isShiftKeyPressed = false; });
+  ok(await f.evaluate(() => { const q = snapToOrtho({ x: 110, y: 105 }, { x: 100, y: 100 }); return q.y === 105; }), '22) Shift 를 떼면 자유롭게');
   await f.evaluate(() => { drawingZonePoints = []; exitAddZoneMode(); });
   ok(!p.errs.length, '23) 화면 오류 없음 (PC)' + (p.errs.length ? ': ' + p.errs.join(' / ') : ''));
 
   // ── 7) 휴대폰: 구역 그리기 줄이 줄바꿈 ──
   const [q, g] = await open(b, { viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true });
+  ok(await g.evaluate(() => { toggleEditDropdown(); const v = id => document.getElementById(id).getClientRects().length > 0; const r = !v('menu-item-store') && !v('menu-item-zone') && v('menu-item-symbol'); closeEditDropdown(); return r; }), '23-1) 휴대폰: 편집 메뉴에 매장·구역 추가/편집 없음 · 심벌은 그대로 (결정 374)');
   await g.evaluate(() => toggleAddZoneMode()); await q.waitForTimeout(300);
-  const mb = await g.evaluate(() => { const el = document.getElementById('zone-guide-banner'), bn = el.getBoundingClientRect(), W = innerWidth; return { l: bn.left, r: bn.right, W, all: ['btn-zone-cat-floor', 'btn-zone-eraser', 'chk-zone-ortho', 'btn-zone-geom-polygon'].every(id => { const r = document.getElementById(id).getBoundingClientRect(); return r.left >= 0 && r.right <= W; }), clip: el.scrollWidth > el.clientWidth + 1 }; });
+  const mb = await g.evaluate(() => { const el = document.getElementById('zone-guide-banner'), bn = el.getBoundingClientRect(), W = innerWidth; return { l: bn.left, r: bn.right, W, all: ['btn-zone-cat-floor', 'btn-zone-eraser', 'chk-eraser-lock', 'btn-zone-geom-polygon'].every(id => { const r = document.getElementById(id).getBoundingClientRect(); return r.left >= 0 && r.right <= W; }), clip: el.scrollWidth > el.clientWidth + 1 }; });
   ok(mb.l >= -1 && mb.r <= mb.W + 1 && mb.all && !mb.clip, '24) 휴대폰: 구역 그리기 줄이 옆으로 잘리지 않고 접힘 (' + [mb.l, mb.r, mb.W].map(Math.round).join(',') + ')');
   const cover = await q.evaluate(() => {   // 왼쪽 아래 「뒤로」 버튼이 줄을 가리지 않는지 (바깥 화면 기준으로 비교)
     const fr = document.querySelector('iframe.mapframe'), o = fr.getBoundingClientRect(), d = fr.contentDocument, bk = document.querySelector('.mapback').getBoundingClientRect();
-    return ['btn-zone-cat-fire', 'btn-zone-cat-floor', 'btn-zone-eraser', 'chk-zone-ortho', 'btn-zone-geom-line', 'btn-zone-geom-polygon'].filter(id => {
+    return ['btn-zone-cat-fire', 'btn-zone-cat-floor', 'btn-zone-eraser', 'chk-eraser-lock', 'btn-zone-geom-line', 'btn-zone-geom-polygon'].filter(id => {
       const r = d.getElementById(id).getBoundingClientRect(), L = r.left + o.left, T = r.top + o.top, R = r.right + o.left, B = r.bottom + o.top;
       return L < bk.right && R > bk.left && T < bk.bottom && B > bk.top;
     });
