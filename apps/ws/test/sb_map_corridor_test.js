@@ -13,6 +13,7 @@ const STAFF = `<g id="sg" name="Staff area"></g>`
   + `<path id="sa1" data-parent-id="sg" d="M9500 4500 L10000 4500 L10000 4600 L9500 4600 Z" fill="#c7c0b7" stroke="#bdb4a8"/>`
   + `<path id="sa2" data-parent-id="sg" d="M9250 5000 L9450 5000 L9450 5500 L9250 5500 Z" fill="#c7c0b7" stroke="#bdb4a8"/>`
   + `<path id="sa3" data-parent-id="sg" d="M9600 5700 L9620 5700 L9620 5720 L9600 5720 Z" fill="#c7c0b7"/>`
+  + `<path id="sa5" data-parent-id="sg" d="M9500 5900 L9700 5900 L9700 6200 L9500 6200 Z" fill="#c7c0b7"/>`
   + `<g name="Staff area" id="sg2"><path id="sa4" d="M12000 4500 L12300 4500 L12300 4600 L12000 4600 Z" fill="#c7c0b7"/></g>`;
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="9280 3880 1950 2080" width="1950" height="2080"><g>${STAFF}${room('a', '아그라', 9600, 4200)}${room('b', '비매장', 9800, 4550)}</g></svg>`;
 const RPC = {
@@ -93,6 +94,14 @@ const fillAt = (f, id, pts) => f.evaluate(([id, pts]) => { const p = document.qu
   const again = await f.evaluate(() => ({ cs: getCustomStores(FLOORS[currentFloorIdx].code).filter(c => c.kind === '후방복도').length, dom: document.querySelectorAll('#corridor-layer g.store-group').length }));
   ok(again.cs === 2 && again.dom === 2, '1-2) 층을 다시 열어도 한 번만 만듦 ' + JSON.stringify(again));
 
+  // 1-3) 지도 틀에 걸친 큰 후방 구역(가운데가 틀 밖): 지상층은 뺌, 지하1층은 틀 안만 씀
+  const t13 = await f.evaluate(() => {
+    const svg = document.querySelector('#map-container svg'), crop = FLOORS[currentFloorIdx].crop;
+    const up = corridorSources(svg, { code: '1F', crop }).map(s => s.src), b1 = corridorSources(svg, { code: 'B1', crop }).find(s => s.src === 'sa5');
+    return { up: up.includes('sa5'), b1: b1 && Math.max(...b1.ring.map(q => q[1])) };
+  });
+  ok(!t13.up && t13.b1 === 5960, '1-3) 틀에 걸친 후방 구역: 지상층 뺌 · 지하1층은 틀 안까지만 ' + JSON.stringify(t13));
+
   // 2) 매장 b(9650~9950)가 가로지른 곳은 둘레 1px 비움
   const g2 = await fillAt(f, A, [[9600, 4550], [9648.6, 4550], [9649.5, 4550], [9800, 4550], [9950.5, 4550], [9951.4, 4550]]);
   ok(JSON.stringify(g2) === '[true,true,false,false,false,true]', '2) 매장이 지나간 자리 + 둘레 1px 비움 ' + JSON.stringify(g2));
@@ -136,13 +145,23 @@ const fillAt = (f, id, pts) => f.evaluate(([id, pts]) => { const p = document.qu
   await f.evaluate(() => cancelStoreEdit());
 
   // 8) 「후방복도 다시 맞추기」: 고친 이름은 이어 받음
-  await f.evaluate(id => { const c = FLOORS[currentFloorIdx].code, L = getCustomStores(c); L.find(x => x.id === id).name = '1층 동쪽복도'; saveCustomStores(c, L); }, A);
+  await f.evaluate(id => { openEditModalForStore(currentStores.find(s => s.id === id)); document.getElementById('edit-name').value = '1층 동쪽복도'; saveStoreEdit(); }, A);
   await f.evaluate(() => rebuildCorridors()); await p.waitForTimeout(600);
   const c8 = await cor(f);
   const dom8 = await f.evaluate(() => document.querySelectorAll('#corridor-layer g.store-group').length);
   ok(c8.length === 2 && dom8 === 2 && c8.find(c => c.id === A)?.name === '1층 동쪽복도', '8) 다시 맞추기: 2곳 · 고친 이름 그대로 ' + JSON.stringify(c8));
   const g8 = await fillAt(f, A, [[9575, 4550], [9800, 4550], [9520, 4550]]);
   ok(JSON.stringify(g8) === '[false,false,true]', '8-1) 다시 맞춰도 기능실·매장 자리는 비움 ' + JSON.stringify(g8));
+
+  // 8-2) 지도에는 후방복도 이름 글자를 안 씀 · 이름은 자료와 수정 창에 그대로 (결정 380 보충)
+  const t8 = await f.evaluate(id => {
+    const txt = Array.from(document.querySelectorAll('#corridor-layer text')).map(t => t.textContent).join('');
+    const st = currentStores.find(s => s.id === id); openEditModalForStore(st); const nm = document.getElementById('edit-name').value; saveStoreEdit();
+    const after = Array.from(document.querySelectorAll('#corridor-layer text')).map(t => t.textContent).join('');
+    const epsTxt = Array.from(document.querySelectorAll('#custom-stores-top-layer text')).map(t => t.textContent).join(' ');
+    return { txt, nm, after, epsTxt };
+  }, A);
+  ok(t8.txt === '' && t8.after === '' && t8.nm === '1층 동쪽복도' && /새매장/.test(t8.epsTxt), '8-2) 후방복도 글자 없음(저장 뒤에도) · 이름은 수정 창에 그대로 · 기능실 글자는 있음 ' + JSON.stringify(t8));
 
   // 9) 레이어: 보기 끄기 · 열쇠 (못 고름 · 지우개 대상 아님)
   const l9 = await f.evaluate(id => {
