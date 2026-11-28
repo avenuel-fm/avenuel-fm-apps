@@ -246,8 +246,8 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   ok(vs && vs.name === '건물 외곽선', '13) 외벽 그릴 때 업체 건물 외곽선에도 붙음 ' + JSON.stringify(vs));
   q = await scr(10500, 4500); await p.mouse.click(q.x, q.y); await p.waitForTimeout(80);
   q = await scr(10700, 4783); await p.mouse.move(q.x, q.y); await p.waitForTimeout(120);
-  const hl = await f.evaluate(() => ({ hl: !!document.querySelector('.wall-snap-hl'), name: document.querySelector('.wall-snap-name')?.textContent || '' }));
-  ok(hl.hl && /건물 외곽선 · 따라가기/.test(hl.name), '13-1) 붙은 선을 초록으로 + 「건물 외곽선 · 따라가기」 ' + JSON.stringify(hl));
+  const hl = await f.evaluate(() => ({ hl: !!document.querySelector('.wall-snap-hl'), line: document.querySelector('.wall-snap-hl-line')?.getAttribute('stroke'), anim: getComputedStyle(document.querySelector('.wall-snap-hl')).animationName, tag: document.querySelector('.wall-snap-tag')?.getAttribute('fill'), name: document.querySelector('.wall-snap-name')?.textContent || '' }));
+  ok(hl.hl && hl.line === '#C0261A' && hl.tag === '#C0261A' && hl.anim === 'wallHlPulse' && /건물 외곽선 · 따라가기/.test(hl.name), '13-1) 붙은 선을 빨간 선 + 깜빡이는 띠 + 빨간 꼬리표 「건물 외곽선 · 따라가기」 (결정 368) ' + JSON.stringify(hl));
   q = await scr(10800, 4800); await p.mouse.click(q.x, q.y); await p.waitForTimeout(80);
   const arc = await f.evaluate(() => drawingZonePoints.map(p => ({ x: p.x, y: p.y, t: p.t })));
   const mid = arc.slice(1, -1), rr = mid.map(p => Math.hypot(p.x - 10800, p.y - 4500));
@@ -261,6 +261,51 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   await f.evaluate(() => { drawingZonePoints = []; lastWallSnap = null; });
   ok(bnd.split('/')[0] === '1', '13-4) 업체 외곽선은 경계로 안 씀 (경계는 외벽 1바퀴 그대로) ' + bnd);
 
+  // 15) 새 외벽을 닿은 기존 외벽과 한 선으로 합침 · 짧은 꼬리 지움 · 레이어 켜면 3초 빨간 점선 (결정 368)
+  const m15 = await f.evaluate(() => {
+    const W = (id, pts) => ({ id, name: '외벽', category: 'wall', geometry: 'line', points: pts.map(([x, y]) => ({ x, y })) });
+    const P = a => a.map(p => p.x + ',' + p.y).join(' ');
+    let z = [W('a', [[0, 0], [100, 0]])], r = wallMergeNew(z, [{ x: 100, y: 0 }, { x: 100, y: 80 }]);
+    const end = { n: z.length, id: r.id, pts: P(r.points), tails: r.tails };
+    z = [W('a', [[0, 0], [100, 0]])]; r = wallMergeNew(z, [{ x: 100, y: 80 }, { x: 0, y: 0 }]);
+    const rev = P(r.points);
+    z = [W('a', [[0, 0], [100, 0]])]; r = wallMergeNew(z, [{ x: 90, y: 0 }, { x: 90, y: 80 }]);
+    const tail = { n: z.length, pts: P(r.points), tails: r.tails };
+    z = [W('a', [[0, 0], [100, 0]])]; r = wallMergeNew(z, [{ x: 50, y: 0 }, { x: 50, y: 80 }]);
+    const fork = { n: z.length, pts: P(r.points), rest: z.map(q => P(q.points)), tails: r.tails };
+    z = [W('a', [[0, 0], [100, 0]]), W('b', [[200, 0], [200, 100]])]; r = wallMergeNew(z, [{ x: 100, y: 0 }, { x: 200, y: 0 }]);
+    const both = { n: z.length, pts: P(r.points) };
+    z = [W('a', [[0, 0], [100, 0]])]; r = wallMergeNew(z, [{ x: 300, y: 0 }, { x: 300, y: 80 }]);
+    const none = { n: z.length, id: r.id };
+    return { end, rev, tail, fork, both, none };
+  });
+  ok(m15.end.n === 0 && m15.end.id === 'a' && m15.end.pts === '0,0 100,0 100,80' && m15.none.n === 1 && !m15.none.id,
+    '15) 끝점에서 이어 그리면 한 선 (기존 id 그대로) · 안 닿으면 그대로 ' + JSON.stringify(m15));
+  ok(m15.rev === '100,80 0,0 100,0', '15-1) 거꾸로 그려도 이어짐 ' + m15.rev);
+  ok(m15.tail.n === 0 && m15.tail.tails === 1 && m15.tail.pts === '0,0 90,0 90,80', '15-2) 선 안쪽(끝 가까이)을 눌러 그리면 그 자리에서 잘라 긴 쪽과 합치고 짧은 꼬리는 지움 ' + JSON.stringify(m15.tail));
+  ok(m15.fork.n === 1 && m15.fork.tails === 0 && ['50,0 100,0', '0,0 50,0'].includes(m15.fork.rest[0]), '15-3) 가운데처럼 짧은 쪽도 길면(25% 넘음) 지우지 않고 따로 남김 ' + JSON.stringify(m15.fork));
+  ok(m15.both.n === 0 && m15.both.pts === '0,0 100,0 200,0 200,100', '15-4) 양 끝이 두 외벽에 닿으면 셋이 한 선 ' + JSON.stringify(m15.both));
+  const m15b = await f.evaluate(async () => {
+    const code = FLOORS[currentFloorIdx].code, zs = getFloorZones(code);
+    zs.push({ id: 'zone_m15', name: '외벽', category: 'wall', geometry: 'line', points: [{ x: 9400, y: 5800 }, { x: 9600, y: 5800 }] });
+    saveFloorZones(code, zs); renderFloorZones(code);
+    const n0 = getFloorZones(code).filter(z => z.category === 'wall').length;
+    if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('wall'); currentZoneGeometry = 'line';
+    drawingZonePoints = [{ x: 9590, y: 5800 }, { x: 9590, y: 5850 }]; finishDrawingZone();
+    const w = getFloorZones(code).filter(z => z.category === 'wall'), m = w.find(z => z.id === 'zone_m15');
+    const toast = document.getElementById('toast')?.textContent || '';
+    onZoneCheckboxChange('wall', false); onZoneCheckboxChange('wall', true);
+    const it = document.querySelector('.safety-zone-item[data-zone-category="wall"] > polyline');
+    const on = document.body.classList.contains('wall-march'), cs = it && getComputedStyle(it);
+    const st = cs && { stroke: cs.stroke, dash: cs.strokeDasharray, anim: cs.animationName };
+    await new Promise(r => setTimeout(r, 3200));
+    return { n0, n1: w.length, pts: m && m.points.map(p => p.x + ',' + p.y).join(' '), toast, on, st, off: !document.body.classList.contains('wall-march') };
+  });
+  ok(m15b.n1 === m15b.n0 && m15b.pts === '9400,5800 9590,5800 9590,5850' && /하나로 합쳤습니다.*꼬리/.test(m15b.toast), '15-5) 지도에서 그리면 실제로 한 선으로 저장 + 알림 ' + JSON.stringify(m15b));
+  ok(m15b.on && m15b.st && m15b.st.stroke === 'rgb(192, 38, 26)' && /10/.test(m15b.st.dash) && m15b.st.anim === 'wallMarch' && m15b.off, '15-6) 레이어에서 외벽 켜면 빨간 점선이 흐르고 3초 뒤 원래대로 ' + JSON.stringify(m15b.st));
+
+  await f.evaluate(() => { exitAddZoneMode(); hideWallBar(); focusStoreAt(9500, 5800); onZoneCheckboxChange('wall', false); onZoneCheckboxChange('wall', true); }); await p.waitForTimeout(500);
+  await shot(p, 'shot_map_wall_march.png');
   ok(!p.errs.length, '11) 화면 오류 없음 ' + p.errs.join(' | '));
   await b.close(); srv.close();
   console.log(fail ? `\n${fail}개 실패` : '\n지도 외벽 경계 시험 모두 통과');
