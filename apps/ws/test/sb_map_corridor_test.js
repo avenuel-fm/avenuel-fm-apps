@@ -177,6 +177,21 @@ const fillAt = (f, id, pts) => f.evaluate(([id, pts]) => { const p = document.qu
   }, A);
   ok(l9.hid === 'none' && l9.t0 && !l9.t1 && !l9.sel && l9.lock, '9) 보기 끄면 숨김 · 열쇠 잠그면 고르기·지우개 막힘 ' + JSON.stringify(l9));
 
+  // 11) 다 깎여 빈 후방복도가 있어도 매장 그리기 점이 찍힘 (지하1층 실제 고장 11-28)
+  const e11 = await f.evaluate(() => {
+    if (isZoneDrawingMode) exitAddZoneMode();
+    document.querySelector('#corridor-layer path.store-polygon').setAttribute('d', '');
+    let err = '';
+    try { snapToGrid(10400, 5600); } catch (e) { err = e.message; }
+    if (!isDrawingMode) toggleAddStoreMode();
+    drawingPoints = [];
+    return err;
+  });
+  const v11 = await p.locator('iframe.mapframe').boundingBox();
+  await p.mouse.click(v11.x + v11.width / 2, v11.y + v11.height / 2); await p.waitForTimeout(200);
+  ok(e11 === '' && await f.evaluate(() => drawingPoints.length) === 1, '11) 빈 후방복도가 있어도 매장 추가 점이 찍힘 ' + e11);
+  await f.evaluate(() => { if (isDrawingMode) toggleAddStoreMode(); });
+
   ok(!p.errs.length, '10) 화면 오류 없음 ' + p.errs.join(' | '));
   await b.close(); srv.close();
   console.log(fail ? `\n${fail}개 실패` : '\n지도 후방복도 시험 모두 통과');
