@@ -57,6 +57,8 @@ const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); r
 (async () => {
   const b = await chromium.launch();
   const [p, f, fl] = await open(b, { viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true });
+  const noV = await f.evaluate(() => Array.from(document.querySelectorAll('script[src], link[rel="stylesheet"][href^="css"]')).map(e => e.getAttribute('src') || e.getAttribute('href')).filter(u => !/^https?:/.test(u) && !/\?v=/.test(u)));
+  ok(!noV.length, 'M0) 지도 화면 파일은 모두 판 번호(?v=)가 붙음 — 없으면 옛 파일이 남아 화면이 깨짐 (' + noV.join(',') + ')');
   // ── 결정 376: 휴대폰 첫 화면 ──
   const m0 = await f.evaluate(() => {
     const shown = s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0; };
