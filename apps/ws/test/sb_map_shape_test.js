@@ -240,6 +240,42 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   });
   ok(/아그라 자리는 비웠습니다/.test(fp.msg) && fp.btn === '매장 위로 그대로' && fp.same && fp.pts && !fp.force, '15-2) 매장 자리를 비우면 「매장 위로 그대로」 → 누르면 그 바닥만 그린 대로 ' + JSON.stringify(fp));
 
+  // 17) 기능실 주요 기능실(EPS)을 고르면 이름은 직접 쓴 대로 두고, 누를 때 이름 옆에 「EPS」 (결정 358)
+  const uk = await f.evaluate(u => {
+    const st = currentStores.find(x => x.id === u); openEditModalForStore(st);
+    document.getElementById('edit-name').value = 'B1 전기실';
+    const r = document.querySelector('input[name="util-type-opt"][value="EPS"]'); r.checked = true; r.dispatchEvent(new Event('change'));
+    const kept = document.getElementById('edit-name').value;
+    saveStoreEdit(); selectAndHighlightStore(st);
+    const chip = document.getElementById('status-util-kind'), name = document.getElementById('status-store-name').textContent;
+    const out = { kept, name, chip: chip.textContent, shown: !chip.hidden, saved: svgCache.get(FLOORS[currentFloorIdx].code).includes('data-util-kind="EPS"') };
+    closeAllPopovers(); openEditModalForStore(st); out.radio = document.querySelector('input[name="util-type-opt"]:checked')?.value; cancelStoreEdit();
+    return out;
+  }, U);
+  ok(uk.kept === 'B1 전기실' && uk.name === 'B1 전기실' && uk.chip === 'EPS' && uk.shown && uk.saved && uk.radio === 'EPS', '17) 주요 기능실을 고르면 이름은 그대로 · 누르면 이름 옆에 EPS · 저장본에 남음 · 다시 열면 EPS 골라져 있음 ' + JSON.stringify(uk));
+  const sk = await f.evaluate(s => { selectAndHighlightStore(currentStores.find(x => x.id === s)); const h = document.getElementById('status-util-kind').hidden; closeAllPopovers(); return h; }, S);
+  ok(sk, '17-1) 매장을 누르면 주요 기능실 칸 없음');
+
+  // 16) 원래 도면 매장(아그라, d 가 상대 좌표 h·v)도 수정하기에서 손잡이·옮기기 (결정 356)
+  const A = await f.evaluate(() => { const s = currentStores.find(x => !x.isCustom && x.polygonElement && x.polygonElement.id === 'a'); focusStoreAt(9600, 4200); openEditModalForStore(s); return { id: s.id, d: s.polygonElement.getAttribute('d'), txt: s.textElement.outerHTML, h: document.querySelectorAll('#shape-edit-handles .shape-handle').length }; });
+  ok(A.h === 4, '16) 원래 도면 매장도 수정하기에서 손잡이 4개 ' + A.h);
+  const aMid = await scr(9600, 4150);
+  await drag(aMid, 60, 0);
+  const aB = await bbox(await dOf(A.id));
+  const k0 = await f.evaluate(() => scale);
+  ok(Math.abs(aB.x1 - aB.x0 - 300) < 1 && Math.abs(aB.y1 - aB.y0 - 200) < 1 && aB.x0 > 9450 + 60 / k0 - 3 && aB.x0 < 9450 + 60 / k0 + 3, '16-1) 끌면 모양(300×200) 그대로 옮겨짐 — 선으로 찌그러지지 않음 ' + JSON.stringify(aB));
+  const aT = await f.evaluate(id => { const s = currentStores.find(x => x.id === id), t = s.textElement.getBBox(), pb = s.polygonElement.getBBox(); return Math.abs((t.x + t.width / 2) - (pb.x + pb.width / 2)) < 3; }, A.id);
+  ok(aT, '16-2) 매장 이름도 도형 가운데로 따라옴');
+  await f.evaluate(() => cancelStoreEdit ? cancelStoreEdit() : closeAllPopovers());
+  const aC = await f.evaluate(id => { const s = currentStores.find(x => x.id === id); return { d: s.polygonElement.getAttribute('d'), txt: s.textElement.outerHTML }; }, A.id);
+  const noSt = s => s.replace(/ style="[^"]*"/, ''); ok(aC.d === A.d && noSt(aC.txt) === noSt(A.txt), '16-3) 취소하면 도형·이름 글자 모두 원래대로 ' + JSON.stringify({ d: aC.d, b: aC.txt }));
+  await f.evaluate(id => openEditModalForStore(currentStores.find(x => x.id === id)), A.id);
+  await drag(aMid, 0, 40);
+  await f.evaluate(() => saveStoreEdit()); await p.waitForTimeout(200);
+  const aS = await f.evaluate(id => { const s = currentStores.find(x => x.id === id); return { d: s.polygonElement.getAttribute('d'), saved: svgCache.get(FLOORS[currentFloorIdx].code).includes(s.polygonElement.getAttribute('d')), free: s.textElement.dataset.lblFree, h: !!document.getElementById('shape-edit-handles') }; }, A.id);
+  const aSB = await bbox(aS.d);
+  ok(aS.saved && aS.free === '1' && !aS.h && aSB.y0 > 4100 + 40 / k0 - 3 && aSB.y0 < 4100 + 40 / k0 + 3, '16-4) 저장하면 옮긴 자리가 지도 저장본에 남음 · 손잡이 없어짐 ' + JSON.stringify(aS));
+
   ok(!p.errs.length, '11) 화면 오류 없음 ' + p.errs.join('|'));
   await shot(p, 'shot_map_shape.png');
   await b.close(); srv.close();
