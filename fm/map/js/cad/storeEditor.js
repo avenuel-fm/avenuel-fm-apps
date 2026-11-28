@@ -59,7 +59,7 @@ var lastCreatedStoreId = null;
             drawShapeHandles();
         }
 
-        // 기능실의 주요 기능실(EPS·PS…)은 도형에 따로 남김 — 지도 저장본에 같이 저장 (결정 358)
+        // 기능실의 주요 기능실(EPS·PS…)은 도형에 따로 남김 — 지도 저장본에 같이 저장 (결정 362)
         // shortcut: 대장(StoreBook)이 아니라 도형 data-util-kind 에 둠, 다른 화면(대장 목록)에서도 쓰게 되면 대장 칸으로
         const UTIL_KINDS = ['EPS', 'AV', '공조실', 'PS', 'PD', '영업창고'];
         function utilKindOf(store) {
@@ -514,11 +514,11 @@ var lastCreatedStoreId = null;
         function shapeRelabel(store, noGrow) {
             const t = store.textElement;
             if (!t || !store.polygonElement) return;
-            if (!store.isCustom) { delete t.dataset.lblOrig; delete t.dataset.lblName; t.dataset.lblFree = '1'; }   // 옮긴 원래 매장 글자는 그린 도형처럼 (결정 356)
+            if (!store.isCustom) { delete t.dataset.lblOrig; delete t.dataset.lblName; t.dataset.lblFree = '1'; }   // 옮긴 원래 매장 글자는 그린 도형처럼 (결정 360)
             layoutStoreLabel(t, StoreBook.show(store.name), store.polygonElement, noGrow);
         }
 
-        // 도형 점 (원래 도면 매장은 상대 좌표 h·v·곡선이 있어 rtPathPoints 로 읽음, 결정 356)
+        // 도형 점 (원래 도면 매장은 상대 좌표 h·v·곡선이 있어 rtPathPoints 로 읽음, 결정 360)
         function shapePts(p) {
             return typeof rtPathPoints === 'function' ? rtPathPoints(p) : parseSvgPathPoints(p.getAttribute('d'));
         }
@@ -526,7 +526,7 @@ var lastCreatedStoreId = null;
         function startShapeEdit(store) {
             endShapeEdit();
             const p = store && store.polygonElement;
-            // 원래 도면 매장도 기능실처럼 고침 (결정 356). shortcut: <path> 만 — <polygon> 매장은 손잡이 없음, 나오면 points 도 다루게
+            // 원래 도면 매장도 기능실처럼 고침 (결정 360). shortcut: <path> 만 — <polygon> 매장은 손잡이 없음, 나오면 points 도 다루게
             if (!store || !p || p.tagName.toLowerCase() !== 'path' || mapStore.readOnly()) return;
             const t = store.textElement;   // 원래 도면 글자는 취소 때 그대로 되돌리려고 남겨 둠
             shapeEdit = { store, origD: p.getAttribute('d'), origText: t && { html: t.innerHTML, attrs: [...t.attributes].map(a => [a.name, a.value]) } };

@@ -240,7 +240,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   });
   ok(/아그라 자리는 비웠습니다/.test(fp.msg) && fp.btn === '매장 위로 그대로' && fp.same && fp.pts && !fp.force, '15-2) 매장 자리를 비우면 「매장 위로 그대로」 → 누르면 그 바닥만 그린 대로 ' + JSON.stringify(fp));
 
-  // 17) 기능실 주요 기능실(EPS)을 고르면 이름은 직접 쓴 대로 두고, 누를 때 이름 옆에 「EPS」 (결정 358)
+  // 17) 기능실 주요 기능실(EPS)을 고르면 이름은 직접 쓴 대로 두고, 누를 때 이름 옆에 「EPS」 (결정 362)
   const uk = await f.evaluate(u => {
     const st = currentStores.find(x => x.id === u); openEditModalForStore(st);
     document.getElementById('edit-name').value = 'B1 전기실';
@@ -256,7 +256,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const sk = await f.evaluate(s => { selectAndHighlightStore(currentStores.find(x => x.id === s)); const h = document.getElementById('status-util-kind').hidden; closeAllPopovers(); return h; }, S);
   ok(sk, '17-1) 매장을 누르면 주요 기능실 칸 없음');
 
-  // 16) 원래 도면 매장(아그라, d 가 상대 좌표 h·v)도 수정하기에서 손잡이·옮기기 (결정 356)
+  // 16) 원래 도면 매장(아그라, d 가 상대 좌표 h·v)도 수정하기에서 손잡이·옮기기 (결정 360)
   const A = await f.evaluate(() => { const s = currentStores.find(x => !x.isCustom && x.polygonElement && x.polygonElement.id === 'a'); focusStoreAt(9600, 4200); openEditModalForStore(s); return { id: s.id, d: s.polygonElement.getAttribute('d'), txt: s.textElement.outerHTML, h: document.querySelectorAll('#shape-edit-handles .shape-handle').length }; });
   ok(A.h === 4, '16) 원래 도면 매장도 수정하기에서 손잡이 4개 ' + A.h);
   const aMid = await scr(9600, 4150);
