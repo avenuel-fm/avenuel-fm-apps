@@ -52,7 +52,7 @@ async function open(b, opts) {
   await p.locator('.grid6').waitFor();
   await p.click('.grid6 .tile:has-text("지도")');
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
-  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
+  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor({ state: 'attached' });
   await p.waitForTimeout(600);
   const f = p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
@@ -112,7 +112,13 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   const fit = await f.evaluate(id => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'floor'); return { fx: Math.max(...z.flatMap(q => q.points.map(p => p.x))), left: shapesOutsideWall().length, cs: getCustomStores(FLOORS[currentFloorIdx].code).find(c => c.name === '밖매장').pathData }; }, outStore);
   const sb = await bboxOf(f, outStore);
   ok(Math.abs(fit.fx - 11195) < 0.6 && fit.left === 0, '4-2) 「안쪽으로 맞추기」: 바닥은 외벽 안쪽 5px 까지 ' + JSON.stringify(fit));
-  ok(Math.abs(sb.x1 - 11198) < 0.6 && /11198/.test(fit.cs), '4-3) 매장은 외벽선 안쪽 2px 까지 (저장도 됨, 결정 318) ' + JSON.stringify(sb));
+  ok(Math.abs(sb.x1 - 11200) < 0.6 && /11200/.test(fit.cs), '4-3) 매장은 외벽선에 간격 없이 붙음 (저장도 됨, 결정 376) ' + JSON.stringify(sb));
+  // 4-4) 예전에 외벽 안쪽 2px 로 맞춰 둔 매장 → 층을 다시 열면 외벽선에 붙음 (결정 376)
+  const old2 = await f.evaluate(id => { const code = FLOORS[currentFloorIdx].code, L = getCustomStores(code), cs = L.find(c => String(c.id) === String(id));
+    cs.pathData = 'M11050 5500L11198 5500L11198 5600L11050 5600Z'; saveCustomStores(code, L); const st = currentStores.find(x => x.id === id); st.polygonElement.setAttribute('d', cs.pathData); syncSvgCache(); return cs.pathData; }, outStore);
+  await f.evaluate(() => selectFloor(currentFloorIdx, true)); await p.waitForTimeout(500);
+  const sb4 = await bboxOf(f, outStore), cs4 = await f.evaluate(id => getCustomStores(FLOORS[currentFloorIdx].code).find(c => String(c.id) === String(id)).pathData, outStore);
+  ok(Math.abs(sb4.x1 - 11200) < 0.6 && /11200/.test(cs4) && Math.abs(sb4.x0 - 11050) < 0.6, '4-4) 외벽 안쪽 2px 에 있던 매장도 다시 열면 외벽선에 붙고 저장됨 · 먼 변은 그대로 ' + JSON.stringify(sb4));
 
   // 5) 닫힌 외벽 밖으로 그리면 자름: 바닥 5px · 방화구역 면 · 제연구획 선 · 매장
   const fl5 = await zone(f, 'floor', [{ x: 10900, y: 4800 }, { x: 11400, y: 4800 }, { x: 11400, y: 4900 }, { x: 10900, y: 4900 }]);

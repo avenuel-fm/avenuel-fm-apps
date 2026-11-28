@@ -48,7 +48,7 @@ async function open(b, opts) {
   await p.locator('.grid6').waitFor();
   await p.click('.grid6 .tile:has-text("지도")');
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
-  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
+  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor({ state: 'attached' });
   await p.waitForTimeout(600);
   return [p, p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url())), p.frameLocator('iframe.mapframe')];
 }
@@ -57,6 +57,32 @@ const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); r
 (async () => {
   const b = await chromium.launch();
   const [p, f, fl] = await open(b, { viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true });
+  // ── 결정 376: 휴대폰 첫 화면 ──
+  const m0 = await f.evaluate(() => {
+    const shown = s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0; };
+    const c = FLOORS[currentFloorIdx].crop, vw = viewport.clientWidth, vh = viewport.clientHeight, fitS = Math.min(vw / c.width, vh / c.height) * 0.98;
+    const badge = Array.from(document.querySelectorAll('#current-floor-indicator span')).filter(s => getComputedStyle(s).display !== 'none').map(s => s.textContent).join('|');
+    const tabs = Array.from(document.querySelectorAll('#mainboard-tabs .mainboard-building-tab')).map(t => t.innerText.replace(/\s/g, ''));
+    const hb = Array.from(document.querySelectorAll('.header-actions > *')).filter(e => getComputedStyle(e).display !== 'none' && e.getClientRects().length).map(e => e.getBoundingClientRect()).filter(r => r.width > 0).map(r => ({ top: r.top + r.height / 2, left: r.left }));
+    return { panel: document.getElementById('floor-panel').classList.contains('hidden'), fit: Math.abs(scale - fitS) < 1e-6, dbg: [scale, fitS, vw, vh, c.width, c.height], badge, tabs,
+      hist: shown('#btn-hist'), print: shown('#print-dropdown-wrapper'), png: shown('#btn-png'), oneRow: hb.length >= 3 && hb.every(r => Math.abs(r.top - hb[0].top) < 2), hbt: hb.map(r => Math.round(r.top) + '/' + Math.round(r.left)),
+      words: ['#btn-symbol-menu', '#btn-edit-menu'].map(s => document.querySelector(s).innerText.trim()).join('|'), fitBtn: shown('#btn-fit-view') };
+  });
+  ok(m0.panel, 'M1) 휴대폰: 처음엔 층 선택 사이드바 접힘');
+  ok(m0.fit, 'M2) 지도가 화면에 꽉 차게 (층 전체) ' + JSON.stringify(m0.dbg));
+  ok(/^\S+$/.test(m0.badge) && !/부티크|럭셔리/.test(m0.badge), 'M3) 층 표시는 층만 (' + m0.badge + ')');
+  ok(m0.tabs.join(',') === '🏛️,🏙️›', 'M4) 에비뉴엘·타점은 그림만 (' + m0.tabs.join(',') + ')');
+  ok(!m0.hist && !m0.print && !m0.png, 'M5) 기록·인쇄·PNG 버튼 없음');
+  ok(m0.oneRow && m0.words === '|', 'M6) 레이어·편집·되돌리기는 그림만 한 줄 (' + m0.words + ') ' + m0.hbt.join(','));
+  await fl.locator('#btn-edit-menu').tap();
+  const em = await f.evaluate(() => Array.from(document.querySelectorAll('#edit-dropdown-menu .dropdown-item')).filter(e => getComputedStyle(e).display !== 'none').map(e => e.innerText.trim()));
+  ok(em.length === 2 && /심벌/.test(em[0]) && /설비연결/.test(em[1]), 'M7) 편집 메뉴는 심벌·연결선만 (' + em.join(',') + ')');
+  await f.evaluate(() => closeEditDropdown());
+  await shot(p, 'shot_map_mobile_first.png');
+  ok(m0.fitBtn, 'M8) +/− 밑에 「화면 맞춤」 버튼');
+  await f.evaluate(() => { zoomIn(); zoomIn(); panX += 200; updateTransform(); });
+  await fl.locator('#btn-fit-view').tap(); await p.waitForTimeout(150);
+  ok(await f.evaluate(() => { const c = FLOORS[currentFloorIdx].crop; return Math.abs(scale - Math.min(viewport.clientWidth / c.width, viewport.clientHeight / c.height) * 0.98) < 1e-6; }), 'M9) 「화면 맞춤」을 누르면 층 전체가 다시 꽉 차게');
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
   const r = await p.evaluate(() => { const bk = document.querySelector('.mapback').getBoundingClientRect(), fr = document.querySelector('iframe.mapframe').getBoundingClientRect(); return { bk: [bk.left, bk.bottom, bk.width], fr: fr.bottom, h: innerHeight, bar: document.querySelectorAll('.backbar').length }; });
   ok(r.bar === 0 && r.bk[0] < 30 && r.h - r.bk[1] < 40 && r.bk[2] < 120 && r.h - r.fr < 2, '1) 뒤로: 아래 넓은 줄 없음 · 왼쪽 아래 작은 버튼 · 지도가 화면 아래까지 (' + r.bk.map(Math.round).join(',') + ')');

@@ -82,7 +82,7 @@ const mapFrame = p => p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.u
 async function openMap(p) {
   if (p.isMobile) await p.tap('.grid6 .tile:has-text("지도")'); else await p.click('.grid6 .tile:has-text("지도")');
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
-  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
+  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor({ state: 'attached' });
   return mapFrame(p);
 }
 
@@ -108,7 +108,7 @@ async function openMap(p) {
   await p.waitForFunction(() => { const fr = document.querySelector('iframe.mapframe'); return fr && fr.contentWindow && !fr.contentWindow.__mark && fr.contentWindow.mapStore; }, null, { timeout: 8000 }).catch(() => {});
   ok(p.dialogs.some(m => /그사이 김철수님이/.test(m)) && KV.lotte_symbols_1F === '[1,2]', '7) 동시 편집: 다른 사람이 먼저 고쳤으면 저장 안 하고 알림 → 새로 불러옴');
   VERS.lotte_symbols_1F = 'v9';
-  f = mapFrame(p); await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
+  f = mapFrame(p); await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor({ state: 'attached' });
   // Delete 키 (WS 남은 버그)
   p.onDialog = d => d.dismiss();
   await f.evaluate(() => selectUtilLineForDelete(getFloorUtilityLines('1F')[0]));
@@ -138,7 +138,7 @@ async function openMap(p) {
   await p.frameLocator('iframe.mapframe').locator('.hist-dlg .yes').click();
   await p.waitForTimeout(800);
   ok(RESTORES[0] === YEST, '12) 소장: 「이 날로 되돌리기」 → 확인 → 되돌리기 함수');
-  f = mapFrame(p); await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
+  f = mapFrame(p); await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor({ state: 'attached' });
   ok(await f.evaluate(() => !mapStore.viewAt && !document.querySelector('.hist-bar')), '13) 되돌린 뒤 지금 모습으로 새로 불러옴');
   const ctx = d => d.evaluate(() => !document.body.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
   ok(await ctx(p) && await ctx(f), '14) PC 오른쪽 버튼 메뉴 막음 (업무지원 · 지도 둘 다)');

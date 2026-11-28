@@ -51,7 +51,7 @@ async function open(b, opts) {
   await p.locator('.grid6').waitFor();
   await p.click('.grid6 .tile:has-text("지도")');
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
-  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
+  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor({ state: 'attached' });
   await p.waitForTimeout(600);
   const f = p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
@@ -122,8 +122,8 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   ok(er.cat === 'erase' && er.on && er.off && er.poly, '14) 지우개를 켜면 구역 종류는 잠기고 면으로 그림');
   await draw(f, [{ x: 10420, y: 4940 }, { x: 10640, y: 4940 }, { x: 10640, y: 5130 }, { x: 10420, y: 5130 }]);
   await p.waitForTimeout(300);
-  const ez = await f.evaluate(() => { const z = getFloorZones('1F').filter(z => z.category === 'erase'); return { n: z.length, name: z[0] && z[0].name, poly: document.querySelectorAll('#eraser-layer polygon.user-eraser').length, mask: !!document.querySelector('#eraser-mask'), attr: document.getElementById('eraser-layer').getAttribute('mask'), holes: document.querySelectorAll('#eraser-mask > path, #eraser-mask > polygon').length, cat: currentZoneCategory, mode: isZoneDrawingMode }; });
-  ok(ez.n === 1 && ez.name === '지우개 1' && ez.poly === 1 && ez.mask && ez.attr === 'url(#eraser-mask)' && ez.holes >= 3 && ez.cat === 'floor' && !ez.mode, '15) 지우개 저장 · 매장·바닥에 구멍 뚫린 마스크 · 끝나면 지우개 꺼짐 (' + JSON.stringify(ez) + ')');
+  const ez = await f.evaluate(() => { const z = getFloorZones('1F').filter(z => z.category === 'erase'); return { n: z.length, name: z[0] && z[0].name, poly: document.querySelectorAll('#eraser-layer polygon.user-eraser').length, mask: !!document.querySelector('#eraser-mask-0'), attr: document.querySelector('#eraser-layer > g').getAttribute('mask'), holes: document.querySelectorAll('#eraser-mask-0 > path, #eraser-mask-0 > polygon').length, cat: currentZoneCategory, mode: isZoneDrawingMode }; });
+  ok(ez.n === 1 && ez.name === '지우개 1' && ez.poly === 1 && ez.mask && ez.attr === 'url(#eraser-mask-0)' && ez.holes >= 3 && ez.cat === 'floor' && !ez.mode, '15) 지우개 저장 · 매장·바닥에 구멍 뚫린 마스크 · 끝나면 지우개 꺼짐 (' + JSON.stringify(ez) + ')');
   const gone = await pixel(f, 10530, 5030), kept = await pixel(f, 10830, 5030);
   ok(near(gone, [255, 255, 255, 255]) && near(kept, [255, 0, 0, 255]), '16) 지운 범위의 얼룩은 바닥색(흰색)으로 · 범위 밖은 그대로 ' + gone.join(',') + ' / ' + kept.join(','));
   const order = await f.evaluate(() => { const ids = Array.from(document.querySelectorAll('#map-container > svg > g[id]')).map(g => g.id); return ids; });

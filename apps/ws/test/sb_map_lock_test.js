@@ -51,7 +51,7 @@ async function open(b, opts) {
   await p.locator('.grid6').waitFor();
   await p.click('.grid6 .tile:has-text("지도")');
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
-  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
+  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor({ state: 'attached' });
   await p.waitForTimeout(600);
   const f = p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
@@ -108,7 +108,7 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   // ── 열쇠 ──
   await f.evaluate(() => toggleSymbolFilterDropdown());
   const n = await fl.locator('input.chk-lock').count();
-  ok(n === 8, '4) 레이어 메뉴 열쇠 체크박스 8개 (외벽 포함, 결정 316) (' + n + ')');
+  ok(n === 14, '4) 레이어 메뉴 열쇠 체크박스 14개 (외벽 316 · 심벌 4·인포·그리드 376) (' + n + ')');
   ok(await f.evaluate(() => { const l = document.querySelector('input.chk-lock[data-lock="fire"]'), v = document.getElementById('chk-zone-filter-fire'); return l.getBoundingClientRect().right <= v.getBoundingClientRect().left + 1; }), '5) 열쇠는 표시 체크박스 왼쪽');
   await f.evaluate(() => { document.querySelector('input.chk-lock[data-lock="floor"]').click(); document.querySelector('input.chk-lock[data-lock="power"]').click(); closeAllPopovers(); });
   const zid = await f.evaluate(() => getFloorZones('1F').find(z => z.category === 'floor').id);

@@ -50,7 +50,7 @@ async function open(b, opts) {
   await p.locator('.grid6').waitFor();
   await p.click('.grid6 .tile:has-text("지도")');
   await p.frameLocator('iframe.mapframe').locator('#map-container svg').waitFor({ timeout: 15000 });
-  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor();
+  await p.frameLocator('iframe.mapframe').locator('#btn-hist').waitFor({ state: 'attached' });
   await p.waitForTimeout(600);
   const f = p.frames().find(x => /\/map\/index\.html(\?.*)?$/.test(x.url()));
   await f.evaluate(() => { if (!document.getElementById('floor-panel').classList.contains('hidden')) toggleFloorPanel(); });
@@ -223,6 +223,37 @@ const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 3);
   await p.keyboard.press('Enter'); await p.waitForTimeout(300);
   ok(!(await f.evaluate(u => !!currentStores.find(x => x.id === u), U)) && !(await f.evaluate(() => !!document.getElementById('erase-confirm'))), 'C16) Enter = 확인 → 기능실 지워짐');
   await shot(p, 'shot_map_eraser.png');
+  // ── D) 결정 376: Shift 직선 · 열쇠 잠긴 레이어 · 외벽선·외벽 밖 ──
+  await f.evaluate(() => focusStoreAt(10400, 4950)); await p.waitForTimeout(700);
+  { const s0 = await scr(10450, 5100); await p.mouse.move(s0.x, s0.y); await p.keyboard.down('Shift'); await p.mouse.down();
+    const s1 = await scr(10530, 5140); await p.mouse.move(s1.x, s1.y, { steps: 6 }); await p.mouse.up(); await p.keyboard.up('Shift'); await p.waitForTimeout(250); }
+  const zs = await f.evaluate(() => getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'erase').pop());
+  const ys = zs.points.map(q => q.y), xs = zs.points.map(q => q.x);
+  ok(Math.max(...ys) - Math.min(...ys) < 0.5 && Math.max(...xs) - Math.min(...xs) > 50, 'D1) Shift 누르고 문지르면 가로로만 ' + JSON.stringify({ dy: Math.max(...ys) - Math.min(...ys), dx: Math.max(...xs) - Math.min(...xs) }));
+  await f.evaluate(() => onLayerLockChange('sym_fire_hydrant', true));
+  await stroke([[10450, 5200], [10530, 5200]]);
+  const zk = await f.evaluate(() => getFloorZones(FLOORS[currentFloorIdx].code).filter(z => z.category === 'erase').pop());
+  await f.evaluate(() => onLayerLockChange('sym_fire_hydrant', false));
+  await f.evaluate(() => renderFloorZones(FLOORS[currentFloorIdx].code));
+  const kg = await f.evaluate(() => { const g = document.querySelector('#eraser-layer g[data-keep-grp="sym_fire_hydrant"]'); return g ? { n: g.querySelectorAll('polyline').length, m: !!document.querySelector(g.getAttribute('mask').slice(4, -1)) } : null; });
+  ok(zk.keep === 'sym_fire_hydrant' && kg && kg.n === 1 && kg.m, 'D2) 칠할 때 잠긴 레이어는 그 칠에 기억 · 열쇠를 풀어도 따로 구멍 ' + JSON.stringify({ keep: zk.keep, kg }));
+  // 닫힌 외벽 → 지우개는 외벽 안만, 외벽선은 구멍
+  const z9 = await f.evaluate(() => { const c = FLOORS[currentFloorIdx].code, zs = getFloorZones(c);
+    zs.push({ id: 'zone_eb_wall', name: '외벽', category: 'wall', geometry: 'line', points: [[10000, 4000], [11000, 4000], [11000, 5600], [10000, 5600], [10000, 4000]].map(([x, y]) => ({ x, y })) });
+    saveFloorZones(c, zs); renderFloorZones(c);
+    const cp = document.querySelector('#eraser-defs #eraser-clip path');
+    return { clip: document.getElementById('eraser-layer').getAttribute('clip-path'), d: cp ? cp.getAttribute('d').slice(0, 30) : '',
+      wallHole: Array.from(document.querySelectorAll('#eraser-defs mask')).every(m => !!m.querySelector('.building-exterior-wall')) }; });
+  ok(z9.clip === 'url(#eraser-clip)' && /^M10000/.test(z9.d) && z9.wallHole, 'D3) 외벽이 닫히면 칠은 외벽 안쪽만 · 외벽선은 늘 구멍 ' + JSON.stringify(z9));
+  await f.evaluate(() => focusStoreAt(9600, 4550)); await p.waitForTimeout(700);
+  await stroke([[9330, 4490], [9400, 4490]]);
+  ok(!(await f.evaluate(() => !!document.getElementById('erase-confirm'))) && await f.evaluate(s => !!currentStores.find(x => x.id === s), S), 'D3-1) 외벽 밖 매장은 문질러도 안 걸림');
+  await f.evaluate(() => focusStoreAt(10400, 4950)); await p.waitForTimeout(700);
+  const zOut = await nz();
+  await stroke([[10950, 5100], [11080, 5100]]);
+  ok(await nz() === zOut + 1 && near(await pixel(f, 10960, 5100), [255, 255, 255, 255]), 'D4) 외벽 안쪽 칠은 흰색');
+  await f.evaluate(() => { const c = FLOORS[currentFloorIdx].code; saveFloorZones(c, getFloorZones(c).filter(z => z.id !== 'zone_eb_wall')); renderFloorZones(c); });
+  ok(!(await f.evaluate(() => document.getElementById('eraser-layer').getAttribute('clip-path'))), 'D5) 외벽이 없으면 자르지 않음');
   await fl.locator('#btn-zone-eraser').click();
   ok(await f.evaluate(() => !document.body.classList.contains('eraser-brush')) && await vis() === '', 'C17) 지우개를 끄면 연결선 다시 숨김 (' + await vis() + ')');
   ok(!p.errs.length, 'Z) 화면 오류 없음 ' + p.errs.join('|'));
