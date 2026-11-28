@@ -159,13 +159,39 @@ async function open(b, opts) {
   await click(9600, 4380); await p.keyboard.press('Delete'); await p.waitForTimeout(150);
   ok(!(await zs()).some(z => z.id === 'zf3'), '11-1) Del → 고른 바닥 삭제');
   await put([fl('zf4', R(9500, 4350, 9700, 4400))]);
-  const q11 = await scr(9600, 4380); await p.keyboard.down('Shift'); await p.mouse.click(q11.x, q11.y); await p.keyboard.up('Shift'); await p.waitForTimeout(120);
+  const q11 = await scr(9600, 4380); await p.keyboard.down('Alt'); await p.mouse.click(q11.x, q11.y); await p.keyboard.up('Alt'); await p.waitForTimeout(120);
   const sh = await f.evaluate(() => ({ sel: feSel, pts: drawingZonePoints.length }));
-  ok(sh.sel === null && sh.pts === 1, '11-2) Shift+클릭은 바닥 안이어도 새 바닥 첫 점 ' + JSON.stringify(sh));
+  ok(sh.sel === null && sh.pts === 1, '11-2) Alt+클릭은 바닥 안이어도 새 바닥 첫 점 (전: Shift, 결정 372) ' + JSON.stringify(sh));
   const cache = await f.evaluate(() => { drawingZonePoints = []; feSel = 'zf4'; feRender(); syncSvgCache(); return svgCache.get(FLOORS[currentFloorIdx].code).includes('floor-edit-layer'); });
   ok(!cache, '11-3) 고르기 표시는 지도 저장본에 안 남음');
   await f.evaluate(() => exitAddZoneMode());
   ok(await f.evaluate(() => !document.getElementById('floor-edit-layer') && feSel === null), '11-4) 구역 그리기를 끝내면 고르기 표시도 사라짐');
+
+  // 13) 바닥 채우기를 안 켜도 Shift+클릭으로 바닥 여러 개 고르기 → 「합치기」 (삭제 위) (결정 372)
+  await f.evaluate(() => { focusStoreAt(9700, 4650); if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('floor'); drawingZonePoints = []; }); await p.waitForTimeout(300);
+  await put([fl('zf5', R(9500, 4600, 9600, 4700)), fl('zf6', R(9600, 4600, 9700, 4700)), fl('zf7', R(9650, 4650, 9750, 4750)), fl('zf8', R(9800, 4600, 9850, 4650))]);
+  const sclick = async (x, y) => { const q = await scr(x, y); await p.keyboard.down('Shift'); await p.mouse.click(q.x, q.y); await p.keyboard.up('Shift'); await p.waitForTimeout(120); };
+  await click(9550, 4650);
+  const btns = await f.evaluate(() => [...document.querySelectorAll('#floor-sel-pop button')].map(b => b.textContent));
+  ok(btns[0] === '합치기' && btns[1] === '삭제 (Del)', '13) 바닥을 누르면 편집창 맨 위 「합치기」, 그 아래 삭제 ' + JSON.stringify(btns));
+  await sclick(9650, 4620); await sclick(9720, 4720); await sclick(9820, 4620);
+  const m13 = await f.evaluate(() => ({ multi: feMulti.slice(), title: document.querySelector('#floor-sel-pop .wall-seg-title')?.textContent, hl: document.querySelectorAll('#floor-edit-layer .fe-sel').length, pts: drawingZonePoints.length, rename: [...document.querySelectorAll('#floor-sel-pop button')].some(b => /이름/.test(b.textContent)) }));
+  ok(m13.multi.join() === 'zf5,zf6,zf7,zf8' && /바닥 4개/.test(m13.title) && m13.hl === 4 && !m13.pts && !m13.rename, '13-1) Shift+클릭으로 바닥 4개 고름 (새 점 안 찍힘, 모두 강조) ' + JSON.stringify(m13));
+  await p.screenshot({ path: path.join(process.env.SHOT_DIR || path.join(__dirname, '..'), 'shot_map_floor_merge.png') });
+  await sclick(9820, 4620);
+  ok((await f.evaluate(() => feMulti.join())) === 'zf5,zf6,zf7', '13-2) 고른 바닥을 Shift+클릭하면 빠짐');
+  await sclick(9820, 4620);
+  await f.evaluate(() => document.querySelector('#floor-sel-pop .fe-merge').click()); await p.waitForTimeout(150);
+  const m13b = await f.evaluate(() => { const z = getFloorZones(FLOORS[currentFloorIdx].code).filter(q => q.category === 'floor'); const a = z.find(q => q.id === 'zf5'); const xs = a.points.map(q => q.x), ys = a.points.map(q => q.y); return { ids: z.map(q => q.id).join(), box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].join(), toast: document.getElementById('toast')?.textContent || '', sel: feSel, multi: feMulti.length }; });
+  ok(m13b.ids === 'zf5,zf8' && m13b.box === '9500,4600,9750,4750' && /3개를 1장으로.*떨어진 바닥 1개/.test(m13b.toast) && !m13b.multi, '13-3) 닿거나 겹친 3개는 한 장으로, 떨어진 1개는 그대로 ' + JSON.stringify(m13b));
+  await f.evaluate(() => handleUndo()); await p.waitForTimeout(800);
+  ok((await zs()).length === 4, '13-4) 되돌리기 한 번에 4개로 ' + (await zs()).map(z => z.id).join());
+  await f.evaluate(() => { focusStoreAt(9700, 4650); if (!isZoneDrawingMode) toggleAddZoneMode(); setZoneCategory('floor'); drawingZonePoints = []; }); await p.waitForTimeout(300);
+  await click(9550, 4650); await f.evaluate(() => document.querySelector('#floor-sel-pop .fe-merge').click()); await p.waitForTimeout(100);
+  ok(/Shift 를 누른 채/.test(await f.evaluate(() => document.getElementById('toast')?.textContent || '')), '13-5) 하나만 골랐을 때 합치기 → Shift+클릭 안내');
+  await sclick(9650, 4620); await p.keyboard.press('Delete'); await p.waitForTimeout(150);
+  ok((await zs()).map(z => z.id).join() === 'zf7,zf8', '13-6) 여러 개 고르고 Del → 모두 삭제');
+  await f.evaluate(() => exitAddZoneMode());
 
   ok(!p.errs.length, '12) 화면 오류 없음 ' + p.errs.join('|'));
   await b.close(); srv.close();
