@@ -192,6 +192,18 @@ const fillAt = (f, id, pts) => f.evaluate(([id, pts]) => { const p = document.qu
   ok(e11 === '' && await f.evaluate(() => drawingPoints.length) === 1, '11) 빈 후방복도가 있어도 매장 추가 점이 찍힘 ' + e11);
   await f.evaluate(() => { if (isDrawingMode) toggleAddStoreMode(); });
 
+  // 12) 매장 크기 조절 틀(점선·네모 손잡이)은 저장 안 함 · 예전에 저장된 것은 열 때 지움 (1층 남은 틀 11-28)
+  const t12 = await f.evaluate(() => {
+    const svg = document.querySelector('#map-container svg'), NS = 'http://www.w3.org/2000/svg';
+    const g = document.createElementNS(NS, 'g'); g.id = 'shape-edit-handles'; g.innerHTML = '<rect x="9535" y="4390" width="145" height="90" stroke-dasharray="8 5"/>';
+    svg.appendChild(g);
+    syncSvgCache();
+    const saved = !svgCache.get(FLOORS[currentFloorIdx].code).includes('shape-edit-handles');
+    bindStoresAndPolygons(FLOORS[currentFloorIdx]);
+    return { saved, gone: !svg.querySelector('#shape-edit-handles') };
+  });
+  ok(t12.saved && t12.gone, '12) 크기 조절 틀은 저장 안 함 · 남아 있던 것은 열 때 지움 ' + JSON.stringify(t12));
+
   ok(!p.errs.length, '10) 화면 오류 없음 ' + p.errs.join(' | '));
   await b.close(); srv.close();
   console.log(fail ? `\n${fail}개 실패` : '\n지도 후방복도 시험 모두 통과');
