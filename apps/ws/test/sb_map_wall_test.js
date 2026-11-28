@@ -85,7 +85,7 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
     const row = document.getElementById('chk-zone-filter-wall')?.closest('label');
     return { next: kids[hi + 1], info: kids[hi + 2], checked: document.getElementById('chk-zone-filter-wall')?.checked, lock: !!row?.querySelector('.chk-lock[data-lock="wall"]') };
   });
-  ok(lay.next === '외벽' && /인포/.test(lay.info) && lay.checked && lay.lock, '1) 레이어 메뉴 「도면 보조 레이어」 맨 위에 외벽 (보이기 켬 · 잠금 칸) ' + JSON.stringify(lay));
+  ok(lay.next === '외벽' && /후방복도/.test(lay.info) && lay.checked && lay.lock, '1) 레이어 메뉴 「도면 보조 레이어」 맨 위에 외벽 (보이기 켬 · 잠금 칸) ' + JSON.stringify(lay));
 
   // 2) 외벽 생기기 전에 밖으로 나갈 도형들: 바닥 · 직접 그린 매장
   const outFloor = await zone(f, 'floor', [{ x: 11000, y: 5300 }, { x: 11300, y: 5300 }, { x: 11300, y: 5400 }, { x: 11000, y: 5400 }]);
@@ -141,7 +141,7 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   const pe = await f.evaluate(() => { setZoneCategory('floor'); const a = getComputedStyle(document.querySelector('.user-drawn-wall')).pointerEvents; setZoneCategory('wall'); const b = getComputedStyle(document.querySelector('.user-drawn-wall')).pointerEvents; return { a, b }; });
   ok(pe.a === 'none' && pe.b !== 'none', '6) 다른 종류를 그릴 땐 외벽이 눌리지 않음 ' + JSON.stringify(pe));
 
-  // 7) 기능실 3px: 아그라(9450~9750 · 4100~4300) 오른쪽에 조금 떨어지게 그리면 → 기능실 탭에서 붙고 3px
+  // 7) 자석 1px (결정 380): 아그라(9450~9750 · 4100~4300) 오른쪽에 조금 떨어지게 그리면 → 매장·기능실 모두 붙고 1px
   const R = await f.evaluate(() => SHAPE_SNAP_PX / scale);
   const gx = 9750 + Math.min(8, R * 0.6);
   const u7 = await drawStore(f, [{ x: gx, y: 4150 }, { x: 9850, y: 4150 }, { x: 9850, y: 4250 }, { x: gx, y: 4250 }]);
@@ -150,19 +150,19 @@ const W = [{ x: 9300, y: 3950 }, { x: 11200, y: 3950 }, { x: 11200, y: 5900 }, {
   const asUtil = await bboxOf(f, u7);
   await fl.locator('#tab-type-store').click(); await p.waitForTimeout(100);
   const asStore = await bboxOf(f, u7);
-  ok(Math.abs(before.x0 - gx) < 0.2 && Math.abs(asUtil.x0 - 9753) < 0.2 && Math.abs(asStore.x0 - gx) < 0.2, `7) 기능실 탭: 매장 옆이면 붙고 3px (${before.x0} → ${asUtil.x0}), 매장명 탭으로 돌리면 되돌림 (${asStore.x0})`);
+  ok(Math.abs(before.x0 - 9751) < 0.2 && Math.abs(asUtil.x0 - 9751) < 0.2 && Math.abs(asStore.x0 - 9751) < 0.2, `7) 매장 옆이면 매장·기능실 탭 모두 붙고 1px (${before.x0} · ${asUtil.x0} · ${asStore.x0})`);
   await fl.locator('#tab-type-utility').click();
   await f.evaluate(() => { document.getElementById('edit-name').value = 'EPS'; saveStoreEdit(); });
   const saved7 = await bboxOf(f, u7);
-  ok(Math.abs(saved7.x0 - 9753) < 0.2, '7-1) 저장하면 3px 붙은 모양 그대로 ' + saved7.x0);
+  ok(Math.abs(saved7.x0 - 9751) < 0.2, '7-1) 저장하면 1px 붙은 모양 그대로 ' + saved7.x0);
   await shot(p, 'shot_map_wall_util3.png');
 
-  // 8) 기능실이 매장을 침범하면 그린 대로
+  // 8) 매장·기능실이 매장을 침범하면 그린 대로 (결정 380)
   const u8 = await drawStore(f, [{ x: 9650, y: 4000 }, { x: 9700, y: 4000 }, { x: 9700, y: 4150 }, { x: 9650, y: 4150 }]);
   const cut8 = await bboxOf(f, u8);
   await fl.locator('#tab-type-utility').click(); await p.waitForTimeout(100);
   const ov8 = await bboxOf(f, u8);
-  ok(cut8.y1 < 4100 && ov8.y1 === 4150, `8) 매장 규칙은 아그라 밖으로 자름(${cut8.y1}), 기능실 탭은 침범한 그대로(${ov8.y1})`);
+  ok(cut8.y1 === 4150 && ov8.y1 === 4150, `8) 침범하면 매장(${cut8.y1})·기능실(${ov8.y1}) 모두 그린 대로`);
   await f.evaluate(() => cancelStoreEdit());
 
   // 9) 외벽 자석 · 같은 도형 테두리 따라가기 (실제 클릭)

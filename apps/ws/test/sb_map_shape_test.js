@@ -201,16 +201,16 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
     const on = document.querySelector('#edit-modal .color-swatch.active')?.dataset.color; cancelStoreEdit();
     return { cols, on };
   }, I);
-  ok(pal.cols.length === 7 && !pal.cols.includes('#fee2e2') && !pal.cols.includes('#ede9fe'), '13) 팔레트에서 로즈·라벤더 뺌 (' + pal.cols.join(' ') + ')');
+  ok(pal.cols.length === 8 && !pal.cols.includes('#fee2e2') && !pal.cols.includes('#ede9fe') && pal.cols[6] === '#b4bfcc', '13) 팔레트에서 로즈·라벤더 뺌 · 후방복도 색은 오렌지 앞 (' + pal.cols.join(' ') + ')');
   ok(pal.on === '#e6f0fc', '13-1) 매장명 탭은 기능실 색이던 도형도 첫 번째 색으로 열림 (' + pal.on + ')');
 
-  // 14) 매장 그리기: 기존 매장(아그라 9450~9750) 안쪽까지 들어가 그려도 2px 띄움
+  // 14) 매장 그리기: 기존 매장(아그라 9450~9750) 안쪽까지 겹쳐 그리면 자르지 않고 그린 대로 (결정 380)
   const N = await mkStore([{ x: 9700, y: 4150 }, { x: 9800, y: 4150 }, { x: 9800, y: 4250 }, { x: 9700, y: 4250 }], '새옆매장');
   const nb = await bbox(await dOf(N));
-  ok(Math.abs(nb.x0 - 9752) < 0.11 && Math.abs(nb.x1 - 9800) < 0.11 && Math.abs(nb.y0 - 4150) < 0.11, '14) 기존 매장 안까지 그려도 기존 매장 선에서 2px 떨어진 새 매장 ' + JSON.stringify(nb));
+  ok(Math.abs(nb.x0 - 9700) < 0.11 && Math.abs(nb.x1 - 9800) < 0.11 && Math.abs(nb.y0 - 4150) < 0.11, '14) 기존 매장과 겹쳐 그리면 자르지 않음 (보이는 순서로 가림) ' + JSON.stringify(nb));
   const N2 = await mkStore([{ x: 9800.5, y: 4150 }, { x: 9860, y: 4150 }, { x: 9860, y: 4250 }, { x: 9800.5, y: 4250 }], '붙인매장');
   const nb2 = await bbox(await dOf(N2));
-  ok(Math.abs(nb2.x0 - 9802) < 0.11 && Math.abs(nb2.x1 - 9860) < 0.11, '14-1) 2px 보다 가깝게 붙여 그리면 2px 로 맞춤 ' + JSON.stringify(nb2));
+  ok(Math.abs(nb2.x0 - 9801) < 0.11 && Math.abs(nb2.x1 - 9860) < 0.11, '14-1) 옆 매장 가까이 그리면 자석으로 1px 띄워 붙음 ' + JSON.stringify(nb2));
 
   // 15) 매장을 고르면 겹친 기능실은 그 위로 (결정 322): 섬매장 자리를 EPS 와 겹치게 옮겨 봄(저장 안 함)
   const up = await f.evaluate(([i, u]) => {
