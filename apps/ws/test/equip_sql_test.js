@@ -141,7 +141,12 @@ alter default privileges in schema public grant all on sequences to anon, authen
   // ── 점검 기록 삭제 (결정 290) ──
   ok(/permission denied/.test(await asErr('anon', "select ws_eq_check_delete('x', 'c')")), '점검 기록 삭제: 비로그인은 못 부름');
   ok((await auth('ws_eq_check_delete', [tk, 'nothing'])).ok === false, '점검 기록 삭제: 없는 번호 → 안내');
+  await q("update staff set role = '직원' where staff_id = 'S001'");
+  const edNo = await auth('ws_eq_check_delete', [tk, sa.checkId]);
+  ok(edNo.ok === false && /소장·부소장·파트장만/.test(edNo.error) && (await auth('ws_eq_detail', [tk, sa.checkId])).ok, '점검 기록 삭제 (결정 384): 직원은 못 지움 · 기록 그대로');
+  await q("update staff set role = '파트장' where staff_id = 'S001'");
   const ed = await auth('ws_eq_check_delete', [tk, sa.checkId]);
+  await q("update staff set role = '소장' where staff_id = 'S001'");
   const st2 = await auth('ws_eq_status', [tk, '']), a2 = st2.items.find(x => x.id === AIR.id);
   ok(ed.ok && a2 && a2.state !== 'bad' && a2.state !== 'ok' && !a2.checkId && (await auth('ws_eq_detail', [tk, sa.checkId])).ok === false && st2.items.length === 3, '점검 기록 삭제 → 공기호흡기는 남고 이번 달 「미입력」');
   ok(!(await anon('ws_eq_pub', [AIR.token])).rows.some(x => x.state === 'bad' && x.ym === st2.ym), '점검 기록 삭제 → 로그인 안 한 표에서도 빠짐');

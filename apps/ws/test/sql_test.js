@@ -404,6 +404,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
   ok(eh.saved === '2F-1-1' && d1.no === '2F-1-1' && d1.w === '1500' && d1.date === '2026-01-02' && /^[2-9a-km-np-z]{12}$/.test(d1.token) && d1.printed === '', '기기 추가: 관리번호 2F-1-1, 용량 1500, 12자리 QR');
   eh = await call('ws_eh_save', [tk, J({ esId: s1.id, name: '전기포트', w: '800', m1: '김정', date: '2026-01-03' })]);
   ok(eh.saved === '2F-1-2' && eh.stores[0].items.map(x => x.no).join() === '2F-1-1,2F-1-2', '두 번째 기기 2F-1-2');
+  ok(JSON.stringify(eh.names.find(n => n[1] === '샤넬')[3].sort()) === '["전기포트","커피머신"]' && eh.names.find(n => n[1] === '디올')[3].length === 0, '검색 목록: 매장마다 기기명 (기기 없으면 빈 목록)');
   eh = await call('ws_eh_printed', [tk, J([d1.id]), '2F']);
   d1 = eh.stores[0].items[0];
   ok(eh.count === 1 && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(d1.printed), '인쇄함 표시');

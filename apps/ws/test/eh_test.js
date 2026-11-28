@@ -104,6 +104,10 @@ const FAKE_XLSX = 'window.XLSX={read:()=>({SheetNames:' + JSON.stringify(Object.
   await ph.fill('#ehQ', '고디'); await ph.waitForSelector('.row:has-text("고디바")');
   await ph.click('.row:has-text("고디바")'); await ph.waitForSelector('.ehfl.on:has-text("B1")');
   ok((await ph.locator('.ehit .ehno').first().innerText()) === 'B1-13-1', '검색 → B1 고디바 펼침 · B1F- → B1-');
+  await ph.fill('#ehQ', '온수'); await ph.waitForSelector('.row:has-text("고디바")');
+  ok((await ph.locator('.row').count()) === 1 && (await ph.locator('.row .ehdv').innerText()) === '온수기', '기기명 검색: 다른 층 고디바 · 맞은 기기명 「온수기」');
+  await ph.screenshot({ path: 'shot_eh_search_dev.png' });
+  await ph.fill('#ehQ', '');
   await ph.click('.ehfl:has-text("팝업")'); await ph.waitForSelector('.ehst:has-text("필리포 피아나")');
   await ph.click('.ehsn:has-text("필리포")');
   ok((await ph.locator('.ehit .ehno').first().innerText()) === '팝업-1-1', '팝업 매장 번호 팝업-1-1');

@@ -241,13 +241,14 @@ begin
               left join lateral (select s as sp from jsonb_array_elements(public.ws_eq_spec(c.kind)) s where s->>'k' = t.i->>'k' limit 1) x on true));
 end $$;
 
--- 점검 기록 삭제 (결정 290): 로그인한 직원 모두. 줄은 남기고 「삭제됨」 표시만 → 그 달 「미입력」으로 돌아가 QR로 다시 입력할 수 있음
+-- 점검 기록 삭제 (결정 290 → 384): 소장·부소장·파트장만. 줄은 남기고 「삭제됨」 표시만 → 그 달 「미입력」으로 돌아가 QR로 다시 입력할 수 있음
 create or replace function public.ws_eq_check_delete(p_token text, p_check_id text)
 returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare
   me public.staff := public.ws_auth(p_token);
   c public.fire_equip_checks;
 begin
+  if me.role not in ('소장', '부소장', '파트장') then return jsonb_build_object('ok', false, 'error', '점검 기록 삭제는 소장·부소장·파트장만 할 수 있습니다.'); end if;
   update public.fire_equip_checks set deleted = true where check_id = coalesce(p_check_id, '') and not deleted returning * into c;
   if c.check_id is null then return jsonb_build_object('ok', false, 'error', '점검 기록을 찾지 못했습니다. 화면을 새로 고쳐 주세요.'); end if;
   perform public.ws_log(me.name, '소화전·공기호흡기 점검 기록 삭제', '', c.eq_name || ' · ' || c.ym);
