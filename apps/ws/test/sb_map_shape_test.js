@@ -256,6 +256,40 @@ const draw = (f, pts) => f.evaluate(pts => { drawingZonePoints = pts; finishDraw
   const sk = await f.evaluate(s => { selectAndHighlightStore(currentStores.find(x => x.id === s)); const h = document.getElementById('status-util-kind').hidden; closeAllPopovers(); return h; }, S);
   ok(sk, '17-1) 매장을 누르면 주요 기능실 칸 없음');
 
+  // 18) 현황 창: 윗줄 현황·고유번호 / 아랫줄 이름·주요 기능실 · 입력한 칸만 · EPS 는 배관 빼기 (수정하기도) · 다 비면 표 숨김 (결정 370)
+  const st18 = await f.evaluate(u => {
+    const st = currentStores.find(x => x.id === u); openEditModalForStore(st);
+    const sec = g => document.querySelector(`#store-detail-form .store-form-sec[data-group="${g}"]`);
+    const pipeHidden = sec('배관') && sec('배관').hidden, brkShown = sec('차단기') && !sec('차단기').hidden;
+    document.querySelectorAll('#store-detail-form [data-detail-key]').forEach(el => { el.value = ''; });
+    document.querySelector('#store-detail-form [data-detail-key="차단기|일반"]').value = '50A';
+    document.querySelector('#store-detail-form [data-detail-key="급수"]').value = '25A';   // 숨긴 칸 값도 지우지 않음
+    const ps = document.querySelector('input[name="util-type-opt"][value="PS"]'); ps.checked = true; ps.dispatchEvent(new Event('change'));
+    const psShown = !sec('배관').hidden;
+    const eps = document.querySelector('input[name="util-type-opt"][value="EPS"]'); eps.checked = true; eps.dispatchEvent(new Event('change'));
+    saveStoreEdit(); selectAndHighlightStore(st);
+    const rows = [...document.querySelectorAll('#status-facility-table .facility-row')].map(r => r.textContent.replace(/\s+/g, ' ').trim());
+    const groups = [...document.querySelectorAll('#status-facility-table .facility-group')].map(g => g.textContent.trim());
+    const rowsOf = [...document.querySelectorAll('#status-modal .mh-row')].map(r => [...r.children].filter(c => !c.hidden).map(c => c.id));
+    const kept = getStoreBook(FLOORS[currentFloorIdx].code).items[st.bookId].details['급수'];
+    closeAllPopovers();
+    return { pipeHidden, brkShown, psShown, rows, groups, rowsOf, kept };
+  }, U);
+  ok(st18.pipeHidden && st18.brkShown && st18.psShown, '18) 수정하기: EPS 면 배관 칸 숨김, PS 로 바꾸면 다시 보임 ' + JSON.stringify(st18));
+  ok(st18.rows.join('|') === '일반50A' && st18.groups.join('|') === '차단기' && st18.kept === '25A', '18-1) 현황표: 입력한 칸만 · EPS 는 배관 없음 · 숨긴 배관 값은 그대로 남음 ' + JSON.stringify(st18));
+  ok(JSON.stringify(st18.rowsOf) === JSON.stringify([['status-badge', 'status-store-id'], ['status-store-name', 'status-util-kind']]), '18-2) 윗줄 현황·고유번호 / 아랫줄 이름·주요 기능실 ' + JSON.stringify(st18.rowsOf));
+  await f.evaluate(u => selectAndHighlightStore(currentStores.find(x => x.id === u)), U); await p.waitForTimeout(300);
+  await p.screenshot({ path: path.join(process.env.SHOT_DIR || path.join(__dirname, '..'), 'shot_map_status_eps.png') });
+  await f.evaluate(() => closeAllPopovers());
+  const st18b = await f.evaluate(s => {
+    const st = currentStores.find(x => x.id === s); openEditModalForStore(st);
+    document.querySelectorAll('#store-detail-form [data-detail-key]').forEach(el => { el.value = ''; });
+    saveStoreEdit(); selectAndHighlightStore(st);
+    const t = document.getElementById('status-facility-table'), r = { hidden: t.hidden, shown: getComputedStyle(t).display, text: t.textContent.trim() };
+    closeAllPopovers(); return r;
+  }, S);
+  ok(st18b.hidden && st18b.shown === 'none' && !st18b.text, '18-3) 아무것도 안 넣은 매장은 표·안내 글 없이 숨김 ' + JSON.stringify(st18b));
+
   // 16) 원래 도면 매장(아그라, d 가 상대 좌표 h·v)도 수정하기에서 손잡이·옮기기 (결정 360)
   const A = await f.evaluate(() => { const s = currentStores.find(x => !x.isCustom && x.polygonElement && x.polygonElement.id === 'a'); focusStoreAt(9600, 4200); openEditModalForStore(s); return { id: s.id, d: s.polygonElement.getAttribute('d'), txt: s.textElement.outerHTML, h: document.querySelectorAll('#shape-edit-handles .shape-handle').length }; });
   ok(A.h === 4, '16) 원래 도면 매장도 수정하기에서 손잡이 4개 ' + A.h);
