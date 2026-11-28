@@ -120,6 +120,28 @@ const vis = (f, sel) => f.evaluate(s => { const e = document.querySelector(s); r
   ok(pl.ev && pl.door, '11-1) 인포 그림 밑 받침 사각형도 인포 레이어로 (끄면 바닥 보임) · 출입구 받침은 그대로');
   ok(pl.tint, '11-2) 인포 그림 색을 하나로 (남색 바탕 · 흰 그림)');
   await f.evaluate(() => onInfoLayerChange(true));
+  // 결정 378: 인포 열쇠 + 지우개 칠 → 고칠 때마다 인포 그림이 두 배로 늘던 문제
+  const grow = await f.evaluate(() => {
+    const c = FLOORS[currentFloorIdx].code, zs = getFloorZones(c), n = () => document.querySelectorAll('#info-layer g[group-type]').length;
+    zs.push({ id: 'zone_m10', category: 'erase', geometry: 'stroke', w: 20, keep: 'info', points: [{ x: 10500, y: 5080 }, { x: 10550, y: 5080 }] });
+    saveFloorZones(c, zs); renderFloorZones(c);
+    const n0 = n(), kb = [];
+    for (let i = 0; i < 5; i++) { bringZoneLayersToFront(); syncSvgCache(); kb.push(svgCache.get(c).length); }
+    return { n0, n: n(), kb, use: !!document.querySelector('#eraser-defs use[href="#info-layer"]') };
+  });
+  ok(grow.n === grow.n0 && grow.kb.every(v => v === grow.kb[0]) && grow.use, 'M10) 인포 열쇠 칠 뒤 여러 번 고쳐도 인포 그림·도면 크기 그대로 ' + JSON.stringify(grow));
+  const dd = await f.evaluate(async () => {
+    const cnt = () => (svgCache.get(FLOORS[currentFloorIdx].code).match(/group-type="POI_GROUP"/g) || []).length;
+    syncSvgCache(); const base = cnt();
+    const l = document.getElementById('info-layer'), g = l.querySelector('g[group-type]');
+    l.appendChild(g.cloneNode(true)); l.appendChild(g.cloneNode(true)); syncSvgCache();
+    const before = document.querySelectorAll('#info-layer g[group-type]').length;
+    await selectFloor(currentFloorIdx, true);
+    const saved = cnt() - base;
+    return { before, after: document.querySelectorAll('#info-layer g[group-type]').length, saved };
+  });
+  ok(dd.before === dd.after + 2 && dd.saved === 0, 'M11) 이미 겹쳐 늘어난 인포 그림은 층을 열 때 하나만 남기고 저장 ' + JSON.stringify(dd));
+  await f.evaluate(() => { const c = FLOORS[currentFloorIdx].code; saveFloorZones(c, getFloorZones(c).filter(z => z.id !== 'zone_m10')); renderFloorZones(c); });
 
   const cs = await f.evaluate(() => currentStores.find(s => s.isCustom).bookId);
   await f.evaluate(id => openEditModalForStore(currentStores.find(s => s.bookId === id)), cs);

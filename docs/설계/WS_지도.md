@@ -361,3 +361,9 @@
 - **화면 맞춤 버튼**: +/− 밑 `#btn-fit-view` = 층 전체를 화면에 맞춤 (PC·휴대폰 모두).
 - 시험: `sb_map_eraser_test.js` D1~D5, `sb_map_mobile_test.js` M1~M9, `sb_map_wall_test.js` 4-3·4-4.
 - **v0.26.69 고침**: 지도 `index.html` 의 모든 파일에 판 번호(`?v=`)를 붙임 (없으면 브라우저가 옛 파일을 써서 화면이 멈춤). 시험 `sb_map_mobile_test.js` M0.
+
+## 51. 지우개 뒤 도면이 불어나던 것 고침 (결정 378)
+- 원인: 인포 열쇠를 건 칠은 지우개 마스크(`#eraser-defs`)에 인포 레이어를 **복사**해 구멍을 뚫었는데, `collectInfoLayer` 가 그 복사본의 안내 그림을 진짜로 보고 인포 레이어로 옮김 → 레이어 정리(`bringZoneLayersToFront`)마다 2배씩 늘어 느려지고 5MB 를 넘어 저장 실패.
+- 고침: ① 인포 구멍은 복사하지 않고 `<use href="#info-layer">` 로 가리키기만. ② `collectInfoLayer` 는 `#eraser-defs` 안은 건드리지 않음. ③ 이미 늘어난 층: 인포 레이어 안에 똑같은 그림·받침(outerHTML 같음)은 하나만 남기고, 층을 열 때 치운 게 있으면 저장.
+- 회색 칠은 누르는 동안만 보이고 놓으면 지워짐(저장 안 함) — 원인 아님.
+- 시험: `sb_map_mobile_test.js` M10(인포 열쇠 칠 뒤 5번 고쳐도 크기 그대로) · M11(겹친 그림 치우고 저장).
