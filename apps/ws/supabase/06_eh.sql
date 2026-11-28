@@ -41,7 +41,9 @@ begin
                                     from public.eh_devices d where d.es_id = s.es_id and d.active), '[]'::jsonb))
                order by coalesce(case when s.store_no ~ '^\d+$' then s.store_no::int end, 0))
                from public.eh_stores s where s.active and s.floor = f), '[]'::jsonb),
-    'names', coalesce((select jsonb_agg(jsonb_build_array(floor, store_name, es_id) order by es_id) from public.eh_stores where active), '[]'::jsonb),
+    'names', coalesce((select jsonb_agg(jsonb_build_array(s.floor, s.store_name, s.es_id,   -- 4번째: 그 매장 기기명 (검색용)
+                 coalesce((select jsonb_agg(distinct d.device_name) from public.eh_devices d where d.es_id = s.es_id and d.active and coalesce(d.device_name, '') <> ''), '[]'::jsonb)) order by s.es_id)
+               from public.eh_stores s where s.active), '[]'::jsonb),
     'empty', not exists (select 1 from public.eh_devices),
     'execUrl', coalesce(regexp_replace(nullif(btrim(public.ws_setting('바로가기주소')), ''), '[?#].*$', ''), ''),   -- 비면 화면 통로가 지금 주소로
     'dpi', public.ws_set_num('프린터dpi', 203));

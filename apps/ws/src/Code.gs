@@ -12,7 +12,7 @@
  *  - 매장: 도면협의 매장 목록 대신 직접 입력한 매장명
  */
 
-const APP = { id: 'WS', title: '업무지원', version: '0.26.73', specVersion: 'v1.2', commonVersion: '0.1' };
+const APP = { id: 'WS', title: '업무지원', version: '0.26.74', specVersion: 'v1.2', commonVersion: '0.1' };
 const TZ = 'Asia/Seoul';
 const FLOORS = ['B1', '1F', '2F', '3F', '4F', '5F', '6F'];
 const ROLES = ['소장', '부소장', '파트장', '직원', '관리자', '옵저버'];   // 옵저버: 직원 권한 + 지도 편집, 파트 「관리」 고정 (결정 138)
@@ -1752,7 +1752,7 @@ function ehOut_(T, floor) {
         items: (by[x['es_id']] || []).sort(function (a, b) { const pa = a['관리번호'].replace(/-\d+$/, ''), pb = b['관리번호'].replace(/-\d+$/, ''); return pa < pb ? -1 : pa > pb ? 1 : ehSeq_(a['관리번호']) - ehSeq_(b['관리번호']); }).map(ehItem_) };
     });
   return { ok: true, floor: floor, floors: floors, stores: list,
-    names: stores.map(function (x) { return [x['층'], x['매장명'], x['es_id']]; }),
+    names: stores.map(function (x) { return [x['층'], x['매장명'], x['es_id'], (by[x['es_id']] || []).map(function (r) { return r['기기명']; }).filter(function (n, i, a) { return n && a.indexOf(n) === i; })]; }),
     empty: !T.dv.rows.length, execUrl: publicUrl_(), dpi: labelSize_().dpi };
 }
 function ehItem_(r) {
